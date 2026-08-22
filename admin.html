@@ -1,0 +1,2103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Adega 1998 — Painel Administrativo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --orange: #F15A24;
+  --orange-dark: #D44914;
+  --orange-glow: rgba(241,90,36,0.25);
+  --orange-light: #FFF3EE;
+  --orange-soft: #FFEDE5;
+  --black: #0D0D0D;
+  --gray-900: #1A1A1A;
+  --gray-800: #2A2A2A;
+  --gray-700: #444444;
+  --gray-600: #555555;
+  --gray-500: #777777;
+  --gray-400: #999999;
+  --gray-300: #C5C5C5;
+  --gray-200: #E5E5E5;
+  --gray-100: #F5F5F5;
+  --gray-50: #FAFAFA;
+  --white: #FFFFFF;
+  --green: #10B981;
+  --green-bg: #ECFDF5;
+  --red: #EF4444;
+  --red-bg: #FEF2F2;
+  --blue: #3B82F6;
+  --blue-bg: #EFF6FF;
+  --yellow: #F59E0B;
+  --yellow-bg: #FFFBEB;
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.08);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.10);
+  --transition: 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+body {
+  font-family: 'Poppins', -apple-system, sans-serif;
+  color: var(--gray-900);
+  background: var(--gray-50);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  display: flex; min-height: 100vh;
+}
+img { max-width: 100%; display: block; }
+a { text-decoration: none; color: inherit; }
+button { cursor: pointer; border: none; font-family: inherit; }
+input, select, textarea { font-family: inherit; }
+
+/* ─── LOGIN OVERLAY ─── */
+.login-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+.login-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+.login-box {
+  background: var(--white); border-radius: var(--radius-xl);
+  padding: 48px 40px; width: 100%; max-width: 420px;
+  box-shadow: var(--shadow-xl); text-align: center;
+}
+.login-logo {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-bottom: 8px;
+}
+.login-logo-mark {
+  width: 48px; height: 48px; border-radius: var(--radius-sm);
+  background: var(--orange); display: flex; align-items: center; justify-content: center;
+  color: white; font-size: 0.85rem; font-weight: 900;
+}
+.login-logo-text { font-weight: 800; font-size: 1.4rem; color: var(--black); }
+.login-subtitle { font-size: 0.85rem; color: var(--gray-500); margin-bottom: 32px; }
+.login-field { text-align: left; margin-bottom: 18px; }
+.login-field label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+.login-field input {
+  width: 100%; padding: 13px 16px; border-radius: var(--radius-sm);
+  border: 2px solid var(--gray-200); font-size: 0.95rem; transition: all var(--transition);
+  outline: none; background: var(--gray-50);
+}
+.login-field input:focus { border-color: var(--orange); background: var(--white); box-shadow: 0 0 0 3px var(--orange-light); }
+.login-btn {
+  width: 100%; padding: 14px; border-radius: 50px; background: var(--orange); color: var(--white);
+  font-size: 1rem; font-weight: 600; margin-top: 8px; transition: all var(--transition);
+}
+.login-btn:hover { background: var(--black); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+.login-error { font-size: 0.8rem; color: var(--red); margin-top: 8px; display: none; }
+.login-error.show { display: block; }
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  width: 260px; min-height: 100vh; background: var(--white);
+  border-right: 1px solid var(--gray-200); display: flex; flex-direction: column;
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 100;
+  transition: transform var(--transition);
+}
+.sidebar-header {
+  padding: 24px 22px; display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--gray-100);
+}
+.sidebar-logo-mark {
+  width: 40px; height: 40px; border-radius: var(--radius-sm);
+  background: var(--orange); display: flex; align-items: center; justify-content: center;
+  color: white; font-size: 0.72rem; font-weight: 900; flex-shrink: 0;
+}
+.sidebar-brand { font-weight: 800; font-size: 1.15rem; color: var(--black); }
+.sidebar-badge { font-size: 0.65rem; color: var(--orange); font-weight: 600; }
+.sidebar-nav { flex: 1; padding: 16px 14px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
+.sidebar-link {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 500;
+  color: var(--gray-600); transition: all var(--transition); position: relative;
+}
+.sidebar-link:hover { background: var(--gray-100); color: var(--black); }
+.sidebar-link.active { background: var(--orange-light); color: var(--orange); font-weight: 600; }
+.sidebar-link .icon { font-size: 1.2rem; width: 24px; text-align: center; flex-shrink: 0; }
+.sidebar-link .badge {
+  margin-left: auto; background: var(--orange); color: white; font-size: 0.68rem;
+  font-weight: 700; padding: 2px 9px; border-radius: 50px;
+}
+.sidebar-section { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gray-400); padding: 20px 14px 8px; }
+.sidebar-footer { padding: 16px 14px; border-top: 1px solid var(--gray-100); }
+.sidebar-user { display: flex; align-items: center; gap: 10px; padding: 8px; }
+.sidebar-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--orange); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; flex-shrink: 0; }
+.sidebar-user-name { font-size: 0.85rem; font-weight: 600; color: var(--black); }
+.sidebar-user-role { font-size: 0.7rem; color: var(--gray-500); }
+.sidebar-logout {
+  font-size: 0.78rem; color: var(--gray-500); padding: 8px 14px; cursor: pointer;
+  transition: all var(--transition); border-radius: var(--radius-sm);
+}
+.sidebar-logout:hover { color: var(--red); background: var(--red-bg); }
+
+/* ─── MAIN CONTENT ─── */
+.main {
+  flex: 1; margin-left: 260px; min-height: 100vh; display: flex; flex-direction: column;
+}
+.topbar {
+  background: var(--white); border-bottom: 1px solid var(--gray-200);
+  padding: 16px 32px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 50; gap: 16px;
+}
+.topbar-left { display: flex; align-items: center; gap: 16px; }
+.menu-toggle { display: none; width: 40px; height: 40px; border-radius: 50%; background: var(--gray-100); align-items: center; justify-content: center; flex-direction: column; gap: 4px; cursor: pointer; }
+.menu-toggle span { display: block; width: 16px; height: 2px; background: var(--black); border-radius: 2px; }
+.topbar-title { font-size: 1.1rem; font-weight: 700; color: var(--black); }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.topbar-search {
+  position: relative;
+}
+.topbar-search input {
+  padding: 9px 16px 9px 38px; border-radius: 50px; border: 2px solid var(--gray-200);
+  font-size: 0.85rem; outline: none; width: 240px; transition: all var(--transition);
+  background: var(--gray-50);
+}
+.topbar-search input:focus { border-color: var(--orange); width: 280px; }
+.topbar-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 0.85rem; color: var(--gray-400); }
+.topbar-notif {
+  width: 40px; height: 40px; border-radius: 50%; background: var(--gray-100);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  position: relative; font-size: 1.1rem; transition: all var(--transition);
+}
+.topbar-notif:hover { background: var(--gray-200); }
+.topbar-notif-dot { position: absolute; top: 8px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--red); border: 2px solid white; }
+
+.content-area { padding: 28px 32px; flex: 1; }
+.page-section { display: none; }
+.page-section.active { display: block; }
+
+/* ─── DASHBOARD CARDS ─── */
+.stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 28px; }
+.stat-card {
+  background: var(--white); border-radius: var(--radius-lg); padding: 22px 24px;
+  border: 1px solid var(--gray-100); transition: all var(--transition);
+}
+.stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.stat-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.stat-card-icon { width: 44px; height: 44px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; }
+.stat-card-icon.orange { background: var(--orange-light); }
+.stat-card-icon.green { background: var(--green-bg); }
+.stat-card-icon.blue { background: var(--blue-bg); }
+.stat-card-icon.yellow { background: var(--yellow-bg); }
+.stat-card-trend { font-size: 0.75rem; font-weight: 600; padding: 3px 10px; border-radius: 50px; }
+.stat-card-trend.up { background: var(--green-bg); color: var(--green); }
+.stat-card-trend.down { background: var(--red-bg); color: var(--red); }
+.stat-card-value { font-size: 1.8rem; font-weight: 800; color: var(--black); line-height: 1; }
+.stat-card-label { font-size: 0.8rem; color: var(--gray-500); margin-top: 4px; }
+
+/* ─── CHARTS ROW ─── */
+.charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; margin-bottom: 28px; }
+.chart-card {
+  background: var(--white); border-radius: var(--radius-lg); padding: 24px;
+  border: 1px solid var(--gray-100);
+}
+.chart-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.chart-card-title { font-size: 1rem; font-weight: 700; color: var(--black); }
+.chart-card-sub { font-size: 0.78rem; color: var(--gray-500); }
+.chart-area {
+  width: 100%; height: 240px; display: flex; align-items: flex-end; gap: 8px;
+  padding-top: 8px;
+}
+.chart-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; }
+.chart-bar {
+  width: 100%; max-width: 40px; border-radius: 8px 8px 0 0;
+  background: linear-gradient(180deg, var(--orange) 0%, #FFB89A 100%);
+  transition: height 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+  margin-top: auto;
+}
+.chart-bar.past { background: linear-gradient(180deg, var(--gray-300) 0%, var(--gray-200) 100%); }
+.chart-bar-label { font-size: 0.7rem; color: var(--gray-500); font-weight: 500; }
+.chart-bar {
+  animation: barGrow 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  transform-origin: bottom;
+}
+@keyframes barGrow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.chart-bar-wrap:nth-child(1) .chart-bar { animation-delay: 0.05s; }
+.chart-bar-wrap:nth-child(2) .chart-bar { animation-delay: 0.15s; }
+.chart-bar-wrap:nth-child(3) .chart-bar { animation-delay: 0.25s; }
+.chart-bar-wrap:nth-child(4) .chart-bar { animation-delay: 0.35s; }
+.chart-bar-wrap:nth-child(5) .chart-bar { animation-delay: 0.45s; }
+.chart-bar-wrap:nth-child(6) .chart-bar { animation-delay: 0.55s; }
+.chart-bar-wrap:nth-child(7) .chart-bar { animation-delay: 0.65s; }
+.chart-card:hover .chart-bar { filter: brightness(1.05); }
+
+/* Top products list */
+.top-products { display: flex; flex-direction: column; gap: 14px; }
+.top-product-item { display: flex; align-items: center; gap: 12px; }
+.top-product-rank { width: 28px; height: 28px; border-radius: 50%; background: var(--gray-100); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: var(--gray-500); flex-shrink: 0; }
+.top-product-item:nth-child(1) .top-product-rank { background: #FFF3E0; color: var(--orange); }
+.top-product-item:nth-child(2) .top-product-rank { background: #F5F5F5; color: var(--gray-700); }
+.top-product-item:nth-child(3) .top-product-rank { background: #FEF0E5; color: #C2410C; }
+.top-product-img { width: 40px; height: 40px; border-radius: var(--radius-sm); background: var(--gray-100); display: flex; align-items: center; justify-content: center; object-fit: contain; padding: 4px; flex-shrink: 0; }
+.top-product-info { flex: 1; min-width: 0; }
+.top-product-name { font-size: 0.85rem; font-weight: 600; color: var(--black); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-product-sold { font-size: 0.73rem; color: var(--gray-500); }
+.top-product-value { font-size: 0.85rem; font-weight: 700; color: var(--orange); white-space: nowrap; }
+
+/* ─── TABLE ─── */
+.table-card {
+  background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--gray-100);
+  overflow: hidden; margin-bottom: 28px;
+}
+.table-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1px solid var(--gray-100);
+}
+.table-card-title { font-size: 1rem; font-weight: 700; color: var(--black); }
+.table-card-actions { display: flex; gap: 12px; align-items: center; }
+.table-filter-select {
+  padding: 8px 14px; border-radius: 50px; border: 2px solid var(--gray-200);
+  font-size: 0.82rem; outline: none; background: var(--white); cursor: pointer;
+}
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  text-align: left; padding: 14px 20px; font-size: 0.75rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--gray-500);
+  background: var(--gray-50); border-bottom: 1px solid var(--gray-100);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 14px 20px; font-size: 0.88rem; border-bottom: 1px solid var(--gray-50);
+  white-space: nowrap;
+}
+tbody tr { transition: all var(--transition); }
+tbody tr:hover { background: var(--gray-50); }
+
+/* Status badges */
+.status {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 600;
+}
+.status-pending { background: var(--yellow-bg); color: #B45309; }
+.status-preparing { background: var(--blue-bg); color: #1D4ED8; }
+.status-delivering { background: #F3E8FF; color: #7C3AED; }
+.status-delivered { background: var(--green-bg); color: #047857; }
+.status-cancelled { background: var(--red-bg); color: #B91C1C; }
+
+/* ─── PAGINATION ─── */
+.pagination { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 16px; }
+.page-btn {
+  width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: 0.85rem; font-weight: 500; color: var(--gray-600);
+  transition: all var(--transition); background: transparent;
+}
+.page-btn:hover { background: var(--gray-100); }
+.page-btn.active { background: var(--orange); color: white; font-weight: 700; }
+
+/* ─── PRODUCT GRID ADMIN ─── */
+.product-admin-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.product-admin-card {
+  background: var(--white); border: 1px solid var(--gray-100); border-radius: var(--radius-lg);
+  overflow: hidden; transition: all var(--transition);
+}
+.product-admin-card:hover { box-shadow: var(--shadow-md); }
+.product-admin-img-wrap { height: 160px; background: var(--gray-50); display: flex; align-items: center; justify-content: center; position: relative; }
+.product-admin-img { width: 100%; height: 100%; object-fit: contain; padding: 12px; }
+.product-admin-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  opacity: 0; transition: all var(--transition);
+}
+.product-admin-card:hover .product-admin-overlay { opacity: 1; }
+.product-admin-action {
+  width: 36px; height: 36px; border-radius: 50%; background: white;
+  display: flex; align-items: center; justify-content: center; font-size: 0.85rem;
+  cursor: pointer; transition: all var(--transition);
+}
+.product-admin-action:hover { transform: scale(1.1); }
+.product-admin-action.edit:hover { background: var(--blue); color: white; }
+.product-admin-action.delete:hover { background: var(--red); color: white; }
+.product-admin-info { padding: 14px; }
+.product-admin-name { font-size: 0.88rem; font-weight: 600; color: var(--black); }
+.product-admin-price { font-size: 1rem; font-weight: 700; color: var(--orange); }
+.product-admin-stock { font-size: 0.75rem; color: var(--gray-500); margin-top: 2px; }
+
+/* ─── MODAL ─── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden; transition: all var(--transition);
+}
+.modal-overlay.open { opacity: 1; visibility: visible; }
+.modal {
+  background: var(--white); border-radius: var(--radius-xl); padding: 36px; width: 100%;
+  max-width: 520px; box-shadow: var(--shadow-xl); max-height: 90vh; overflow-y: auto;
+}
+.modal-title { font-size: 1.2rem; font-weight: 700; color: var(--black); margin-bottom: 24px; }
+.modal-field { margin-bottom: 16px; }
+.modal-field label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+.modal-field input, .modal-field select, .modal-field textarea {
+  width: 100%; padding: 12px 15px; border-radius: var(--radius-sm);
+  border: 2px solid var(--gray-200); font-size: 0.9rem; outline: none;
+  transition: all var(--transition); background: var(--gray-50);
+}
+.modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus {
+  border-color: var(--orange); background: var(--white); box-shadow: 0 0 0 3px var(--orange-light);
+}
+.modal-field textarea { resize: vertical; min-height: 80px; }
+.modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+.modal-btn {
+  padding: 12px 26px; border-radius: 50px; font-size: 0.9rem; font-weight: 600;
+  transition: all var(--transition);
+}
+.modal-btn-primary { background: var(--orange); color: white; }
+.modal-btn-primary:hover { background: var(--black); }
+.modal-btn-secondary { background: var(--gray-100); color: var(--gray-700); }
+.modal-btn-secondary:hover { background: var(--gray-200); }
+.modal-btn-danger { background: var(--red-bg); color: var(--red); }
+.modal-btn-danger:hover { background: var(--red); color: white; }
+
+/* ─── ADD PRODUCT BUTTON ─── */
+.add-btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px;
+  border-radius: 50px; background: var(--orange); color: white;
+  font-size: 0.88rem; font-weight: 600; transition: all var(--transition);
+}
+.add-btn:hover { background: var(--black); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+
+/* ─── ORDER DETAIL ─── */
+.order-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.order-detail-item { font-size: 0.88rem; }
+.order-detail-item strong { display: block; font-size: 0.75rem; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+.order-items-list { margin-top: 10px; }
+.order-item-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--gray-100); font-size: 0.85rem; }
+
+/* ─── NOVAS ABAS: ENTREGADORES, CAIXA, FRETES ─── */
+.delivery-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 24px; }
+.delivery-card {
+  background: var(--white); border: 1px solid var(--gray-100); border-radius: var(--radius-lg);
+  padding: 20px; cursor: pointer; transition: all var(--transition); text-align: left;
+}
+.delivery-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+.delivery-card.active { border: 2px solid var(--orange); box-shadow: 0 0 0 3px var(--orange-light); }
+.delivery-card-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.delivery-avatar {
+  width: 46px; height: 46px; border-radius: 50%; background: var(--orange-light);
+  display: flex; align-items: center; justify-content: center; font-size: 1rem;
+  font-weight: 700; color: var(--orange); flex-shrink: 0;
+}
+.delivery-name { font-size: 0.95rem; font-weight: 700; color: var(--black); }
+.delivery-status { font-size: 0.75rem; color: var(--green); font-weight: 600; }
+.delivery-status.offline { color: var(--gray-400); }
+.delivery-card-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.delivery-stat-box { background: var(--gray-50); border-radius: var(--radius-sm); padding: 10px; text-align: center; }
+.delivery-stat-num { font-size: 1.1rem; font-weight: 800; color: var(--black); }
+.delivery-stat-lbl { font-size: 0.68rem; color: var(--gray-500); }
+
+/* Entrega detail */
+.delivery-detail-card {
+  background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--gray-100);
+  padding: 24px; margin-top: 24px;
+}
+.delivery-detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.delivery-detail-title { font-size: 1.1rem; font-weight: 700; color: var(--black); }
+.delivery-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+.delivery-summary-box { background: var(--gray-50); border-radius: var(--radius); padding: 16px; text-align: center; }
+.delivery-summary-num { font-size: 1.6rem; font-weight: 800; color: var(--orange); }
+.delivery-summary-lbl { font-size: 0.78rem; color: var(--gray-500); }
+
+/* Filtros de período (pedidos) */
+.period-tabs { display: inline-flex; background: var(--gray-100); border-radius: 50px; padding: 4px; gap: 2px; }
+.period-tab {
+  padding: 8px 18px; border-radius: 50px; font-size: 0.82rem; font-weight: 600;
+  color: var(--gray-500); cursor: pointer; transition: all var(--transition); background: transparent;
+}
+.period-tab:hover { color: var(--black); }
+.period-tab.active { background: var(--orange); color: white; box-shadow: 0 2px 8px var(--orange-glow); }
+.period-custom { display: none; align-items: center; gap: 8px; }
+.period-custom.show { display: flex; }
+.period-custom input[type=date] {
+  padding: 7px 12px; border-radius: 50px; border: 2px solid var(--gray-200);
+  font-size: 0.8rem; outline: none; background: var(--white);
+}
+.period-custom input[type=date]:focus { border-color: var(--orange); }
+
+/* Caixa */
+.caixa-status-banner {
+  border-radius: var(--radius-lg); padding: 24px 28px; margin-bottom: 24px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+}
+.caixa-status-banner.open { background: var(--green-bg); border: 1px solid #A7F3D0; }
+.caixa-status-banner.closed { background: var(--gray-100); border: 1px solid var(--gray-200); }
+.caixa-status-title { font-size: 1.1rem; font-weight: 700; color: var(--black); }
+.caixa-status-sub { font-size: 0.82rem; color: var(--gray-500); }
+.caixa-status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+.caixa-status-dot.open { background: var(--green); }
+.caixa-status-dot.closed { background: var(--gray-400); }
+.caixa-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 24px; }
+.caixa-btn {
+  padding: 14px 26px; border-radius: 50px; font-size: 0.9rem; font-weight: 700;
+  transition: all var(--transition); display: inline-flex; align-items: center; gap: 8px;
+}
+.caixa-btn-open { background: var(--green); color: white; }
+.caixa-btn-open:hover { background: #059669; transform: translateY(-2px); }
+.caixa-btn-close { background: var(--red); color: white; }
+.caixa-btn-close:hover { background: #DC2626; transform: translateY(-2px); }
+.caixa-btn-sangria { background: var(--white); color: var(--gray-700); border: 2px solid var(--gray-200); }
+.caixa-btn-sangria:hover { background: var(--gray-100); }
+.caixa-btn-suprimento { background: var(--white); color: var(--gray-700); border: 2px solid var(--gray-200); }
+.caixa-btn-suprimento:hover { background: var(--gray-100); }
+.caixa-entries { margin-top: 20px; }
+
+/* Frete rows */
+.frete-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end;
+  margin-bottom: 12px;
+}
+.frete-row .modal-field { margin-bottom: 0; }
+
+@media (max-width: 1100px) {
+  .delivery-cards { grid-template-columns: repeat(2, 1fr); }
+  .delivery-summary-grid { grid-template-columns: 1fr; }
+  .caixa-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .delivery-cards { grid-template-columns: 1fr; }
+  .caixa-grid { grid-template-columns: 1fr; }
+  .period-tabs { flex-wrap: wrap; }
+  .frete-row { grid-template-columns: 1fr; }
+}
+
+/* Funcionários */
+.funcionario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
+.funcionario-card {
+  background: var(--white); border: 1px solid var(--gray-100); border-radius: var(--radius-lg);
+  padding: 20px; display: flex; align-items: center; gap: 14px; transition: all var(--transition);
+}
+.funcionario-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+.funcionario-avatar {
+  width: 52px; height: 52px; border-radius: 50%; background: var(--orange-light);
+  display: flex; align-items: center; justify-content: center; font-size: 1rem;
+  font-weight: 700; color: var(--orange); flex-shrink: 0;
+}
+.funcionario-info { flex: 1; }
+.funcionario-name { font-size: 1rem; font-weight: 700; color: var(--black); }
+.funcionario-role { font-size: 0.75rem; color: var(--gray-500); }
+.funcionario-actions { display: flex; gap: 6px; }
+
+/* Entregador select nos pedidos */
+.entregador-select {
+  padding: 6px 10px; border-radius: 8px; border: 2px solid var(--gray-200);
+  font-size: 0.78rem; outline: none; background: var(--gray-50); cursor: pointer;
+  transition: all var(--transition); color: var(--gray-700); max-width: 110px;
+}
+.entregador-select:focus { border-color: var(--orange); background: var(--white); }
+.entregador-select.has-value { border-color: var(--green); background: var(--green-bg); color: var(--green); font-weight: 600; }
+.btn-saiu {
+  padding: 6px 10px; border-radius: 8px; font-size: 0.72rem; font-weight: 700;
+  background: var(--blue-bg); color: var(--blue); transition: all var(--transition);
+  border: 1px solid transparent; white-space: nowrap;
+}
+.btn-saiu:hover { background: var(--blue); color: white; }
+.btn-saiu.done { background: var(--green-bg); color: var(--green); cursor: default; }
+
+/* Caixa turnos */
+.turno-panel {
+  background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--gray-100);
+  padding: 20px; margin-bottom: 24px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+}
+.turno-field label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+.turno-field input, .turno-field select {
+  width: 100%; padding: 12px 14px; border-radius: var(--radius-sm);
+  border: 2px solid var(--gray-200); font-size: 0.9rem; outline: none; background: var(--gray-50);
+  transition: all var(--transition);
+}
+.turno-field input:focus, .turno-field select:focus { border-color: var(--orange); background: var(--white); box-shadow: 0 0 0 3px var(--orange-light); }
+.turno-btn {
+  padding: 12px 20px; border-radius: 50px; font-size: 0.88rem; font-weight: 700;
+  transition: all var(--transition); display: inline-flex; align-items: center; gap: 8px;
+  align-self: flex-end; justify-content: center;
+}
+.turno-btn-primary { background: var(--orange); color: white; }
+.turno-btn-primary:hover { background: var(--black); transform: translateY(-2px); }
+.turno-btn-secondary { background: var(--gray-100); color: var(--gray-700); }
+.turno-btn-secondary:hover { background: var(--gray-200); }
+
+/* Meios de pagamento caixa */
+.pagamento-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.pagamento-chip {
+  padding: 9px 16px; border-radius: 50px; font-size: 0.82rem; font-weight: 600;
+  background: var(--gray-100); color: var(--gray-600); cursor: pointer; transition: all var(--transition);
+  border: 2px solid transparent;
+}
+.pagamento-chip:hover { background: var(--gray-200); }
+.pagamento-chip.active { background: var(--orange); color: white; border-color: var(--orange); box-shadow: 0 2px 8px var(--orange-glow); }
+
+@media (max-width: 900px) {
+  .turno-panel { grid-template-columns: 1fr; }
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 1100px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .charts-row { grid-template-columns: 1fr; }
+  .product-admin-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; }
+  .menu-toggle { display: flex; }
+  .topbar-search input { width: 160px; }
+  .topbar-search input:focus { width: 180px; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .product-admin-grid { grid-template-columns: repeat(2, 1fr); }
+  .content-area { padding: 20px 16px; }
+  .topbar { padding: 14px 16px; }
+  .order-detail-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .stats-row { grid-template-columns: 1fr; }
+  .topbar-search { display: none; }
+  .product-admin-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-mark">A98</div>
+      <span class="login-logo-text">Adega 1998</span>
+    </div>
+    <div class="login-subtitle">Painel Administrativo</div>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="dona@adega1998.com.br" value="dona@adega1998.com.br">
+    </div>
+    <div class="login-field">
+      <label>Senha</label>
+      <input type="password" id="loginPass" placeholder="••••••••" value="admin123">
+    </div>
+    <div class="login-error" id="loginError">Email ou senha incorretos.</div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Entrar no Painel</button>
+    <div style="margin-top:16px;font-size:0.72rem;color:var(--gray-400)">Use: dona@adega1998.com.br / admin123</div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo-mark">A98</div>
+    <div>
+      <div class="sidebar-brand">Adega 1998</div>
+      <div class="sidebar-badge">Administração</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="sidebar-section">Principal</div>
+    <a href="#" class="sidebar-link active" data-page="dashboard">
+      <span class="icon">📊</span> Dashboard
+    </a>
+    <a href="#" class="sidebar-link" data-page="pedidos">
+      <span class="icon">📦</span> Pedidos
+      <span class="badge">12</span>
+    </a>
+    <a href="#" class="sidebar-link" data-page="produtos">
+      <span class="icon">🏷️</span> Produtos
+    </a>
+    <a href="#" class="sidebar-link" data-page="clientes">
+      <span class="icon">👥</span> Clientes
+    </a>
+    <a href="#" class="sidebar-link" data-page="entregadores">
+      <span class="icon">🛵</span> Entregadores
+    </a>
+    <div class="sidebar-section">Relatórios</div>
+    <a href="#" class="sidebar-link" data-page="vendas">
+      <span class="icon">💰</span> Vendas
+    </a>
+    <a href="#" class="sidebar-link" data-page="caixa">
+      <span class="icon">🧾</span> Caixa
+    </a>
+    <a href="#" class="sidebar-link" data-page="estoque">
+      <span class="icon">📋</span> Estoque
+    </a>
+    <div class="sidebar-section">Configurações</div>
+    <a href="#" class="sidebar-link" data-page="config">
+      <span class="icon">⚙️</span> Loja
+    </a>
+    <a href="#" class="sidebar-link" data-page="frete">
+      <span class="icon">🚚</span> Taxa de Entrega
+    </a>
+    <a href="#" class="sidebar-link" data-page="funcionarios">
+      <span class="icon">👷</span> Funcionários
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-avatar">D</div>
+      <div>
+        <div class="sidebar-user-name">Dona Maria</div>
+        <div class="sidebar-user-role">Proprietária</div>
+      </div>
+    </div>
+    <div class="sidebar-logout" onclick="doLogout()">🚪 Sair do painel</div>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="menu-toggle" id="menuToggle"><span></span><span></span><span></span></button>
+      <div class="topbar-title" id="pageTitle">Dashboard</div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-search">
+        <span class="topbar-search-icon">🔍</span>
+        <input type="text" placeholder="Buscar...">
+      </div>
+      <div class="topbar-notif">🔔<span class="topbar-notif-dot"></span></div>
+    </div>
+  </div>
+  <div class="content-area">
+
+    <!-- DASHBOARD -->
+    <div class="page-section active" id="page-dashboard">
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div class="stat-card-icon orange">💰</div>
+            <span class="stat-card-trend up">+18%</span>
+          </div>
+          <div class="stat-card-value">R$ 12.480</div>
+          <div class="stat-card-label">Vendas Hoje</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div class="stat-card-icon green">📦</div>
+            <span class="stat-card-trend up">+12%</span>
+          </div>
+          <div class="stat-card-value">47</div>
+          <div class="stat-card-label">Pedidos Hoje</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div class="stat-card-icon blue">👥</div>
+            <span class="stat-card-trend up">+24%</span>
+          </div>
+          <div class="stat-card-value">1.284</div>
+          <div class="stat-card-label">Clientes Ativos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div class="stat-card-icon yellow">⭐</div>
+            <span class="stat-card-trend up">4.9</span>
+          </div>
+          <div class="stat-card-value">98%</div>
+          <div class="stat-card-label">Satisfação</div>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div><div class="chart-card-title">Vendas da Semana</div><div class="chart-card-sub">Comparativo com semana anterior</div></div>
+            <select class="table-filter-select"><option>Esta Semana</option><option>Mês</option></select>
+          </div>
+          <div class="chart-area">
+            <div class="chart-bar-wrap"><div class="chart-bar" style="height:40%"></div><div class="chart-bar-label">Seg</div></div>
+            <div class="chart-bar-wrap"><div class="chart-bar" style="height:65%"></div><div class="chart-bar-label">Ter</div></div>
+            <div class="chart-bar-wrap"><div class="chart-bar" style="height:55%"></div><div class="chart-bar-label">Qua</div></div>
+            <div class="chart-bar-wrap"><div class="chart-bar" style="height:80%"></div><div class="chart-bar-label">Qui</div></div>
+            <div class="chart-bar-wrap"><div class="chart-bar" style="height:90%"></div><div class="chart-bar-label">Sex</div></div>
+            <div class="chart-bar-wrap"><div class="chart-bar" style="height:100%"></div><div class="chart-bar-label">Sáb</div></div>
+            <div class="chart-bar-wrap"><div class="chart-bar past" style="height:35%"></div><div class="chart-bar-label">Dom</div></div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-header"><div class="chart-card-title">Mais Vendidos</div></div>
+          <div class="top-products">
+            <div class="top-product-item">
+              <div class="top-product-rank">1</div>
+              <img class="top-product-img" src="Public%20produtos/keineken.jpg" alt="Heineken">
+              <div class="top-product-info"><div class="top-product-name">Heineken 350ml</div><div class="top-product-sold">248 vendidos</div></div>
+              <div class="top-product-value">R$ 15.595</div>
+            </div>
+            <div class="top-product-item">
+              <div class="top-product-rank">2</div>
+              <img class="top-product-img" src="Public%20produtos/shisky%20clack%20lebel.jpg" alt="Black Label">
+              <div class="top-product-info"><div class="top-product-name">Black Label 12 anos</div><div class="top-product-sold">186 vendidos</div></div>
+              <div class="top-product-value">R$ 29.741</div>
+            </div>
+            <div class="top-product-item">
+              <div class="top-product-rank">3</div>
+              <img class="top-product-img" src="Public%20produtos/skol.jpg" alt="Skol">
+              <div class="top-product-info"><div class="top-product-name">Skol 350ml</div><div class="top-product-sold">312 vendidos</div></div>
+              <div class="top-product-value">R$ 14.008</div>
+            </div>
+            <div class="top-product-item">
+              <div class="top-product-rank">4</div>
+              <img class="top-product-img" src="Public%20produtos/Brahma%20litrinho.jpg" alt="Brahma">
+              <div class="top-product-info"><div class="top-product-name">Brahma Litrinho 300ml</div><div class="top-product-sold">267 vendidos</div></div>
+              <div class="top-product-value">R$ 16.794</div>
+            </div>
+            <div class="top-product-item">
+              <div class="top-product-rank">5</div>
+              <img class="top-product-img" src="Public%20produtos/Shisky%20old%20parr.jpg" alt="Old Parr">
+              <div class="top-product-info"><div class="top-product-name">Old Parr 12 Anos</div><div class="top-product-sold">142 vendidos</div></div>
+              <div class="top-product-value">R$ 26.539</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Recent orders -->
+      <div class="table-card">
+        <div class="table-card-header">
+          <div class="table-card-title">Últimos Pedidos</div>
+          <a href="#" class="sidebar-link" data-page="pedidos" style="font-size:0.82rem;color:var(--orange)">Ver todos →</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Pedido</th><th>Cliente</th><th>Produtos</th><th>Total</th><th>Status</th><th>Data</th></tr></thead>
+            <tbody>
+              <tr><td>#1098</td><td>Rafael Ferreira</td><td>Heineken 12un + Gelo 5kg</td><td>R$ 71,80</td><td><span class="status status-delivered">Entregue</span></td><td>30/07 - 20:15</td></tr>
+              <tr><td>#1097</td><td>Carla Mendes</td><td>Black Label 1L + 2 Energéticos</td><td>R$ 174,90</td><td><span class="status status-delivering">Em rota</span></td><td>30/07 - 19:42</td></tr>
+              <tr><td>#1096</td><td>Pedro Santana</td><td>Brahma Litrinho 15un + Skol 12un</td><td>R$ 107,80</td><td><span class="status status-preparing">Preparando</span></td><td>30/07 - 19:10</td></tr>
+              <tr><td>#1095</td><td>Ana Costa</td><td>Old Parr 12 anos + Tanqueray</td><td>R$ 290,80</td><td><span class="status status-pending">Pendente</span></td><td>30/07 - 18:35</td></tr>
+              <tr><td>#1094</td><td>João Silva</td><td>Smirnoff Ice 6un</td><td>R$ 46,60</td><td><span class="status status-delivered">Entregue</span></td><td>30/07 - 18:02</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button class="page-btn">‹</button>
+          <button class="page-btn active">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">4</button>
+          <button class="page-btn">›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PEDIDOS -->
+    <div class="page-section" id="page-pedidos">
+      <div class="table-card">
+        <div class="table-card-header">
+          <div class="table-card-title">Todos os Pedidos</div>
+          <div class="table-card-actions">
+            <div class="period-tabs" id="periodTabs">
+              <button class="period-tab active" data-period="hoje" onclick="setPeriod('hoje')">Hoje</button>
+              <button class="period-tab" data-period="semana" onclick="setPeriod('semana')">Semana</button>
+              <button class="period-tab" data-period="mes" onclick="setPeriod('mes')">Mês</button>
+              <button class="period-tab" data-period="custom" onclick="setPeriod('custom')">Personalizado</button>
+            </div>
+            <div class="period-custom" id="periodCustom">
+              <input type="date" id="customStart" onchange="applyPeriodFilter()">
+              <span style="color:var(--gray-500);font-size:0.8rem">até</span>
+              <input type="date" id="customEnd" onchange="applyPeriodFilter()">
+            </div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Pedido</th><th>Cliente</th><th>Telefone</th><th>Itens</th><th>Total</th><th>Pagamento</th><th>Status</th><th>Entregador</th><th>Data</th><th>Ações</th></tr></thead>
+            <tbody>
+              <tr><td>#1098</td><td>Rafael Ferreira</td><td>(11) 98888-1234</td><td>3</td><td>R$ 71,80</td><td>Pix</td><td><span class="status status-delivered">Entregue</span></td><td><select class="entregador-select" onchange="marcarSaiuEntrega(this)" title="Selecionar entregador"><option value="">Selecionar</option><option>Carlos</option><option>Bruno</option><option>Diego</option><option>Eduardo</option></select></td><td class="order-date" data-date="2026-08-12T20:15:00">12/08 20:15</td><td style="white-space:nowrap"><button class="btn-saiu" onclick="marcarSaiuEntrega(this)" title="Marcar saiu pra entrega">🚀 Saiu</button> <button class="page-btn" onclick="openOrderDetail(\'1098\')">👁️</button></td></tr>
+              <tr><td>#1097</td><td>Carla Mendes</td><td>(11) 97777-5678</td><td>3</td><td>R$ 174,90</td><td>Cartão</td><td><span class="status status-delivering">Em rota</span></td><td><select class="entregador-select" onchange="marcarSaiuEntrega(this)" title="Selecionar entregador"><option value="">Selecionar</option><option>Carlos</option><option>Bruno</option><option>Diego</option><option>Eduardo</option></select></td><td class="order-date" data-date="2026-08-12T19:42:00">12/08 19:42</td><td style="white-space:nowrap"><button class="btn-saiu" onclick="marcarSaiuEntrega(this)" title="Marcar saiu pra entrega">🚀 Saiu</button> <button class="page-btn" onclick="openOrderDetail(\'1097\')">👁️</button></td></tr>
+              <tr><td>#1096</td><td>Pedro Santana</td><td>(11) 96666-9012</td><td>2</td><td>R$ 107,80</td><td>Dinheiro</td><td><span class="status status-preparing">Preparando</span></td><td><select class="entregador-select" onchange="marcarSaiuEntrega(this)" title="Selecionar entregador"><option value="">Selecionar</option><option>Carlos</option><option>Bruno</option><option>Diego</option><option>Eduardo</option></select></td><td class="order-date" data-date="2026-08-11T19:10:00">11/08 19:10</td><td style="white-space:nowrap"><button class="btn-saiu" onclick="marcarSaiuEntrega(this)" title="Marcar saiu pra entrega">🚀 Saiu</button> <button class="page-btn" onclick="openOrderDetail(\'1096\')">👁️</button></td></tr>
+              <tr><td>#1095</td><td>Ana Costa</td><td>(11) 95555-3456</td><td>2</td><td>R$ 290,80</td><td>Pix</td><td><span class="status status-pending">Pendente</span></td><td><select class="entregador-select" onchange="marcarSaiuEntrega(this)" title="Selecionar entregador"><option value="">Selecionar</option><option>Carlos</option><option>Bruno</option><option>Diego</option><option>Eduardo</option></select></td><td class="order-date" data-date="2026-08-10T18:35:00">10/08 18:35</td><td style="white-space:nowrap"><button class="btn-saiu" onclick="marcarSaiuEntrega(this)" title="Marcar saiu pra entrega">🚀 Saiu</button> <button class="page-btn" onclick="openOrderDetail(\'1095\')">👁️</button></td></tr>
+              <tr><td>#1094</td><td>João Silva</td><td>(11) 94444-7890</td><td>1</td><td>R$ 46,60</td><td>Pix</td><td><span class="status status-delivered">Entregue</span></td><td><select class="entregador-select" onchange="marcarSaiuEntrega(this)" title="Selecionar entregador"><option value="">Selecionar</option><option>Carlos</option><option>Bruno</option><option>Diego</option><option>Eduardo</option></select></td><td class="order-date" data-date="2026-08-05T18:02:00">05/08 18:02</td><td style="white-space:nowrap"><button class="btn-saiu" onclick="marcarSaiuEntrega(this)" title="Marcar saiu pra entrega">🚀 Saiu</button> <button class="page-btn" onclick="openOrderDetail(\'1094\')">👁️</button></td></tr>
+              <tr><td>#1093</td><td>Marina Oliveira</td><td>(11) 93333-1122</td><td>4</td><td>R$ 189,40</td><td>Cartão</td><td><span class="status status-cancelled">Cancelado</span></td><td><select class="entregador-select" onchange="marcarSaiuEntrega(this)" title="Selecionar entregador"><option value="">Selecionar</option><option>Carlos</option><option>Bruno</option><option>Diego</option><option>Eduardo</option></select></td><td class="order-date" data-date="2026-07-25T17:28:00">25/07 17:28</td><td><button class="page-btn">👁️</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button class="page-btn">‹</button>
+          <button class="page-btn active">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUTOS -->
+    <div class="page-section" id="page-produtos">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div style="font-size:0.9rem;color:var(--gray-500)">10 produtos no catálogo</div>
+        <button class="add-btn" onclick="openProductModal()">+ Adicionar Produto</button>
+      </div>
+      <div class="product-admin-grid">
+        <div class="product-admin-card" data-prod-name="Heineken 350ml" data-prod-price="62,90" data-prod-img="Public%20produtos/keineken.jpg">
+          <div class="product-admin-img-wrap">
+            <img class="product-admin-img" src="Public%20produtos/keineken.jpg" alt="Heineken">
+            <div class="product-admin-overlay">
+              <button class="product-admin-action edit" title="Editar" onclick="openProductModal(this)">✏️</button>
+              <button class="product-admin-action delete" title="Excluir">🗑️</button>
+            </div>
+          </div>
+          <div class="product-admin-info">
+            <div class="product-admin-name">Heineken 350ml</div>
+            <div class="product-admin-price">R$ 62,90</div>
+            <div class="product-admin-stock">Estoque: 248 un</div>
+          </div>
+        </div>
+        <div class="product-admin-card" data-prod-name="Skol 350ml" data-prod-price="44,90" data-prod-img="Public%20produtos/skol.jpg">
+          <div class="product-admin-img-wrap">
+            <img class="product-admin-img" src="Public%20produtos/skol.jpg" alt="Skol">
+            <div class="product-admin-overlay">
+              <button class="product-admin-action edit" title="Editar" onclick="openProductModal(this)">✏️</button>
+              <button class="product-admin-action delete" title="Excluir">🗑️</button>
+            </div>
+          </div>
+          <div class="product-admin-info">
+            <div class="product-admin-name">Skol 350ml</div>
+            <div class="product-admin-price">R$ 44,90</div>
+            <div class="product-admin-stock">Estoque: 312 un</div>
+          </div>
+        </div>
+        <div class="product-admin-card" data-prod-name="Brahma Litrão 1L" data-prod-price="9,90" data-prod-img="Public%20produtos/brahma%20litr%C3%A3o.jpg">
+          <div class="product-admin-img-wrap">
+            <img class="product-admin-img" src="Public%20produtos/brahma%20litr%C3%A3o.jpg" alt="Brahma Litrão">
+            <div class="product-admin-overlay">
+              <button class="product-admin-action edit" title="Editar" onclick="openProductModal(this)">✏️</button>
+              <button class="product-admin-action delete" title="Excluir">🗑️</button>
+            </div>
+          </div>
+          <div class="product-admin-info">
+            <div class="product-admin-name">Brahma Litrão 1L</div>
+            <div class="product-admin-price">R$ 9,90</div>
+            <div class="product-admin-stock">Estoque: 156 un</div>
+          </div>
+        </div>
+        <div class="product-admin-card" data-prod-name="Brahma Litrinho 300ml" data-prod-price="62,90" data-prod-img="Public%20produtos/Brahma%20litrinho.jpg">
+          <div class="product-admin-img-wrap">
+            <img class="product-admin-img" src="Public%20produtos/Brahma%20litrinho.jpg" alt="Brahma Litrinho">
+            <div class="product-admin-overlay">
+              <button class="product-admin-action edit" title="Editar" onclick="openProductModal(this)">✏️</button>
+              <button class="product-admin-action delete" title="Excluir">🗑️</button>
+            </div>
+          </div>
+          <div class="product-admin-info">
+            <div class="product-admin-name">Brahma Litrinho 300ml</div>
+            <div class="product-admin-price">R$ 62,90</div>
+            <div class="product-admin-stock">Estoque: 189 un</div>
+          </div>
+        </div>
+        <div class="product-admin-card" data-prod-name="Smirnoff Ice 275ml" data-prod-price="42,90" data-prod-img="Public%20produtos/Ice.jpg">
+          <div class="product-admin-img-wrap">
+            <img class="product-admin-img" src="Public%20produtos/Ice.jpg" alt="Smirnoff Ice">
+            <div class="product-admin-overlay">
+              <button class="product-admin-action edit" title="Editar" onclick="openProductModal(this)">✏️</button>
+              <button class="product-admin-action delete" title="Excluir">🗑️</button>
+            </div>
+          </div>
+          <div class="product-admin-info">
+            <div class="product-admin-name">Smirnoff Ice 275ml</div>
+            <div class="product-admin-price">R$ 42,90</div>
+            <div class="product-admin-stock">Estoque: 134 un</div>
+          </div>
+        </div>
+        <div class="product-admin-card" data-prod-name="Jack Daniel's Old No.7" data-prod-price="127,90" data-prod-img="Public%20produtos/whisky.jpg">
+          <div class="product-admin-img-wrap">
+            <img class="product-admin-img" src="Public%20produtos/whisky.jpg" alt="Whisky">
+            <div class="product-admin-overlay">
+              <button class="product-admin-action edit" title="Editar" onclick="openProductModal(this)">✏️</button>
+              <button class="product-admin-action delete" title="Excluir">🗑️</button>
+            </div>
+          </div>
+          <div class="product-admin-info">
+            <div class="product-admin-name">Jack Daniel's Old No.7</div>
+            <div class="product-admin-price">R$ 127,90</div>
+            <div class="product-admin-stock">Estoque: 92 un</div>
+          </div>
+        </div>
+        <div class="product-admin-card" data-prod-name="Old Parr 12 Anos" data-prod-price="186,90" data-prod-img="Public%20produtos/Shisky%20old%20parr.jpg">
+          <div class="product-admin-img-wrap">
+            <img class="product-admin-img" src="Public%20produtos/Shisky%20old%20parr.jpg" alt="Old Parr">
+            <div class="product-admin-overlay">
+              <button class="product-admin-action edit" title="Editar" onclick="openProductModal(this)">✏️</button>
+              <button class="product-admin-action delete" title="Excluir">🗑️</button>
+            </div>
+          </div>
+          <div class="product-admin-info">
+            <div class="product-admin-name">Old Parr 12 Anos</div>
+            <div class="product-admin-price">R$ 186,90</div>
+            <div class="product-admin-stock">Estoque: 67 un</div>
+          </div>
+        </div>
+        <div class="product-admin-card" data-prod-name="Black Label 12 anos" data-prod-price="159,90" data-prod-img="Public%20produtos/shisky%20clack%20lebel.jpg">
+          <div class="product-admin-img-wrap">
+            <img class="product-admin-img" src="Public%20produtos/shisky%20clack%20lebel.jpg" alt="Black Label">
+            <div class="product-admin-overlay">
+              <button class="product-admin-action edit" title="Editar" onclick="openProductModal(this)">✏️</button>
+              <button class="product-admin-action delete" title="Excluir">🗑️</button>
+            </div>
+          </div>
+          <div class="product-admin-info">
+            <div class="product-admin-name">Black Label 12 anos</div>
+            <div class="product-admin-price">R$ 159,90</div>
+            <div class="product-admin-stock">Estoque: 78 un</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENTES -->
+    <div class="page-section" id="page-clientes">
+      <div class="table-card">
+        <div class="table-card-header">
+          <div class="table-card-title">Clientes Cadastrados</div>
+          <div style="display:flex;gap:12px">
+            <div class="topbar-search"><span class="topbar-search-icon">🔍</span><input type="text" placeholder="Buscar cliente..."></div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nome</th><th>Telefone</th><th>Email</th><th>Pedidos</th><th>Total Gasto</th><th>Último Pedido</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Rafael Ferreira</strong></td><td>(11) 98888-1234</td><td>rafael@email.com</td><td>48</td><td>R$ 3.240,50</td><td>30/07/2026</td><td><span class="status status-delivered">Ativo</span></td></tr>
+              <tr><td><strong>Carla Mendes</strong></td><td>(11) 97777-5678</td><td>carla@email.com</td><td>36</td><td>R$ 4.890,20</td><td>30/07/2026</td><td><span class="status status-delivered">Ativo</span></td></tr>
+              <tr><td><strong>Pedro Santana</strong></td><td>(11) 96666-9012</td><td>pedro@email.com</td><td>29</td><td>R$ 2.150,80</td><td>30/07/2026</td><td><span class="status status-delivered">Ativo</span></td></tr>
+              <tr><td><strong>Ana Costa</strong></td><td>(11) 95555-3456</td><td>ana@email.com</td><td>12</td><td>R$ 1.890,40</td><td>30/07/2026</td><td><span class="status status-delivered">Ativo</span></td></tr>
+              <tr><td><strong>João Silva</strong></td><td>(11) 94444-7890</td><td>joao@email.com</td><td>8</td><td>R$ 540,00</td><td>30/07/2026</td><td><span class="status status-delivered">Ativo</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button class="page-btn">‹</button>
+          <button class="page-btn active">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">›</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENTREGADORES -->
+    <div class="page-section" id="page-entregadores">
+      <div class="delivery-cards" id="deliveryCards">
+        <div class="delivery-card" onclick="selectDeliverer(this, 'Carlos')" data-deliverer="carlos">
+          <div class="delivery-card-top">
+            <div class="delivery-avatar">CA</div>
+            <div>
+              <div class="delivery-name">Carlos Andrade</div>
+              <div class="delivery-status">● Disponível</div>
+            </div>
+          </div>
+          <div class="delivery-card-stats">
+            <div class="delivery-stat-box"><div class="delivery-stat-num" id="runs-carlos">37</div><div class="delivery-stat-lbl">Corridas</div></div>
+            <div class="delivery-stat-box"><div class="delivery-stat-num" id="value-carlos">R$ 1.245,00</div><div class="delivery-stat-lbl">Valor total</div></div>
+          </div>
+        </div>
+        <div class="delivery-card" onclick="selectDeliverer(this, 'Bruno')" data-deliverer="bruno">
+          <div class="delivery-card-top">
+            <div class="delivery-avatar">BR</div>
+            <div>
+              <div class="delivery-name">Bruno Lima</div>
+              <div class="delivery-status">● Disponível</div>
+            </div>
+          </div>
+          <div class="delivery-card-stats">
+            <div class="delivery-stat-box"><div class="delivery-stat-num" id="runs-bruno">52</div><div class="delivery-stat-lbl">Corridas</div></div>
+            <div class="delivery-stat-box"><div class="delivery-stat-num" id="value-bruno">R$ 2.190,00</div><div class="delivery-stat-lbl">Valor total</div></div>
+          </div>
+        </div>
+        <div class="delivery-card" onclick="selectDeliverer(this, 'Diego')" data-deliverer="diego">
+          <div class="delivery-card-top">
+            <div class="delivery-avatar">DI</div>
+            <div>
+              <div class="delivery-name">Diego Souza</div>
+              <div class="delivery-status">● Em rota</div>
+            </div>
+          </div>
+          <div class="delivery-card-stats">
+            <div class="delivery-stat-box"><div class="delivery-stat-num" id="runs-diego">28</div><div class="delivery-stat-lbl">Corridas</div></div>
+            <div class="delivery-stat-box"><div class="delivery-stat-num" id="value-diego">R$ 890,00</div><div class="delivery-stat-lbl">Valor total</div></div>
+          </div>
+        </div>
+        <div class="delivery-card" onclick="selectDeliverer(this, 'Eduardo')" data-deliverer="eduardo">
+          <div class="delivery-card-top">
+            <div class="delivery-avatar">ED</div>
+            <div>
+              <div class="delivery-name">Eduardo Pires</div>
+              <div class="delivery-status offline">● Offline</div>
+            </div>
+          </div>
+          <div class="delivery-card-stats">
+            <div class="delivery-stat-box"><div class="delivery-stat-num" id="runs-eduardo">0</div><div class="delivery-stat-lbl">Corridas</div></div>
+            <div class="delivery-stat-box"><div class="delivery-stat-num" id="value-eduardo">R$ 0,00</div><div class="delivery-stat-lbl">Valor total</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="delivery-detail-card" id="deliveryDetail">
+        <div class="delivery-detail-header">
+          <div class="delivery-detail-title" id="deliveryDetailName">Selecione um entregador para ver os detalhes</div>
+          <div style="font-size:0.8rem;color:var(--gray-500)" id="deliveryDetailPeriod">Últimos 30 dias</div>
+        </div>
+        <div class="delivery-summary-grid" style="grid-template-columns:repeat(2, 1fr)">
+          <div class="delivery-summary-box"><div class="delivery-summary-num" id="detailRuns">—</div><div class="delivery-summary-lbl">Corridas realizadas</div></div>
+          <div class="delivery-summary-box"><div class="delivery-summary-num" id="detailValue">—</div><div class="delivery-summary-lbl">Valor total entregue</div></div>
+        </div>
+        <div class="table-card">
+          <div class="table-card-header"><div class="table-card-title" id="deliveryRunsTitle">Corridas realizadas</div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Corrida</th><th>Pedido</th><th>Distância</th><th>Valor</th><th>Status</th><th>Data</th></tr></thead>
+              <tbody id="deliveryRunsBody">
+                <tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:30px">Selecione um entregador acima 👆</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VENDAS -->
+    <div class="page-section" id="page-vendas">
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-card-top"><div class="stat-card-icon orange">💰</div><span class="stat-card-trend up">+22%</span></div>
+          <div class="stat-card-value">R$ 87.360</div>
+          <div class="stat-card-label">Vendas do Mês</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top"><div class="stat-card-icon green">📦</div><span class="stat-card-trend up">+15%</span></div>
+          <div class="stat-card-value">312</div>
+          <div class="stat-card-label">Pedidos do Mês</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top"><div class="stat-card-icon blue">📊</div></div>
+          <div class="stat-card-value">R$ 280</div>
+          <div class="stat-card-label">Ticket Médio</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top"><div class="stat-card-icon yellow">🎯</div></div>
+          <div class="stat-card-value">R$ 2.910</div>
+          <div class="stat-card-label">Média por Dia</div>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-card-header"><div class="table-card-title">Histórico de Vendas</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data</th><th>Pedidos</th><th>Itens Vendidos</th><th>Faturamento</th><th>Ticket Médio</th><th>Margem</th></tr></thead>
+            <tbody>
+              <tr><td>30/07/2026</td><td>47</td><td>112</td><td>R$ 12.480</td><td>R$ 265,53</td><td>42%</td></tr>
+              <tr><td>29/07/2026</td><td>52</td><td>138</td><td>R$ 14.220</td><td>R$ 273,46</td><td>44%</td></tr>
+              <tr><td>28/07/2026</td><td>38</td><td>94</td><td>R$ 9.840</td><td>R$ 258,95</td><td>40%</td></tr>
+              <tr><td>27/07/2026</td><td>44</td><td>108</td><td>R$ 11.560</td><td>R$ 262,73</td><td>41%</td></tr>
+              <tr><td>26/07/2026</td><td>28</td><td>72</td><td>R$ 7.280</td><td>R$ 260,00</td><td>39%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAIXA -->
+    <div class="page-section" id="page-caixa">
+      <div class="caixa-status-banner" id="caixaStatusBanner">
+        <div>
+          <div class="caixa-status-title"><span class="caixa-status-dot closed" id="caixaStatusDot"></span><span id="caixaStatusText">Caixa Fechado</span></div>
+          <div class="caixa-status-sub" id="caixaStatusInfo">Abra o caixa para começar a registrar as vendas do dia.</div>
+        </div>
+        <div style="text-align:right">
+          <div id="caixaCurrent" style="font-size:1.8rem;font-weight:800;color:var(--black)">R$ 0,00</div>
+          <div style="font-size:0.75rem;color:var(--gray-500)">Valor atual no caixa</div>
+        </div>
+      </div>
+
+      <!-- TURNO ATUAL -->
+      <div class="turno-panel" id="turnoPanel">
+        <div class="turno-field">
+          <label>Funcionária do turno</label>
+          <select id="turnoFuncionario">
+            <option value="">Selecione a funcionária...</option>
+            <option value="Leticia">Leticia</option>
+            <option value="Viviane">Viviane</option>
+            <option value="Rayssa">Rayssa</option>
+          </select>
+        </div>
+        <div class="turno-field">
+          <label>Valor no caixa na troca de turno (R$)</label>
+          <input type="text" id="turnoValor" placeholder="R$ 0,00">
+        </div>
+        <button class="turno-btn turno-btn-secondary" id="btnTrocarTurno" onclick="trocarTurno()" style="display:none">🔄 Trocar Turno</button>
+        <div style="grid-column:1/-1;margin-top:8px" id="turnosList"></div>
+      </div>
+
+      <div class="caixa-grid">
+        <div class="stat-card">
+          <div class="stat-card-icon" style="background:var(--green-bg);color:var(--green)">💵</div>
+          <div class="stat-card-info"><div class="stat-card-value" id="caixaAbertura">—</div><div class="stat-card-label">Valor de abertura</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon" style="background:var(--blue-bg);color:var(--blue)">📈</div>
+          <div class="stat-card-info"><div class="stat-card-value" id="caixaVendas">R$ 0,00</div><div class="stat-card-label">Vendas no caixa</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon" style="background:var(--yellow-bg);color:var(--yellow)">↘️</div>
+          <div class="stat-card-info"><div class="stat-card-value" id="caixaSangria">R$ 0,00</div><div class="stat-card-label">Sangrias</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-icon" style="background:var(--orange-light);color:var(--orange)">↗️</div>
+          <div class="stat-card-info"><div class="stat-card-value" id="caixaSuprimento">R$ 0,00</div><div class="stat-card-label">Suprimentos</div></div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px">
+        <button class="caixa-btn caixa-btn-open" id="btnAbrirCaixa" onclick="abrirCaixa()">🔓 Abrir Caixa</button>
+        <button class="caixa-btn caixa-btn-close" id="btnFecharCaixa" onclick="fecharCaixa()" style="display:none">🔒 Fechar Caixa</button>
+        <button class="caixa-btn caixa-btn-sangria" id="btnSangria" onclick="registrarSangria()" style="display:none">💸 Sangria</button>
+        <button class="caixa-btn caixa-btn-suprimento" id="btnSuprimento" onclick="registrarSuprimento()" style="display:none">💰 Suprimento</button>
+      </div>
+
+      <!-- REGISTRAR VENDA / MOVIMENTO -->
+      <div class="table-card" style="margin-bottom:24px">
+        <div class="table-card-header"><div class="table-card-title">Registrar Movimento</div></div>
+        <div style="padding:20px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:14px;align-items:end" class="movimento-grid">
+            <div class="modal-field" style="margin-bottom:0"><label>Descrição</label><input type="text" id="movDesc" placeholder="Ex: Venda pedido #1102"></div>
+            <div class="modal-field" style="margin-bottom:0"><label>Valor (R$)</label><input type="text" id="movValor" placeholder="R$ 0,00"></div>
+            <div class="modal-field" style="margin-bottom:0">
+              <label>Forma de pagamento</label>
+              <div class="pagamento-chips" id="pagamentoChips">
+                <button class="pagamento-chip active" data-pag="Dinheiro" onclick="setPagamento(this)">💵 Dinheiro</button>
+                <button class="pagamento-chip" data-pag="Pix" onclick="setPagamento(this)">📱 Pix</button>
+                <button class="pagamento-chip" data-pag="Cartão Débito" onclick="setPagamento(this)">💳 Débito</button>
+                <button class="pagamento-chip" data-pag="Cartão Crédito" onclick="setPagamento(this)">💳 Crédito</button>
+              </div>
+            </div>
+            <button class="modal-btn modal-btn-primary" onclick="registrarMovimento()" style="margin-bottom:4px">+ Registrar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-card caixa-entries">
+        <div class="table-card-header"><div class="table-card-title">Movimentações do Caixa</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Hora</th><th>Funcionária</th><th>Tipo</th><th>Descrição</th><th>Pagamento</th><th>Valor</th></tr></thead>
+            <tbody id="caixaMovementsBody">
+              <tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:30px">Nenhuma movimentação registrada.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESTOQUE -->
+    <div class="page-section" id="page-estoque">
+      <div class="table-card">
+        <div class="table-card-header"><div class="table-card-title">Controle de Estoque</div></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Produto</th><th>Categoria</th><th>Estoque Atual</th><th>Estoque Mínimo</th><th>Status</th><th>Preço Custo</th><th>Preço Venda</th><th>Margem</th></tr></thead>
+            <tbody>
+              <tr><td>Heineken 350ml</td><td>Cerveja</td><td>248</td><td>50</td><td><span class="status status-delivered">OK</span></td><td>R$ 3,80</td><td>R$ 5,24</td><td>38%</td></tr>
+              <tr><td>Skol 350ml</td><td>Cerveja</td><td>312</td><td>50</td><td><span class="status status-delivered">OK</span></td><td>R$ 2,60</td><td>R$ 3,74</td><td>44%</td></tr>
+              <tr><td>Brahma Litrão 1L</td><td>Cerveja</td><td>156</td><td>30</td><td><span class="status status-delivered">OK</span></td><td>R$ 4,90</td><td>R$ 9,90</td><td>51%</td></tr>
+              <tr><td>Brahma Litrinho 300ml</td><td>Cerveja</td><td>189</td><td>40</td><td><span class="status status-delivered">OK</span></td><td>R$ 3,10</td><td>R$ 4,19</td><td>35%</td></tr>
+              <tr><td>Smirnoff Ice 275ml</td><td>Drink</td><td>134</td><td>30</td><td><span class="status status-delivered">OK</span></td><td>R$ 5,20</td><td>R$ 7,15</td><td>37%</td></tr>
+              <tr><td>Jack Daniel's 1L</td><td>Whisky</td><td>92</td><td>20</td><td><span class="status status-delivered">OK</span></td><td>R$ 89,00</td><td>R$ 127,90</td><td>44%</td></tr>
+              <tr><td>Old Parr 12 anos</td><td>Whisky</td><td>67</td><td>15</td><td><span class="status status-pending">Baixo</span></td><td>R$ 130,00</td><td>R$ 186,90</td><td>44%</td></tr>
+              <tr><td>Black Label 12 anos</td><td>Whisky</td><td>78</td><td>15</td><td><span class="status status-delivered">OK</span></td><td>R$ 112,00</td><td>R$ 159,90</td><td>43%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONFIG -->
+    <div class="page-section" id="page-config">
+      <div class="table-card" style="max-width:640px">
+        <div class="table-card-header"><div class="table-card-title">Configurações da Loja</div></div>
+        <div style="padding:24px">
+          <div class="modal-field"><label>Nome da Loja</label><input type="text" value="Adega 1998"></div>
+          <div class="modal-field"><label>Telefone WhatsApp</label><input type="text" value="(11) 99999-1998"></div>
+          <div class="modal-field"><label>Endereço</label><input type="text" value="Rua das Bebidas, 1998 - Centro, São Paulo"></div>
+          <div class="modal-field"><label>Link da Localização da Loja</label><input type="url" id="linkLojaConfig" placeholder="https://maps.app.goo.gl/... ou https://www.google.com/maps/..." value=""></div>
+          <div class="modal-field"><label>Horário de Funcionamento</label><input type="text" value="Seg a Sáb: 9h às 23h / Dom: 10h às 20h"></div>
+          <div class="modal-field"><label>Pedido Mínimo</label><input type="text" value="R$ 30,00"></div>
+          <div class="modal-actions">
+            <button class="modal-btn modal-btn-primary" onclick="salvarConfiguracoesLoja()">Salvar Configurações</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAXA DE ENTREGA -->
+    <div class="page-section" id="page-frete">
+      <div class="table-card" style="max-width:640px">
+        <div class="table-card-header"><div class="table-card-title">🚚 Taxa de Entrega</div></div>
+        <div style="padding:24px">
+          <div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:18px">Defina o valor do frete para cada faixa de distância e o raio máximo de atendimento. Cole o link do local da loja para o sistema calcular a taxa automaticamente.</div>
+          <div class="modal-field"><label>Link da Localização da Loja</label><input type="url" id="linkLoja" placeholder="https://maps.app.goo.gl/... ou https://www.google.com/maps/..." value=""></div>
+          <div class="modal-field"><label>Raio de Atendimento (km)</label><input type="number" id="raioEntrega" value="12" min="1"></div>
+          <div style="font-size:0.85rem;font-weight:700;color:var(--gray-700);margin-bottom:10px">Valor por distância</div>
+          <div id="freteRows"></div>
+          <button class="add-btn" onclick="addFreteRow()" style="margin-top:6px">+ Adicionar faixa de distância</button>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <button class="modal-btn modal-btn-secondary" onclick="testarCalculoFrete()">🧪 Testar Cálculo</button>
+            <button class="modal-btn modal-btn-primary" onclick="salvarConfiguracoes()">Salvar Configurações de Entrega</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FUNCIONÁRIOS -->
+    <div class="page-section" id="page-funcionarios">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div style="font-size:0.9rem;color:var(--gray-500)">Funcionários da loja</div>
+        <button class="add-btn" onclick="addFuncionario()">+ Adicionar Funcionário</button>
+      </div>
+      <div class="funcionario-grid">
+        <div class="funcionario-card">
+          <div class="funcionario-avatar">LE</div>
+          <div class="funcionario-info">
+            <div class="funcionario-name">Leticia</div>
+            <div class="funcionario-role">Funcionária</div>
+          </div>
+          <div class="funcionario-actions">
+            <button class="page-btn" title="Editar" onclick="editarFuncionario(this)">✏️</button>
+            <button class="page-btn" title="Excluir" onclick="removerFuncionario(this)">🗑️</button>
+          </div>
+        </div>
+        <div class="funcionario-card">
+          <div class="funcionario-avatar">VI</div>
+          <div class="funcionario-info">
+            <div class="funcionario-name">Viviane</div>
+            <div class="funcionario-role">Funcionária</div>
+          </div>
+          <div class="funcionario-actions">
+            <button class="page-btn" title="Editar" onclick="editarFuncionario(this)">✏️</button>
+            <button class="page-btn" title="Excluir" onclick="removerFuncionario(this)">🗑️</button>
+          </div>
+        </div>
+        <div class="funcionario-card">
+          <div class="funcionario-avatar">RA</div>
+          <div class="funcionario-info">
+            <div class="funcionario-name">Rayssa</div>
+            <div class="funcionario-role">Funcionária</div>
+          </div>
+          <div class="funcionario-actions">
+            <button class="page-btn" title="Editar" onclick="editarFuncionario(this)">✏️</button>
+            <button class="page-btn" title="Excluir" onclick="removerFuncionario(this)">🗑️</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- PRODUCT MODAL -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal">
+    <div class="modal-title" id="productModalTitle">Adicionar Produto</div>
+    <div class="modal-field"><label>Nome do Produto</label><input type="text" id="prodName" placeholder="Ex: Heineken 350ml"></div>
+    <div class="modal-field"><label>Categoria</label><select id="prodCat"><option>Cerveja</option><option>Whisky</option><option>Vinhos</option><option>Destilados</option><option>Gin</option><option>Refrigerantes</option><option>Energéticos</option><option>Drinks</option><option>Gelo</option></select></div>
+    <div class="modal-field"><label>Preço de Venda</label><input type="text" id="prodPrice" placeholder="R$ 00,00"></div>
+    <div class="modal-field"><label>Preço de Custo</label><input type="text" id="prodCost" placeholder="R$ 00,00"></div>
+    <div class="modal-field"><label>Estoque</label><input type="number" id="prodStock" placeholder="Quantidade"></div>
+    <div class="modal-field"><label>Descrição</label><textarea id="prodDesc" placeholder="Descrição do produto..."></textarea></div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-secondary" onclick="closeProductModal()">Cancelar</button>
+      <button class="modal-btn modal-btn-primary" onclick="saveProduct()">Salvar Produto</button>
+    </div>
+  </div>
+</div>
+
+<!-- ORDER DETAIL MODAL -->
+<div class="modal-overlay" id="orderModal">
+  <div class="modal">
+    <div class="modal-title">Detalhes do Pedido #<span id="orderDetailId">1098</span></div>
+    <div class="order-detail-grid">
+      <div class="order-detail-item"><strong>Cliente</strong> Rafael Ferreira</div>
+      <div class="order-detail-item"><strong>Telefone</strong> (11) 98888-1234</div>
+      <div class="order-detail-item"><strong>Endereço</strong> Rua Exemplo, 123 - Centro</div>
+      <div class="order-detail-item"><strong>Pagamento</strong> Pix</div>
+      <div class="order-detail-item"><strong>Data</strong> 30/07/2026 - 20:15</div>
+      <div class="order-detail-item"><strong>Status</strong> <span class="status status-delivered">Entregue</span></div>
+    </div>
+    <div style="margin-top:20px;font-weight:700;font-size:0.9rem">Itens do Pedido</div>
+    <div class="order-items-list">
+      <div class="order-item-row"><span>Heineken 350ml (12un)</span><strong>R$ 62,90</strong></div>
+      <div class="order-item-row"><span>Gelo Premium 5kg</span><strong>R$ 8,90</strong></div>
+      <div class="order-item-row" style="border-bottom:2px solid var(--gray-200);font-weight:700"><span>Taxa de Entrega</span><strong>R$ 5,00</strong></div>
+      <div class="order-item-row" style="font-size:1.1rem;font-weight:800;color:var(--orange)"><span>Total</span><strong>R$ 76,80</strong></div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn modal-btn-secondary" onclick="closeOrderDetail()">Fechar</button>
+      <button class="modal-btn modal-btn-primary">Atualizar Status</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── ARMAZENAMENTO SEGURO ───
+// Evita que o script quebre se localStorage estiver indisponível (file://, modo anônimo, etc.)
+function storeGet(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+function storeSet(key, val) {
+  try { localStorage.setItem(key, val); } catch (e) {}
+}
+function storeRemove(key) {
+  try { localStorage.removeItem(key); } catch (e) {}
+}
+
+// Login
+function doLogin() {
+  const email = document.getElementById('loginEmail').value;
+  const pass = document.getElementById('loginPass').value;
+  if (email === 'dona@adega1998.com.br' && pass === 'admin123') {
+    document.getElementById('loginOverlay').classList.add('hidden');
+    storeSet('adega_admin_logged', 'true');
+  } else {
+    document.getElementById('loginError').classList.add('show');
+    setTimeout(() => document.getElementById('loginError').classList.remove('show'), 3000);
+  }
+}
+function doLogout() {
+  storeRemove('adega_admin_logged');
+  document.getElementById('loginOverlay').classList.remove('hidden');
+}
+if (storeGet('adega_admin_logged') === 'true') {
+  document.getElementById('loginOverlay').classList.add('hidden');
+}
+
+// Liga o clique do botão "Entrar no Painel" direto no elemento
+// (mais confiável que onclick inline — funciona mesmo se o escopo global falhar)
+(function bindLoginButton() {
+  var btn = document.getElementById('loginBtn') || document.querySelector('.login-btn');
+  if (btn && typeof doLogin === 'function') {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      doLogin();
+    });
+  }
+})();
+
+
+// ─── GRÁFICO: ANIMAÇÃO VENDAS DA SEMANA ───
+function animateChart() {
+  const bars = document.querySelectorAll('#page-dashboard .chart-area .chart-bar');
+  bars.forEach((bar, i) => {
+    bar.style.opacity = '0';
+    bar.style.transform = 'scaleY(0)';
+    setTimeout(() => {
+      bar.style.transition = 'all 0.8s cubic-bezier(0.22, 0.61, 0.36, 1)';
+      bar.style.opacity = '1';
+      bar.style.transform = 'scaleY(1)';
+    }, 100 + i * 120);
+  });
+}
+// Sidebar navigation
+document.querySelectorAll('.sidebar-link[data-page]').forEach(link => {
+  link.addEventListener('click', function(e) {
+    e.preventDefault();
+    document.querySelectorAll('.sidebar-link[data-page]').forEach(l => l.classList.remove('active'));
+    this.classList.add('active');
+    const page = this.dataset.page;
+    document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.getElementById('pageTitle').textContent = this.textContent.trim();
+    if (page === 'dashboard') animateChart();
+    if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
+  });
+});
+
+// Mobile toggle
+document.getElementById('menuToggle').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+});
+
+// Product modal — editar nome e preço
+let editingProductCard = null;
+
+function openProductModal(btn) {
+  const card = btn && btn.closest ? btn.closest('.product-admin-card') : null;
+  document.getElementById('prodName').value = '';
+  document.getElementById('prodPrice').value = '';
+  document.getElementById('prodCost').value = '';
+  document.getElementById('prodStock').value = '';
+  document.getElementById('prodDesc').value = '';
+  if (card) {
+    editingProductCard = card;
+    document.getElementById('productModalTitle').textContent = 'Editar Produto';
+    document.getElementById('prodName').value = card.dataset.prodName || '';
+    document.getElementById('prodPrice').value = card.dataset.prodPrice || '';
+  } else {
+    editingProductCard = null;
+    document.getElementById('productModalTitle').textContent = 'Adicionar Produto';
+  }
+  document.getElementById('productModal').classList.add('open');
+}
+function closeProductModal() {
+  document.getElementById('productModal').classList.remove('open');
+}
+function saveProduct() {
+  const name = document.getElementById('prodName').value.trim();
+  const price = document.getElementById('prodPrice').value.trim();
+  if (!name) { alert('Informe o nome do produto.'); return; }
+  if (!price) { alert('Informe o preço do produto.'); return; }
+  if (editingProductCard) {
+    editingProductCard.dataset.prodName = name;
+    editingProductCard.dataset.prodPrice = price;
+    const info = editingProductCard.querySelector('.product-admin-info');
+    if (info) {
+      const nm = info.querySelector('.product-admin-name');
+      if (nm) nm.textContent = name;
+      const pr = info.querySelector('.product-admin-price');
+      if (pr) pr.textContent = 'R$ ' + price;
+    }
+    alert('Produto atualizado com sucesso!');
+  } else {
+    alert('Produto adicionado (demonstração).');
+  }
+  closeProductModal();
+}
+document.getElementById('productModal').addEventListener('click', function(e) {
+  if (e.target === this) closeProductModal();
+});
+
+// Order detail modal
+function openOrderDetail(id) {
+  document.getElementById('orderDetailId').textContent = id;
+  document.getElementById('orderModal').classList.add('open');
+}
+function closeOrderDetail() {
+  document.getElementById('orderModal').classList.remove('open');
+}
+document.getElementById('orderModal').addEventListener('click', function(e) {
+  if (e.target === this) closeOrderDetail();
+});
+
+// ─── FILTRO DE PERÍODO (PEDIDOS) ───
+let currentPeriod = 'hoje';
+
+function setPeriod(period) {
+  currentPeriod = period;
+  document.querySelectorAll('#periodTabs .period-tab').forEach(t => t.classList.toggle('active', t.dataset.period === period));
+  const custom = document.getElementById('periodCustom');
+  custom.classList.toggle('show', period === 'custom');
+  applyPeriodFilter();
+}
+
+function parseDateBR(str) {
+  // aceita ISO 2026-07-30T20:15:00
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+  if (m) return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]), parseInt(m[4]), parseInt(m[5]));
+  // aceita BR 30/07 20:15
+  const m2 = str.match(/^(\d{2})\/(\d{2})\s*(\d{2}):(\d{2})/);
+  if (m2) return new Date(2026, parseInt(m2[2]) - 1, parseInt(m2[1]), parseInt(m2[3]), parseInt(m2[4]));
+  return null;
+}
+
+function applyPeriodFilter() {
+  const rows = document.querySelectorAll('#page-pedidos tbody tr');
+  const now = new Date();
+  let start = null, end = null;
+
+  if (currentPeriod === 'hoje') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  } else if (currentPeriod === 'semana') {
+    const day = (now.getDay() + 6) % 7; // seg=0
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day, 0, 0, 0);
+  } else if (currentPeriod === 'mes') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+  } else if (currentPeriod === 'custom') {
+    const s = document.getElementById('customStart').value;
+    const e = document.getElementById('customEnd').value;
+    start = s ? new Date(s + 'T00:00:00') : null;
+    end = e ? new Date(e + 'T23:59:59') : null;
+  }
+
+  rows.forEach(row => {
+    const td = row.querySelector('.order-date');
+    if (!td) { row.style.display = ''; return; }
+    const d = parseDateBR(td.dataset.date);
+    let show = true;
+    if (d) {
+      if (start && d < start) show = false;
+      if (end && d > end) show = false;
+      if (!start && !end && currentPeriod !== 'custom') show = false;
+    }
+    row.style.display = show ? '' : 'none';
+  });
+}
+
+// ─── ENTREGADORES ───
+const DELIVERER_RUNS = {
+  carlos: [
+    { id: 'C-104', pedido: '#1094', dist: '3,2 km', valor: 'R$ 15,00', status: 'Entregue', data: '30/07 18:05' },
+    { id: 'C-103', pedido: '#1089', dist: '5,1 km', valor: 'R$ 20,00', status: 'Entregue', data: '30/07 17:20' },
+    { id: 'C-102', pedido: '#1082', dist: '2,0 km', valor: 'R$ 12,00', status: 'Entregue', data: '30/07 16:48' },
+    { id: 'C-101', pedido: '#1077', dist: '7,5 km', valor: 'R$ 25,00', status: 'Entregue', data: '30/07 15:30' }
+  ],
+  bruno: [
+    { id: 'B-201', pedido: '#1097', dist: '4,8 km', valor: 'R$ 18,00', status: 'Em rota', data: '30/07 19:44' },
+    { id: 'B-200', pedido: '#1091', dist: '2,7 km', valor: 'R$ 12,00', status: 'Entregue', data: '30/07 17:55' },
+    { id: 'B-199', pedido: '#1085', dist: '6,3 km', valor: 'R$ 22,00', status: 'Entregue', data: '30/07 16:12' }
+  ],
+  diego: [
+    { id: 'D-050', pedido: '#1096', dist: '3,9 km', valor: 'R$ 15,00', status: 'Preparando', data: '30/07 19:12' },
+    { id: 'D-049', pedido: '#1090', dist: '1,8 km', valor: 'R$ 10,00', status: 'Entregue', data: '30/07 17:40' }
+  ],
+  eduardo: []
+};
+
+function selectDeliverer(el, name) {
+  document.querySelectorAll('.delivery-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const key = el.dataset.deliverer;
+  const runs = DELIVERER_RUNS[key] || [];
+  const total = runs.reduce((s, r) => s + parseFloat(r.valor.replace('R$ ', '').replace(',', '.')), 0);
+
+  document.getElementById('deliveryDetailName').textContent = name;
+  document.getElementById('detailRuns').textContent = runs.length;
+  document.getElementById('detailValue').textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+  document.getElementById('deliveryRunsTitle').textContent = 'Corridas de ' + name;
+
+  const body = document.getElementById('deliveryRunsBody');
+  if (!runs.length) {
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:30px">Este entregador ainda não realizou corridas.</td></tr>';
+    return;
+  }
+  body.innerHTML = runs.map(r => {
+    const st = r.status === 'Entregue' ? 'status-delivered' : r.status === 'Em rota' ? 'status-delivering' : 'status-preparing';
+    return '<tr><td>' + r.id + '</td><td>' + r.pedido + '</td><td>' + r.dist + '</td><td>' + r.valor + '</td><td><span class="status ' + st + '">' + r.status + '</span></td><td>' + r.data + '</td></tr>';
+  }).join('');
+}
+
+// ─── CAIXA ───
+// ─── CAIXA (com turnos e formas de pagamento) ───
+let caixaState = {
+  aberto: false,
+  funcionario: null,
+  valorAbertura: 0,
+  vendas: 0,
+  sangrias: 0,
+  suprimentos: 0,
+  movimentos: [],
+  horarioAbertura: null,
+  turnos: [],
+  turnoAtual: 0
+};
+let pagamentoSelecionado = 'Dinheiro';
+
+function loadCaixa() {
+  try {
+    const s = storeGet('adega_caixa');
+    if (s) caixaState = Object.assign({}, caixaState, JSON.parse(s));
+  } catch (e) {}
+  // Normaliza estados antigos que não têm turnos/funcionario
+  if (!Array.isArray(caixaState.turnos)) caixaState.turnos = [];
+  if (typeof caixaState.turnoAtual !== 'number' || caixaState.turnoAtual < 0) caixaState.turnoAtual = 0;
+  if (typeof caixaState.funcionario !== 'string') caixaState.funcionario = null;
+  if (typeof caixaState.horarioAbertura !== 'string') caixaState.horarioAbertura = null;
+  updateCaixaUI();
+  renderTurnos();
+}
+
+function updateCaixaUI() {
+  const aberto = caixaState.aberto;
+  document.getElementById('caixaStatusBanner').className = 'caixa-status-banner ' + (aberto ? 'open' : 'closed');
+  document.getElementById('caixaStatusDot').className = 'caixa-status-dot ' + (aberto ? 'open' : 'closed');
+  document.getElementById('caixaStatusText').textContent = aberto ? 'Caixa Aberto' : 'Caixa Fechado';
+  document.getElementById('caixaStatusInfo').textContent = aberto
+    ? ('Aberto às ' + caixaState.horarioAbertura + ' • Funcionária: ' + (caixaState.funcionario || '—') + ' • Abertura: R$ ' + caixaState.valorAbertura.toFixed(2).replace('.', ','))
+    : 'Abra o caixa para começar a registrar as vendas do dia.';
+  const total = aberto ? (caixaState.valorAbertura + caixaState.vendas + caixaState.suprimentos - caixaState.sangrias) : 0;
+  document.getElementById('caixaCurrent').textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+  document.getElementById('caixaAbertura').textContent = aberto ? ('R$ ' + caixaState.valorAbertura.toFixed(2).replace('.', ',')) : '—';
+  document.getElementById('caixaVendas').textContent = 'R$ ' + caixaState.vendas.toFixed(2).replace('.', ',');
+  document.getElementById('caixaSangria').textContent = 'R$ ' + caixaState.sangrias.toFixed(2).replace('.', ',');
+  document.getElementById('caixaSuprimento').textContent = 'R$ ' + caixaState.suprimentos.toFixed(2).replace('.', ',');
+  document.getElementById('btnAbrirCaixa').style.display = aberto ? 'none' : '';
+  document.getElementById('btnFecharCaixa').style.display = aberto ? '' : 'none';
+  document.getElementById('btnSangria').style.display = aberto ? '' : 'none';
+  document.getElementById('btnSuprimento').style.display = aberto ? '' : 'none';
+  document.getElementById('btnTrocarTurno').style.display = aberto ? '' : 'none';
+  // Sempre habilita o select para permitir escolher a funcionária do próximo turno
+  document.getElementById('turnoFuncionario').disabled = false;
+  if (aberto && caixaState.funcionario && !document.getElementById('turnoFuncionario').value) {
+    document.getElementById('turnoFuncionario').value = caixaState.funcionario;
+  }
+  renderCaixaMovements();
+}
+
+function setPagamento(el) {
+  pagamentoSelecionado = el.dataset.pag;
+  document.querySelectorAll('#pagamentoChips .pagamento-chip').forEach(ch => ch.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function registrarMovimento() {
+  if (!caixaState.aberto) {
+    alert('O caixa está fechado. Abra o caixa primeiro.');
+    return;
+  }
+  const desc = document.getElementById('movDesc').value.trim();
+  const valorStr = document.getElementById('movValor').value.trim();
+  const v = parseFloat(String(valorStr).replace(',', '.')) || 0;
+  if (!desc || v <= 0) {
+    alert('Informe a descrição e o valor.');
+    return;
+  }
+  const agora = new Date();
+  caixaState.vendas += v;
+  caixaState.movimentos.push({
+    hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+    funcionario: caixaState.funcionario || '—',
+    tipo: 'Venda',
+    desc: desc,
+    pagamento: pagamentoSelecionado,
+    valor: v
+  });
+  saveCaixa();
+  updateCaixaUI();
+  document.getElementById('movDesc').value = '';
+  document.getElementById('movValor').value = '';
+}
+
+function renderCaixaMovements() {
+  const body = document.getElementById('caixaMovementsBody');
+  if (!caixaState.movimentos.length) {
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:30px">Nenhuma movimentação registrada.</td></tr>';
+    return;
+  }
+  body.innerHTML = caixaState.movimentos.map(m => {
+    const badge = m.tipo === 'Abertura' ? 'status-delivered' : m.tipo === 'Venda' ? 'status-delivering' : m.tipo === 'Sangria' ? 'status-cancelled' : m.tipo === 'Troca de Turno' ? 'status-pending' : 'status-pending';
+    const sinal = (m.tipo === 'Sangria') ? '- R$ ' : '+ R$ ';
+    return '<tr><td>' + m.hora + '</td><td>' + (m.funcionario || '—') + '</td><td><span class="status ' + badge + '">' + m.tipo + '</span></td><td>' + m.desc + '</td><td>' + (m.pagamento || '—') + '</td><td>' + sinal + m.valor.toFixed(2).replace('.', ',') + '</td></tr>';
+  }).join('');
+}
+
+function abrirCaixa() {
+  if (caixaState.aberto) return;
+  const func = document.getElementById('turnoFuncionario').value;
+  if (!func) {
+    alert('Selecione a funcionária que vai abrir o caixa.');
+    return;
+  }
+  const valor = prompt('Valor de abertura do caixa (R$):', '0,00');
+  if (valor === null) return;
+  const v = parseFloat(String(valor).replace(',', '.')) || 0;
+  caixaState.aberto = true;
+  caixaState.funcionario = func;
+  caixaState.valorAbertura = v;
+  caixaState.vendas = 0;
+  caixaState.sangrias = 0;
+  caixaState.suprimentos = 0;
+  caixaState.movimentos = [];
+  caixaState.turnos = [];
+  caixaState.turnoAtual = 0;
+  const agora = new Date();
+  caixaState.horarioAbertura = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  caixaState.turnos.push({ funcionario: func, abertura: caixaState.horarioAbertura, valorInicial: v, valorFinal: null, fechado: false });
+  caixaState.movimentos.push({ hora: caixaState.horarioAbertura, funcionario: func, tipo: 'Abertura', desc: 'Abertura do caixa', pagamento: '—', valor: v });
+  saveCaixa();
+  updateCaixaUI();
+  renderTurnos();
+}
+
+function trocarTurno() {
+  if (!caixaState.aberto) return;
+  if (!Array.isArray(caixaState.turnos)) caixaState.turnos = [];
+  const func = document.getElementById('turnoFuncionario').value;
+  const valorStr = document.getElementById('turnoValor').value.trim();
+  const v = parseFloat(String(valorStr).replace(',', '.')) || 0;
+  if (!func) {
+    alert('Selecione a funcionária do novo turno.');
+    return;
+  }
+  const ok = confirm('Confirmar troca de turno?\nA funcionária ' + (caixaState.funcionario || 'atual') + ' repassa R$ ' + v.toFixed(2).replace('.', ',') + ' para ' + func + '.');
+  if (!ok) return;
+  const agora = new Date();
+  const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+  // Fecha o turno atual
+  const turnoAtual = caixaState.turnos[caixaState.turnoAtual];
+  if (turnoAtual) {
+    turnoAtual.valorFinal = v;
+    turnoAtual.fechado = true;
+  }
+  // Registra a troca
+  caixaState.movimentos.push({ hora: hora, funcionario: caixaState.funcionario || '—', tipo: 'Troca de Turno', desc: 'Repasse para ' + func, pagamento: '—', valor: v });
+  // Abre novo turno
+  caixaState.funcionario = func;
+  caixaState.turnos.push({ funcionario: func, abertura: hora, valorInicial: v, valorFinal: null, fechado: false });
+  caixaState.turnoAtual = caixaState.turnos.length - 1;
+  caixaState.horarioAbertura = hora;
+  caixaState.valorAbertura = v;
+  document.getElementById('turnoValor').value = '';
+  saveCaixa();
+  updateCaixaUI();
+  renderTurnos();
+  alert('Turno trocado! ' + func + ' agora está no caixa com R$ ' + v.toFixed(2).replace('.', ','));
+}
+
+function renderTurnos() {
+  const panel = document.getElementById('turnoPanel');
+  if (!panel) return;
+  if (!caixaState.turnos || !caixaState.turnos.length) return;
+  const list = caixaState.turnos.map((t, i) => {
+    const finalV = t.valorFinal !== null ? 'R$ ' + t.valorFinal.toFixed(2).replace('.', ',') : '—';
+    const fechado = t.fechado ? ' (fechado)' : ' (atual)';
+    return '<div style="font-size:0.8rem;color:var(--gray-600);background:var(--gray-50);padding:8px 12px;border-radius:8px;margin-bottom:6px">' +
+      '<strong>' + t.funcionario + '</strong> • abriu às ' + t.abertura + ' • inicial R$ ' + t.valorInicial.toFixed(2).replace('.', ',') + ' • final ' + finalV + fechado + '</div>';
+  }).join('');
+  const existing = document.getElementById('turnosList');
+  if (existing) existing.innerHTML = list;
+}
+
+function fecharCaixa() {
+  if (!caixaState.aberto) return;
+  if (!Array.isArray(caixaState.turnos)) caixaState.turnos = [];
+  const total = caixaState.valorAbertura + caixaState.vendas + caixaState.suprimentos - caixaState.sangrias;
+  const ok = confirm('Fechar o caixa?\nFuncionária: ' + (caixaState.funcionario || '—') + '\nValor final: R$ ' + total.toFixed(2).replace('.', ','));
+  if (!ok) return;
+  const agora = new Date();
+  const hora = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  caixaState.movimentos.push({ hora: hora, funcionario: caixaState.funcionario || '—', tipo: 'Fechamento', desc: 'Fechamento do caixa', pagamento: '—', valor: total });
+  const turno = caixaState.turnos[caixaState.turnoAtual];
+  if (turno) { turno.valorFinal = total; turno.fechado = true; }
+  caixaState.aberto = false;
+  saveCaixa();
+  updateCaixaUI();
+  renderTurnos();
+  alert('Caixa fechado com sucesso! Total: R$ ' + total.toFixed(2).replace('.', ','));
+}
+
+function registrarSangria() {
+  if (!caixaState.aberto) return;
+  const valor = prompt('Valor da sangria (R$):', '');
+  if (valor === null) return;
+  const v = parseFloat(String(valor).replace(',', '.')) || 0;
+  caixaState.sangrias += v;
+  const agora = new Date();
+  caixaState.movimentos.push({ hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), funcionario: caixaState.funcionario || '—', tipo: 'Sangria', desc: 'Retirada de dinheiro', pagamento: '—', valor: v });
+  saveCaixa();
+  updateCaixaUI();
+}
+
+function registrarSuprimento() {
+  if (!caixaState.aberto) return;
+  const valor = prompt('Valor do suprimento (R$):', '');
+  if (valor === null) return;
+  const v = parseFloat(String(valor).replace(',', '.')) || 0;
+  caixaState.suprimentos += v;
+  const agora = new Date();
+  caixaState.movimentos.push({ hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), funcionario: caixaState.funcionario || '—', tipo: 'Suprimento', desc: 'Entrada de dinheiro', pagamento: '—', valor: v });
+  saveCaixa();
+  updateCaixaUI();
+}
+
+function saveCaixa() {
+  storeSet('adega_caixa', JSON.stringify(caixaState));
+}
+
+// ─── PEDIDOS: SAIR PRA ENTREGA ───
+function marcarSaiuEntrega(el) {
+  // If called from the select, use the row's saiu button
+  if (el.classList && el.classList.contains('entregador-select')) {
+    const row = el.closest('tr');
+    const btn = row ? row.querySelector('.btn-saiu') : null;
+    const nome = el.value;
+    if (btn) {
+      if (nome) {
+        btn.classList.add('done');
+        btn.textContent = '🚀 Saiu';
+        btn.title = 'Pedido saiu para entrega com ' + nome;
+        const status = row.querySelector('.status');
+        if (status) {
+          status.className = 'status status-delivering';
+          status.textContent = 'Em rota';
+        }
+      } else {
+        btn.classList.remove('done');
+        btn.textContent = '🚀 Saiu';
+      }
+    }
+    return;
+  }
+  // Called from the saiu button directly
+  const row = el.closest('tr');
+  const sel = row ? row.querySelector('.entregador-select') : null;
+  const nome = sel ? sel.value : '';
+  if (!nome) {
+    alert('Selecione primeiro o entregador para o pedido.');
+    if (sel) sel.focus();
+    return;
+  }
+  el.classList.add('done');
+  el.textContent = '🚀 Saiu';
+  el.title = 'Pedido saiu para entrega com ' + nome;
+  const status = row.querySelector('.status');
+  if (status) {
+    status.className = 'status status-delivering';
+    status.textContent = 'Em rota';
+  }
+  alert('Pedido marcado como "Saiu pra entrega" com ' + nome + '!');
+}
+
+// ─── FUNCIONÁRIOS ───
+const FUNCIONARIOS_DEFAULT = [
+  { nome: 'Leticia', avatar: 'LE' },
+  { nome: 'Viviane', avatar: 'VI' },
+  { nome: 'Rayssa', avatar: 'RA' }
+];
+let funcionarios = [];
+
+function loadFuncionarios() {
+  try {
+    const s = storeGet('adega_funcionarios');
+    if (s) funcionarios = JSON.parse(s);
+  } catch (e) {}
+  if (!funcionarios.length) funcionarios = FUNCIONARIOS_DEFAULT.slice();
+  renderFuncionarios();
+  updateTurnoSelect();
+}
+
+function renderFuncionarios() {
+  const grid = document.querySelector('#page-funcionarios .funcionario-grid');
+  if (!grid) return;
+  grid.innerHTML = funcionarios.map(f => {
+    const av = f.avatar || (f.nome ? f.nome.substring(0, 2).toUpperCase() : '?');
+    return '<div class="funcionario-card">' +
+      '<div class="funcionario-avatar">' + av + '</div>' +
+      '<div class="funcionario-info"><div class="funcionario-name">' + f.nome + '</div><div class="funcionario-role">Funcionária</div></div>' +
+      '<div class="funcionario-actions">' +
+        '<button class="page-btn" title="Editar" onclick="editarFuncionario(this)">✏️</button>' +
+        '<button class="page-btn" title="Excluir" onclick="removerFuncionario(this)">🗑️</button>' +
+      '</div></div>';
+  }).join('');
+}
+
+function updateTurnoSelect() {
+  const sel = document.getElementById('turnoFuncionario');
+  if (!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Selecione a funcionária...</option>' + funcionarios.map(f => '<option value="' + f.nome + '">' + f.nome + '</option>').join('');
+  sel.value = atual;
+}
+
+function editarFuncionario(el) {
+  const card = el.closest('.funcionario-card');
+  const nome = card ? card.querySelector('.funcionario-name').textContent : '';
+  const novo = prompt('Nome da funcionária:', nome);
+  if (novo && novo.trim()) {
+    const f = funcionarios.find(x => x.nome === nome);
+    if (f) f.nome = novo.trim();
+    else funcionarios.push({ nome: novo.trim(), avatar: novo.trim().substring(0, 2).toUpperCase() });
+    saveFuncionarios();
+  }
+}
+
+function removerFuncionario(el) {
+  const card = el.closest('.funcionario-card');
+  const nome = card ? card.querySelector('.funcionario-name').textContent : '';
+  if (confirm('Excluir a funcionária ' + nome + '?')) {
+    funcionarios = funcionarios.filter(f => f.nome !== nome);
+    saveFuncionarios();
+  }
+}
+
+function addFuncionario() {
+  const nome = prompt('Nome da nova funcionária:', '');
+  if (nome && nome.trim()) {
+    funcionarios.push({ nome: nome.trim(), avatar: nome.trim().substring(0, 2).toUpperCase() });
+    saveFuncionarios();
+  }
+}
+
+function saveFuncionarios() {
+  storeSet('adega_funcionarios', JSON.stringify(funcionarios));
+  renderFuncionarios();
+  updateTurnoSelect();
+}
+
+// ─── FRETES (CONFIG) ───
+let freteRows = [
+  { faixa: 'Até 3 km', valor: 'R$ 5,00' },
+  { faixa: 'De 3 a 7 km', valor: 'R$ 8,00' },
+  { faixa: 'De 7 a 12 km', valor: 'R$ 12,00' }
+];
+
+function renderFreteRows() {
+  const wrap = document.getElementById('freteRows');
+  if (!wrap) return;
+  // Carrega configurações salvas (link, raio, faixas)
+  try {
+    const s = storeGet('adega_config');
+    if (s) {
+      const cfg = JSON.parse(s);
+      if (cfg.linkLoja) {
+        const elLink = document.getElementById('linkLoja');
+        if (elLink && !elLink.value) elLink.value = cfg.linkLoja;
+        const elLinkC = document.getElementById('linkLojaConfig');
+        if (elLinkC && !elLinkC.value) elLinkC.value = cfg.linkLoja;
+      }
+      if (cfg.raioEntrega) {
+        const elRaio = document.getElementById('raioEntrega');
+        if (elRaio) elRaio.value = cfg.raioEntrega;
+      }
+      if (cfg.freteRows && cfg.freteRows.length) freteRows = cfg.freteRows;
+    }
+  } catch (e) {}
+  try {
+    const s2 = storeGet('adega_config_loja');
+    if (s2) {
+      const cfg2 = JSON.parse(s2);
+      if (cfg2.linkLoja) {
+        const elLink = document.getElementById('linkLoja');
+        if (elLink && !elLink.value) elLink.value = cfg2.linkLoja;
+        const elLinkC = document.getElementById('linkLojaConfig');
+        if (elLinkC && !elLinkC.value) elLinkC.value = cfg2.linkLoja;
+      }
+    }
+  } catch (e) {}
+  wrap.innerHTML = freteRows.map((f, i) =>
+    '<div class="frete-row">' +
+      '<div class="modal-field"><label>Faixa de distância</label><input type="text" class="frete-faixa" value="' + f.faixa + '" placeholder="Ex: Até 3 km"></div>' +
+      '<div class="modal-field"><label>Valor do frete</label><input type="text" class="frete-valor" value="' + f.valor + '" placeholder="R$ 0,00"></div>' +
+      '<div class="modal-field"><label>Taxa por km extra</label><input type="text" class="frete-extra" value="' + (f.extra || '') + '" placeholder="R$ 0,00"></div>' +
+      '<button class="page-btn" onclick="removeFreteRow(' + i + ')" title="Remover" style="margin-bottom:4px">🗑️</button>' +
+    '</div>'
+  ).join('');
+}
+
+function addFreteRow() {
+  freteRows.push({ faixa: '', valor: '', extra: '' });
+  renderFreteRows();
+}
+
+function removeFreteRow(i) {
+  freteRows.splice(i, 1);
+  renderFreteRows();
+}
+
+function salvarConfiguracoesLoja() {
+  const link = document.getElementById('linkLojaConfig') ? document.getElementById('linkLojaConfig').value.trim() : '';
+  storeSet('adega_config_loja', JSON.stringify({ linkLoja: link }));
+  // Se a aba frete tem linkLoja vazio, sincroniza
+  const elLinkFrete = document.getElementById('linkLoja');
+  if (elLinkFrete && !elLinkFrete.value && link) elLinkFrete.value = link;
+  alert('Configurações da loja salvas com sucesso!');
+}
+
+function salvarConfiguracoes() {
+  const raio = document.getElementById('raioEntrega').value;
+  const link = document.getElementById('linkLoja').value.trim();
+  const linkConfig = document.getElementById('linkLojaConfig') ? document.getElementById('linkLojaConfig').value.trim() : '';
+  const rows = [];
+  document.querySelectorAll('#freteRows .frete-row').forEach(r => {
+    const faixa = r.querySelector('.frete-faixa').value;
+    const valor = r.querySelector('.frete-valor').value;
+    const extra = r.querySelector('.frete-extra').value;
+    if (faixa && valor) rows.push({ faixa: faixa, valor: valor, extra: extra });
+  });
+  freteRows = rows;
+  storeSet('adega_config', JSON.stringify({ raioEntrega: raio, freteRows: rows, linkLoja: link || linkConfig }));
+  alert('Configurações de entrega salvas com sucesso!\nRaio de atendimento: ' + raio + ' km');
+}
+
+// ─── LINK DA LOCALIZAÇÃO ───
+function extrairCoordenadasDoLink(url) {
+  if (!url) return null;
+  // Formato: https://www.google.com/maps/place/...@-23.5505,-46.6333,17z
+  let m = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+  if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  // Formato: https://maps.app.goo.gl/... (curto, precisa resolver)
+  if (url.includes('maps.app.goo.gl') || url.includes('goo.gl')) {
+    // Não dá para resolver sem fetch, mas mostra aviso
+    return { short: true };
+  }
+  return null;
+}
+
+function distanciaEntreCoordenadas(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function calcularFreteParaDistancia(distKm) {
+  let valor = 0;
+  freteRows.forEach(f => {
+    const v = parseFloat(String(f.valor).replace('R$ ', '').replace(',', '.')) || 0;
+    // Tenta extrair o limite da faixa: "Até 3 km" ou "De 3 a 7 km"
+    const nums = (f.faixa.match(/\d+(?:[.,]\d+)?/g) || []).map(n => parseFloat(n.replace(',', '.')));
+    let atende = false;
+    if (f.faixa.toLowerCase().includes('até')) {
+      atende = distKm <= (nums[0] || 0);
+    } else if (nums.length >= 2) {
+      atende = distKm >= nums[0] && distKm <= nums[1];
+    } else {
+      atende = true; // faixa aberta
+    }
+    if (atende) valor = v;
+  });
+  return valor;
+}
+
+// Testa o cálculo com base no link da loja
+function testarCalculoFrete() {
+  const link = (document.getElementById('linkLoja') ? document.getElementById('linkLoja').value : '') ||
+               (document.getElementById('linkLojaConfig') ? document.getElementById('linkLojaConfig').value : '');
+  if (!link) {
+    alert('Cole primeiro o link da localização da loja.');
+    return;
+  }
+  const coords = extrairCoordenadasDoLink(link);
+  if (!coords) {
+    alert('Não foi possível identificar as coordenadas no link. Use um link do Google Maps contendo @lat,lng (ex: https://www.google.com/maps/place/...@-23.5505,-46.6333,17z).');
+    return;
+  }
+  if (coords.short) {
+    alert('Link curto (goo.gl) detectado. Para o cálculo automático, use o link completo do Google Maps contendo @lat,lng.');
+    return;
+  }
+  const raio = parseFloat(document.getElementById('raioEntrega').value) || 0;
+  const resp = prompt('Teste: qual a distância até o cliente (km)?', '5');
+  if (resp === null) return;
+  const dist = parseFloat(String(resp).replace(',', '.')) || 0;
+  if (dist > raio) {
+    alert('Cliente fora do raio de atendimento (' + raio + ' km). A entrega não é possível.');
+    return;
+  }
+  const frete = calcularFreteParaDistancia(dist);
+  alert('Distância: ' + dist + ' km\nTaxa de entrega: R$ ' + frete.toFixed(2).replace('.', ','));
+}
+
+// Init on load (script está no fim do body, DOM já pronto)
+loadCaixa();
+loadFuncionarios();
+renderFreteRows();
+setPeriod('hoje');
+animateChart();
+
+// Category pills navigation to products
+document.querySelectorAll('.sidebar-link[data-page="produtos"]').forEach(link => {
+  // Already handled above
+});
+</script>
+
+</body>
+</html>
