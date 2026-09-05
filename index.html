@@ -8,6 +8,7 @@
 <meta property="og:title" content="Adega 1998 — Depósito de Bebidas">
 <meta property="og:description" content="Sua adega favorita, agora online. Entrega rápida.">
 <meta property="og:type" content="website">
+<meta property="og:image" id="ogImage" content="">
 <title>Adega 1998 — Depósito de Bebidas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -416,6 +417,23 @@ button { cursor: pointer; border: none; font-family: inherit; }
   .cta-buttons { flex-direction: column; align-items: center; }
   .cat-bar-inner { padding: 8px 18px; }
 }
+
+/* ─── TENANT DINÂMICO (template multi-tenant) ─── */
+.logo-img { width: 44px; height: 44px; border-radius: var(--radius-sm); object-fit: contain; }
+.footer-logo-mark .logo-img { width: 40px; height: 40px; border-radius: var(--radius-sm); object-fit: contain; }
+.product-img-emoji {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 3.4rem; line-height: 1; color: #fff;
+  padding: 0;
+  background: linear-gradient(135deg, var(--cor), #000);
+}
+.hero-float-img.emoji {
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--cor), #000);
+  color: #fff; font-size: 1.5rem;
+}
+.footer-contact-item a { color: inherit; text-decoration: underline; }
+.footer-contact-item a:hover { color: var(--orange); }
 </style>
 </head>
 <body>
@@ -424,8 +442,8 @@ button { cursor: pointer; border: none; font-family: inherit; }
 <header class="header" id="header">
   <div class="header-inner">
     <a href="#" class="logo-link">
-      <div class="logo-mark">A98</div>
-      <span class="logo-text">Adega <span class="logo-year">1998</span></span>
+      <div class="logo-mark" id="headerLogoMark">A98</div>
+      <span class="logo-text" id="headerLogoText">Adega <span class="logo-year" data-tenant-year>1998</span></span>
     </a>
     <nav class="desktop-nav">
       <a href="#inicio" class="nav-link">Início</a>
@@ -434,7 +452,7 @@ button { cursor: pointer; border: none; font-family: inherit; }
       <a href="#combos" class="nav-link">Combos</a>
       <a href="#sobre" class="nav-link">Sobre</a>
       <a href="#contato" class="nav-link">Contato</a>
-      <a href="#" class="btn btn-primary btn-sm" style="margin-left:6px">Peça Agora</a>
+      <a href="#" class="btn btn-primary btn-sm" id="desktopOrderBtn" style="margin-left:6px">Peça Agora</a>
     </nav>
     <button class="mobile-toggle" id="mobileToggle" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
@@ -442,7 +460,7 @@ button { cursor: pointer; border: none; font-family: inherit; }
 <div class="mobile-nav" id="mobileNav">
   <a href="#inicio">Início</a><a href="#produtos">Produtos</a><a href="#promocoes">Promoções</a>
   <a href="#combos">Combos</a><a href="#sobre">Sobre</a><a href="#contato">Contato</a>
-  <a href="#" class="btn btn-primary" style="justify-content:center;margin-top:6px">Peça Agora</a>
+  <a href="#" class="btn btn-primary" id="mobileOrderBtn" style="justify-content:center;margin-top:6px">Peça Agora</a>
 </div>
 
 <!-- HERO - imagem aparece COMPLETA sem cortar -->
@@ -464,20 +482,20 @@ button { cursor: pointer; border: none; font-family: inherit; }
   <div class="hero-bg-overlay"></div>
   <div class="hero-content">
     <div class="hero-left">
-      <div class="hero-chip"><span class="hero-chip-dot"></span> Entrega em até 40 minutos</div>
-      <h1 class="hero-heading">Sua <em>adega</em> favorita, agora online.</h1>
-      <p class="hero-desc">As melhores cervejas, whiskys, vinhos e destilados entregues gelados na sua porta. Catálogo premium com mais de 2.000 produtos.</p>
+      <div class="hero-chip" id="heroChip"><span class="hero-chip-dot"></span> Entrega em até 40 minutos</div>
+      <h1 class="hero-heading" id="heroHeading">Sua <em>adega</em> favorita, agora online.</h1>
+      <p class="hero-desc" id="heroDesc">As melhores cervejas, whiskys, vinhos e destilados entregues gelados na sua porta. Catálogo premium com mais de 2.000 produtos.</p>
       <div class="hero-buttons">
-        <a href="#produtos" class="btn btn-primary btn-lg">Ver Catálogo</a>
-        <a href="#" class="btn btn-outline btn-lg">Fazer Pedido</a>
+        <a href="#produtos" class="btn btn-primary btn-lg" id="heroCatalogBtn">Ver Catálogo</a>
+        <a href="#" class="btn btn-outline btn-lg" id="heroOrderBtn">Fazer Pedido</a>
       </div>
       <div class="hero-stats-row">
-        <div><div class="hero-stat-val">2.000+</div><div class="hero-stat-lbl">Produtos</div></div>
-        <div><div class="hero-stat-val">40min</div><div class="hero-stat-lbl">Entrega média</div></div>
-        <div><div class="hero-stat-val">98%</div><div class="hero-stat-lbl">Satisfação</div></div>
+        <div><div class="hero-stat-val" data-hero-stat="produtos">2.000+</div><div class="hero-stat-lbl">Produtos</div></div>
+        <div><div class="hero-stat-val" data-hero-stat="tempo">40min</div><div class="hero-stat-lbl">Entrega média</div></div>
+        <div><div class="hero-stat-val" data-hero-stat="satisfacao">98%</div><div class="hero-stat-lbl">Satisfação</div></div>
       </div>
     </div>
-    <div class="hero-right">
+    <div class="hero-right" id="heroRight">
       <div class="hero-float-card">
         <img class="hero-float-img" src="Public%20produtos/keineken.jpg" alt="Heineken">
         <div class="hero-float-info"><strong>Heineken</strong> Pack 12 un.</div>
@@ -490,13 +508,14 @@ button { cursor: pointer; border: none; font-family: inherit; }
         <img class="hero-float-img" src="Public%20produtos/shisky%20tanqueray.jpg" alt="Tanqueray">
         <div class="hero-float-info"><strong>Tanqueray</strong> London Dry 750ml</div>
       </div>
+      <div class="hero-float-grid" id="heroFloatGrid" style="display:none"></div>
     </div>
   </div>
 </section>
 
 <!-- CATEGORY BAR -->
 <div class="cat-bar" id="catBar">
-  <div class="cat-bar-inner">
+  <div class="cat-bar-inner" id="catPills">
     <a href="#" class="cat-pill active"><span class="cat-pill-emoji">🍺</span> Cervejas</a>
     <a href="#" class="cat-pill"><span class="cat-pill-emoji">🥃</span> Whisky</a>
     <a href="#" class="cat-pill"><span class="cat-pill-emoji">🍷</span> Vinhos</a>
@@ -517,7 +536,7 @@ button { cursor: pointer; border: none; font-family: inherit; }
       <h2 class="section-heading">Explore nossa vitrine</h2>
       <p class="section-sub">Produtos selecionados com os melhores preços da região.</p>
     </div>
-    <div class="product-grid">
+    <div class="product-grid" id="productsGrid">
 
       <div class="product-card reveal reveal-d1">
         <div class="product-img-wrap">
@@ -664,7 +683,7 @@ button { cursor: pointer; border: none; font-family: inherit; }
       <h2 class="section-heading">Promoções da Semana</h2>
       <p class="section-sub" style="margin-left:auto;margin-right:auto">Ofertas selecionadas com descontos de até 40%.</p>
     </div>
-    <div class="promo-featured">
+    <div class="promo-featured" id="promoFeatured">
       <div class="promo-hero-card reveal reveal-d1">
         <img class="promo-hero-bg" src="Public%20produtos/keineken.jpg" alt="Combo Cervejas" loading="lazy">
         <div class="promo-hero-overlay"></div>
@@ -692,7 +711,7 @@ button { cursor: pointer; border: none; font-family: inherit; }
         </div>
       </div>
     </div>
-    <div class="product-grid">
+    <div class="product-grid" id="promosGrid">
       <div class="product-card reveal reveal-d3">
         <div class="product-img-wrap">
           <img class="product-img" src="Public%20produtos/skol%20beats.webp" alt="Skol Beats" loading="lazy">
@@ -765,7 +784,7 @@ button { cursor: pointer; border: none; font-family: inherit; }
       <h2 class="section-heading">Combos Especiais</h2>
       <p class="section-sub" style="margin-left:auto;margin-right:auto">Seleções montadas para cada ocasião com preços imperdíveis.</p>
     </div>
-    <div class="combo-grid">
+    <div class="combo-grid" id="combosGrid">
       <div class="combo-card reveal reveal-d1">
         <div class="combo-icon-row">
           <div class="combo-icon-item"><img src="Public%20produtos/keineken.jpg" alt="Heineken" loading="lazy"></div>

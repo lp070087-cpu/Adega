@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Delivery Platform — Super Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --orange:#F15A24;--orange-dark:#D44914;--orange-light:#FFF3EE;--orange-glow:rgba(241,90,36,.25);
+  --black:#0D0D0D;--gray-900:#1A1A1A;--gray-800:#2A2A2A;--gray-700:#444;--gray-600:#555;--gray-500:#777;--gray-400:#999;--gray-300:#C5C5C5;--gray-200:#E5E5E5;--gray-100:#F5F5F5;--gray-50:#FAFAFA;
+  --white:#fff;--green:#10B981;--green-bg:#ECFDF5;--red:#EF4444;--red-bg:#FEF2F2;--blue:#3B82F6;--blue-bg:#EFF6FF;--yellow:#F59E0B;--yellow-bg:#FFFBEB;--purple:#8B5CF6;--purple-bg:#F5F3FF;
+  --radius-sm:8px;--radius:14px;--radius-lg:20px;--radius-xl:26px;
+  --shadow-xs:0 1px 2px rgba(0,0,0,.04);--shadow-sm:0 2px 8px rgba(0,0,0,.06);--shadow-md:0 8px 24px rgba(0,0,0,.08);--shadow-lg:0 16px 40px rgba(0,0,0,.12);
+  --transition:.3s cubic-bezier(.25,.1,.25,1);--fast:.2s cubic-bezier(.25,.1,.25,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{font-family:'Poppins',system-ui,sans-serif;color:var(--gray-900);background:var(--gray-50);line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh}
+button{cursor:pointer;border:none;font-family:inherit}input,select,textarea{font-family:inherit}a{text-decoration:none;color:inherit}
+
+.login-overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.85);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:20px;transition:all var(--transition)}
+.login-overlay.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.login-box{background:var(--white);border-radius:var(--radius-xl);padding:40px;width:100%;max-width:420px;box-shadow:var(--shadow-lg);text-align:center}
+.login-title{font-size:1.3rem;font-weight:800;letter-spacing:-.02em}
+.login-sub{font-size:.82rem;color:var(--gray-500);margin-bottom:24px}
+.login-field{text-align:left;margin-bottom:14px}
+.login-field label{font-size:.74rem;font-weight:600;color:var(--gray-600);display:block;margin-bottom:5px}
+.login-field input{width:100%;padding:12px 14px;border-radius:10px;border:2px solid var(--gray-200);font-size:.92rem;outline:none;background:var(--gray-50)}
+.login-field input:focus{border-color:var(--orange);background:#fff;box-shadow:0 0 0 3px var(--orange-glow)}
+.login-btn{width:100%;padding:14px;border-radius:50px;background:var(--black);color:#fff;font-weight:700;font-size:.95rem;transition:all var(--transition)}
+.login-btn:hover{background:var(--orange)}
+.login-hint{font-size:.7rem;color:var(--gray-400);margin-top:14px}
+
+.layout{display:flex;min-height:100vh}
+.side{width:250px;background:var(--black);color:#fff;position:fixed;top:0;bottom:0;left:0;display:flex;flex-direction:column;z-index:100}
+.side-head{padding:22px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.1)}
+.side-logo{width:38px;height:38px;border-radius:10px;background:var(--orange);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:900}
+.side-brand{font-weight:800;font-size:.98rem}
+.side-brand small{display:block;font-size:.6rem;color:rgba(255,255,255,.5);font-weight:600}
+.side-nav{flex:1;padding:14px 12px;overflow-y:auto}
+.side-link{display:flex;gap:11px;align-items:center;padding:11px 13px;border-radius:10px;color:rgba(255,255,255,.75);font-size:.85rem;cursor:pointer;transition:all var(--fast);font-weight:500}
+.side-link:hover{background:rgba(255,255,255,.08);color:#fff}
+.side-link.active{background:var(--orange);color:#fff;font-weight:600}
+.side-link .ic{width:20px;text-align:center}
+.side-link .b{margin-left:auto;background:rgba(255,255,255,.2);font-size:.64rem;padding:0 8px;border-radius:50px;min-width:20px;text-align:center}
+.side-link.active .b{background:rgba(255,255,255,.3)}
+.side-foot{padding:14px;border-top:1px solid rgba(255,255,255,.1);font-size:.72rem;color:rgba(255,255,255,.5)}
+.side-foot button{background:none;color:rgba(255,255,255,.7);font-size:.76rem;padding:6px 0;display:flex;gap:8px;align-items:center}
+.side-foot button:hover{color:#fff}
+.main{flex:1;margin-left:250px}
+.topbar{background:#fff;border-bottom:1px solid var(--gray-200);padding:14px 26px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:50;gap:12px}
+.topbar .tt{font-size:1.05rem;font-weight:800}
+.topbar .ts{font-size:.68rem;color:var(--gray-400)}
+.content{padding:24px 28px}
+.page{display:none}
+.page.active{display:block}
+.page-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+.page-head h2{font-size:1.25rem;font-weight:800;letter-spacing:-.02em}
+.page-head p{font-size:.78rem;color:var(--gray-500)}
+.btn{padding:10px 18px;border-radius:50px;font-size:.82rem;font-weight:600;transition:all var(--fast)}
+.btn-primary{background:var(--orange);color:#fff}
+.btn-primary:hover{background:var(--orange-dark)}
+.btn-dark{background:var(--black);color:#fff}
+.btn-ghost{background:var(--gray-100);color:var(--gray-600)}
+.btn-green{background:var(--green);color:#fff}
+.btn-red{background:var(--red-bg);color:var(--red)}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.stat{background:#fff;border:1px solid var(--gray-100);border-radius:var(--radius-lg);padding:18px}
+.stat .sv{font-size:1.45rem;font-weight:800;line-height:1}
+.stat .sl{font-size:.72rem;color:var(--gray-500);margin-top:5px}
+.stat .ic{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;margin-bottom:10px}
+.card{background:#fff;border:1px solid var(--gray-100);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:20px}
+.card-h{display:flex;justify-content:space-between;align-items:center;padding:15px 20px;border-bottom:1px solid var(--gray-100)}
+.card-h .t{font-weight:700;font-size:.92rem}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{text-align:left;padding:10px 18px;font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;color:var(--gray-400);background:var(--gray-50);font-weight:700;white-space:nowrap}
+td{padding:12px 18px;border-top:1px solid var(--gray-100);color:var(--gray-700)}
+tr:hover td{background:var(--gray-50)}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:.64rem;font-weight:700;padding:3px 10px;border-radius:50px;white-space:nowrap}
+.b-green{background:var(--green-bg);color:var(--green)}
+.b-orange{background:var(--orange-light);color:var(--orange)}
+.b-blue{background:var(--blue-bg);color:var(--blue)}
+.b-gray{background:var(--gray-100);color:var(--gray-500)}
+.b-red{background:var(--red-bg);color:var(--red)}
+.b-yellow{background:var(--yellow-bg);color:var(--yellow)}
+.b-purple{background:var(--purple-bg);color:var(--purple)}
+.tenant-avatar{width:34px;height:34px;border-radius:9px;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.64rem;flex-shrink:0}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.plan-card{border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:22px;background:#fff;position:relative}
+.plan-card.pop{border:2px solid var(--orange);box-shadow:var(--shadow-md)}
+.plan-card .pop-tag{position:absolute;top:-10px;right:18px;background:var(--orange);color:#fff;font-size:.62rem;font-weight:800;padding:3px 12px;border-radius:50px}
+.plan-name{font-weight:800;font-size:1.1rem}
+.plan-price{font-size:1.9rem;font-weight:900;letter-spacing:-.03em;margin:8px 0}
+.plan-price span{font-size:.8rem;font-weight:500;color:var(--gray-400)}
+.plan-feat{list-style:none;font-size:.8rem;color:var(--gray-600);margin-bottom:16px}
+.plan-feat li{padding:5px 0;display:flex;gap:8px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:.74rem;font-weight:600;color:var(--gray-600);margin-bottom:5px}
+.field input,.field select{width:100%;padding:11px 13px;border-radius:10px;border:2px solid var(--gray-200);font-size:.88rem;outline:none;background:var(--gray-50)}
+.field input:focus,.field select:focus{border-color:var(--orange);background:#fff}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:all var(--transition);padding:20px}
+.modal-overlay.open{opacity:1;visibility:visible}
+.modal{background:#fff;border-radius:var(--radius-xl);max-width:520px;width:100%;padding:26px;max-height:90vh;overflow-y:auto}
+.modal-title{font-weight:800;font-size:1.05rem;margin-bottom:16px}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.toast-wrap{position:fixed;bottom:24px;right:24px;z-index:900;display:flex;flex-direction:column;gap:10px}
+.toast{background:var(--black);color:#fff;padding:13px 18px;border-radius:12px;font-size:.82rem;box-shadow:var(--shadow-md);display:flex;gap:10px;align-items:center;animation:up .35s cubic-bezier(.22,.61,.36,1)}
+.toast.green{background:var(--green)}.toast.orange{background:var(--orange)}
+@keyframes up{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+@media (max-width:1100px){.stats-row{grid-template-columns:repeat(2,1fr)}.grid-2{grid-template-columns:1fr}}
+@media (max-width:760px){.side{transform:translateX(-100%);width:250px}.side.open{transform:translateX(0)}.main{margin-left:0}.menu-toggle{display:block}}
+.menu-toggle{display:none;position:fixed;top:14px;left:14px;z-index:60;width:40px;height:40px;border-radius:50%;background:var(--black);color:#fff;font-size:1rem;cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-overlay" id="loginOverlay">
+  <div class="login-box">
+    <div style="font-size:1.8rem;margin-bottom:8px">🛡️</div>
+    <div class="login-title">Super Admin</div>
+    <div class="login-sub">Delivery Platform — Controle da plataforma</div>
+    <div class="login-field"><label>E-mail</label><input id="saEmail" value="admin@deliveryplatform.com.br" autocomplete="off"></div>
+    <div class="login-field"><label>Senha</label><input type="password" id="saPass" value="sa-admin-2026" autocomplete="off"></div>
+    <div class="login-error" style="color:var(--red);font-size:.78rem;margin-bottom:8px;display:none" id="saError">Credenciais inválidas.</div>
+    <button class="login-btn" id="saBtn">Entrar na plataforma</button>
+    <div class="login-hint">Acesso exclusivo do dono da plataforma.<br>Senha demo: sa-admin-2026</div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout hidden" id="saLayout">
+  <button class="menu-toggle" id="menuToggle">☰</button>
+  <aside class="side" id="saSide">
+    <div class="side-head"><div class="side-logo">DP</div><div><div class="side-brand">Delivery Platform<small>Super Admin</small></div></div></div>
+    <nav class="side-nav">
+      <div class="side-link active" data-tab="visao"><span class="ic">📈</span> Visão geral</div>
+      <div class="side-link" data-tab="tenants"><span class="ic">🏢</span> Estabelecimentos <span class="b" id="navTenants">0</span></div>
+      <div class="side-link" data-tab="planos"><span class="ic">💳</span> Planos</div>
+      <div class="side-link" data-tab="usuarios"><span class="ic">👥</span> Usuários</div>
+      <div class="side-link" data-tab="logs"><span class="ic">📜</span> Logs da plataforma</div>
+    </nav>
+    <div class="side-foot">
+      <div style="opacity:.7">v0.1.0 • demo multi-tenant</div>
+      <button onclick="sairSa()">⏻ Sair do super admin</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div><div class="tt" id="saPageTitle">Visão geral</div><div class="ts">Delivery Platform — dono da plataforma</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="badge b-green">● Sistema operante</span>
+        <button class="btn btn-ghost" onclick="recarregarTudo()">↻ Recarregar</button>
+      </div>
+    </div>
+    <div class="content">
+
+      <!-- VISÃO GERAL -->
+      <div class="page active" id="page-visao">
+        <div class="page-head"><div><h2>Visão geral da plataforma</h2><p>Resumo de todos os estabelecimentos.</p></div></div>
+        <div class="stats-row" id="saStats"></div>
+        <div class="card"><div class="card-h"><div class="t">🏢 Estabelecimentos ativos</div><button class="btn btn-primary" style="padding:7px 14px;font-size:.74rem" onclick="goTab('tenants')">Gerenciar</button></div><div class="table-wrap"><table><thead><tr><th>Empresa</th><th>Plano</th><th>Status</th><th>Pedidos hoje</th><th>MRR (R$)</th></tr></thead><tbody id="saTenantTable"></tbody></table></div></div>
+        <div class="grid-2">
+          <div class="card"><div class="card-h"><div class="t">🛒 Origem dos pedidos (todas)</div></div><div id="saOrigins" style="padding:18px 20px"></div></div>
+          <div class="card"><div class="card-h"><div class="t">📅 Novos pedidos recentes</div></div><div id="saRecentes" style="padding:8px 20px"></div></div>
+        </div>
+      </div>
+
+      <!-- TENANTS -->
+      <div class="page" id="page-tenants">
+        <div class="page-head"><div><h2>Estabelecimentos</h2><p>Cada estabelecimento é um tenant com dados isolados.</p></div><button class="btn btn-primary" onclick="abrirNovoTenant()">+ Novo tenant</button></div>
+        <div class="card"><div class="table-wrap"><table><thead><tr><th>Tenant</th><th>Categoria</th><th>Plano</th><th>Status</th><th>Pedidos</th><th>Fat. hoje</th><th>Ações</th></tr></thead><tbody id="tenantBody"></tbody></table></div></div>
+      </div>
+
+      <!-- PLANOS -->
+      <div class="page" id="page-planos">
+        <div class="page-head"><div><h2>Planos SaaS</h2><p>Assinaturas oferecidas aos estabelecimentos.</p></div></div>
+        <div class="grid-2" style="margin-bottom:20px">
+          <div class="plan-card"><div class="plan-name">🥉 Starter</div><div class="plan-price">R$ 97<span>/mês</span></div><ul class="plan-feat"><li>✓ 1 operador</li><li>✓ Pedidos do site próprio</li><li>✓ Central de Pedidos</li><li>✓ 1 marketplace</li><li>✓ Suporte por e-mail</li></ul><button class="btn btn-ghost" onclick="editarPlano('starter')">Editar</button></div>
+          <div class="plan-card"><div class="plan-name">🥈 Profissional</div><div class="plan-price">R$ 197<span>/mês</span></div><ul class="plan-feat"><li>✓ 5 operadores</li><li>✓ Todos os marketplaces</li><li>✓ App do entregador + GPS</li><li>✓ Relatórios avançados</li><li>✓ Suporte prioritário</li></ul><button class="btn btn-ghost" onclick="editarPlano('prof')">Editar</button></div>
+          <div class="plan-card pop"><span class="pop-tag">Mais escolhido</span><div class="plan-name">🥇 Premium</div><div class="plan-price">R$ 497<span>/mês</span></div><ul class="plan-feat"><li>✓ Operadores ilimitados</li><li>✓ Integrações completas</li><li>✓ CRM + automações</li><li>✓ API & webhooks</li><li>✓ Gerente de conta</li></ul><button class="btn btn-primary" onclick="editarPlano('premium')">Editar</button></div>
+          <div class="plan-card"><div class="plan-name">🏷️ Personalizado</div><div class="plan-price" style="font-size:1.2rem;padding:18px 0">Sob consulta</div><ul class="plan-feat"><li>✓ Rede de lojas</li><li>✓ Onboarding dedicado</li><li>✓ SLA</li></ul><button class="btn btn-ghost" onclick="editarPlano('custom')">Editar</button></div>
+        </div>
+        <div class="card"><div class="card-h"><div class="t">💳 Assinaturas ativas</div></div><div class="table-wrap"><table><thead><tr><th>Tenant</th><th>Plano</th><th>Ciclo</th><th>Status pagamento</th><th>Próx. cobrança</th></tr></thead><tbody id="subsBody"></tbody></table></div></div>
+      </div>
+
+      <!-- USUÁRIOS -->
+      <div class="page" id="page-usuarios">
+        <div class="page-head"><div><h2>Usuários da plataforma</h2><p>Contas por perfil (Super Admin, Admin de estabelecimento, operadores, entregadores).</p></div></div>
+        <div class="card"><div class="table-wrap"><table><thead><tr><th>Usuário</th><th>Tenant</th><th>Perfil</th><th>Criado</th><th>Status</th></tr></thead><tbody id="userBody"></tbody></table></div></div>
+      </div>
+
+      <!-- LOGS -->
+      <div class="page" id="page-logs">
+        <div class="page-head"><div><h2>Logs da plataforma</h2><p>Eventos de integração e operação (sem credenciais).</p></div><button class="btn btn-ghost" onclick="simularLog()">+ Simular evento</button></div>
+        <div class="card"><div class="table-wrap"><table><thead><tr><th>Hora</th><th>Tipo</th><th>Tenant</th><th>Evento</th><th>Detalhe</th></tr></thead><tbody id="logBody"></tbody></table></div></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- MODAL NOVO TENANT -->
+<div class="modal-overlay" id="modalTenant">
+  <div class="modal">
+    <div class="modal-title">➕ Novo estabelecimento (tenant)</div>
+    <div class="field"><label>Nome fantasia</label><input id="ntNome"></div>
+    <div class="field"><label>Categoria</label><input id="ntCat" placeholder="Ex: Restaurante"></div>
+    <div class="row-2">
+      <div class="field"><label>Plano inicial</label><select id="ntPlano"><option>Starter</option><option>Profissional</option><option>Premium</option></select></div>
+      <div class="field"><label>Cor da marca</label><input type="color" id="ntCor" value="#F15A24" style="height:44px;padding:4px"></div>
+    </div>
+    <div class="modal-actions"><button class="btn btn-ghost" onclick="fecharModal('modalTenant')">Cancelar</button><button class="btn btn-primary" onclick="criarTenant()">Criar tenant</button></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   DELIVERY PLATFORM — SUPER ADMIN (front estático demo)
+   Gerencia TENANTS_CATALOG (compartilhado) e dados por tenant.
+   Em produção: tudo isto vira rotas de API protegidas (Admin).
+   ════════════════════════════════════════════════════════ */
+function storeGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function storeSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function storeRemove(k){try{localStorage.removeItem(k)}catch(e){}}
+
+const PLANS={starter:{nome:'Starter',preco:97},prof:{nome:'Profissional',preco:197},premium:{nome:'Premium',preco:497}};
+const SA_EMAIL='admin@deliveryplatform.com.br', SA_PASS='sa-admin-2026';
+
+// tenants: lista persistida sob a chave da PLATAFORMA (dp_sa_tenants)
+function getSaTenants(){
+  const s=storeGet('dp_sa_tenants');
+  const def=[{id:'adega1998',nome:'Adega 1998',categoria:'Adega / Depósito de Bebidas',cor:'#F15A24',plano:'Profissional',status:'ativo',criadoEm:'2026-08-01',logo:'A98'},
+    {id:'burger-ze',nome:'Burger do Zé',categoria:'Hamburgueria',cor:'#E11D48',plano:'Starter',status:'ativo',criadoEm:'2026-08-15',logo:'BZ'},
+    {id:'pizza-prime',nome:'Pizza Prime',categoria:'Pizzaria',cor:'#7C3AED',plano:'Premium',status:'ativo',criadoEm:'2026-08-22',logo:'PP'},
+    {id:'acai-mania',nome:'Açaí Mania',categoria:'Açaiteria',cor:'#7C3AED',plano:'Starter',status:'trial',criadoEm:'2026-09-01',logo:'AM'}];
+  if(s){try{const p=JSON.parse(s);if(Array.isArray(p)&&p.length)return p}catch(e){}}
+  return def;
+}
+function setSaTenants(t){storeSet('dp_sa_tenants',JSON.stringify(t))}
+function getTenant(id){return getSaTenants().find(t=>t.id===id)}
+function cadastroKey(id){return 'dp_'+id+'_cadastro'}
+
+// cadastros guardam config da empresa (estrutura) — sem cruzar tenants
+function getCadastro(tenantId){
+  const s=storeGet(cadastroKey(tenantId));
+  if(s){try{return JSON.parse(s)}catch(e){}}
+  return null;
+}
+function getOrdersTenant(tenantId){
+  const s=storeGet('dp_'+tenantId+'_orders');
+  if(s){try{return JSON.parse(s)}catch(e){}}
+  return [];
+}
+function ehHoje(iso){const d=new Date(iso),n=new Date();return d.getDate()===n.getDate()&&d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear()}
+function fmt(v){return 'R$ '+Number(v||0).toFixed(2).replace('.',',')}
+
+/* login */
+function doLoginSa(){
+  const e=document.getElementById('saEmail').value.trim();
+  const p=document.getElementById('saPass').value;
+  if(e===SA_EMAIL&&p===SA_PASS){
+    storeSet('dp_sa_logged','1');
+    document.getElementById('saError').style.display='none';
+    entrarSa();
+  }else{
+    document.getElementById('saError').style.display='block';
+  }
+}
+function entrarSa(){
+  document.getElementById('loginOverlay').classList.add('hidden');
+  document.getElementById('saLayout').classList.remove('hidden');
+  recarregarTudo();
+}
+function sairSa(){storeRemove('dp_sa_logged');location.reload()}
+
+/* navegação */
+function goTab(tab){
+  document.querySelectorAll('.side-link').forEach(l=>l.classList.toggle('active',l.dataset.tab===tab));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+tab).classList.add('active');
+  const names={visao:'Visão geral',tenants:'Estabelecimentos',planos:'Planos',usuarios:'Usuários',logs:'Logs da plataforma'};
+  document.getElementById('saPageTitle').textContent=names[tab]||'';
+  if(window.innerWidth<=760)document.getElementById('saSide').classList.remove('open');
+  renderTudo();
+}
+document.querySelectorAll('.side-link').forEach(l=>l.addEventListener('click',()=>goTab(l.dataset.tab)));
+document.getElementById('menuToggle').addEventListener('click',()=>document.getElementById('saSide').classList.toggle('open'));
+
+/* visão geral */
+function resumoTenant(id){
+  const orders=getOrdersTenant(id);
+  const hoje=orders.filter(o=>ehHoje(o.createdAt)&&o.status!=='cancelled');
+  const fat=hoje.reduce((s,o)=>s+o.total,0);
+  return {pedidos:hoje.length,fat};
+}
+function renderVisao(){
+  const ts=getSaTenants();
+  const ativos=ts.filter(t=>t.status==='ativo'||t.status==='trial').length;
+  let totalPedidos=0,totalFat=0,mrr=0;
+  ts.forEach(t=>{const r=resumoTenant(t.id);totalPedidos+=r.pedidos;totalFat+=r.fat;mrr+=(PLANS[t.plano&&t.plano.toLowerCase()]?PLANS[t.plano.toLowerCase()].preco:0)});
+  document.getElementById('navTenants').textContent=ts.length;
+  const stats=[
+    {ic:'orange',i:'🏢',v:ativos+'/'+ts.length,l:'Tenants ativos'},
+    {ic:'green',i:'💰',v:fmt(totalFat),l:'Faturamento hoje (todos)'},
+    {ic:'blue',i:'📦',v:totalPedidos,l:'Pedidos hoje'},
+    {ic:'purple',i:'📈',v:fmt(mrr),l:'MRR atual'}
+  ];
+  document.getElementById('saStats').innerHTML=stats.map(s=>'<div class="stat"><div class="ic" style="background:var(--gray-50)">'+s.i+'</div><div class="sv">'+s.v+'</div><div class="sl">'+s.l+'</div></div>').join('');
+  // tabela
+  document.getElementById('saTenantTable').innerHTML=ts.map(t=>{
+    const r=resumoTenant(t.id);
+    const plano=PLANS[t.plano&&t.plano.toLowerCase()]?PLANS[t.plano.toLowerCase()].preco:0;
+    const stCls=t.status==='ativo'?'b-green':t.status==='trial'?'b-yellow':'b-gray';
+    return '<tr><td><div style="display:flex;gap:10px;align-items:center"><div class="tenant-avatar" style="background:'+t.cor+'">'+t.logo+'</div><div><strong>'+t.nome+'</strong><div style="font-size:.68rem;color:var(--gray-400)">'+t.categoria+'</div></div></div></td><td><span class="badge '+(t.plano==='Premium'?'b-orange':t.plano==='Profissional'?'b-blue':'b-gray')+'">'+t.plano+'</span></td><td><span class="badge '+stCls+'">'+t.status+'</span></td><td>'+r.pedidos+'</td><td>'+fmt(plano)+'</td></tr>';
+  }).join('');
+  // origens
+  const orig={};getSaTenants().forEach(t=>getOrdersTenant(t.id).filter(o=>ehHoje(o.createdAt)&&o.status!=='cancelled').forEach(o=>{orig[o.source]=(orig[o.source]||0)+1}));
+  const total=Object.values(orig).reduce((a,b)=>a+b,0)||1;
+  document.getElementById('saOrigins').innerHTML=Object.keys(orig).map(k=>{
+    const pct=Math.round(orig[k]/total*100);
+    const cores={site:'var(--orange)',ifood:'#EA1D2C','99food':'#ff8c00',zedelivery:'#ca8a04',balcao:'#3F51B5',whatsapp:'#128C7E'};
+    const lbl={site:'Site',ifood:'iFood','99food':'99Food',zedelivery:'Zé Delivery',balcao:'Balcão',whatsapp:'WhatsApp'}[k]||k;
+    return '<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:.76rem"><span>'+lbl+'</span><strong>'+orig[k]+' pedidos</strong></div><div style="height:8px;background:var(--gray-100);border-radius:50px;overflow:hidden;margin-top:4px"><div style="height:100%;width:'+pct+'%;background:'+(cores[k]||'var(--gray-400)')+';border-radius:50px"></div></div></div>';
+  }).join('')||'<div style="font-size:.8rem;color:var(--gray-400)">Sem pedidos hoje.</div>';
+  // recentes
+  let recents=[];getSaTenants().forEach(t=>getOrdersTenant(t.id).filter(o=>o.status==='new').forEach(o=>recents.push({...o,tenantNome:t.nome,tenantCor:t.cor,tenantLogo:t.logo})));
+  recents.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  document.getElementById('saRecentes').innerHTML=recents.slice(0,5).map(o=>'<div style="display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray-100)"><div class="tenant-avatar" style="background:'+o.tenantCor+'">'+o.tenantLogo+'</div><div style="flex:1;min-width:0"><div style="font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">#'+o.seq+' — '+o.customer+'</div><div style="font-size:.66rem;color:var(--gray-400)">'+o.tenantNome+'</div></div><span style="font-weight:700;font-size:.8rem">'+fmt(o.total)+'</span></div>').join('')||'<div style="font-size:.8rem;color:var(--gray-400);padding:12px 0">Nenhum pedido novo agora.</div>';
+}
+
+/* tenants */
+function renderTenants(){
+  const ts=getSaTenants();
+  document.getElementById('tenantBody').innerHTML=ts.map(t=>{
+    const r=resumoTenant(t.id);
+    const stCls=t.status==='ativo'?'b-green':t.status==='trial'?'b-yellow':'b-gray';
+    return '<tr><td><div style="display:flex;gap:10px;align-items:center"><div class="tenant-avatar" style="background:'+t.cor+'">'+t.logo+'</div><div><strong>'+t.nome+'</strong><div style="font-size:.68rem;color:var(--gray-400)">'+t.id+'</div></div></div></td><td>'+t.categoria+'</td><td><span class="badge '+(t.plano==='Premium'?'b-orange':t.plano==='Profissional'?'b-blue':'b-gray')+'">'+t.plano+'</span></td><td><span class="badge '+stCls+'">'+t.status+'</span></td><td>'+r.pedidos+'</td><td>'+fmt(r.fat)+'</td><td><button class="btn btn-ghost" style="padding:6px 12px;font-size:.72rem" onclick="verTenant(\''+t.id+'\')">Ver</button> <button class="btn btn-red" style="padding:6px 12px;font-size:.72rem" onclick="alternarStatusTenant(\''+t.id+'\')">'+(t.status==='ativo'?'Suspender':'Ativar')+'</button></td></tr>';
+  }).join('');
+}
+function verTenant(id){toast('Tenant: '+id,'Abrir a Central deste estabelecimento (login demo)','');setTimeout(()=>{try{location.href='plataforma.html'}catch(e){}},600)}
+function alternarStatusTenant(id){
+  const ts=getSaTenants();const t=ts.find(x=>x.id===id);if(!t)return;
+  t.status=t.status==='ativo'?'suspenso':'ativo';setSaTenants(ts);
+  renderTudo();toast(t.status==='ativo'?'✅ Tenant ativado':'⏸ Tenant suspenso',t.nome,t.status==='ativo'?'green':'orange');
+}
+function abrirNovoTenant(){document.getElementById('modalTenant').classList.add('open')}
+function criarTenant(){
+  const nome=document.getElementById('ntNome').value.trim();if(!nome)return toast('Informe o nome','','red');
+  const cat=document.getElementById('ntCat').value.trim()||'Estabelecimento';
+  const id=nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,24)||('tenant-'+Date.now());
+  if(getTenant(id))return toast('Já existe tenant com esse id',id,'red');
+  const ts=getSaTenants();
+  const logo=nome.split(' ').filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+  ts.push({id,nome,categoria:cat,cor:document.getElementById('ntCor').value,plano:document.getElementById('ntPlano').value,status:'trial',criadoEm:new Date().toISOString().slice(0,10),logo});
+  setSaTenants(ts);
+  fecharModal('modalTenant');renderTudo();
+  toast('✅ Tenant criado em trial',nome+' • '+planoLabel(),'green');
+}
+function planoLabel(){return document.getElementById('ntPlano').value}
+
+/* planos */
+function renderPlanos(){
+  const subs=getSaTenants();
+  const hoje=new Date();
+  const cob=Array.isArray(subs)?subs.map(t=>{
+    const dias=15+Math.floor(Math.random()*15);
+    const d=new Date(hoje);d.setDate(d.getDate()+dias);
+    const pago=t.status!=='suspenso';
+    return '<tr><td><div style="display:flex;gap:10px;align-items:center"><div class="tenant-avatar" style="background:'+t.cor+'">'+t.logo+'</div><strong>'+t.nome+'</strong></div></td><td><span class="badge '+(t.plano==='Premium'?'b-orange':t.plano==='Profissional'?'b-blue':'b-gray')+'">'+t.plano+'</span></td><td>Mensal</td><td><span class="badge '+(pago?'b-green':'b-red')+'">'+(pago?'Pago':'Pendente')+'</span></td><td>'+d.toLocaleDateString('pt-BR')+'</td></tr>';
+  }).join(''):'';
+  document.getElementById('subsBody').innerHTML=cob||'<tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:24px">Sem assinaturas.</td></tr>';
+}
+function editarPlano(p){
+  const map={starter:['Starter','97'],prof:['Profissional','197'],premium:['Premium','497'],custom:['Personalizado','sob consulta']};
+  const info=map[p]||[];
+  toast('Plano '+info[0],'Preço: '+info[1]+' — edição chega com o backend','');
+}
+
+/* usuários */
+function renderUsuarios(){
+  const ts=getSaTenants();
+  let rows='';
+  ts.forEach(t=>{
+    const plano=t.plano;
+    rows+='<tr><td><div style="display:flex;gap:10px;align-items:center"><div class="tenant-avatar" style="background:'+t.cor+'">'+t.logo+'</div><div><strong>'+t.nome+'</strong><div style="font-size:.66rem;color:var(--gray-400)">Admin do estabelecimento</div></div></div></td><td>'+t.nome+'</td><td><span class="badge b-purple">Admin Estabelecimento</span></td><td>'+t.criadoEm+'</td><td><span class="badge b-green">Ativo</span></td></tr>';
+    if(plano==='Premium'||plano==='Profissional'){
+      rows+='<tr><td><div style="display:flex;gap:10px;align-items:center"><div class="tenant-avatar" style="background:'+t.cor+';opacity:.6">'+t.logo+'</div><div><strong>Operadores</strong><div style="font-size:.66rem;color:var(--gray-400)">atendente, cozinha, expedição</div></div></div></td><td>'+t.nome+'</td><td><span class="badge b-blue">Operador</span></td><td>'+t.criadoEm+'</td><td><span class="badge b-green">Ativo</span></td></tr>';
+    }
+  });
+  rows+='<tr><td><div style="display:flex;gap:10px;align-items:center"><div class="tenant-avatar" style="background:var(--black);color:#fff">🛡️</div><div><strong>Dono da plataforma</strong><div style="font-size:.66rem;color:var(--gray-400)">super admin</div></div></div></td><td>—</td><td><span class="badge b-orange">Super Admin</span></td><td>2026-08-01</td><td><span class="badge b-green">Ativo</span></td></tr>';
+  document.getElementById('userBody').innerHTML=rows;
+}
+
+/* logs */
+function renderLogs(){
+  const logs=JSON.parse(storeGet('dp_sa_logs')||'[]');
+  document.getElementById('logBody').innerHTML=logs.slice(0,30).map(l=>'<tr><td>'+l.hora+'</td><td><span class="badge '+(l.tipo==='erro'?'b-red':l.tipo==='integracao'?'b-blue':'b-gray')+'">'+l.tipo+'</span></td><td>'+l.tenant+'</td><td>'+l.evento+'</td><td style="font-size:.74rem;color:var(--gray-500)">'+l.detalhe+'</td></tr>').join('')||'<tr><td colspan="5" style="text-align:center;color:var(--gray-400);padding:24px">Sem eventos registrados.</td></tr>';
+}
+function simularLog(){
+  const logs=JSON.parse(storeGet('dp_sa_logs')||'[]');
+  const evs=[{tipo:'integracao',evento:'Webhook recebido',det:'order.created (evento processado)'},
+    {tipo:'integracao',evento:'Pedido sincronizado',det:'mapping ok — sem duplicidade'},
+    {tipo:'erro',evento:'API marketplace offline',det:'timeout 5s — retry agendado'},
+    {tipo:'info',evento:'Novo tenant em trial',det:'onboarding iniciado'}];
+  const e=evs[Math.floor(Math.random()*evs.length)];
+  logs.unshift({hora:new Date().toLocaleTimeString('pt-BR'),tipo:e.tipo,tenant:getSaTenants()[Math.floor(Math.random()*getSaTenants().length)].nome,evento:e.evento,detalhe:e.det});
+  storeSet('dp_sa_logs',JSON.stringify(logs));
+  renderLogs();toast('Log simulado',e.evento,'');
+}
+
+/* utilitários */
+function renderTudo(){renderVisao();renderTenants();renderPlanos();renderUsuarios();renderLogs()}
+function recarregarTudo(){renderTudo();toast('↻ Recarregado','dados sincronizados do storage local','')}
+function fecharModal(id){document.getElementById(id).classList.remove('open')}
+function toast(t,sub,cls){
+  const w=document.getElementById('toastWrap');
+  const d=document.createElement('div');d.className='toast '+(cls||'');
+  d.innerHTML='<span>'+t+'</span>'+(sub?'<span style="opacity:.75;font-size:.72rem">'+sub+'</span>':'');
+  w.appendChild(d);setTimeout(()=>{d.style.transition='all .4s';d.style.opacity='0';d.style.transform='translateY(20px)';setTimeout(()=>d.remove(),400)},3400);
+}
+
+/* init */
+(function(){
+  document.getElementById('saBtn').addEventListener('click',doLoginSa);
+  document.getElementById('saPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLoginSa()});
+  if(storeGet('dp_sa_logged')==='1')entrarSa();
+  else document.getElementById('loginOverlay').classList.remove('hidden');
+})();
+</script>
+</body>
+</html>
