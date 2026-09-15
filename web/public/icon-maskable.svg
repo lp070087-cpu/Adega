@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="App do entregador">
+  <!--
+    Maskable: o conteúdo fica dentro da "safe zone" (círculo de 80% do
+    lado). Por isso o fundo ocupa tudo e o desenho é menor que no ícone
+    normal — assim nenhum sistema recorta a moto na borda.
+  -->
+  <rect width="512" height="512" fill="#F15A24"/>
+  <g fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="182" cy="322" r="50"/>
+    <circle cx="340" cy="322" r="50"/>
+    <path d="M182 322h62l46-92h54"/>
+    <path d="M290 230h62l29 62"/>
+  </g>
+</svg>

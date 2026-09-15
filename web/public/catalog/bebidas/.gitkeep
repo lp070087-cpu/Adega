@@ -1,0 +1,21 @@
+# Bebidas
+
+Acervo de bebidas da plataforma. Subpastas previstas:
+
+- `cervejas/`
+- `refrigerantes/`
+- `energeticos/`
+- `aguas/`
+- `sucos/`
+- `drinks-prontos/`
+- `whisky/`
+- `vodka/`
+- `gin/`
+- `vinho/`
+- `espumantes/`
+- `cachaca/`
+- `chopp/`
+
+Cada subpasta precisa de um `.gitkeep` para ser versionada. As imagens
+reais entram depois — ver `public/catalog/README.md` para a convenção de
+nome e o motivo de não haver cópia por segmento.

@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════
+ * TOKENS — portados 1:1 de plataforma.html / site.html / entregador.html
+ * -----------------------------------------------------------------------
+ * Os valores são os mesmos do HTML original de propósito: a migração
+ * para React não é um redesign. Quem já usava o painel precisa reconhecer
+ * as cores, os raios e as sombras.
+ * ═══════════════════════════════════════════════════════════════════════
+ */
+
+:root {
+  --orange: #f15a24;
+  --orange-dark: #d44914;
+  --orange-glow: rgba(241, 90, 36, 0.25);
+  --orange-light: #fff3ee;
+  --orange-soft: #ffede5;
+
+  --black: #0d0d0d;
+  --white: #ffffff;
+
+  --gray-50: #fafafa;
+  --gray-100: #f5f5f5;
+  --gray-200: #e5e5e5;
+  --gray-300: #c5c5c5;
+  --gray-400: #999999;
+  --gray-500: #777777;
+  --gray-600: #555555;
+  --gray-700: #444444;
+
+  --success: #10b981;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --warn: #f59e0b;
+
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.12);
+
+  --transition: 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-fast: 0.14s cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  /* Cor de marca por tenant (loja pública). Sobrescrita inline. */
+  --brand: #f15a24;
+  --brand-dark: #d44914;
+  --brand-light: #fff3ee;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  font-family: Poppins, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background: var(--gray-50);
+  color: var(--black);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* Scrollbar discreta: o painel tem colunas roláveis (kanban). */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 50px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}
+
+/* ── utilitários de componente (mesmas regras do CSS original) ───────── */
+
+.field-input {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--gray-200);
+  font-size: 0.9rem;
+  outline: none;
+  background: var(--gray-50);
+  transition: all var(--transition);
+}
+.field-input:focus {
+  border-color: var(--brand, var(--orange));
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--orange-glow);
+}
+.field-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.field-input[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.field-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  margin-bottom: 6px;
+}
+
+/* Marca do tenant: quadrado com as iniciais. */
+.brand-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 900;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--brand, var(--orange));
+}
+
+/* Colunas do kanban com rolagem própria. */
+.kanban-scroll {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+/*
+ * Traço do gráfico de vendas.
+ *
+ * O painel original "desenhava" a linha com stroke-dasharray. O path só
+ * existe em tempo de execução (o SVG é montado no cliente), então o
+ * dasharray é um valor folgado — maior que qualquer comprimento real de
+ * traço — e a animação corre o offset dessa distância até zero, o que
+ * reproduz o mesmo efeito de desenho do painel antigo.
+ *
+ * As outras animações do painel (fade-in, slide-in-right, pulse-soft)
+ * estão declaradas em tailwind.config.ts e viram utilitários
+ * `animate-*`. Esta aqui fica no CSS porque anima uma propriedade SVG
+ * (stroke-dashoffset), que o Tailwind não gera.
+ */
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 2400;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

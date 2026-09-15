@@ -1,0 +1,1265 @@
+// ═══════════════════════════════════════════════════════════════════════
+// Delivery Platform — schema Prisma (PostgreSQL / Neon)
+// -----------------------------------------------------------------------
+// Regra de ouro do multi-tenant: TODO registro operacional carrega
+// `organizationId`. Nenhuma query pode rodar sem filtro de organização —
+// o helper requireOrg() (src/lib/auth/guards.ts) é a única porta de entrada.
+//
+// Dinheiro: Decimal(10,2). Nunca Float (erro de arredondamento em relatório).
+// Segredo: nunca em texto puro — só em IntegrationCredential.encryptedPayload.
+// ═══════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────
+
+enum OrganizationStatus {
+  TRIAL
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+/// Perfis de acesso. PLATFORM_ADMIN existe no modelo mas ainda NÃO tem
+/// interface (Super Admin visual fica para uma fase posterior).
+enum Role {
+  OWNER
+  ADMIN
+  MANAGER
+  ATTENDANT
+  KITCHEN
+  DISPATCHER
+  DRIVER
+  PLATFORM_ADMIN
+}
+
+enum BusinessType {
+  BEVERAGE
+  BURGER
+  SNACK_BAR
+  PIZZA
+  ACAI
+  RESTAURANT
+  CONVENIENCE
+  BAKERY
+  MARKET
+  DARK_KITCHEN
+}
+
+enum StoreStatus {
+  OPEN
+  CLOSED
+  PAUSED
+}
+
+/// Origem do pedido. OWN_STORE = loja pública do próprio estabelecimento.
+enum OrderSource {
+  OWN_STORE
+  IFOOD
+  FOOD99
+  ZE_DELIVERY
+  WHATSAPP
+  COUNTER
+  MANUAL
+}
+
+enum OrderStatus {
+  NEW
+  CONFIRMED
+  PREPARING
+  READY
+  WAITING_DRIVER
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  PIX
+  CREDIT_CARD
+  DEBIT_CARD
+  ONLINE
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+/// SIMPLE    → preço único
+/// VARIATION → tamanhos/sabores que alteram o preço (ProductVariation)
+/// ADDONS    → adicionais opcionais ou obrigatórios (ProductAddonGroup)
+enum ProductType {
+  SIMPLE
+  VARIATION
+  ADDONS
+}
+
+enum DriverStatus {
+  OFFLINE
+  ONLINE
+  BUSY
+  RETURNING
+}
+
+enum VehicleType {
+  MOTORCYCLE
+  CAR
+  BICYCLE
+  ON_FOOT
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  ARRIVED
+  DELIVERED
+  FAILED
+}
+
+/// proofType: PHOTO | SIGNATURE | CODE | NONE
+enum ProofType {
+  NONE
+  PHOTO
+  SIGNATURE
+  CODE
+}
+
+enum TransactionType {
+  SALE
+  SUPPLY
+  WITHDRAWAL
+  REFUND
+  ADJUSTMENT
+}
+
+enum InventoryMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  SALE
+  CANCELLATION
+}
+
+enum IntegrationProvider {
+  IFOOD
+  FOOD99
+  ZE_DELIVERY
+  GOOGLE_MAPS
+}
+
+enum IntegrationStatus {
+  DISCONNECTED
+  PENDING
+  ACTIVE
+  ERROR
+}
+
+/// received → processando; processed → aplicado; failed → precisa reprocesso.
+enum IntegrationEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  IGNORED
+}
+
+enum NotificationType {
+  ORDER
+  DELIVERY
+  STOCK
+  CASH
+  SYSTEM
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// IDENTIDADE E ACESSO
+// ─────────────────────────────────────────────────────────────────────
+
+/// Um estabelecimento = uma organização = um tenant. Fronteira de
+/// isolamento: nada é lido ou escrito sem atravessar esta chave.
+model Organization {
+  id     String  @id @default(cuid())
+  /// Usado na URL pública: /loja/[slug]. Único e imutável na prática.
+  slug   String  @unique
+  name   String
+  /// Marcador de dado de demonstração (seed). A interface sinaliza.
+  isDemo Boolean @default(false)
+
+  businessType   BusinessType?
+  logoUrl        String?
+  brandColor     String        @default("#F15A24")
+  /// Cores complementares do onboarding. Opcionais de propósito: sem elas
+  /// a vitrine deriva tudo do brandColor, e exigir três cores faria o
+  /// lojista travar num passo que ele não sabe responder.
+  secondaryColor String?
+  accentColor    String?
+  /// Tema da vitrine: LIGHT, DARK ou AUTO. Texto e não enum porque é
+  /// preferência de apresentação — acrescentar um tema não deve exigir
+  /// migração de enum.
+  theme          String        @default("AUTO")
+  description    String?
+
+  phone    String?
+  whatsapp String?
+  email    String?
+  cnpj     String?
+
+  address           String?
+  addressNumber     String?
+  addressComplement String?
+  district          String?
+  city              String?
+  state             String?
+  zipCode           String?
+  latitude          Float?
+  longitude         Float?
+
+  /// Texto livre (ex.: "Seg a Sáb 7h–21h"). Horário estruturado por dia
+  /// fica em settings.openingHours quando o agendamento precisar disso.
+  openingHours String?
+
+  minimumOrder        Decimal @default(0) @db.Decimal(10, 2)
+  deliveryRadius      Float   @default(8)
+  baseDeliveryFee     Decimal @default(0) @db.Decimal(10, 2)
+  extraKmFee          Decimal @default(0) @db.Decimal(10, 2)
+  averageDeliveryTime Int     @default(30)
+
+  /// Modalidades de atendimento. São colunas e não um campo de texto
+  /// porque cada uma muda o que a loja pública oferece: sem retirada não
+  /// aparece a opção de buscar no local, sem entrega não se pede endereço.
+  allowPickup      Boolean @default(true)
+  allowOwnDelivery Boolean @default(true)
+  /// Delivery via marketplace parceiro. Desligado por padrão: nenhuma
+  /// integração ativa existe ainda, e ligar por padrão prometeria o que
+  /// a plataforma não entrega.
+  allowMarketplace Boolean @default(false)
+
+  /// Modo de cálculo do frete. FIXED = taxa base (+ excedente por km);
+  /// BY_NEIGHBORHOOD = taxa por bairro (DeliveryZone); BY_DISTANCE_BAND =
+  /// faixas por distância (settings.deliveryTiers). Texto e não enum para
+  /// seguir `theme`/`deliveryType`: acrescentar um modo não exige migração.
+  deliveryFeeMode String @default("FIXED")
+
+  storeStatus StoreStatus @default(OPEN)
+
+  status   OrganizationStatus @default(TRIAL)
+  /// Configurações diversas (horários por dia, flags de operação, etc.)
+  settings Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users              OrganizationUser[]
+  categories         Category[]
+  products           Product[]
+  customers          Customer[]
+  orders             Order[]
+  drivers            Driver[]
+  deliveries         Delivery[]
+  employees          Employee[]
+  cashRegisters      CashRegister[]
+  inventoryMovements InventoryMovement[]
+  integrations       Integration[]
+  integrationEvents  IntegrationEvent[]
+  notifications      Notification[]
+  subscriptions      Subscription[]
+  banners            StoreBanner[]
+  combos             Combo[]
+  deliveryZones      DeliveryZone[]
+
+  @@index([slug])
+  @@index([status])
+}
+
+/// Conta de login. Um mesmo e-mail pode operar em mais de um
+/// estabelecimento (por isso a relação com Organization é via
+/// OrganizationUser, e não uma FK direta aqui).
+model User {
+  id           String  @id @default(cuid())
+  name         String
+  /// E-mail agora é OPCIONAL: entregador criado com "login por usuário"
+  /// não tem e-mail. Proibido usar e-mail falso — a tela mostra o que
+  /// existe, e um e-mail inventado seria mentira visível ao usuário.
+  email        String? @unique
+  /// Login alternativo do entregador (OPÇÃO B). Único globalmente: é ele
+  /// que resolve o login em /entregador sem e-mail. Normalizado em
+  /// minúsculas no cadastro.
+  username     String? @unique
+  /// bcrypt. NUNCA senha em texto puro.
+  passwordHash String?
+  phone        String?
+  image        String?
+
+  /// Existe para o Auth.js; o vínculo real com o tenant é OrganizationUser.
+  emailVerified DateTime?
+
+  /// Bloqueia login sem apagar histórico.
+  active Boolean @default(true)
+
+  /// Usado no fluxo de primeiro acesso (convite → definir senha).
+  mustChangePassword Boolean @default(false)
+
+  /**
+   * Rascunho do onboarding, para o passo 3.19 ("retomada").
+   * Fica no USER, e não na Organization, por uma razão de ordem: o
+   * onboarding roda ANTES de a loja existir. Guardar o rascunho na
+   * organização exigiria criá-la vazia no primeiro clique — e aí uma
+   * desistência no meio deixaria loja órfã no banco, aparecendo em
+   * listagens e no super admin como se fosse real.
+   * Isto NÃO é dado operacional: é rascunho de formulário. Nenhuma tela
+   * do painel lê daqui depois que a loja existe.
+   */
+  onboardingDraft Json?
+  /// Último passo válido alcançado. 1 = ainda não começou.
+  onboardingStep  Int   @default(1)
+
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  organizations      OrganizationUser[]
+  openedShifts       CashShift[]         @relation("ShiftOpenedBy")
+  closedShifts       CashShift[]         @relation("ShiftClosedBy")
+  inventoryMovements InventoryMovement[]
+  notifications      Notification[]
+  sessions           Session[]
+  accounts           Account[]
+  driverProfile      Driver?
+  employeeProfile    Employee?
+
+  @@index([email])
+}
+
+/// Vínculo usuário ↔ organização. É DAQUI que sai o `role` usado pelo
+/// helper can(). Um usuário pode ser OWNER numa loja e ATTENDANT noutra.
+model OrganizationUser {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String
+  role           Role
+  active         Boolean   @default(true)
+  /// Turno de trabalho, texto livre: "Manhã", "Tarde", "Noite", "Integral".
+  /// Vem da ficha de funcionário do painel antigo. É rótulo de escala, não
+  /// permissão — quem manda no acesso é `role`. Fica aqui, e não em
+  /// Employee, porque esta é a linha que a tela de Equipe lê e edita;
+  /// manter o mesmo dado em duas tabelas só criaria divergência.
+  shift          String?
+  /// Convite pendente de aceite.
+  invitedAt      DateTime?
+  acceptedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, role])
+  @@index([userId])
+}
+
+// ── Tabelas do Auth.js (Prisma Adapter) ───────────────────────────────
+// Usamos strategy JWT, mas o adapter exige estas tabelas para os fluxos
+// de e-mail/verificação. Mantidas para não travar a evolução do login.
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// CATÁLOGO
+// ─────────────────────────────────────────────────────────────────────
+
+model Category {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  emoji          String?
+  position       Int      @default(0)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, position])
+}
+
+/// Produto pertence EXCLUSIVAMENTE à organização que o criou. Os
+/// templates de segmento são COPIADOS no onboarding — nunca compartilhados.
+model Product {
+  id             String  @id @default(cuid())
+  organizationId String
+  categoryId     String?
+
+  name        String
+  slug        String
+  description String?
+  imageUrl    String?
+  emoji       String?
+  sku         String?
+  barcode     String?
+
+  price            Decimal  @db.Decimal(10, 2)
+  /// Preço promocional. Quando preenchido e menor que `price`, é o vigente.
+  promotionalPrice Decimal? @db.Decimal(10, 2)
+  /// Custo para cálculo de margem nos relatórios.
+  cost             Decimal? @db.Decimal(10, 2)
+
+  stock        Int     @default(0)
+  minimumStock Int     @default(0)
+  /// false = não controla estoque (ex.: prato produzido na hora).
+  trackStock   Boolean @default(true)
+
+  active    Boolean @default(true)
+  /// Diferente de `active`: pausa temporária ("acabou o pão") sem despublicar.
+  available Boolean @default(true)
+
+  type     ProductType @default(SIMPLE)
+  position Int         @default(0)
+
+  /// Escolhido pelo lojista para aparecer no Hero da loja pública.
+  featured         Boolean @default(false)
+  /// Ordem dentro do destaque (menor primeiro).
+  featuredPosition Int     @default(0)
+
+  /// De qual produto da BIBLIOTECA GLOBAL este item foi copiado.
+  /// SetNull: apagar o produto global não pode apagar o catálogo de quem
+  /// já o usa — só faz o item perder o vínculo com a origem.
+  globalProductId String?
+
+  /// Imagem própria do estabelecimento. Quando nula, a loja usa
+  /// `globalProduct.defaultImageUrl` (sem duplicar arquivo no disco).
+  /// Se o lojista remover a personalizada, volta para a global sozinho.
+  customImageUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category           Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  globalProduct      GlobalProduct?      @relation(fields: [globalProductId], references: [id], onDelete: SetNull)
+  variations         ProductVariation[]
+  addonGroups        ProductAddonGroup[]
+  orderItems         OrderItem[]
+  inventoryMovements InventoryMovement[]
+  /// Quando este produto É um combo (no máximo um).
+  combo              Combo?
+  /// Quando este produto é COMPONENTE de combos.
+  comboItems         ComboItem[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, active, available])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, featured])
+  @@index([globalProductId])
+}
+
+/// ═══════════════════════════════════════════════════════════════════════
+/// COMBOS (Fase 4.15)
+/// -----------------------------------------------------------------------
+/// Um combo é um PRODUTO vendável — tem preço, imagem e aparece no catálogo
+/// — mas em vez de ser produzido sozinho, ele é composto de outros produtos
+/// da própria loja. Por isso `Combo` é uma extensão de Product (productId
+/// único) e não um modelo paralelo: assim ele herda carrinho, pedido,
+/// destaque, estoque e promoção sem uma linha de código nova em cada um.
+///
+/// REGRA: os itens apontam para Products DA MESMA organização. Não existe
+/// combo com produto de outra loja, e o produto componente NÃO é copiado —
+/// é referenciado. Se o preço do X-Bacon mudar, o combo continua vendendo o
+/// X-Bacon real.
+/// ═══════════════════════════════════════════════════════════════════════
+model Combo {
+  id             String @id @default(cuid())
+  organizationId String
+  /// O Product que o cliente vê e compra. Único: um produto é no máximo um combo.
+  productId      String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  items        ComboItem[]
+
+  @@index([organizationId])
+}
+
+/// Um componente do combo: "1 X-Bacon", "2 Coca-Cola".
+model ComboItem {
+  id        String @id @default(cuid())
+  comboId   String
+  /// Produto componente, sempre da MESMA organização do combo.
+  productId String
+  quantity  Int    @default(1)
+  position  Int    @default(0)
+
+  combo   Combo   @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([comboId, productId])
+  @@index([comboId, position])
+  @@index([productId])
+}
+
+/// Tamanhos/sabores que alteram o preço. Ex.: Pizza P/M/G/Família,
+/// Bebida 350ml/600ml/2L. Guardamos o ajuste (delta), não o preço final,
+/// para que uma mudança no preço-base reflita em todas as variações.
+model ProductVariation {
+  id              String  @id @default(cuid())
+  productId       String
+  name            String
+  priceAdjustment Decimal @default(0) @db.Decimal(10, 2)
+  active          Boolean @default(true)
+  position        Int     @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, position])
+}
+
+model ProductAddonGroup {
+  id            String  @id @default(cuid())
+  productId     String
+  name          String
+  minSelections Int     @default(0)
+  maxSelections Int     @default(1)
+  /// true = o cliente é obrigado a escolher (ex.: ponto da carne).
+  required      Boolean @default(false)
+  position      Int     @default(0)
+
+  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  addons  ProductAddon[]
+
+  @@index([productId, position])
+}
+
+model ProductAddon {
+  id       String  @id @default(cuid())
+  groupId  String
+  name     String
+  price    Decimal @default(0) @db.Decimal(10, 2)
+  active   Boolean @default(true)
+  position Int     @default(0)
+
+  group ProductAddonGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, position])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// BIBLIOTECA GLOBAL DA PLATAFORMA
+// ─────────────────────────────────────────────────────────────────────
+//
+// Diferente de Product (que pertence a UMA organização), os modelos abaixo
+// são da PLATAFORMA e não têm organizationId.
+//
+// Motivo: Coca-Cola 350ml é a mesma coisa numa hamburgueria, numa pizzaria
+// e num mercado. Sem esta camada, cada segmento guardaria a sua cópia da
+// mesma lata e a mesma imagem — e a plataforma ficaria com centenas de
+// arquivos repetidos.
+//
+// Regra: o global é MODELO. Quando a loja escolhe, copiamos para Product.
+// Depois disso o Product é dela: pode renomear, trocar foto, preço e
+// excluir sem tocar no global.
+
+/// Categoria da biblioteca global. Auto-relacionada para permitir a
+/// hierarquia de dois níveis do acervo:
+///   bebidas (raiz) → cervejas, refrigerantes, destilados...
+/// O caminho da imagem espelha isso: catalog/bebidas/cervejas/
+model GlobalCategory {
+  id        String  @id @default(cuid())
+  name      String
+  slug      String  @unique
+  /// Nível 1 = raiz (bebidas, alimentos, conveniencia), 2 = folha.
+  parentId  String?
+  /// Caminho relativo dentro de public/catalog — ex.: "bebidas/cervejas".
+  imagePath String?
+  icon      String?
+  position  Int     @default(0)
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   GlobalCategory?  @relation("GlobalCategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children GlobalCategory[] @relation("GlobalCategoryTree")
+  products GlobalProduct[]
+
+  @@index([parentId, position])
+  @@index([slug])
+}
+
+/// Produto da biblioteca da plataforma. NÃO pertence a nenhuma empresa.
+model GlobalProduct {
+  id               String  @id @default(cuid())
+  globalCategoryId String?
+
+  name        String
+  /// Único: é o que permite importação idempotente pelo catálogo-modelo.
+  slug        String  @unique
+  brand       String?
+  description String?
+
+  /// Caminho relativo dentro de public/catalog — ex.:
+  /// "bebidas/refrigerantes/coca-cola-350ml.webp".
+  /// Guardamos CAMINHO, não URL absoluta: assim trocar de domínio ou
+  /// plugar uma CDN não obriga a reescrever o banco.
+  defaultImageUrl String?
+  /// Emoji de reserva quando ainda não há imagem no acervo.
+  emoji           String?
+
+  barcode  String?
+  /// Volume/quantidade (350, 2, 500).
+  volume   Decimal? @db.Decimal(10, 2)
+  /// Unidade do volume: ml, L, g, kg, un.
+  unit     String?
+  /// Tamanho da embalagem (ex.: fardo com 12). 1 = unidade solta.
+  packSize Int      @default(1)
+
+  /// Preço apenas SUGERIDO. O preço real é sempre o do Product da loja.
+  suggestedPrice Decimal? @db.Decimal(10, 2)
+
+  /// Dica de tipo de produto (SIMPLE/VARIATION/ADDONS) para a cópia.
+  suggestedType ProductType @default(SIMPLE)
+
+  /// Nomes que identificam o item ao copiar do catálogo-modelo antigo.
+  aliases String[]
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  globalCategory GlobalCategory?             @relation(fields: [globalCategoryId], references: [id], onDelete: SetNull)
+  businessTypes  GlobalProductBusinessType[]
+  products       Product[]
+
+  @@index([globalCategoryId, name])
+  @@index([brand])
+  @@index([active])
+  @@index([barcode])
+}
+
+/// Segmentos para os quais o produto global é recomendado.
+///
+/// Um produto pode servir vários segmentos — Coca-Cola vale para BURGER,
+/// PIZZA, RESTAURANT, MARKET... Por isso é tabela de junção, e não uma
+/// cópia do produto por segmento.
+/// `weight` desempata a ordem de sugestão dentro do segmento.
+model GlobalProductBusinessType {
+  id              String       @id @default(cuid())
+  globalProductId String
+  businessType    BusinessType
+  weight          Int          @default(0)
+
+  globalProduct GlobalProduct @relation(fields: [globalProductId], references: [id], onDelete: Cascade)
+
+  @@unique([globalProductId, businessType])
+  @@index([businessType, weight])
+}
+
+/// Banner padrão por segmento.
+///
+/// A imagem é da PLATAFORMA (mesma ideia do produto global): o banner de
+/// "hamburgueria" é um arquivo só, referenciado por todas as hamburguerias
+/// que ainda não enviaram o próprio.
+/// organizationId nulo = banner padrão da plataforma.
+/// organizationId preenchido = banner próprio daquela loja.
+model StoreBanner {
+  id             String  @id @default(cuid())
+  organizationId String?
+
+  title         String?
+  subtitle      String?
+  /// Caminho relativo em public/catalog/banners/... ou URL do lojista.
+  imagePath     String
+  /// Para onde o banner leva ao ser clicado (categoria, produto, link).
+  linkUrl       String?
+  /// Segmentos em que este banner padrão deve aparecer. Vazio = todos.
+  businessTypes BusinessType[]
+  /// hero = topo da vitrine; strip = faixa intermediária.
+  placement     String         @default("hero")
+  position      Int            @default(0)
+  active        Boolean        @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, active, position])
+  @@index([placement, active])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// CLIENTES
+// ─────────────────────────────────────────────────────────────────────
+
+model Customer {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  /// Telefone (somente dígitos) é a referência para NÃO duplicar cliente
+  /// a cada pedido. Único por organização.
+  phone          String
+  email          String?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  addresses    Address[]
+  orders       Order[]
+
+  @@unique([organizationId, phone])
+  @@index([organizationId, name])
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  customerId String
+  label      String?
+  street     String
+  number     String?
+  complement String?
+  district   String?
+  city       String?
+  state      String?
+  zipCode    String?
+  latitude   Float?
+  longitude  Float?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ÁREA DE ENTREGA
+// ─────────────────────────────────────────────────────────────────────
+
+/// Bairro com taxa própria (modo BY_NEIGHBORHOOD). Pertence a UMA
+/// organização — a taxa de "Centro" da loja A não vale para a loja B.
+///
+/// O casamento com o pedido é pelo NOME do bairro (Order.deliveryDistrict),
+/// comparado sem diferenciar maiúsculas e sem espaços nas pontas. A
+/// distância e as coordenadas são OPCIONAIS: servem para desenhar a zona no
+/// mapa e dar contexto, nunca para o cálculo — quem calcula é o servidor,
+/// e o bairro é o que o cliente informa, não um raio estimado.
+model DeliveryZone {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  fee            Decimal  @default(0) @db.Decimal(10, 2)
+  active         Boolean  @default(true)
+  /// Distância de referência do bairro à loja (km) — informativa.
+  distanceKm     Float?
+  latitude       Float?
+  longitude      Float?
+  position       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId, active, position])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// PEDIDOS
+// ─────────────────────────────────────────────────────────────────────
+
+model Order {
+  id             String @id @default(cuid())
+  organizationId String
+
+  /// Número curto mostrado na operação (#1042). Sequencial por organização,
+  /// gerado dentro da transação de criação.
+  displayId  Int
+  source     OrderSource @default(OWN_STORE)
+  /// Id do pedido no marketplace de origem — base da idempotência.
+  externalId String?
+
+  customerId    String?
+  /// Snapshot do cliente no momento do pedido: se o cadastro mudar depois,
+  /// o pedido continua contando a história certa.
+  customerName  String
+  customerPhone String
+
+  status OrderStatus @default(NEW)
+
+  subtotal    Decimal @db.Decimal(10, 2)
+  deliveryFee Decimal @default(0) @db.Decimal(10, 2)
+  discount    Decimal @default(0) @db.Decimal(10, 2)
+  total       Decimal @db.Decimal(10, 2)
+
+  paymentMethod PaymentMethod @default(CASH)
+  paymentStatus PaymentStatus @default(PENDING)
+
+  /// Troco pedido pelo cliente no pagamento em dinheiro ("troco para R$ 100").
+  /// Fica gravado porque quem entrega precisa saber quanto levar de troco —
+  /// é a única razão de existir; não entra em nenhum cálculo de total.
+  changeFor Decimal? @db.Decimal(10, 2)
+
+  /// DELIVERY = entrega no endereço; PICKUP = retirada no balcão.
+  /// Texto e não enum, seguindo `theme` e `placement` — acrescentar uma
+  /// modalidade não deve exigir migração de enum.
+  deliveryType String @default("DELIVERY")
+
+  /// Endereço de entrega em texto/estrutura simples (snapshot).
+  deliveryAddress   String?
+  deliveryNumber    String?
+  deliveryDistrict  String?
+  deliveryCity      String?
+  deliveryZipCode   String?
+  deliveryLatitude  Float?
+  deliveryLongitude Float?
+
+  notes           String?
+  /// Tempo de preparo estimado em minutos.
+  preparationTime Int?
+
+  driverId String?
+
+  /// Marca que o estoque já foi baixado — evita baixa dupla.
+  stockDeducted Boolean @default(false)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  acceptedAt   DateTime?
+  preparingAt  DateTime?
+  readyAt      DateTime?
+  dispatchedAt DateTime?
+  deliveredAt  DateTime?
+  cancelledAt  DateTime?
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customer         Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  driver           Driver?           @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  items            OrderItem[]
+  delivery         Delivery?
+  cashTransactions CashTransaction[]
+
+  @@unique([organizationId, displayId])
+  /// Idempotência de webhook: um mesmo pedido externo não entra duas vezes.
+  @@unique([organizationId, source, externalId])
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, driverId])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  /// Referência ao produto de origem. SetNull porque o produto pode ser
+  /// excluído depois — o snapshot abaixo preserva o histórico.
+  productId String?
+
+  productName    String
+  unitPrice      Decimal  @db.Decimal(10, 2)
+  quantity       Int      @default(1)
+  /// Nome da variação escolhida (ex.: "Grande"), quando houver.
+  variationName  String?
+  /// Ajuste de preço da variação, congelado no momento da compra.
+  variationPrice Decimal? @db.Decimal(10, 2)
+  notes          String?
+  total          Decimal  @db.Decimal(10, 2)
+
+  order   Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
+  options OrderItemOption[]
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model OrderItemOption {
+  id          String  @id @default(cuid())
+  orderItemId String
+  addonId     String?
+  name        String
+  price       Decimal @db.Decimal(10, 2)
+  quantity    Int     @default(1)
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([orderItemId])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ENTREGADORES E ENTREGA
+// ─────────────────────────────────────────────────────────────────────
+
+model Driver {
+  id             String       @id @default(cuid())
+  organizationId String
+  /// Preenchido quando o entregador também tem login (app /entregador).
+  userId         String?      @unique
+  name           String
+  phone          String
+  vehicleType    VehicleType  @default(MOTORCYCLE)
+  vehiclePlate   String?
+  status         DriverStatus @default(OFFLINE)
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  locations    DriverLocation[]
+  deliveries   Delivery[]
+  orders       Order[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, active])
+}
+
+/// Histórico de posições. A última linha é a posição atual do entregador
+/// (não guardamos lat/lng "atual" no Driver para não perder o rastro).
+model DriverLocation {
+  id        String   @id @default(cuid())
+  driverId  String
+  latitude  Float
+  longitude Float
+  accuracy  Float?
+  createdAt DateTime @default(now())
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([driverId, createdAt])
+}
+
+model Delivery {
+  id             String         @id @default(cuid())
+  organizationId String
+  orderId        String         @unique
+  driverId       String?
+  status         DeliveryStatus @default(PENDING)
+
+  assignedAt  DateTime?
+  pickedUpAt  DateTime?
+  startedAt   DateTime?
+  arrivedAt   DateTime?
+  deliveredAt DateTime?
+
+  proofType  ProofType @default(NONE)
+  /// Valor da prova: URL da foto, texto da assinatura ou código informado.
+  proofValue String?
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driver       Driver?      @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([driverId, status])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// EQUIPE
+// ─────────────────────────────────────────────────────────────────────
+
+/// Dados operacionais/trabalhistas que NÃO cabem em OrganizationUser
+/// (turno, admissão, observações). O acesso ao sistema continua vindo
+/// do OrganizationUser — aqui não há papel nem permissão.
+model Employee {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String?   @unique
+  name           String
+  phone          String?
+  /// Texto livre; o papel de acesso é OrganizationUser.role.
+  role           String?
+  shift          String?
+  hiredAt        DateTime?
+  active         Boolean   @default(true)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, active])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// CAIXA
+// ─────────────────────────────────────────────────────────────────────
+
+model CashRegister {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  shifts       CashShift[]
+
+  @@index([organizationId, active])
+}
+
+model CashShift {
+  id               String    @id @default(cuid())
+  cashRegisterId   String
+  openedByUserId   String
+  closedByUserId   String?
+  openingAmount    Decimal   @db.Decimal(10, 2)
+  /// Preenchido no fechamento. A diferença (closingAmount - esperado) é
+  /// calculada na hora do fechamento e guardada em differenceAmount.
+  closingAmount    Decimal?  @db.Decimal(10, 2)
+  differenceAmount Decimal?  @db.Decimal(10, 2)
+  notes            String?
+  openedAt         DateTime  @default(now())
+  closedAt         DateTime?
+
+  cashRegister CashRegister      @relation(fields: [cashRegisterId], references: [id], onDelete: Cascade)
+  openedBy     User              @relation("ShiftOpenedBy", fields: [openedByUserId], references: [id])
+  closedBy     User?             @relation("ShiftClosedBy", fields: [closedByUserId], references: [id])
+  transactions CashTransaction[]
+
+  @@index([cashRegisterId, closedAt])
+}
+
+model CashTransaction {
+  id            String          @id @default(cuid())
+  cashShiftId   String
+  /// Ligação opcional com o pedido que gerou a venda.
+  orderId       String?
+  type          TransactionType
+  paymentMethod PaymentMethod?
+  description   String?
+  amount        Decimal         @db.Decimal(10, 2)
+  createdAt     DateTime        @default(now())
+
+  cashShift CashShift @relation(fields: [cashShiftId], references: [id], onDelete: Cascade)
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([cashShiftId, createdAt])
+  @@index([orderId])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// ESTOQUE
+// ─────────────────────────────────────────────────────────────────────
+
+/// Livro-razão do estoque. Product.stock é o saldo corrente; aqui fica o
+/// histórico que permite auditar e reverter. previousStock/newStock são
+/// gravados para que o extrato seja legível sem recalcular tudo.
+model InventoryMovement {
+  id             String                @id @default(cuid())
+  organizationId String
+  productId      String
+  type           InventoryMovementType
+  quantity       Int
+  previousStock  Int
+  newStock       Int
+  reason         String?
+  orderId        String?
+  userId         String?
+  createdAt      DateTime              @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([productId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// INTEGRAÇÕES
+// ─────────────────────────────────────────────────────────────────────
+
+model Integration {
+  id                 String              @id @default(cuid())
+  organizationId     String
+  provider           IntegrationProvider
+  status             IntegrationStatus   @default(DISCONNECTED)
+  externalMerchantId String?
+  lastSyncAt         DateTime?
+  lastError          String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  credentials  IntegrationCredential[]
+
+  @@unique([organizationId, provider])
+  @@index([organizationId, status])
+}
+
+/// Segredo cifrado (AES-256-GCM) com TOKEN_ENCRYPTION_KEY.
+/// Sem a chave configurada, gravar falha de propósito — nunca texto puro.
+model IntegrationCredential {
+  id               String   @id @default(cuid())
+  integrationId    String
+  /// Formato: v1:<iv-b64>:<authTag-b64>:<ciphertext-b64>
+  encryptedPayload String   @db.Text
+  /// Máscara para exibir na UI (ex.: "••••4821"). Nunca o valor real.
+  hint             String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  integration Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId])
+}
+
+/// Idempotência de eventos externos. A unique [organizationId, provider,
+/// externalEventId] é o que impede o mesmo webhook de virar dois pedidos.
+model IntegrationEvent {
+  id              String                 @id @default(cuid())
+  organizationId  String
+  provider        IntegrationProvider
+  externalEventId String
+  externalOrderId String?
+  eventType       String
+  payload         Json?
+  status          IntegrationEventStatus @default(RECEIVED)
+  error           String?
+  receivedAt      DateTime               @default(now())
+  processedAt     DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider, externalEventId])
+  @@index([organizationId, status])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// NOTIFICAÇÕES
+// ─────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id             String           @id @default(cuid())
+  organizationId String
+  /// null = aviso para toda a organização.
+  userId         String?
+  type           NotificationType @default(SYSTEM)
+  title          String
+  message        String
+  read           Boolean          @default(false)
+  /// Link interno opcional (ex.: /app/pedidos?pedido=abc).
+  href           String?
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, read, createdAt])
+  @@index([userId, read])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// PLANOS E ASSINATURA (cobrança NÃO integrada nesta fase)
+// ─────────────────────────────────────────────────────────────────────
+
+model Plan {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  price      Decimal  @db.Decimal(10, 2)
+  active     Boolean  @default(true)
+  maxUsers   Int      @default(5)
+  maxDrivers Int      @default(3)
+  maxStores  Int      @default(1)
+  /// Lista de recursos liberados: { features: string[] }
+  features   Json?
+  position   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  organizationId String
+  planId         String
+  status         SubscriptionStatus @default(TRIAL)
+  startedAt      DateTime           @default(now())
+  expiresAt      DateTime?
+  /// Id da assinatura no provedor de pagamento (quando houver cobrança).
+  externalId     String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([planId])
+}

@@ -1,0 +1,22 @@
+# Banners padrão por segmento
+
+Banners da plataforma, um arquivo por segmento — a mesma ideia da imagem
+de produto global: o banner de "hamburgueria" é único, referenciado por
+todas as hamburguerias que ainda não enviaram o próprio.
+
+Subpastas previstas:
+
+- `bebidas/`
+- `hamburgueria/`
+- `pizzaria/`
+- `restaurante/`
+- `mercado/`
+- `acai/`
+- `lanchonete/`
+
+Formato: 4:1 (ex.: 1600×400), `.webp`.
+
+Nada foi criado aqui ainda. A tabela `StoreBanner` já existe e aceita
+tanto banner de plataforma (`organizationId` nulo) quanto banner próprio
+da loja (`organizationId` preenchido) — o lojista sobrescreve o padrão
+sem que o arquivo da plataforma seja tocado.
