@@ -34,6 +34,36 @@ export const saveDeliverySchema = z.object({
 });
 
 /**
+ * Coordenadas do estabelecimento.
+ *
+ * Separado de `saveDeliverySchema` de propósito: coordenada não é uma
+ * variável da regra de frete, é a posição da loja. Quem grava é a ação de
+ * coordenadas, que responde na hora para o lojista ver o ponto no esquema
+ * sem salvar a aba de entrega inteira.
+ *
+ * Nulo é aceito e é um estado legítimo: significa "ainda não temos a
+ * posição da loja", e o cálculo degrada para a taxa base em vez de estimar.
+ */
+export const storeCoordinatesSchema = z.object({
+  latitude: z.number().min(-90).max(90).nullable(),
+  longitude: z.number().min(-180).max(180).nullable(),
+});
+
+/**
+ * Endereço de geocodificação. É só o texto que vai para o provedor —
+ * montado aqui para que o mesmo endereço seja usado por qualquer tela que
+ * precise resolver coordenada, sem cada uma inventar a própria concatenação.
+ */
+export const geocodeQuerySchema = z.object({
+  address: z.string().trim().min(3, 'Informe o endereço da loja.').max(300),
+  addressNumber: optionalText(20),
+  district: optionalText(120),
+  city: optionalText(120),
+  state: optionalText(2),
+  zipCode: optionalText(10),
+});
+
+/**
  * Bairro com taxa. Distância e coordenada são informativas (mapa) — nunca
  * a fonte do preço. O preço é `fee`.
  */

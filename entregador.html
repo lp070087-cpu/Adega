@@ -7,7 +7,8 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Entregador — Delivery Platform</title>
+<!-- título neutro: em runtime vira "{Nome do estabelecimento} — Entregador" -->
+<title>Entregador</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -157,9 +158,10 @@ a{color:inherit;text-decoration:none}
 <!-- LOGIN -->
 <div class="login-wrap" id="loginWrap">
   <div class="login-card">
-    <div class="login-logo">D</div>
-    <div class="login-title">Delivery Platform</div>
-    <div class="login-sub">App do Entregador</div>
+    <!-- preenchido por initLogin(): logo/nome do estabelecimento selecionado -->
+    <div class="login-logo" id="lgLogo">·</div>
+    <div class="login-title" id="lgTitle">App do Entregador</div>
+    <div class="login-sub" id="lgSub">Selecione o estabelecimento para continuar</div>
     <div class="login-field">
       <label>Estabelecimento</label>
       <select id="lgTenant"></select>
@@ -174,7 +176,7 @@ a{color:inherit;text-decoration:none}
     </div>
     <button class="login-btn" id="lgBtn">Entrar como entregador</button>
     <div class="login-hint">
-      Os pedidos vêm da mesma Central (Delivery Platform).<br>
+      Os pedidos vêm do painel do estabelecimento selecionado.<br>
       Senha demonstrativa: <strong>1234</strong><br>
       Os dados usam o armazenamento local do dispositivo.
     </div>
@@ -184,10 +186,13 @@ a{color:inherit;text-decoration:none}
 <!-- APP -->
 <div class="app hidden" id="appRoot">
   <div class="app-header">
-    <div class="logo">D</div>
+    <!-- logo do estabelecimento vinculado (imagem enviada ou iniciais) -->
+    <div class="logo" id="hdrLogo">·</div>
     <div class="hi">
       <div class="n" id="hdrName">Entregador</div>
+      <!-- nome do estabelecimento vinculado + status do entregador -->
       <div class="s" id="hdrStatus"><span class="dot-on"></span> <span id="hdrStatusTxt">Disponível</span></div>
+      <div class="s" id="hdrTenant"></div>
     </div>
     <div class="ic" onclick="toggleOnline()" title="Alternar disponibilidade">📡</div>
     <div class="ic" onclick="sair()" title="Sair">⏻</div>
@@ -230,7 +235,7 @@ a{color:inherit;text-decoration:none}
         <button class="btn ghost" onclick="toggleOnline()" id="btnToggleOnline">📡 Ficar disponível</button>
         <button class="btn red" onclick="sair()">Sair da conta</button>
       </div>
-      <p style="font-size:.68rem;color:var(--gray-400);line-height:1.7;margin-top:18px;text-align:center">App demonstrativo (PWA estático). Em produção, o app do entregador roda em dispositivo separado, autentica via token e usa notificações push e GPS em tempo real.<br><br>Versão 0.1.0 • Delivery Platform</p>
+      <p style="font-size:.68rem;color:var(--gray-400);line-height:1.7;margin-top:18px;text-align:center">App demonstrativo (PWA estático). Em produção, o app do entregador roda em dispositivo separado, autentica via token e usa notificações push e GPS em tempo real.<br><br>Versão 0.1.0</p>
     </div>
   </div>
 
@@ -274,19 +279,56 @@ function storeGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function storeSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 function storeRemove(k){try{localStorage.removeItem(k)}catch(e){}}
 
+// Estabelecimentos DEMO (mesmos do loja-data.js). São apenas dados de teste —
+// NENHUM deles é identidade padrão do app: o entregador mostra sempre o nome e a
+// logo do estabelecimento a que está vinculado (dp_sa_tenants tem prioridade).
 const TENANTS=[
-  {id:'adega1998',nome:'Adega 1998',logo:'A98',cor:'#F15A24'},
-  {id:'burger-ze',nome:'Burger do Zé',logo:'BZ',cor:'#E11D48'},
-  {id:'pizza-prime',nome:'Pizza Prime',logo:'PP',cor:'#7C3AED'}
+  {id:'burger-ze',nome:'Burger do Zé',cor:'#E11D48',categoria:'Hamburgueria'},
+  {id:'pizza-prime',nome:'Pizza Prime',cor:'#7C3AED',categoria:'Pizzaria'},
+  {id:'mercado-central',nome:'Mercado Central',cor:'#15803D',categoria:'Mercado'},
+  {id:'imperial-bebidas',nome:'Distribuidora Imperial',cor:'#0E7490',categoria:'Loja de Bebidas'}
 ];
+// iniciais do nome — MESMA regra do painel/site (loja-data.js), para o avatar
+// nunca divergir entre os três apps. Sem tratamento especial para nenhuma loja.
+function iniciaisNome(nome){
+  const partes=String(nome||'').trim().split(/\s+/).filter(Boolean);
+  if(!partes.length)return '';
+  const stop=['do','da','de','dos','das','e'];
+  const uteis=partes.filter(p=>!stop.includes(p.toLowerCase()));
+  const base=uteis.length?uteis:partes;
+  const num=base.find(p=>/\d/.test(p));
+  if(num&&base.length>1)return (base[0][0]+String(num).replace(/\D/g,'')).toUpperCase().substring(0,3);
+  if(base.length===1)return base[0].substring(0,2).toUpperCase();
+  return (base[0][0]+base[base.length-1][0]).toUpperCase();
+}
+function normalizarTenant(t){
+  const nome=t.nome||'';
+  return {
+    id:t.id,
+    nome:nome,
+    categoria:t.categoria||'',
+    logo:t.logo||iniciaisNome(nome),
+    logoImg:t.logoImg||'',
+    cor:t.cor||'#F15A24'
+  };
+}
 function getTenantCatalog(){
-  const base=TENANTS.slice();
+  const base=TENANTS.map(normalizarTenant);
   const raw=storeGet('dp_sa_tenants');
   if(raw){try{
     const extras=JSON.parse(raw);
-    if(Array.isArray(extras))extras.forEach(t=>{if(!base.some(b=>b.id===t.id))base.push({id:t.id,nome:t.nome,logo:t.logo||'T',cor:t.cor||'#F15A24'})});
+    if(Array.isArray(extras))extras.forEach(t=>{
+      if(!base.some(b=>b.id===t.id))base.push(normalizarTenant(t));
+      // dados salvos em Minha Loja vencem o seed: nome/logo sempre do cadastro
+      else{const i=base.findIndex(b=>b.id===t.id);base[i]=normalizarTenant(Object.assign({},base[i],t))}
+    });
   }catch(e){}}
-  return base;
+  // overrides salvos pelo painel (dp_tenant_{id}) também entram
+  return base.map(t=>{
+    const s=storeGet('dp_tenant_'+t.id);
+    if(s){try{return normalizarTenant(Object.assign({},t,JSON.parse(s)))}catch(e){}}
+    return t;
+  });
 }
 const SEED_DRIVERS=[
   {id:'d1',nome:'Carlos Andrade',avatar:'CA',veiculo:'Moto'},
@@ -299,7 +341,18 @@ let S={tenantId:null,driverId:null};   // sessão do entregador
 let currentOrder=null;                  // pedido em foco (detalhe/prova)
 let provaSig=null, provaFoto=null;
 
-function getTenant(id){return getTenantCatalog().find(t=>t.id===id)||getTenantCatalog()[0]}
+// Se o id não existir, devolve um estabelecimento vazio — NUNCA o primeiro da
+// lista (mostrar a marca de outra loja por engano é pior que não mostrar nada).
+function getTenant(id){
+  const achou=getTenantCatalog().find(t=>t.id===id);
+  if(achou)return achou;
+  return {id:id||'',nome:'',categoria:'',logo:'',logoImg:'',cor:'#F15A24',naoEncontrado:true};
+}
+// logo do estabelecimento: imagem enviada no painel ou avatar de iniciais
+function logoHtml(t){
+  if(t&&t.logoImg)return '<img src="'+t.logoImg+'" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">';
+  return (t&&t.nome)?(t.logo||iniciaisNome(t.nome)):'·';
+}
 function fmt(v){return 'R$ '+Number(v||0).toFixed(2).replace('.',',')}
 function fmtHora(iso){if(!iso)return '—';const d=new Date(iso);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 function agora(){return new Date().toISOString()}
@@ -314,8 +367,33 @@ function myOrders(){return getOrders(S.tenantId).filter(o=>o.driver=== (myDriver
 
 /* login */
 function initLogin(){
-  document.getElementById('lgTenant').innerHTML=getTenantCatalog().map(t=>'<option value="'+t.id+'">'+t.nome+'</option>').join('');
+  const sel=document.getElementById('lgTenant');
+  const lista=getTenantCatalog();
+  sel.innerHTML=lista.length
+    ? lista.map(t=>'<option value="'+t.id+'">'+(t.nome||t.id)+(t.categoria?' — '+t.categoria:'')+'</option>').join('')
+    : '<option value="">Nenhum estabelecimento cadastrado</option>';
+  // ?loja=ID vindo do painel pré-seleciona o estabelecimento certo
+  const lojaUrl=(new URLSearchParams(location.search).get('loja')||'').trim();
+  if(lojaUrl&&lista.some(t=>t.id===lojaUrl))sel.value=lojaUrl;
+  sel.addEventListener('change',()=>{atualizarMarcaLogin();preencherDrivers()});
+  atualizarMarcaLogin();
   preencherDrivers();
+}
+// cabeçalho do login = identidade do estabelecimento escolhido
+function atualizarMarcaLogin(){
+  const sel=document.getElementById('lgTenant');
+  const t=getTenant(sel?sel.value:'');
+  const lg=document.getElementById('lgLogo');
+  if(lg){
+    lg.style.background=(t.logoImg?'transparent':t.cor);
+    lg.style.overflow='hidden';
+    lg.innerHTML=logoHtml(t);
+  }
+  const ti=document.getElementById('lgTitle');
+  if(ti)ti.textContent=t.nome||'App do Entregador';
+  const su=document.getElementById('lgSub');
+  if(su)su.textContent=t.nome?(t.categoria||'Estabelecimento')+' • App do Entregador':'Selecione o estabelecimento para continuar';
+  document.title=(t.nome||'Entregador')+' — Entregador';
 }
 function preencherDrivers(){
   const t=document.getElementById('lgTenant').value;
@@ -340,11 +418,22 @@ function entrarApp(){
   document.getElementById('appRoot').classList.remove('hidden');
   const t=getTenant(S.tenantId);
   document.getElementById('hdrName').textContent=drv.nome;
-  document.querySelector('.app-header .logo').textContent=t.logo;
-  document.querySelector('.app-header .logo').style.background=t.cor;
+  // cabeçalho: logo do estabelecimento vinculado (imagem enviada ou iniciais)
+  const hl=document.getElementById('hdrLogo');
+  if(hl){
+    hl.style.background=(t.logoImg?'transparent':t.cor);
+    hl.style.overflow='hidden';
+    hl.innerHTML=logoHtml(t);
+    hl.title=t.nome||'';
+  }
   document.getElementById('profAvatar').textContent=drv.avatar;
   document.getElementById('profName').textContent=drv.nome;
-  document.getElementById('profMeta').textContent=drv.veiculo+' • '+t.nome;
+  document.getElementById('profMeta').textContent=drv.veiculo+' • '+(t.nome||'Estabelecimento');
+  // nome do estabelecimento no cabeçalho (dinâmico, do tenant vinculado)
+  const ht=document.getElementById('hdrTenant');
+  if(ht)ht.textContent=t.nome?'• '+t.nome:'';
+  // título da aba: "{Nome do estabelecimento} — Entregador"
+  document.title=(t.nome||'Entregador')+' — Entregador';
   // coloca driver online ao entrar
   if(drv.status==='offline'){drv.status='online';atualizarDriver(drv)}
   atualizarHdr();showTab('entregas');
@@ -592,10 +681,9 @@ function toast(t,sub,cls){
 (function(){
   const saved=storeGet('dp_entregador_session');
   if(saved){try{const p=JSON.parse(saved);if(p&&p.tenantId&&p.driverId){S=p;entrarApp();return}}catch(e){}}
-  initLogin();
+  initLogin(); // já registra o "change" do seletor (marca + entregadores)
   document.getElementById('lgBtn').addEventListener('click',doLogin);
   document.getElementById('lgPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
-  document.getElementById('lgTenant').addEventListener('change',preencherDrivers);
 })();
 </script>
 </body>

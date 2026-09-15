@@ -240,10 +240,12 @@ const SA_EMAIL='admin@deliveryplatform.com.br', SA_PASS='sa-admin-2026';
 // tenants: lista persistida sob a chave da PLATAFORMA (dp_sa_tenants)
 function getSaTenants(){
   const s=storeGet('dp_sa_tenants');
-  const def=[{id:'adega1998',nome:'Adega 1998',categoria:'Adega / Depósito de Bebidas',cor:'#F15A24',plano:'Profissional',status:'ativo',criadoEm:'2026-08-01',logo:'A98'},
-    {id:'burger-ze',nome:'Burger do Zé',categoria:'Hamburgueria',cor:'#E11D48',plano:'Starter',status:'ativo',criadoEm:'2026-08-15',logo:'BZ'},
+  // Seed DEMO. Nenhum destes nomes é identidade do produto: são exemplos de
+  // estabelecimentos de segmentos diferentes (o mesmo sistema atende todos).
+  const def=[{id:'burger-ze',nome:'Burger do Zé',categoria:'Hamburgueria',cor:'#E11D48',plano:'Starter',status:'ativo',criadoEm:'2026-08-15',logo:'BZ'},
     {id:'pizza-prime',nome:'Pizza Prime',categoria:'Pizzaria',cor:'#7C3AED',plano:'Premium',status:'ativo',criadoEm:'2026-08-22',logo:'PP'},
-    {id:'acai-mania',nome:'Açaí Mania',categoria:'Açaiteria',cor:'#7C3AED',plano:'Starter',status:'trial',criadoEm:'2026-09-01',logo:'AM'}];
+    {id:'mercado-central',nome:'Mercado Central',categoria:'Mercado',cor:'#15803D',plano:'Starter',status:'ativo',criadoEm:'2026-08-28',logo:'MC'},
+    {id:'imperial-bebidas',nome:'Distribuidora Imperial',categoria:'Loja de Bebidas',cor:'#0E7490',plano:'Profissional',status:'ativo',criadoEm:'2026-09-01',logo:'DI'}];
   if(s){try{const p=JSON.parse(s);if(Array.isArray(p)&&p.length)return p}catch(e){}}
   return def;
 }

@@ -18,8 +18,10 @@ function fmtBRL(v){return 'R$ '+(Number(v||0)).toFixed(2).replace('.',',')}
 function numBR(str){return parseFloat(String(str||'').replace(/\./g,'').replace(',','.'))||0}
 
 // ── Tipos de negócio aceitos no cadastro ────────────────────────────────
+// O rótulo é do SEGMENTO, não de uma loja: nenhum nome de estabelecimento
+// (nem identidade fixa de produto) entra aqui.
 const TENANT_TYPES = [
-  {id:'bebidas',      label:'Adega / Bebidas',   emoji:'🍺', cor:'#F15A24'},
+  {id:'bebidas',      label:'Loja de Bebidas',   emoji:'🍺', cor:'#F15A24'},
   {id:'hamburgueria', label:'Hamburgueria',      emoji:'🍔', cor:'#E11D48'},
   {id:'lanchonete',   label:'Lanchonete',        emoji:'🥪', cor:'#EA580C'},
   {id:'pizzaria',     label:'Pizzaria',          emoji:'🍕', cor:'#7C3AED'},
@@ -31,6 +33,47 @@ const TENANT_TYPES = [
   {id:'dark_kitchen', label:'Dark Kitchen',      emoji:'👨‍🍳', cor:'#334155'}
 ];
 function typeById(id){return TENANT_TYPES.find(t=>t.id===id)||TENANT_TYPES[0]}
+
+// ── TEXTO DE IDENTIDADE POR SEGMENTO ────────────────────────────────────
+// Fonte única das frases do site. O nome vem SEMPRE do estabelecimento
+// cadastrado; aqui só mora o que depende do segmento.
+//   noun     → como chamamos o negócio ("hamburgueria", "loja de bebidas")
+//   headline → frase do hero, com *asteriscos* marcando a palavra destacada
+//   desc     → descrição usada quando a loja ainda não escreveu a sua
+const BUSINESS_COPY = {
+  bebidas:      {noun:'loja de bebidas', headline:'suas *bebidas* favoritas agora online',    desc:'Bebidas geladas, destilados e gelo entregues na sua porta.'},
+  hamburgueria: {noun:'hamburgueria',    headline:'seu *lanche* favorito agora online',       desc:'Hambúrguer artesanal, porções e bebidas geladas com entrega rápida.'},
+  lanchonete:   {noun:'lanchonete',      headline:'seu *lanche* favorito agora online',       desc:'Lanches, salgados e café fresquinho entregues rapidinho.'},
+  pizzaria:     {noun:'pizzaria',        headline:'sua *pizza* favorita agora online',        desc:'Pizzas artesanais assadas na hora e entregues quentinhas.'},
+  acai:         {noun:'açaiteria',       headline:'seu *açaí* favorito agora online',         desc:'Açaí cremoso com os complementos que você escolher.'},
+  restaurante:  {noun:'restaurante',     headline:'sua *comida* favorita agora online',       desc:'Pratos preparados na hora e entregues na sua porta.'},
+  conveniencia: {noun:'conveniência',    headline:'tudo o que você *precisa* agora online',   desc:'Bebidas, snacks e itens do dia a dia com entrega rápida.'},
+  padaria:      {noun:'padaria',         headline:'seu *pão* fresquinho agora online',        desc:'Pães, salgados e doces saídos do forno, entregues fresquinhos.'},
+  mercado:      {noun:'mercado',         headline:'tudo o que você *precisa* agora online',   desc:'Hortifruti, mercearia, açougue e bebidas na sua porta.'},
+  dark_kitchen: {noun:'cozinha',         headline:'sua *comida* favorita agora online',       desc:'Pratos autorais preparados na hora, só para delivery.'}
+};
+// segmento sem texto próprio (loja nova, tipo ainda não definido)
+const COPY_GENERIC = {noun:'loja', headline:'tudo o que você *procura* agora online', desc:'Peça online e receba com entrega rápida.'};
+function copyByType(type){return BUSINESS_COPY[type]||COPY_GENERIC}
+function segmentoNome(type){return copyByType(type).noun}
+
+// escapa texto para HTML (usado nos textos montados aqui)
+function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+// headline do hero: "<Nome da loja>, <frase do segmento>" com a palavra-chave
+// destacada em <em> (o nome vem do estabelecimento; a frase vem do segmento).
+// Sem nome cadastrado ainda, sai só a frase (nunca "<vazio>, ...").
+function heroHeadline(nome,type){
+  const c=copyByType(type);
+  const frase=c.headline.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  const n=escHtml(String(nome||'').trim());
+  if(!n)return frase.charAt(0).toUpperCase()+frase.slice(1);
+  return n + ', ' + frase;
+}
+// descrição do hero: a da loja, ou a do segmento
+function heroDescricao(ten){
+  return (ten&&ten.desc)||copyByType(ten&&ten.businessType).desc;
+}
 
 // ── imagens reais locais disponíveis (segmento bebidas/demo) ────────────
 // Usadas apenas como padrão do catálogo-modelo; o cliente troca por upload.
@@ -52,8 +95,8 @@ const IMG = {
 // A lista é COPIADA para o tenant no primeiro acesso (não fica linkada).
 const BUSINESS_TEMPLATES = {
   bebidas:{
-    label:'Adega / Bebidas', emoji:'🍺', cor:'#F15A24',
-    cats:['Cervejas','Whisky','Vinhos','Destilados','Refrigerantes','Energéticos','Água & Gelo','Petiscos'],
+    label:'Loja de Bebidas', emoji:'🍺', cor:'#F15A24',
+    cats:['Cervejas','Whisky','Vodka','Gin','Vinhos','Refrigerantes','Energéticos','Água','Gelo','Combos'],
     produtos:[
       {nome:'Heineken 350ml',cat:'Cervejas',preco:6.29,promocao:5.49,desc:'Pack 12 un. Puro malte, sabor inconfundível.',img:IMG.heineken,emoji:'🍺',estoque:248,min:50},
       {nome:'Skol 350ml',cat:'Cervejas',preco:4.49,promocao:3.99,desc:'Pack 12 latas. A cerveja que desce redondo.',img:IMG.skol,emoji:'🍺',estoque:312,min:50},
@@ -66,18 +109,21 @@ const BUSINESS_TEMPLATES = {
       {nome:'Johnnie Walker Black Label 1L',cat:'Whisky',preco:159.90,desc:'Blend 12 anos.',img:IMG.black,emoji:'🥃',estoque:78,min:12},
       {nome:'Old Parr 12 Anos 1L',cat:'Whisky',preco:186.90,desc:'Escocês encorpado.',img:IMG.oldparr,emoji:'🥃',estoque:67,min:12},
       {nome:'Red Label 1L',cat:'Whisky',preco:89.90,desc:'Blend jovem e marcante.',emoji:'🥃',estoque:54,min:10},
-      {nome:'Gin Tanqueray London Dry 750ml',cat:'Destilados',preco:103.90,desc:'Gin inglês clássico.',img:IMG.tanqueray,emoji:'🍸',estoque:48,min:10},
+      {nome:'Gin Tanqueray London Dry 750ml',cat:'Gin',preco:103.90,desc:'Gin inglês clássico.',img:IMG.tanqueray,emoji:'🍸',estoque:48,min:10},
+      {nome:'Vodka Absolut 1L',cat:'Vodka',preco:89.90,desc:'Vodka sueca premium.',emoji:'🍸',estoque:55,min:10},
       {nome:'Vinho Tinto Chileno 750ml',cat:'Vinhos',preco:39.90,desc:'Suave e frutado.',emoji:'🍷',estoque:60,min:8},
-      {nome:'Smirnoff Ice 275ml',cat:'Destilados',preco:7.10,desc:'Pack 6. Drink de vodka e limão.',img:IMG.ice,emoji:'🍹',estoque:134,min:20},
+      {nome:'Smirnoff Ice 275ml',cat:'Vodka',preco:7.10,desc:'Pack 6. Drink de vodka e limão.',img:IMG.ice,emoji:'🍹',estoque:134,min:20},
       {nome:'Coca-Cola 2L',cat:'Refrigerantes',preco:12.00,desc:'Gelada pra acompanhar.',emoji:'🥤',estoque:180,min:20,tipo:'variacao',opcoes:[{nome:'350ml',preco:5.00},{nome:'2L',preco:12.00}]},
       {nome:'Energético Red Bull 250ml',cat:'Energéticos',preco:12.90,desc:'Pra festa não parar.',emoji:'⚡',estoque:96,min:12},
-      {nome:'Gelo Premium 5kg',cat:'Água & Gelo',preco:8.90,desc:'Gelo limpo e pesado.',emoji:'🧊',estoque:60,min:10}
+      {nome:'Água Mineral 500ml',cat:'Água',preco:3.50,desc:'Com ou sem gás.',emoji:'💧',estoque:200,min:30},
+      {nome:'Gelo Premium 5kg',cat:'Gelo',preco:8.90,desc:'Gelo limpo e pesado.',emoji:'🧊',estoque:60,min:10},
+      {nome:'Combo Cerveja + Gelo',cat:'Combos',preco:59.90,promocao:54.90,desc:'Pack 12 cervejas + gelo 5kg.',emoji:'📦',estoque:40,min:8}
     ]
   },
 
   hamburgueria:{
     label:'Hamburgueria', emoji:'🍔', cor:'#E11D48',
-    cats:['Hambúrgueres','Acompanhamentos','Bebidas','Sobremesas'],
+    cats:['Hambúrgueres','Combos','Hot Dog','Porções','Batata','Bebidas','Sobremesas','Adicionais'],
     produtos:[
       {nome:'X-Burger Clássico',cat:'Hambúrgueres',preco:22.90,desc:'Pão brioche, burger 160g, queijo e molho da casa.',emoji:'🍔',estoque:80,min:15,tipo:'adicional',opcoes:[{nome:'Bacon',preco:4.00},{nome:'Queijo extra',preco:3.50},{nome:'Ovo',preco:2.50},{nome:'Cheddar',preco:4.50}]},
       {nome:'X-Bacon',cat:'Hambúrgueres',preco:27.90,promocao:24.90,desc:'Burger 160g, bacon crocante, queijo e maionese.',emoji:'🍔',estoque:70,min:12,tipo:'adicional',opcoes:[{nome:'Bacon extra',preco:5.00},{nome:'Queijo extra',preco:3.50}]},
@@ -85,13 +131,20 @@ const BUSINESS_TEMPLATES = {
       {nome:'X-Tudo',cat:'Hambúrgueres',preco:32.90,desc:'Burger duplo, bacon, ovo, salsicha, milho e batata palha.',emoji:'🍔',estoque:50,min:10},
       {nome:'Cheddar Duplo',cat:'Hambúrgueres',preco:29.90,desc:'Dois burgers, muito cheddar cremoso.',emoji:'🧀',estoque:45,min:8},
       {nome:'Burger de Costela',cat:'Hambúrgueres',preco:36.90,desc:'Costela desfiada, queijo prato e barbecue.',emoji:'🍖',estoque:30,min:6},
-      {nome:'Batata Frita Média',cat:'Acompanhamentos',preco:12.90,desc:'Porção média crocante.',emoji:'🍟',estoque:120,min:20},
-      {nome:'Batata Frita Grande',cat:'Acompanhamentos',preco:16.90,promocao:14.90,desc:'Porção grande + cheddar e bacon.',emoji:'🍟',estoque:110,min:20,tipo:'adicional',opcoes:[{nome:'Cheddar',preco:4.00},{nome:'Bacon',preco:4.00}]},
-      {nome:'Onion Rings',cat:'Acompanhamentos',preco:14.90,desc:'Anéis de cebola empanados.',emoji:'🧅',estoque:60,min:10},
+      {nome:'Hot Dog Simples',cat:'Hot Dog',preco:14.90,desc:'Pão, salsicha e molhos.',emoji:'🌭',estoque:60,min:10,tipo:'adicional',opcoes:[{nome:'Cheddar',preco:4.00},{nome:'Bacon',preco:4.00},{nome:'Batata palha extra',preco:2.00}]},
+      {nome:'Hot Dog Completo',cat:'Hot Dog',preco:19.90,desc:'Salsicha, purê, vinagrete, milho e batata palha.',emoji:'🌭',estoque:55,min:10},
+      {nome:'Porção de Frango a Passarinho',cat:'Porções',preco:32.90,desc:'400g com alho e limão.',emoji:'🍗',estoque:30,min:5},
+      {nome:'Porção de Calabresa',cat:'Porções',preco:28.90,desc:'Calabresa acebolada 400g.',emoji:'🥓',estoque:30,min:5},
+      {nome:'Batata Frita Média',cat:'Batata',preco:12.90,desc:'Porção média crocante.',emoji:'🍟',estoque:120,min:20},
+      {nome:'Batata Frita Grande',cat:'Batata',preco:16.90,promocao:14.90,desc:'Porção grande + cheddar e bacon.',emoji:'🍟',estoque:110,min:20,tipo:'adicional',opcoes:[{nome:'Cheddar',preco:4.00},{nome:'Bacon',preco:4.00}]},
+      {nome:'Batata Rústica',cat:'Batata',preco:18.90,desc:'Com alecrim e parmesão.',emoji:'🍟',estoque:60,min:10},
       {nome:'Coca-Cola Lata',cat:'Bebidas',preco:6.00,desc:'Lata 350ml gelada.',emoji:'🥤',estoque:200,min:30,tipo:'variacao',opcoes:[{nome:'Lata 350ml',preco:6.00},{nome:'2L',preco:12.00}]},
       {nome:'Guaraná Antarctica Lata',cat:'Bebidas',preco:5.50,desc:'Lata 350ml.',emoji:'🥤',estoque:180,min:30},
       {nome:'Milkshake de Chocolate',cat:'Sobremesas',preco:18.90,desc:'300ml com chantilly.',emoji:'🥤',estoque:40,min:8},
-      {nome:'Combo X-Burger + Batata + Coca',cat:'Combos',preco:34.90,promocao:31.90,desc:'O clássico completo.',emoji:'🍔',estoque:60,min:10}
+      {nome:'Adicional Bacon',cat:'Adicionais',preco:4.00,desc:'Fatias de bacon crocante.',emoji:'🥓',estoque:200,min:30,tipo:'adicional',opcoes:[{nome:'1 porção',preco:4.00},{nome:'2 porções',preco:7.00}]},
+      {nome:'Adicional Cheddar Cremoso',cat:'Adicionais',preco:4.50,desc:'Cheddar derretido.',emoji:'🧀',estoque:200,min:30},
+      {nome:'Combo X-Burger + Batata + Coca',cat:'Combos',preco:34.90,promocao:31.90,desc:'O clássico completo.',emoji:'🍔',estoque:60,min:10},
+      {nome:'Combo 2 Burgers + 2 Batatas',cat:'Combos',preco:59.90,promocao:54.90,desc:'Pra dividir com alguém.',emoji:'📦',estoque:40,min:8}
     ]
   },
 
@@ -117,14 +170,16 @@ const BUSINESS_TEMPLATES = {
 
   pizzaria:{
     label:'Pizzaria', emoji:'🍕', cor:'#7C3AED',
-    cats:['Pizzas Salgadas','Pizzas Doces','Bebidas','Combos'],
+    cats:['Pizzas Tradicionais','Pizzas Especiais','Pizzas Doces','Bebidas','Combos'],
     produtos:[
-      {nome:'Pizza Margherita',cat:'Pizzas Salgadas',preco:39.90,desc:'Molho, muçarela e manjericão.',emoji:'🍕',estoque:40,min:5,tipo:'variacao',opcoes:[{nome:'Média',preco:39.90},{nome:'Grande',preco:52.90}]},
-      {nome:'Pizza Pepperoni',cat:'Pizzas Salgadas',preco:49.90,desc:'Pepperoni e muçarela.',emoji:'🍕',estoque:35,min:5,tipo:'variacao',opcoes:[{nome:'Média',preco:49.90},{nome:'Grande',preco:62.90}]},
-      {nome:'Pizza Calabresa',cat:'Pizzas Salgadas',preco:44.90,desc:'Calabresa fatiada e cebola.',emoji:'🍕',estoque:38,min:5,tipo:'variacao',opcoes:[{nome:'Média',preco:44.90},{nome:'Grande',preco:57.90}]},
-      {nome:'Pizza Frango com Catupiry',cat:'Pizzas Salgadas',preco:49.90,desc:'Frango desfiado e catupiry.',emoji:'🍕',estoque:32,min:4,tipo:'variacao',opcoes:[{nome:'Média',preco:49.90},{nome:'Grande',preco:62.90}]},
-      {nome:'Pizza Quatro Queijos',cat:'Pizzas Salgadas',preco:54.90,desc:'Muçarela, provolone, gorgonzola e parmesão.',emoji:'🧀',estoque:28,min:4,tipo:'variacao',opcoes:[{nome:'Média',preco:54.90},{nome:'Grande',preco:67.90}]},
-      {nome:'Pizza Portuguesa',cat:'Pizzas Salgadas',preco:52.90,desc:'Presunto, ovo, cebola, azeitona e ervilha.',emoji:'🍕',estoque:25,min:4,tipo:'variacao',opcoes:[{nome:'Média',preco:52.90},{nome:'Grande',preco:65.90}]},
+      {nome:'Pizza Margherita',cat:'Pizzas Tradicionais',preco:39.90,desc:'Molho, muçarela e manjericão.',emoji:'🍕',estoque:40,min:5,tipo:'variacao',opcoes:[{nome:'Média',preco:39.90},{nome:'Grande',preco:52.90}]},
+      {nome:'Pizza Pepperoni',cat:'Pizzas Especiais',preco:49.90,desc:'Pepperoni e muçarela.',emoji:'🍕',estoque:35,min:5,tipo:'variacao',opcoes:[{nome:'Média',preco:49.90},{nome:'Grande',preco:62.90}]},
+      {nome:'Pizza Calabresa',cat:'Pizzas Tradicionais',preco:44.90,desc:'Calabresa fatiada e cebola.',emoji:'🍕',estoque:38,min:5,tipo:'variacao',opcoes:[{nome:'Média',preco:44.90},{nome:'Grande',preco:57.90}]},
+      {nome:'Pizza Frango com Catupiry',cat:'Pizzas Tradicionais',preco:49.90,desc:'Frango desfiado e catupiry.',emoji:'🍕',estoque:32,min:4,tipo:'variacao',opcoes:[{nome:'Média',preco:49.90},{nome:'Grande',preco:62.90}]},
+      {nome:'Pizza Quatro Queijos',cat:'Pizzas Especiais',preco:54.90,desc:'Muçarela, provolone, gorgonzola e parmesão.',emoji:'🧀',estoque:28,min:4,tipo:'variacao',opcoes:[{nome:'Média',preco:54.90},{nome:'Grande',preco:67.90}]},
+      {nome:'Pizza Portuguesa',cat:'Pizzas Tradicionais',preco:52.90,desc:'Presunto, ovo, cebola, azeitona e ervilha.',emoji:'🍕',estoque:25,min:4,tipo:'variacao',opcoes:[{nome:'Média',preco:52.90},{nome:'Grande',preco:65.90}]},
+      {nome:'Pizza Bacon Supreme',cat:'Pizzas Especiais',preco:57.90,desc:'Bacon, cheddar e cebola caramelizada.',emoji:'🥓',estoque:24,min:4,tipo:'variacao',opcoes:[{nome:'Média',preco:57.90},{nome:'Grande',preco:70.90}]},
+      {nome:'Pizza Vegetariana',cat:'Pizzas Especiais',preco:52.90,desc:'Abobrinha, berinjela, pimentão e tomate seco.',emoji:'🥬',estoque:20,min:3},
       {nome:'Pizza Chocolate',cat:'Pizzas Doces',preco:45.90,desc:'Chocolate ao leite com morango.',emoji:'🍫',estoque:20,min:3},
       {nome:'Pizza Brigadeiro',cat:'Pizzas Doces',preco:45.90,desc:'Brigadeiro cremoso e granulado.',emoji:'🍫',estoque:20,min:3},
       {nome:'Coca-Cola 2L',cat:'Bebidas',preco:13.00,desc:'Gelada.',emoji:'🥤',estoque:90,min:10},
@@ -135,16 +190,21 @@ const BUSINESS_TEMPLATES = {
 
   acai:{
     label:'Açaí', emoji:'🍧', cor:'#8B5CF6',
-    cats:['Açaís','Complementos','Bebidas'],
+    cats:['Açaí','Combos','Adicionais','Bebidas'],
     produtos:[
-      {nome:'Açaí 300ml',cat:'Açaís',preco:12.90,desc:'Açaí puro batido na hora.',emoji:'🍧',estoque:100,min:15,tipo:'adicional',opcoes:[{nome:'Granola',preco:1.50},{nome:'Leite em pó',preco:1.50},{nome:'Banana',preco:1.00},{nome:'Morango',preco:2.00},{nome:'Paçoca',preco:1.50},{nome:'Leite condensado',preco:2.00}]},
-      {nome:'Açaí 500ml',cat:'Açaís',preco:17.90,desc:'Açaí puro + 1 complemento grátis.',emoji:'🍧',estoque:90,min:12,tipo:'adicional',opcoes:[{nome:'Granola',preco:1.50},{nome:'Leite em pó',preco:1.50},{nome:'Banana',preco:1.00},{nome:'Morango',preco:2.00},{nome:'Paçoca',preco:1.50}]},
-      {nome:'Açaí 700ml',cat:'Açaís',preco:22.90,desc:'Açaí puro + 2 complementos grátis.',emoji:'🍧',estoque:70,min:10,tipo:'adicional',opcoes:[{nome:'Granola',preco:1.50},{nome:'Leite em pó',preco:1.50},{nome:'Banana',preco:1.00},{nome:'Morango',preco:2.00},{nome:'Paçoca',preco:1.50},{nome:'Leite condensado',preco:2.00}]},
-      {nome:'Cupuaçu 500ml',cat:'Açaís',preco:18.90,desc:'Cupuaçu cremoso.',emoji:'🍈',estoque:40,min:8},
-      {nome:'Vitamina de Banana',cat:'Açaís',preco:13.90,desc:'Banana com leite.',emoji:'🍌',estoque:35,min:6},
+      {nome:'Açaí 300ml',cat:'Açaí',preco:12.90,desc:'Açaí puro batido na hora.',emoji:'🍧',estoque:100,min:15,tipo:'adicional',opcoes:[{nome:'Granola',preco:1.50},{nome:'Leite em pó',preco:1.50},{nome:'Banana',preco:1.00},{nome:'Morango',preco:2.00},{nome:'Paçoca',preco:1.50},{nome:'Leite condensado',preco:2.00}]},
+      {nome:'Açaí 500ml',cat:'Açaí',preco:17.90,desc:'Açaí puro + 1 complemento grátis.',emoji:'🍧',estoque:90,min:12,tipo:'adicional',opcoes:[{nome:'Granola',preco:1.50},{nome:'Leite em pó',preco:1.50},{nome:'Banana',preco:1.00},{nome:'Morango',preco:2.00},{nome:'Paçoca',preco:1.50}]},
+      {nome:'Açaí 700ml',cat:'Açaí',preco:22.90,desc:'Açaí puro + 2 complementos grátis.',emoji:'🍧',estoque:70,min:10,tipo:'adicional',opcoes:[{nome:'Granola',preco:1.50},{nome:'Leite em pó',preco:1.50},{nome:'Banana',preco:1.00},{nome:'Morango',preco:2.00},{nome:'Paçoca',preco:1.50},{nome:'Leite condensado',preco:2.00}]},
+      {nome:'Cupuaçu 500ml',cat:'Açaí',preco:18.90,desc:'Cupuaçu cremoso.',emoji:'🍈',estoque:40,min:8},
+      {nome:'Vitamina de Banana',cat:'Açaí',preco:13.90,desc:'Banana com leite.',emoji:'🍌',estoque:35,min:6},
+      {nome:'Adicional Granola',cat:'Adicionais',preco:1.50,desc:'Porção extra de granola.',emoji:'🌾',estoque:200,min:30},
+      {nome:'Adicional Morango',cat:'Adicionais',preco:2.00,desc:'Morango fresco picado.',emoji:'🍓',estoque:80,min:12},
+      {nome:'Adicional Leite Condensado',cat:'Adicionais',preco:2.00,desc:'Fio generoso.',emoji:'🥛',estoque:150,min:20},
+      {nome:'Adicional Paçoca',cat:'Adicionais',preco:1.50,desc:'Paçoca esfarelada.',emoji:'🥜',estoque:150,min:20},
       {nome:'Caldo de Cana',cat:'Bebidas',preco:8.00,desc:'Copo 400ml.',emoji:'🥤',estoque:60,min:10,tipo:'variacao',opcoes:[{nome:'400ml',preco:8.00},{nome:'600ml',preco:10.00}]},
       {nome:'Água Mineral',cat:'Bebidas',preco:3.50,desc:'Garrafa 500ml.',emoji:'💧',estoque:150,min:20},
-      {nome:'Combo Açaí 500ml + 2 complementos',cat:'Açaís',preco:19.90,promocao:17.90,desc:'O favorito da casa.',emoji:'🍧',estoque:50,min:8}
+      {nome:'Combo Açaí 500ml + 2 complementos',cat:'Combos',preco:19.90,promocao:17.90,desc:'O favorito da casa.',emoji:'🍧',estoque:50,min:8},
+      {nome:'Combo Casal — 2 Açaís 500ml',cat:'Combos',preco:32.90,promocao:29.90,desc:'Dois açaís com complementos.',emoji:'📦',estoque:35,min:6}
     ]
   },
 
@@ -244,7 +304,48 @@ const BUSINESS_TEMPLATES = {
   }
 };
 
-function templateByType(type){return BUSINESS_TEMPLATES[type]||BUSINESS_TEMPLATES.bebidas}
+// Modelo vazio: usado quando a loja ainda não escolheu o segmento. Devolver
+// bebidas aqui faria uma loja nova nascer com cerveja no catálogo.
+const TEMPLATE_VAZIO = {label:'',emoji:'🛍️',cor:'#F15A24',cats:[],produtos:[]};
+function templateByType(type){return BUSINESS_TEMPLATES[type]||TEMPLATE_VAZIO}
+
+// ── iniciais do nome (avatar quando não há logo) ────────────────────────
+// Regra GENÉRICA — sem tratamento especial para nenhum estabelecimento:
+//   "Burger do Zé"        → BZ   (ignora "do")
+//   "Mercado Central"     → MC
+//   "Pizza Prime"         → PP
+//   "João Lanches"        → JL
+//   "Distribuidora Imperial" → DI
+//   "Conveniência 24 Horas"  → C24  (regra do número: inicial + número)
+//   "Loja 24h"            → L24
+//   nome vazio            → LO   (marca neutra do sistema, não de uma loja)
+function iniciaisNome(nome){
+  const partes=String(nome||'').trim().split(/\s+/).filter(Boolean);
+  if(!partes.length)return 'LO';
+  const stop=['do','da','de','dos','das','e'];
+  const uteis=partes.filter(p=>!stop.includes(p.toLowerCase()));
+  const base=uteis.length?uteis:partes;
+  // nome com número vira inicial + número (vale para qualquer segmento, não é
+  // caso especial de nenhuma loja): "Conveniência 24 Horas" → C24
+  const num=base.find(p=>/\d/.test(p));
+  if(num&&base.length>1)return (base[0][0]+String(num).replace(/\D/g,'')).toUpperCase().substring(0,3);
+  if(base.length===1)return base[0].substring(0,2).toUpperCase();
+  return (base[0][0]+base[base.length-1][0]).toUpperCase();
+}
+
+// ── emoji por categoria (listas do painel, catálogo e site) ─────────────
+const CAT_EMOJI={
+  'Cervejas':'🍺','Whisky':'🥃','Vodka':'🍸','Gin':'🍸','Vinhos':'🍷','Refrigerantes':'🥤',
+  'Energéticos':'⚡','Água':'💧','Gelo':'🧊','Combos':'📦',
+  'Hambúrgueres':'🍔','Hot Dog':'🌭','Porções':'🍟','Batata':'🍟','Sobremesas':'🍰','Adicionais':'➕','Sanduíches':'🥪',
+  'Pizzas Tradicionais':'🍕','Pizzas Especiais':'🍕','Pizzas Doces':'🍫',
+  'Açaí':'🍧','Complementos':'🍓',
+  'Pratos':'🍽️','Pratos Executivos':'🍛','Marmitas':'🥡','Massas':'🍝',
+  'Lanches':'🥪','Salgados':'🥟','Doces & Bolos':'🍰',
+  'Snacks':'🍿','Mercearia':'🛒','Hortifruti':'🥦','Açougue':'🥩','Padaria':'🥖','Higiene':'🧻',
+  'Destilados':'🍸','Bebidas':'🥤','Outros':'📦'
+};
+function categoriaComEmoji(cat){return CAT_EMOJI[cat]||'🛍️'}
 
 // ── catálogo-modelo → lista de produtos pronta para gravar ─────────────
 function buildTemplateProducts(type){
@@ -264,7 +365,7 @@ function buildTemplateProducts(type){
       promocao:p.promocao||0,
       custo:custo,
       sku:'',
-      codigoBarras:'',
+      barras:'',
       estoque:baseEst,
       min:baseMin,
       tipo:p.tipo||'simples',
@@ -277,13 +378,36 @@ function buildTemplateProducts(type){
   });
 }
 
-// ── Catálogo base de tenants demo ───────────────────────────────────────
-// Este é o "Super Admin" local: catálogo de empresas que existem.
+// ── Catálogo base de tenants DEMO ───────────────────────────────────────
+// Estes são DADOS DE DEMONSTRAÇÃO para teste. Nenhum deles é identidade do
+// produto: nada aqui é usado como nome/logo/texto padrão quando falta loja.
+// O sistema atende qualquer segmento; estes nomes servem só para provar que
+// o MESMO site.html muda de cara conforme o estabelecimento cadastrado.
 const TENANTS = [
-  {id:'adega1998', nome:'Adega 1998', categoria:'Adega / Depósito de Bebidas', businessType:'bebidas', cor:'#F15A24', cnpj:'00.000.000/0001-00', whats:'5511999991998', phone:'(11) 99999-1998', endereco:'Rua das Bebidas, 1998 — Centro, São Paulo/SP', linkLoja:'', raio:12, minimo:30, taxaBase:5, taxaKm:1.2, tempoPrep:25, horario:'Seg a Sáb 9h–23h • Dom 10h–20h', plano:'Profissional', logo:'A98', logoImg:'', statusLoja:'aberta', desc:'Depósito de bebidas desde 1998. Qualidade, variedade e entrega rápida para toda a cidade.'},
-  {id:'burger-ze', nome:'Burger do Zé', categoria:'Hamburgueria', businessType:'hamburgueria', cor:'#E11D48', cnpj:'11.111.111/0001-11', whats:'5511988880001', phone:'(11) 98888-0001', endereco:'Av. Paulista, 1000 — Bela Vista, São Paulo/SP', linkLoja:'', raio:8, minimo:25, taxaBase:6, taxaKm:1.5, tempoPrep:20, horario:'Todos os dias 11h–23h30', plano:'Starter', logo:'BZ', logoImg:'', statusLoja:'aberta', desc:'Hambúrguer artesanal com entrega rápida. O melhor da Paulista.'},
-  {id:'pizza-prime', nome:'Pizza Prime', categoria:'Pizzaria', businessType:'pizzaria', cor:'#7C3AED', cnpj:'22.222.222/0001-22', whats:'5511977770002', phone:'(11) 97777-0002', endereco:'Rua Augusta, 2000 — Cerqueira César, São Paulo/SP', linkLoja:'', raio:10, minimo:40, taxaBase:8, taxaKm:1.0, tempoPrep:35, horario:'Ter a Dom 18h–23h59', plano:'Premium', logo:'PP', logoImg:'', statusLoja:'aberta', desc:'Pizzas artesanais de fermentação natural.'}
+  {id:'burger-ze', nome:'Burger do Zé', categoria:'Hamburgueria', businessType:'hamburgueria', cor:'#E11D48', cnpj:'11.111.111/0001-11', whats:'5511988880001', phone:'(11) 98888-0001', endereco:'Av. Paulista, 1000 — Bela Vista, São Paulo/SP', linkLoja:'', raio:8, minimo:25, taxaBase:6, taxaKm:1.5, tempoPrep:20, horario:'Todos os dias 11h–23h30', plano:'Starter', logoImg:'', statusLoja:'aberta', desc:'Hambúrguer artesanal com entrega rápida. O melhor da Paulista.'},
+  {id:'pizza-prime', nome:'Pizza Prime', categoria:'Pizzaria', businessType:'pizzaria', cor:'#7C3AED', cnpj:'22.222.222/0001-22', whats:'5511977770002', phone:'(11) 97777-0002', endereco:'Rua Augusta, 2000 — Cerqueira César, São Paulo/SP', linkLoja:'', raio:10, minimo:40, taxaBase:8, taxaKm:1.0, tempoPrep:35, horario:'Ter a Dom 18h–23h59', plano:'Premium', logoImg:'', statusLoja:'aberta', desc:'Pizzas artesanais de fermentação natural.'},
+  {id:'mercado-central', nome:'Mercado Central', categoria:'Mercado', businessType:'mercado', cor:'#15803D', cnpj:'44.444.444/0001-44', whats:'5511955550004', phone:'(11) 95555-0004', endereco:'Rua do Mercado, 300 — Centro, São Paulo/SP', linkLoja:'', raio:6, minimo:50, taxaBase:7, taxaKm:1.1, tempoPrep:40, horario:'Seg a Sáb 7h–21h • Dom 8h–14h', plano:'Starter', logoImg:'', statusLoja:'aberta', desc:'Hortifruti, mercearia, açougue e bebidas na sua porta.'},
+  // Loja DEMO de bebidas: usada para provar que o segmento bebidas continua
+  // atendido sem depender de nenhuma identidade "Adega".
+  {id:'imperial-bebidas', nome:'Distribuidora Imperial', categoria:'Loja de Bebidas', businessType:'bebidas', cor:'#0E7490', cnpj:'33.333.333/0001-33', whats:'5511966660003', phone:'(11) 96666-0003', endereco:'Rua do Comércio, 500 — Centro, São Paulo/SP', linkLoja:'', raio:15, minimo:35, taxaBase:6, taxaKm:1.3, tempoPrep:30, horario:'Seg a Dom 8h–00h', plano:'Profissional', logoImg:'', statusLoja:'aberta', desc:'Cervejas geladas, destilados e gelo com entrega rápida.'}
 ];
+
+// Valores neutros de uma loja ainda não configurada. NÃO é uma loja real:
+// é o ponto de partida de quem acabou de se cadastrar (nome e logo vazios).
+const TENANT_NEUTRO = {
+  id:'', nome:'', categoria:'', businessType:'', cor:'#F15A24', cnpj:'',
+  whats:'', phone:'', endereco:'', linkLoja:'', raio:8, minimo:20,
+  taxaBase:5, taxaKm:1.5, tempoPrep:30, horario:'', plano:'Starter',
+  logo:'', logoImg:'', banners:[], statusLoja:'aberta', desc:'', onboarded:false
+};
+
+// ── Avaliações: vazio até o estabelecimento ter avaliações reais ────────
+// A seção só aparece quando há avaliações cadastradas (nada é inventado).
+function getAvaliacoes(tenantId){
+  const raw=storeGet('dp_'+tenantId+'_avaliacoes');
+  if(raw){try{const a=JSON.parse(raw);if(Array.isArray(a))return a}catch(e){}}
+  return [];
+}
 
 // catálogo dinâmico: base + tenants criados no fluxo/Super Admin (dp_sa_tenants)
 function getTenantCatalog(){
@@ -294,7 +418,11 @@ function getTenantCatalog(){
     if(Array.isArray(extras)){
       extras.forEach(t=>{
         if(!base.some(b=>b.id===t.id)){
-          base.push(Object.assign({businessType:'bebidas',statusLoja:'aberta',logo:'T',logoImg:'',desc:'',phone:'',linkLoja:'',raio:8,minimo:20,taxaBase:5,taxaKm:1.5,tempoPrep:25,horario:'',plano:t.plano||'Starter'},t));
+          // NÃO força businessType: sem ele, getTenant() infere pela categoria cadastrada
+          // (o Super Admin grava apenas "categoria"). Assim uma hamburgueria criada lá
+          // não vira "bebidas" por padrão.
+          // Sem 'cor', o branding cai no laranja padrão (mesma cor do tema do site).
+          base.push(Object.assign({},TENANT_NEUTRO,{plano:t.plano||'Starter'},t));
         }
       });
     }
@@ -305,7 +433,7 @@ function getTenantCatalog(){
 // inferência do tipo de negócio pela categoria (para dados antigos sem businessType)
 function inferType(cat){
   const c=String(cat||'').toLowerCase();
-  if(c.includes('bebida')||c.includes('adega')||c.includes('depósito'))return 'bebidas';
+  if(c.includes('bebida')||c.includes('depósito')||c.includes('adega')||c.includes('distribuidora'))return 'bebidas';
   if(c.includes('hamburguer'))return 'hamburgueria';
   if(c.includes('lanchonete')||c.includes('sanduíche')||c.includes('sanduiche'))return 'lanchonete';
   if(c.includes('pizza'))return 'pizzaria';
@@ -315,23 +443,37 @@ function inferType(cat){
   if(c.includes('padaria')||c.includes('confeitaria'))return 'padaria';
   if(c.includes('mercado')||c.includes('mercearia'))return 'mercado';
   if(c.includes('dark'))return 'dark_kitchen';
-  return 'bebidas';
+  // sem pista nenhuma: devolve vazio em vez de fingir um segmento — quem chama
+  // decide o padrão (o assistente pergunta o tipo de negócio).
+  return '';
 }
 
-// getTenant(id): base + overrides salvos em dp_tenant_{id} (normaliza campos)
+// Existe esta loja? (nem tenant demo, nem criada no fluxo/Super Admin)
+function tenantExiste(id){return getTenantCatalog().some(x=>x.id===id)}
+
+// getTenant(id): base + overrides salvos em dp_tenant_{id} (normaliza campos).
+// IMPORTANTE: se o id não existir, devolve um tenant NEUTRO em branco — nunca
+// uma loja alheia. Carregar a loja de outra pessoa por engano seria pior do
+// que abrir sem identidade; a interface mostra "Estabelecimento não encontrado".
 function getTenant(id){
   const list=getTenantCatalog();
-  const t=list.find(x=>x.id===id)||list[0];
+  const t=list.find(x=>x.id===id);
   let saved=null;
   const s=storeGet('dp_tenant_'+id);
   if(s){try{saved=JSON.parse(s)}catch(e){}}
-  const merged=Object.assign({},t,saved||{});
+  // id desconhecido e sem dados salvos → loja neutra (nome/logo vazios)
+  if(!t&&!saved)return Object.assign({},TENANT_NEUTRO,{id:id||'',naoEncontrado:true});
+  const merged=Object.assign({},TENANT_NEUTRO,t||{},saved||{},{naoEncontrado:false});
   // normaliza
   if(!merged.businessType)merged.businessType=inferType(merged.categoria);
   if(!merged.categoria&&merged.businessType)merged.categoria=typeById(merged.businessType).label;
   if(!merged.statusLoja)merged.statusLoja='aberta';
   if(!merged.logoImg)merged.logoImg='';
-  if(!merged.logo)merged.logo=(merged.nome||'L').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+  if(!Array.isArray(merged.banners))merged.banners=[];
+  // iniciais pela MESMA regra do painel/site (genérica, sem caso especial).
+  // Nome vazio → '' (avatar fica neutro "LO" na hora de desenhar).
+  merged.logo=merged.logo||iniciaisNome(merged.nome);
+  if(merged.nome==='')merged.logo='';
   if(merged.whats&&!String(merged.whats).startsWith('55'))merged.whats=String(merged.whats).replace(/\D/g,'');
   if(merged.logoImg==='')merged.logoImg=saved&&saved.logoImg?saved.logoImg:'';
   return merged;
@@ -347,14 +489,14 @@ function ensureTenantInSaCatalog(tenant){
   const raw=storeGet(key);
   if(raw){try{arr=JSON.parse(raw)||[]}catch(e){arr=[]}}
   const i=arr.findIndex(x=>x.id===tenant.id);
-  const entry={id:tenant.id,nome:tenant.nome,categoria:tenant.categoria,businessType:tenant.businessType,cor:tenant.cor,plano:tenant.plano,logo:tenant.logo,logoImg:tenant.logoImg,statusLoja:tenant.statusLoja,whats:tenant.whats,phone:tenant.phone,endereco:tenant.endereco,raio:tenant.raio,minimo:tenant.minimo,taxaBase:tenant.taxaBase,taxaKm:tenant.taxaKm,tempoPrep:tenant.tempoPrep,horario:tenant.horario,desc:tenant.desc};
+  const entry={id:tenant.id,nome:tenant.nome,categoria:tenant.categoria,businessType:tenant.businessType,cor:tenant.cor,plano:tenant.plano,logo:tenant.logo,logoImg:tenant.logoImg,banners:tenant.banners,statusLoja:tenant.statusLoja,whats:tenant.whats,phone:tenant.phone,endereco:tenant.endereco,raio:tenant.raio,minimo:tenant.minimo,taxaBase:tenant.taxaBase,taxaKm:tenant.taxaKm,tempoPrep:tenant.tempoPrep,horario:tenant.horario,desc:tenant.desc};
   if(i>=0)arr[i]=Object.assign({},arr[i],entry);
   else arr.push(entry);
   storeSet(key,JSON.stringify(arr));
 }
 
 // ── Produtos do tenant (com versão p/ renovar catálogo-modelo) ──────────
-const CAT_VERSION = 3; // suba p/ reaplicar templates em tenants já existentes
+const CAT_VERSION = 4; // suba p/ reaplicar templates em tenants já existentes
 function getProducts(tenantId){
   const key='dp_'+tenantId+'_products';
   const verKey='dp_'+tenantId+'_catVersion';
@@ -369,6 +511,14 @@ function getProducts(tenantId){
   storeSet(key,JSON.stringify(arr));
   storeSet(verKey,String(CAT_VERSION));
   return arr;
+}
+// SOMENTE LEITURA: devolve o catálogo já gravado, ou o modelo do segmento em memória.
+// Não grava nada — use quando não se quer semear o catálogo do tenant.
+function lerProdutos(tenantId){
+  const raw=storeGet('dp_'+tenantId+'_products');
+  if(raw){try{const a=JSON.parse(raw);if(Array.isArray(a))return a}catch(e){}}
+  // sem catálogo gravado ainda: mostra o modelo do segmento (somente leitura)
+  return buildTemplateProducts(getTenant(tenantId).businessType);
 }
 function saveProducts(tenantId,arr){
   storeSet('dp_'+tenantId+'_products',JSON.stringify(arr));

@@ -18,6 +18,7 @@ import {
 import { BUSINESS_COPY, STORE_STATUS_LABEL } from '@/data/business-copy';
 import { summarizeSchedule, type WeekdaySchedule } from '@/lib/schedule';
 import { ScheduleEditor } from './ScheduleEditor';
+import { DeliveryAreaMap } from './DeliveryAreaMap';
 import {
   Alert,
   Badge,
@@ -66,6 +67,16 @@ export type StoreFormData = {
   city: string | null;
   state: string | null;
   zipCode: string | null;
+  /**
+   * Coordenadas do estabelecimento. São ELAS a fonte da verdade para o
+   * cálculo de distância e para o desenho da área de entrega — o endereço
+   * em texto é o que a pessoa lê, não o que o servidor mede.
+   *
+   * Nulo é um estado legítimo: sem coordenada, o cálculo degrada para a
+   * taxa base em vez de estimar um ponto (ver delivery-fee.ts).
+   */
+  latitude: number | null;
+  longitude: number | null;
   openingHours: string | null;
   minimumOrder: number;
   deliveryRadius: number;
@@ -127,6 +138,7 @@ export function StoreSettings({
   publicUrl,
   canManage,
   canChangeStatus,
+  tilesHint,
 }: {
   store: StoreFormData;
   publicUrl: string;
@@ -137,6 +149,7 @@ export function StoreSettings({
    * desta tela. Por isso a permissÃ£o Ã© separada (MANAGE_ORDERS).
    */
   canChangeStatus: boolean;
+  tilesHint: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -750,6 +763,17 @@ export function StoreSettings({
               />
             )}
 
+            {/* â”€â”€ LocalizaÃ§Ã£o e Ã¡rea de entrega (Fase 3) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            <DeliveryAreaMap
+              latitude={form.latitude}
+              longitude={form.longitude}
+              radiusKm={form.deliveryRadius}
+              zones={form.deliveryZones}
+              canManage={canManage}
+              tilesHint={tilesHint}
+              addressReady={Boolean(form.address && form.city && form.state)}
+            />
+
             <Alert tone="info">
               {form.deliveryFeeMode === 'FIXED' && (
                 <>
@@ -1048,8 +1072,8 @@ function DeliveryZones({
                     className="!py-1.5 text-[0.84rem]"
                   />
                 </div>
-                <div className="w-[120px]">
-                  <label className="field-label" htmlFor="zone-edit-dist">DistÃ¢ncia (km)</label>
+                <div className="w-[150px]">
+                  <label className="field-label" htmlFor="zone-edit-dist">Distância (km)</label>
                   <Input
                     id="zone-edit-dist"
                     value={draft.distanceKm == null ? '' : String(draft.distanceKm)}
@@ -1064,6 +1088,20 @@ function DeliveryZones({
                     className="!py-1.5 text-[0.84rem]"
                   />
                 </div>
+                {/* Ativar/desativar sem apagar o bairro: desativar é temporário
+                    (não entrego ali hoje), remover é definitivo. Sem esta
+                    chave, o lojista que pausa um bairro apagava a taxa e
+                    perdia o cadastro. */}
+                <label className="flex items-center gap-1.5 pb-2 text-[0.78rem] font-medium text-ink-600">
+                  <input
+                    type="checkbox"
+                    checked={draft.active}
+                    onChange={(e) => setDraft((d) => ({ ...d, active: e.target.checked }))}
+                    disabled={disabled}
+                    className="h-4 w-4 accent-[var(--brand)]"
+                  />
+                  Ativo
+                </label>
                 <div className="flex gap-1.5 pb-0.5">
                   <Button type="button" size="sm" onClick={submit} disabled={disabled}>
                     Salvar
@@ -1147,8 +1185,8 @@ function DeliveryZones({
                 className="!py-1.5 text-[0.84rem]"
               />
             </div>
-            <div className="w-[120px]">
-              <label className="field-label" htmlFor="zone-new-dist">DistÃ¢ncia (km)</label>
+            <div className="w-[150px]">
+              <label className="field-label" htmlFor="zone-new-dist">Distância (km)</label>
               <Input
                 id="zone-new-dist"
                 value={draft.distanceKm == null ? '' : String(draft.distanceKm)}
@@ -1164,6 +1202,16 @@ function DeliveryZones({
                 className="!py-1.5 text-[0.84rem]"
               />
             </div>
+            <label className="flex items-center gap-1.5 pb-2 text-[0.78rem] font-medium text-ink-600">
+              <input
+                type="checkbox"
+                checked={draft.active}
+                onChange={(e) => setDraft((d) => ({ ...d, active: e.target.checked }))}
+                disabled={disabled}
+                className="h-4 w-4 accent-[var(--brand)]"
+              />
+              Ativo
+            </label>
             <div className="flex gap-1.5 pb-0.5">
               <Button type="button" size="sm" onClick={submit} disabled={disabled || draft.name.trim().length < 2}>
                 Adicionar

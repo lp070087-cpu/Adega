@@ -1,6 +1,7 @@
 import 'server-only';
 import { prisma } from '@/lib/db';
 import { normalizeSchedule, type WeekdaySchedule } from '@/lib/schedule';
+import { normalizeTiers } from '@/lib/data/delivery-fee';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -112,26 +113,15 @@ export async function getStoreOperations(organizationId: string) {
 export type StoreOperations = NonNullable<Awaited<ReturnType<typeof getStoreOperations>>>;
 
 /**
- * Faixas de frete lidas do banco sem confiar no formato.
+ * Faixas de frete são lidas por `normalizeTiers` de delivery-fee.ts.
  *
- * `settings` é Json: pode conter qualquer coisa que alguém já gravou (ou
- * que uma versão anterior gravou). Uma faixa com texto no lugar do número
- * quebraria o cálculo do frete na vitrine — então aqui o formato é
- * reconferido, e o que não serve é descartado.
+ * Ficou uma definição só, importada — não duas. Antes existia aqui uma
+ * cópia da mesma validação; duas cópias de uma regra de preço é o tipo de
+ * coisa que começa idêntica e termina diferente, e aí a tela exibe um
+ * número que o checkout não cobra. A função original está em
+ * `src/lib/data/delivery-fee.ts`, junto com o resto do cálculo.
  */
-function normalizeTiers(value: unknown): Array<{ upToKm: number; fee: number }> {
-  if (!Array.isArray(value)) return [];
-  const tiers: Array<{ upToKm: number; fee: number }> = [];
-  for (const entry of value) {
-    if (!entry || typeof entry !== 'object') continue;
-    const t = entry as Record<string, unknown>;
-    const km = typeof t.upToKm === 'number' ? t.upToKm : Number(t.upToKm);
-    const fee = typeof t.fee === 'number' ? t.fee : Number(t.fee);
-    if (!Number.isFinite(km) || !Number.isFinite(fee) || km <= 0 || fee < 0) continue;
-    tiers.push({ upToKm: km, fee: Math.round(fee * 100) / 100 });
-  }
-  return tiers.sort((a, b) => a.upToKm - b.upToKm);
-}
+
 
 // ── AGENDA (4.23) ──────────────────────────────────────────────────────
 

@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Adega 1998 — Depósito de Bebidas. Cervejas, whiskys, vinhos, destilados e muito mais com entrega rápida. Peça online.">
-<meta name="keywords" content="adega, bebidas, cerveja, whisky, vinho, destilados, delivery, entrega, Adega 1998">
-<meta property="og:title" content="Adega 1998 — Depósito de Bebidas">
-<meta property="og:description" content="Sua adega favorita, agora online. Entrega rápida.">
+<meta name="description" id="metaDesc" content="Loja online com entrega rápida. Peça pelo site.">
+<meta name="keywords" content="delivery, entrega, pedido online, loja, cardápio">
+<meta property="og:title" id="ogTitle" content="Loja online">
+<meta property="og:description" id="ogDesc" content="Peça online com entrega rápida.">
 <meta property="og:type" content="website">
 <meta property="og:image" id="ogImage" content="">
-<title>Adega 1998 — Depósito de Bebidas</title>
+<title id="pageTitle">Loja online</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -152,6 +152,12 @@ button { cursor: pointer; border: none; font-family: inherit; }
   background: var(--black); opacity: 0; transition: opacity 1.2s ease-in-out;
 }
 .hero-slide.active { opacity: 1; }
+/* banner enviado pelo estabelecimento: preenche o hero por inteiro
+   (as artes antigas usavam "contain" por terem área de respiro desenhada) */
+.hero-slide.custom { object-fit: cover; padding: 0; }
+/* banners de outro segmento não cobrem o texto do hero */
+.hero.sem-banners .hero-slideshow { display: none; }
+.hero.sem-banners { background: linear-gradient(120deg, var(--black) 0%, #1c1c1c 55%, rgba(241,90,36,.35) 140%); }
 .hero-dots {
   position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
   display: flex; gap: 10px; z-index: 5;
@@ -434,6 +440,81 @@ button { cursor: pointer; border: none; font-family: inherit; }
 }
 .footer-contact-item a { color: inherit; text-decoration: underline; }
 .footer-contact-item a:hover { color: var(--orange); }
+
+/* ─── STATUS DA LOJA ─── */
+.store-status { display:inline-flex; align-items:center; gap:7px; font-size:.78rem; font-weight:700; padding:5px 14px; border-radius:50px; }
+.store-status.open { background:#DCFCE7; color:#15803D; }
+.store-status.closed { background:#FEE2E2; color:#DC2626; }
+.store-status.paused { background:#FEF3C7; color:#B45309; }
+.store-status .dot { width:7px; height:7px; border-radius:50%; background:currentColor; }
+.store-closed-banner { display:none; background:#FEF3C7; color:#92400E; text-align:center; padding:12px 18px; font-size:.86rem; font-weight:600; border-bottom:1px solid #FDE68A; }
+.store-closed-banner.show { display:block; }
+
+/* ─── CARRINHO ─── */
+.cart-float { position:fixed; bottom:28px; right:104px; width:60px; height:60px; border-radius:50%; background:var(--orange); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.4rem; box-shadow:0 8px 28px var(--orange-glow); z-index:998; transition:all var(--transition); border:none; }
+.cart-float:hover { transform:scale(1.1); }
+.cart-count { position:absolute; top:-4px; right:-4px; min-width:24px; height:24px; border-radius:50px; background:var(--black); color:#fff; font-size:.72rem; font-weight:800; display:flex; align-items:center; justify-content:center; padding:0 6px; }
+.cart-overlay { position:fixed; inset:0; background:rgba(13,13,13,.55); z-index:1500; opacity:0; pointer-events:none; transition:opacity var(--transition); backdrop-filter:blur(2px); }
+.cart-overlay.open, .cart-overlay.show { opacity:1; pointer-events:auto; }
+.cart-float.has-items { box-shadow:0 10px 32px var(--orange-glow), 0 0 0 4px rgba(241,90,36,.18); }
+.cart-panel { position:fixed; top:0; right:0; height:100%; width:100%; max-width:420px; background:#fff; z-index:1501; transform:translateX(105%); transition:transform var(--transition-smooth); display:flex; flex-direction:column; box-shadow:var(--shadow-xl); }
+.cart-panel.open { transform:translateX(0); }
+.cart-head { padding:22px 24px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; justify-content:space-between; }
+.cart-head h3 { font-size:1.1rem; font-weight:800; color:var(--black); }
+.cart-close { width:36px; height:36px; border-radius:50%; background:var(--gray-100); font-size:1rem; display:flex; align-items:center; justify-content:center; border:none; }
+.cart-close:hover { background:var(--gray-200); }
+.cart-body { flex:1; overflow-y:auto; padding:18px 24px; }
+.cart-empty { text-align:center; color:var(--gray-400); font-size:.88rem; padding:50px 20px; line-height:1.8; }
+.cart-item { display:flex; gap:12px; padding:14px 0; border-bottom:1px solid var(--gray-100); }
+.cart-item-img { width:62px; height:62px; border-radius:var(--radius-sm); background:var(--gray-50); overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:1.6rem; }
+.cart-item-img img { width:100%; height:100%; object-fit:contain; padding:4px; }
+.cart-item-info { flex:1; min-width:0; }
+.cart-item-name { font-size:.88rem; font-weight:700; color:var(--black); line-height:1.3; }
+.cart-item-opts { font-size:.7rem; color:var(--gray-400); margin-top:2px; }
+.cart-item-price { font-size:.86rem; font-weight:800; color:var(--orange); margin-top:5px; }
+.cart-qty { display:flex; align-items:center; gap:8px; margin-top:7px; }
+.cart-qty button { width:26px; height:26px; border-radius:7px; border:1.5px solid var(--gray-200); background:#fff; font-size:.86rem; font-weight:700; color:var(--gray-700); display:flex; align-items:center; justify-content:center; }
+.cart-qty button:hover { border-color:var(--orange); color:var(--orange); }
+.cart-qty span { font-size:.84rem; font-weight:700; min-width:18px; text-align:center; }
+.cart-item-remove { align-self:flex-start; background:none; border:none; font-size:.85rem; color:var(--gray-400); padding:2px 4px; }
+.cart-item-remove:hover { color:#DC2626; }
+.cart-foot { border-top:1px solid var(--gray-100); padding:20px 24px 24px; background:var(--gray-50); }
+.cart-line { display:flex; justify-content:space-between; font-size:.85rem; color:var(--gray-600); margin-bottom:8px; }
+.cart-line.total { font-size:1.15rem; font-weight:800; color:var(--black); padding-top:10px; border-top:1px solid var(--gray-200); margin-top:10px; }
+.cart-min-warn { font-size:.76rem; color:#B45309; background:#FEF3C7; padding:10px 12px; border-radius:var(--radius-sm); margin-bottom:12px; line-height:1.6; }
+.cart-foot .btn { width:100%; }
+.cart-foot .btn[disabled] { opacity:.5; cursor:not-allowed; box-shadow:none; }
+
+/* ─── MODAL CHECKOUT / PRODUTO ─── */
+.sm-overlay { position:fixed; inset:0; background:rgba(13,13,13,.6); z-index:1600; display:none; align-items:center; justify-content:center; padding:20px; backdrop-filter:blur(3px); }
+.sm-overlay.open { display:flex; }
+.sm-box { background:#fff; border-radius:var(--radius-lg); width:100%; max-width:520px; max-height:92vh; overflow-y:auto; padding:28px; box-shadow:var(--shadow-xl); }
+.sm-box h3 { font-size:1.2rem; font-weight:800; color:var(--black); margin-bottom:6px; }
+.sm-box .sm-sub { font-size:.84rem; color:var(--gray-500); margin-bottom:20px; line-height:1.6; }
+.sm-field { margin-bottom:14px; }
+.sm-field label { display:block; font-size:.78rem; font-weight:600; color:var(--gray-700); margin-bottom:6px; }
+.sm-field input, .sm-field select, .sm-field textarea { width:100%; padding:12px 14px; border-radius:var(--radius-sm); border:2px solid var(--gray-200); font-size:.9rem; font-family:inherit; outline:none; transition:border-color var(--transition-fast); }
+.sm-field input:focus, .sm-field select:focus, .sm-field textarea:focus { border-color:var(--orange); }
+.sm-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.sm-actions { display:flex; gap:10px; margin-top:22px; }
+.sm-actions .btn { flex:1; }
+.sm-opt { display:flex; align-items:center; gap:10px; padding:10px 12px; border:1.5px solid var(--gray-200); border-radius:var(--radius-sm); margin-bottom:8px; cursor:pointer; font-size:.86rem; }
+.sm-opt:hover { border-color:var(--orange); }
+.sm-opt input { width:auto; }
+.sm-opt .sm-opt-price { margin-left:auto; font-weight:700; color:var(--orange); font-size:.82rem; }
+.sm-total-row { display:flex; justify-content:space-between; align-items:center; padding:14px 0; border-top:1px solid var(--gray-100); margin-top:8px; font-weight:800; font-size:1.1rem; color:var(--black); }
+.sm-note { font-size:.74rem; color:var(--gray-400); line-height:1.6; margin-top:12px; }
+.sm-success-icon { width:64px; height:64px; border-radius:50%; background:#DCFCE7; color:#15803D; display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin:0 auto 16px; }
+
+/* ─── ESTADO VAZIO ─── */
+.empty-state { grid-column:1/-1; text-align:center; padding:60px 20px; color:var(--gray-400); font-size:.9rem; line-height:1.9; }
+.demo-flag { display:inline-block; background:var(--gray-100); color:var(--gray-500); font-size:.66rem; font-weight:700; padding:3px 10px; border-radius:50px; text-transform:uppercase; letter-spacing:.06em; margin-left:8px; }
+
+@media (max-width:600px) {
+  .cart-float { right:22px; bottom:100px; width:54px; height:54px; }
+  .cart-panel { max-width:100%; }
+  .sm-row { grid-template-columns:1fr; }
+}
 </style>
 </head>
 <body>
@@ -441,338 +522,116 @@ button { cursor: pointer; border: none; font-family: inherit; }
 <!-- HEADER -->
 <header class="header" id="header">
   <div class="header-inner">
-    <a href="#" class="logo-link">
-      <div class="logo-mark" id="headerLogoMark">A98</div>
-      <span class="logo-text" id="headerLogoText">Adega <span class="logo-year" data-tenant-year>1998</span></span>
+    <a href="#inicio" class="logo-link">
+      <!-- preenchido por renderBranding(): logo enviado ou avatar de iniciais -->
+      <div class="logo-mark" id="headerLogoMark">·</div>
+      <span class="logo-text" id="headerLogoText">Carregando...</span>
     </a>
     <nav class="desktop-nav">
       <a href="#inicio" class="nav-link">Início</a>
       <a href="#produtos" class="nav-link">Produtos</a>
-      <a href="#promocoes" class="nav-link">Promoções</a>
-      <a href="#combos" class="nav-link">Combos</a>
+      <a href="#promocoes" class="nav-link" id="navPromo">Promoções</a>
+      <a href="#combos" class="nav-link" id="navCombos">Combos</a>
       <a href="#sobre" class="nav-link">Sobre</a>
       <a href="#contato" class="nav-link">Contato</a>
-      <a href="#" class="btn btn-primary btn-sm" id="desktopOrderBtn" style="margin-left:6px">Peça Agora</a>
+      <a href="#produtos" class="btn btn-primary btn-sm" id="desktopOrderBtn" style="margin-left:6px">Peça Agora</a>
     </nav>
     <button class="mobile-toggle" id="mobileToggle" aria-label="Menu"><span></span><span></span><span></span></button>
   </div>
 </header>
 <div class="mobile-nav" id="mobileNav">
-  <a href="#inicio">Início</a><a href="#produtos">Produtos</a><a href="#promocoes">Promoções</a>
-  <a href="#combos">Combos</a><a href="#sobre">Sobre</a><a href="#contato">Contato</a>
-  <a href="#" class="btn btn-primary" id="mobileOrderBtn" style="justify-content:center;margin-top:6px">Peça Agora</a>
+  <a href="#inicio">Início</a><a href="#produtos">Produtos</a><a href="#promocoes" id="navPromoM">Promoções</a>
+  <a href="#combos" id="navCombosM">Combos</a><a href="#sobre">Sobre</a><a href="#contato">Contato</a>
+  <a href="#produtos" class="btn btn-primary" id="mobileOrderBtn" style="justify-content:center;margin-top:6px">Peça Agora</a>
+</div>
+
+<!-- AVISO DE LOJA FECHADA -->
+<div class="store-closed-banner" id="closedBanner"></div>
+
+<!-- AVISO: estabelecimento não encontrado (mostrado por renderNaoEncontrado) -->
+<div id="lojaNaoEncontrada" style="display:none;max-width:560px;margin:14vh auto;padding:0 22px;text-align:center;position:relative;z-index:5">
+  <div style="font-size:3rem;line-height:1">🏪</div>
+  <h1 style="font-size:1.5rem;font-weight:800;margin:14px 0 8px;color:var(--black)">Estabelecimento não encontrado</h1>
+  <p style="font-size:.92rem;color:var(--gray-500);line-height:1.8">
+    Esta loja não existe ou o link está incorreto. Confira o endereço ou peça o link atualizado ao estabelecimento.
+  </p>
+  <p id="lojaNaoEncontradaId" style="font-size:.76rem;color:var(--gray-400);margin-top:14px"></p>
 </div>
 
 <!-- HERO - imagem aparece COMPLETA sem cortar -->
 <section class="hero" id="inicio">
   <div class="hero-bg-shape shape-1"></div>
   <div class="hero-bg-shape shape-2"></div>
-  <div class="hero-slideshow">
-    <img class="hero-slide active" src="Public%20produtos/banner%2001.png" alt="Banner Adega 1998">
-    <img class="hero-slide" src="Public%20produtos/banner%2002.png" alt="Banner Adega 1998">
-    <img class="hero-slide" src="Public%20produtos/banner%2003.png" alt="Banner Adega 1998">
-    <img class="hero-slide" src="Public%20produtos/banner%2004.png" alt="Banner Adega 1998">
-    <div class="hero-dots">
-      <button class="hero-dot active" data-index="0" aria-label="Banner 1"></button>
-      <button class="hero-dot" data-index="1" aria-label="Banner 2"></button>
-      <button class="hero-dot" data-index="2" aria-label="Banner 3"></button>
-      <button class="hero-dot" data-index="3" aria-label="Banner 4"></button>
-    </div>
-  </div>
+  <!-- Banners: preenchidos por renderHero() com TEN.banners (só banners da
+       própria loja). Sem banners, este bloco é removido e o hero usa o fundo. -->
+  <div class="hero-slideshow" id="heroSlideshow"></div>
   <div class="hero-bg-overlay"></div>
   <div class="hero-content">
     <div class="hero-left">
-      <div class="hero-chip" id="heroChip"><span class="hero-chip-dot"></span> Entrega em até 40 minutos</div>
-      <h1 class="hero-heading" id="heroHeading">Sua <em>adega</em> favorita, agora online.</h1>
-      <p class="hero-desc" id="heroDesc">As melhores cervejas, whiskys, vinhos e destilados entregues gelados na sua porta. Catálogo premium com mais de 2.000 produtos.</p>
+      <div class="hero-chip" id="heroChip"><span class="hero-chip-dot"></span> <span id="heroChipTxt">Entrega rápida</span></div>
+      <h1 class="hero-heading" id="heroHeading">Carregando...</h1>
+      <p class="hero-desc" id="heroDesc"></p>
       <div class="hero-buttons">
         <a href="#produtos" class="btn btn-primary btn-lg" id="heroCatalogBtn">Ver Catálogo</a>
         <a href="#" class="btn btn-outline btn-lg" id="heroOrderBtn">Fazer Pedido</a>
       </div>
       <div class="hero-stats-row">
-        <div><div class="hero-stat-val" data-hero-stat="produtos">2.000+</div><div class="hero-stat-lbl">Produtos</div></div>
-        <div><div class="hero-stat-val" data-hero-stat="tempo">40min</div><div class="hero-stat-lbl">Entrega média</div></div>
-        <div><div class="hero-stat-val" data-hero-stat="satisfacao">98%</div><div class="hero-stat-lbl">Satisfação</div></div>
+        <div><div class="hero-stat-val" data-hero-stat="produtos">—</div><div class="hero-stat-lbl">Produtos</div></div>
+        <div><div class="hero-stat-val" data-hero-stat="tempo">—</div><div class="hero-stat-lbl">Entrega média</div></div>
+        <div><div class="hero-stat-val" data-hero-stat="satisfacao">—</div><div class="hero-stat-lbl">Avaliação</div></div>
       </div>
     </div>
+    <!-- cards flutuantes: preenchidos por renderHero() com produtos DESTA loja.
+         A coluna inteira some se a loja não tiver produto com foto. -->
     <div class="hero-right" id="heroRight">
-      <div class="hero-float-card">
-        <img class="hero-float-img" src="Public%20produtos/keineken.jpg" alt="Heineken">
-        <div class="hero-float-info"><strong>Heineken</strong> Pack 12 un.</div>
+      <div class="hero-float-card" id="heroFloat1" style="display:none">
+        <img class="hero-float-img" src="" alt="">
+        <div class="hero-float-info"></div>
       </div>
-      <div class="hero-float-card">
-        <img class="hero-float-img" src="Public%20produtos/shisky%20clack%20lebel.jpg" alt="Black Label">
-        <div class="hero-float-info"><strong>Black Label</strong> 12 anos 1L</div>
+      <div class="hero-float-card" id="heroFloat2" style="display:none">
+        <img class="hero-float-img" src="" alt="">
+        <div class="hero-float-info"></div>
       </div>
-      <div class="hero-float-card">
-        <img class="hero-float-img" src="Public%20produtos/shisky%20tanqueray.jpg" alt="Tanqueray">
-        <div class="hero-float-info"><strong>Tanqueray</strong> London Dry 750ml</div>
+      <div class="hero-float-card" id="heroFloat3" style="display:none">
+        <img class="hero-float-img" src="" alt="">
+        <div class="hero-float-info"></div>
       </div>
-      <div class="hero-float-grid" id="heroFloatGrid" style="display:none"></div>
     </div>
   </div>
 </section>
 
-<!-- CATEGORY BAR -->
+<!-- CATEGORY BAR (pílulas geradas por renderCats() a partir do catálogo) -->
 <div class="cat-bar" id="catBar">
-  <div class="cat-bar-inner" id="catPills">
-    <a href="#" class="cat-pill active"><span class="cat-pill-emoji">🍺</span> Cervejas</a>
-    <a href="#" class="cat-pill"><span class="cat-pill-emoji">🥃</span> Whisky</a>
-    <a href="#" class="cat-pill"><span class="cat-pill-emoji">🍷</span> Vinhos</a>
-    <a href="#" class="cat-pill"><span class="cat-pill-emoji">🍸</span> Vodka</a>
-    <a href="#" class="cat-pill"><span class="cat-pill-emoji">🍹</span> Gin</a>
-    <a href="#" class="cat-pill"><span class="cat-pill-emoji">🥤</span> Refrigerantes</a>
-    <a href="#" class="cat-pill"><span class="cat-pill-emoji">⚡</span> Energéticos</a>
-    <a href="#" class="cat-pill"><span class="cat-pill-emoji">🍹</span> Drinks</a>
-    <a href="#" class="cat-pill"><span class="cat-pill-emoji">🧊</span> Gelo</a>
-  </div>
+  <div class="cat-bar-inner" id="catPills"></div>
 </div>
 
 <!-- PRODUCT SHOWCASE -->
 <section class="products section-padding" id="produtos">
   <div class="container">
     <div class="products-header reveal">
-      <div class="section-eyebrow">Catálogo Premium</div>
+      <div class="section-eyebrow">Catálogo</div>
       <h2 class="section-heading">Explore nossa vitrine</h2>
-      <p class="section-sub">Produtos selecionados com os melhores preços da região.</p>
+      <!-- subtítulo preenchido por renderInfo() com o segmento da loja -->
+      <p class="section-sub" id="catalogoSub">Produtos disponíveis para entrega.</p>
     </div>
-    <div class="product-grid" id="productsGrid">
-
-      <div class="product-card reveal reveal-d1">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/keineken.jpg" alt="Heineken 350ml" loading="lazy">
-          <span class="product-tag">-30%</span>
-          <button class="product-fav" title="Favoritar" onclick="this.classList.toggle('liked')">♡</button>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Cerveja Premium</div>
-          <div class="product-name">Heineken 350ml</div>
-          <div class="product-desc">Pack com 12 unidades. Cerveja puro malte, sabor inconfundível.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 89,90</span><span class="product-price">R$ 62,90</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="product-card reveal reveal-d1">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/skol.jpg" alt="Skol 350ml" loading="lazy">
-          <span class="product-tag">-25%</span>
-          <button class="product-fav" title="Favoritar" onclick="this.classList.toggle('liked')">♡</button>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Cerveja Pilsen</div>
-          <div class="product-name">Skol 350ml</div>
-          <div class="product-desc">Pack com 12 latas. A cerveja que desce redondo, bem gelada.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 59,90</span><span class="product-price">R$ 44,90</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="product-card reveal reveal-d1">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/brahma%20litr%C3%A3o.jpg" alt="Brahma Litrão" loading="lazy">
-          <button class="product-fav" title="Favoritar" onclick="this.classList.toggle('liked')">♡</button>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Cerveja Pilsen</div>
-          <div class="product-name">Brahma Litrão 1L</div>
-          <div class="product-desc">Garrafa 1 litro. A número 1 para compartilhar com os amigos.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 12,90</span><span class="product-price">R$ 9,90</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="product-card reveal reveal-d1">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/Brahma%20litrinho.jpg" alt="Brahma Litrinho" loading="lazy">
-          <span class="product-tag best">Destaque</span>
-          <button class="product-fav" title="Favoritar" onclick="this.classList.toggle('liked')">♡</button>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Cerveja Pilsen</div>
-          <div class="product-name">Brahma Litrinho 300ml</div>
-          <div class="product-desc">Pack com 15 garrafinhas. Praticidade e sabor na medida certa.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 79,90</span><span class="product-price">R$ 62,90</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="product-card reveal reveal-d2">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/Ice.jpg" alt="Smirnoff Ice" loading="lazy">
-          <button class="product-fav" title="Favoritar" onclick="this.classList.toggle('liked')">♡</button>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Ice / Drink</div>
-          <div class="product-name">Smirnoff Ice 275ml</div>
-          <div class="product-desc">Pack com 6 garrafinhas. Drink refrescante com vodka e limão.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 54,90</span><span class="product-price">R$ 42,90</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="product-card reveal reveal-d2">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/whisky.jpg" alt="Whisky Premium" loading="lazy">
-          <span class="product-tag new">Novo</span>
-          <button class="product-fav" title="Favoritar" onclick="this.classList.toggle('liked')">♡</button>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Whisky Premium</div>
-          <div class="product-name">Jack Daniel's Old No.7</div>
-          <div class="product-desc">Garrafa 1L. Whisky Tennessee clássico, envelhecido em carvalho.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 159,90</span><span class="product-price">R$ 127,90</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="product-card reveal reveal-d2">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/Shisky%20old%20parr.jpg" alt="Whisky Old Parr" loading="lazy">
-          <span class="product-tag">-15%</span>
-          <button class="product-fav" title="Favoritar" onclick="this.classList.toggle('liked')">♡</button>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Whisky Escocês</div>
-          <div class="product-name">Old Parr 12 Anos</div>
-          <div class="product-desc">Garrafa 1L. Whisky escocês premium, sabor encorpado e marcante.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 219,90</span><span class="product-price">R$ 186,90</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="product-card reveal reveal-d2">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/shisky%20clack%20lebel.jpg" alt="Black Label" loading="lazy">
-          <button class="product-fav" title="Favoritar" onclick="this.classList.toggle('liked')">♡</button>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Whisky Escocês</div>
-          <div class="product-name">Johnnie Walker Black Label</div>
-          <div class="product-desc">Garrafa 1L. Blend premium 12 anos, notas defumadas e adocicadas.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 189,90</span><span class="product-price">R$ 159,90</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-
-    </div>
+    <!-- grade vazia: renderProdutos() monta os produtos DESTA loja.
+         Nenhum produto fixo aqui — evita mostrar item de outra loja no carregamento. -->
+    <div class="product-grid" id="productsGrid"></div>
   </div>
 </section>
-
 <!-- PROMOTIONS -->
 <section class="promos section-padding" id="promocoes">
   <div class="container">
     <div class="promos-header reveal">
       <div class="section-eyebrow">Imperdíveis</div>
       <h2 class="section-heading">Promoções da Semana</h2>
-      <p class="section-sub" style="margin-left:auto;margin-right:auto">Ofertas selecionadas com descontos de até 40%.</p>
+      <!-- sem promessa fixa de desconto: só o que a loja realmente cadastrou -->
+      <p class="section-sub" style="margin-left:auto;margin-right:auto">Ofertas por tempo limitado.</p>
     </div>
-    <div class="promo-featured" id="promoFeatured">
-      <div class="promo-hero-card reveal reveal-d1">
-        <img class="promo-hero-bg" src="Public%20produtos/keineken.jpg" alt="Combo Cervejas" loading="lazy">
-        <div class="promo-hero-overlay"></div>
-        <div class="promo-hero-content">
-          <span class="promo-hero-badge">Oferta Especial</span>
-          <h3 class="promo-hero-title">Combo Churrasco: Heineken + Brahma + Gelo</h3>
-          <div class="promo-hero-row">
-            <span class="promo-hero-old">R$ 169,70</span>
-            <span class="promo-hero-price">R$ 129,90</span>
-            <a href="#" class="btn btn-primary promo-hero-btn">Aproveitar</a>
-          </div>
-        </div>
-      </div>
-      <div class="promo-hero-card reveal reveal-d2">
-        <img class="promo-hero-bg" src="Public%20produtos/shisky%20clack%20lebel.jpg" alt="Combo Black Label" loading="lazy">
-        <div class="promo-hero-overlay"></div>
-        <div class="promo-hero-content">
-          <span class="promo-hero-badge">Desconto</span>
-          <h3 class="promo-hero-title">Black Label 12 anos + Energético + Copo Brinde</h3>
-          <div class="promo-hero-row">
-            <span class="promo-hero-old">R$ 219,90</span>
-            <span class="promo-hero-price">R$ 174,90</span>
-            <a href="#" class="btn btn-primary promo-hero-btn">Aproveitar</a>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="product-grid" id="promosGrid">
-      <div class="product-card reveal reveal-d3">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/skol%20beats.webp" alt="Skol Beats" loading="lazy">
-          <span class="product-tag">-20%</span>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Cerveja Premium</div>
-          <div class="product-name">Skol Beats 269ml</div>
-          <div class="product-desc">Pack com 6 latas. Sabor marcante para curtir com a galera.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 39,90</span><span class="product-price">R$ 31,90</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-      <div class="product-card reveal reveal-d3">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/shisky%20tanqueray.jpg" alt="Gin Tanqueray" loading="lazy">
-          <span class="product-tag">-20%</span>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Gin Premium</div>
-          <div class="product-name">Tanqueray London Dry 750ml</div>
-          <div class="product-desc">Gin inglês clássico. Perfeito para o seu gin tônica.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 129,90</span><span class="product-price">R$ 103,90</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-      <div class="product-card reveal reveal-d3">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/Brahma%20litrinho.jpg" alt="Brahma Litrinho" loading="lazy">
-          <span class="product-tag">-35%</span>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Cerveja Pilsen</div>
-          <div class="product-name">Brahma Litrinho 300ml</div>
-          <div class="product-desc">Pack com 15 garrafinhas. Economia e praticidade.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 79,90</span><span class="product-price">R$ 51,90</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-      <div class="product-card reveal reveal-d3">
-        <div class="product-img-wrap">
-          <img class="product-img" src="Public%20produtos/Ice.jpg" alt="Smirnoff Ice" loading="lazy">
-          <span class="product-tag">-15%</span>
-        </div>
-        <div class="product-info">
-          <div class="product-cat">Drink</div>
-          <div class="product-name">Smirnoff Ice 275ml</div>
-          <div class="product-desc">Pack com 6 garrafinhas. Drink refrescante que todo mundo ama.</div>
-          <div class="product-price-row">
-            <div><span class="product-price-old">R$ 54,90</span><span class="product-price">R$ 46,60</span></div>
-            <button class="product-btn">Comprar</button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- promoções: renderPromos() monta os destaques a partir das promoções REAIS desta loja.
+         Sem promoção cadastrada a seção inteira sai da página. -->
+    <div class="promo-featured" id="promoFeatured"></div>
+    <div class="product-grid" id="promosGrid"></div>
   </div>
 </section>
 
@@ -784,59 +643,9 @@ button { cursor: pointer; border: none; font-family: inherit; }
       <h2 class="section-heading">Combos Especiais</h2>
       <p class="section-sub" style="margin-left:auto;margin-right:auto">Seleções montadas para cada ocasião com preços imperdíveis.</p>
     </div>
-    <div class="combo-grid" id="combosGrid">
-      <div class="combo-card reveal reveal-d1">
-        <div class="combo-icon-row">
-          <div class="combo-icon-item"><img src="Public%20produtos/keineken.jpg" alt="Heineken" loading="lazy"></div>
-          <span class="combo-plus">+</span>
-          <div class="combo-icon-item"><img src="Public%20produtos/brahma%20litr%C3%A3o.jpg" alt="Brahma" loading="lazy"></div>
-          <span class="combo-plus">+</span>
-          <div class="combo-icon-item"><span style="font-size:2rem">🧊</span></div>
-        </div>
-        <div class="combo-name">Combo Churrasco</div>
-        <div class="combo-desc">Heineken 350ml (12un) + Brahma Litrão (6un) + Gelo 5kg</div>
-        <div class="combo-price-row">
-          <span class="combo-old">R$ 157,70</span>
-          <span class="combo-price">R$ 119,90</span>
-        </div>
-        <span class="combo-save">Economize R$ 37,80</span>
-        <div style="margin-top:14px"><a href="#" class="btn btn-primary btn-sm" style="width:100%">Comprar Combo</a></div>
-      </div>
-      <div class="combo-card reveal reveal-d2">
-        <div class="combo-icon-row">
-          <div class="combo-icon-item"><img src="Public%20produtos/shisky%20clack%20lebel.jpg" alt="Black Label" loading="lazy"></div>
-          <span class="combo-plus">+</span>
-          <div class="combo-icon-item"><span style="font-size:2rem">⚡</span></div>
-          <span class="combo-plus">+</span>
-          <div class="combo-icon-item"><span style="font-size:2rem">🧊</span></div>
-        </div>
-        <div class="combo-name">Combo Balada</div>
-        <div class="combo-desc">Black Label 12 anos 1L + 2 Energéticos Red Bull + Gelo 5kg</div>
-        <div class="combo-price-row">
-          <span class="combo-old">R$ 259,70</span>
-          <span class="combo-price">R$ 209,90</span>
-        </div>
-        <span class="combo-save">Economize R$ 49,80</span>
-        <div style="margin-top:14px"><a href="#" class="btn btn-primary btn-sm" style="width:100%">Comprar Combo</a></div>
-      </div>
-      <div class="combo-card reveal reveal-d3">
-        <div class="combo-icon-row">
-          <div class="combo-icon-item"><img src="Public%20produtos/Shisky%20old%20parr.jpg" alt="Old Parr" loading="lazy"></div>
-          <span class="combo-plus">+</span>
-          <div class="combo-icon-item"><img src="Public%20produtos/shisky%20tanqueray.jpg" alt="Tanqueray" loading="lazy"></div>
-          <span class="combo-plus">+</span>
-          <div class="combo-icon-item"><span style="font-size:2rem">🥤</span></div>
-        </div>
-        <div class="combo-name">Combo Premium</div>
-        <div class="combo-desc">Old Parr 12 anos + Tanqueray Gin + 2 Tônicas Premium</div>
-        <div class="combo-price-row">
-          <span class="combo-old">R$ 379,80</span>
-          <span class="combo-price">R$ 319,90</span>
-        </div>
-        <span class="combo-save">Economize R$ 59,90</span>
-        <div style="margin-top:14px"><a href="#" class="btn btn-primary btn-sm" style="width:100%">Comprar Combo</a></div>
-      </div>
-    </div>
+    <!-- combos: renderCombos() monta a partir dos produtos com categoria "Combos" desta loja.
+         Sem combos cadastrados a seção inteira sai da página. -->
+    <div class="combo-grid" id="combosGrid"></div>
   </div>
 </section>
 
@@ -846,15 +655,16 @@ button { cursor: pointer; border: none; font-family: inherit; }
   <div class="delivery-banner-content">
     <div class="delivery-banner-text reveal">
       <div class="delivery-banner-eyebrow">Entrega Rápida</div>
-      <h2 class="delivery-banner-heading">Receba suas bebidas <span>em toda a cidade.</span></h2>
-      <p class="delivery-banner-desc">Faça seu pedido agora e receba em até 40 minutos. Bebidas geladas, entrega ágil, atendimento nota 10.</p>
+      <h2 class="delivery-banner-heading" id="dlvHeading">Receba seu pedido <span>em toda a região.</span></h2>
+      <p class="delivery-banner-desc" id="deliveryBannerDesc">Faça seu pedido agora e receba com rapidez.</p>
       <div class="delivery-banner-stats">
-        <div class="delivery-stat"><div class="delivery-stat-num"><span>40</span>min</div><div class="delivery-stat-lbl">Entrega média</div></div>
-        <div class="delivery-stat"><div class="delivery-stat-num"><span>12</span>km</div><div class="delivery-stat-lbl">Raio de cobertura</div></div>
-        <div class="delivery-stat"><div class="delivery-stat-num"><span>98</span>%</div><div class="delivery-stat-lbl">Entregas no prazo</div></div>
+        <div class="delivery-stat"><div class="delivery-stat-num"><span id="dlvTempo">30</span>min</div><div class="delivery-stat-lbl">Entrega média</div></div>
+        <div class="delivery-stat"><div class="delivery-stat-num"><span id="dlvRaio">12</span>km</div><div class="delivery-stat-lbl">Raio de cobertura</div></div>
+        <!-- ocultado por renderInfo() enquanto não houver avaliações reais -->
+        <div class="delivery-stat" id="dlvAvalWrap"><div class="delivery-stat-num"><span id="dlvAval">—</span></div><div class="delivery-stat-lbl">Avaliação média</div></div>
       </div>
     </div>
-    <a href="#" class="btn btn-primary btn-lg reveal reveal-d1">Fazer Meu Pedido</a>
+    <a href="#produtos" class="btn btn-primary btn-lg reveal reveal-d1" id="dlvBtn">Fazer Meu Pedido</a>
   </div>
 </section>
 
@@ -864,39 +674,15 @@ button { cursor: pointer; border: none; font-family: inherit; }
     <div class="reviews-header reveal">
       <div class="section-eyebrow">Avaliações</div>
       <h2 class="section-heading">Quem compra, aprova</h2>
-      <p class="section-sub" style="margin-left:auto;margin-right:auto">A confiança de milhares de clientes.</p>
+      <p class="section-sub" style="margin-left:auto;margin-right:auto">A confiança de quem pede com a gente.</p>
+      <!-- nota e total são preenchidos por renderAvaliacoes() com as avaliações REAIS desta loja -->
       <div class="review-rating-avg">
-        <div class="review-big-num">4.9</div>
-        <div class="review-big-stars">★★★★★</div>
+        <div class="review-big-num" id="revNota">—</div>
+        <div class="review-big-stars" id="revStars"></div>
       </div>
-      <div class="review-total">Baseado em +500 avaliações</div>
+      <div class="review-total" id="revTotal">Avaliações de clientes</div>
     </div>
-    <div class="reviews-grid">
-      <div class="review-card reveal reveal-d1">
-        <div class="review-stars">★★★★★</div>
-        <p class="review-text">"Pedido chegou em 22 minutos, tudo extremamente gelado. O atendimento pelo WhatsApp foi rápido e atencioso. Virou minha adega de confiança!"</p>
-        <div class="review-author">
-          <div class="review-avatar">RF</div>
-          <div><div class="review-author-name">Rafael Ferreira</div><div class="review-author-role">Cliente desde 2021</div></div>
-        </div>
-      </div>
-      <div class="review-card reveal reveal-d2">
-        <div class="review-stars">★★★★★</div>
-        <p class="review-text">"Preço imbatível na região! Catálogo enorme com tudo que você imaginar. Os combos são um espetáculo. Recomendo de olhos fechados."</p>
-        <div class="review-author">
-          <div class="review-avatar">CM</div>
-          <div><div class="review-author-name">Carla Mendes</div><div class="review-author-role">Cliente desde 2020</div></div>
-        </div>
-      </div>
-      <div class="review-card reveal reveal-d3">
-        <div class="review-stars">★★★★★</div>
-        <p class="review-text">"Montei minha festa inteira sem sair do sofá. Entrega super rápida, tudo lacrado e gelado. Nota 10 em todos os quesitos!"</p>
-        <div class="review-author">
-          <div class="review-avatar">PS</div>
-          <div><div class="review-author-name">Pedro Santana</div><div class="review-author-role">Cliente desde 2022</div></div>
-        </div>
-      </div>
-    </div>
+    <div class="reviews-grid" id="reviewsGrid"></div>
   </div>
 </section>
 
@@ -905,19 +691,15 @@ button { cursor: pointer; border: none; font-family: inherit; }
   <div class="container">
     <div class="about-grid">
       <div class="about-text-col reveal">
-        <div class="section-eyebrow">Nossa História</div>
-        <h2 class="section-heading">Desde 1998 levando qualidade para você.</h2>
-        <div class="about-text">
-          <p>A <strong>Adega 1998</strong> nasceu do sonho de uma família apaixonada por bebidas de qualidade. Em uma pequena loja de bairro, começamos com a missão de oferecer <strong>produtos selecionados, preços justos e atendimento próximo</strong> — valores que carregamos até hoje.</p>
-          <p style="margin-top:14px">Ao longo de mais de duas décadas, crescemos e nos modernizamos, mas nunca perdemos a essência: <strong>cada cliente é único</strong> e cada pedido é preparado com o mesmo cuidado de sempre.</p>
-          <p style="margin-top:14px">Hoje, com mais de <strong>2.000 produtos</strong> no catálogo e <strong>entrega em toda a cidade</strong>, somos referência em qualidade e agilidade. Seja para um churrasco, uma festa ou um jantar especial — <strong>a Adega 1998 está com você</strong>.</p>
-        </div>
+        <div class="section-eyebrow" id="aboutEyebrow">Nossa História</div>
+        <h2 class="section-heading" id="aboutHeading">Uma loja feita para você.</h2>
+        <div class="about-text" id="aboutText"></div>
       </div>
-      <div class="about-img-col reveal reveal-d1">
-        <img class="about-main-img" src="Public%20produtos/keineken.jpg" alt="Adega 1998" loading="lazy">
-        <div class="about-float-badge">
-          <div class="about-float-num">25+</div>
-          <div class="about-float-label">Anos de<br>tradição</div>
+      <div class="about-img-col reveal reveal-d1" id="aboutImgCol" style="display:none">
+        <img class="about-main-img" id="aboutImg" src="" alt="" loading="lazy">
+        <div class="about-float-badge" id="aboutBadge">
+          <div class="about-float-num" id="aboutBadgeNum">—</div>
+          <div class="about-float-label" id="aboutBadgeLabel">Produtos<br>no catálogo</div>
         </div>
       </div>
     </div>
@@ -928,11 +710,11 @@ button { cursor: pointer; border: none; font-family: inherit; }
 <section class="cta-section section-padding">
   <div class="container">
     <div class="cta-inner reveal">
-      <h2 class="cta-heading">Está esperando o quê?</h2>
-      <p class="cta-sub">Peça agora e receba suas bebidas geladas em minutos.</p>
+      <h2 class="cta-heading" id="ctaHeading">Está esperando o quê?</h2>
+      <p class="cta-sub" id="ctaSub">Peça agora e receba em minutos.</p>
       <div class="cta-buttons">
-        <a href="#" class="btn btn-dark btn-lg">Fazer Meu Pedido</a>
-        <a href="#" class="btn btn-white btn-lg">Chamar no WhatsApp</a>
+        <a href="#produtos" class="btn btn-dark btn-lg" id="ctaOrder">Fazer Meu Pedido</a>
+        <a href="#" class="btn btn-white btn-lg" id="ctaWhats">Chamar no WhatsApp</a>
       </div>
     </div>
   </div>
@@ -944,14 +726,14 @@ button { cursor: pointer; border: none; font-family: inherit; }
     <div class="footer-grid">
       <div class="footer-brand-col">
         <div class="footer-logo-row">
-          <div class="footer-logo-mark">A98</div>
-          <span class="footer-brand-name">Adega 1998</span>
+          <div class="footer-logo-mark" id="footerLogoMark">·</div>
+          <span class="footer-brand-name" id="footerBrandName"></span>
         </div>
-        <p class="footer-brand-desc">Depósito de bebidas desde 1998. Qualidade, variedade e entrega rápida para toda a cidade.</p>
+        <p class="footer-brand-desc" id="footerBrandDesc"></p>
         <div class="footer-socials">
-          <a href="#" class="footer-social-icon">💬</a>
-          <a href="#" class="footer-social-icon">📷</a>
-          <a href="#" class="footer-social-icon">📘</a>
+          <a href="#" class="footer-social-icon" id="footerWhats">💬</a>
+          <a href="#" class="footer-social-icon" id="footerInsta">📷</a>
+          <a href="#" class="footer-social-icon" id="footerFace">📘</a>
         </div>
       </div>
       <div>
@@ -963,29 +745,95 @@ button { cursor: pointer; border: none; font-family: inherit; }
       </div>
       <div>
         <div class="footer-col-title">Categorias</div>
-        <ul class="footer-links">
-          <li><a href="#">Cervejas</a></li><li><a href="#">Whisky</a></li><li><a href="#">Vinhos</a></li>
-          <li><a href="#">Destilados</a></li><li><a href="#">Energéticos</a></li>
-        </ul>
+        <ul class="footer-links" id="footerCats"></ul>
       </div>
       <div>
         <div class="footer-col-title">Contato</div>
-        <div class="footer-contact-item"><span class="footer-contact-icon">📍</span> Rua das Bebidas, 1998<br>Centro, São Paulo - SP</div>
-        <div class="footer-contact-item"><span class="footer-contact-icon">📞</span> (11) 99999-1998</div>
-        <div class="footer-contact-item"><span class="footer-contact-icon">💬</span> WhatsApp: (11) 99999-1998</div>
-        <div class="footer-contact-item"><span class="footer-contact-icon">🕐</span> Seg a Sáb: 9h às 23h<br>Dom: 10h às 20h</div>
+        <div class="footer-contact-item" id="footerEndereco" hidden><span class="footer-contact-icon">📍</span> <span></span></div>
+        <div class="footer-contact-item" id="footerTelefone" hidden><span class="footer-contact-icon">📞</span> <span></span></div>
+        <div class="footer-contact-item" id="footerWhatsItem" hidden><span class="footer-contact-icon">💬</span> <span></span></div>
+        <div class="footer-contact-item" id="footerHorario" hidden><span class="footer-contact-icon">🕐</span> <span></span></div>
       </div>
     </div>
     <div class="footer-bottom">
-      <span>© 2026 Adega 1998 — Depósito de Bebidas. Todos os direitos reservados.</span>
-      <span>Feito com 🧡 para você</span>
+      <span id="footerCopy">© — Todos os direitos reservados.</span>
+      <span id="footerTagline">Peça online com entrega rápida</span>
     </div>
   </div>
 </footer>
 
 <!-- WHATSAPP -->
-<a href="#" class="whatsapp-float" aria-label="Fale conosco">💬</a>
+<a href="#" class="whatsapp-float" id="whatsFloat" aria-label="Fale conosco">💬</a>
 
+<!-- CARRINHO -->
+<button class="cart-float" id="cartFloat" aria-label="Abrir carrinho">
+  🛒<span class="cart-count" id="cartCount">0</span>
+</button>
+<div class="cart-overlay" id="cartOverlay"></div>
+<aside class="cart-panel" id="cartPanel" aria-hidden="true">
+  <div class="cart-head">
+    <strong>Seu carrinho</strong>
+    <button class="cart-close" id="cartClose" aria-label="Fechar">✕</button>
+  </div>
+  <div class="cart-body" id="cartBody"></div>
+  <div class="cart-foot" id="cartFoot"></div>
+</aside>
+
+<!-- MODAL DE OPÇÕES DO PRODUTO -->
+<div class="sm-overlay" id="optOverlay">
+  <div class="sm-box">
+    <div class="cart-head" style="padding:0 0 12px">
+      <strong id="optTitulo">Produto</strong>
+      <button class="cart-close" id="optClose" aria-label="Fechar">✕</button>
+    </div>
+    <div id="optBody"></div>
+    <div class="sm-field">
+      <label>Observação (opcional)</label>
+      <input type="text" id="optObs" placeholder="Ex.: sem cebola, ponto da carne...">
+    </div>
+    <div class="sm-actions">
+      <button class="btn btn-primary" id="optAdd" style="flex:1">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DE CHECKOUT -->
+<div class="sm-overlay" id="smOverlay">
+  <div class="sm-box">
+    <div class="cart-head" style="padding:0 0 12px">
+      <strong>Finalizar pedido</strong>
+      <button class="cart-close" id="smClose" aria-label="Fechar">✕</button>
+    </div>
+    <div id="smForm">
+      <div class="sm-field"><label>Seu nome *</label><input type="text" id="smNome" placeholder="Nome completo"></div>
+      <div class="sm-row">
+        <div class="sm-field"><label>Telefone / WhatsApp *</label><input type="tel" id="smFone" placeholder="(00) 00000-0000"></div>
+        <div class="sm-field"><label>Forma de pagamento</label>
+          <select id="smPag">
+            <option>PIX</option><option>Dinheiro</option><option>Cartão de crédito</option>
+            <option>Cartão de débito</option><option>Vale refeição</option>
+          </select>
+        </div>
+      </div>
+      <div class="sm-field"><label>Entrega ou retirada</label>
+        <select id="smTipo"><option value="entrega">Entrega</option><option value="retirada">Retirada na loja</option></select>
+      </div>
+      <div class="sm-field" id="smEndWrap"><label>Endereço de entrega *</label><input type="text" id="smEnd" placeholder="Rua, número, bairro"></div>
+      <div class="sm-field"><label>Observações</label><input type="text" id="smObs" placeholder="Ponto de referência, troco, etc."></div>
+      <div class="sm-total-row" id="smResumo"></div>
+      <button class="btn btn-primary" id="smEnviar" style="width:100%;margin-top:14px">Enviar pedido pelo WhatsApp</button>
+      <div class="sm-note">Ao enviar, seu pedido é registrado na loja e abrimos o WhatsApp para confirmação.</div>
+    </div>
+    <div id="smSuccess" style="display:none;text-align:center">
+      <div class="sm-success-icon">✅</div>
+      <h3 style="margin:0 0 8px">Pedido enviado!</h3>
+      <p style="color:var(--gray-600);font-size:.92rem;margin:0 0 16px" id="smSuccessMsg"></p>
+      <button class="btn btn-primary" id="smOk" style="width:100%">Continuar comprando</button>
+    </div>
+  </div>
+</div>
+
+<script src="loja-data.js"></script>
 <script>
 const mobileToggle = document.getElementById('mobileToggle');
 const mobileNav = document.getElementById('mobileNav');
@@ -1012,41 +860,48 @@ const header = document.getElementById('header');
 window.addEventListener('scroll', () => header.classList.toggle('scrolled', window.scrollY > 20));
 
 // ─── HERO SLIDESHOW ───
-const slides = document.querySelectorAll('.hero-slide');
-const dots = document.querySelectorAll('.hero-dot');
+// Consulta sempre o DOM: os banners podem ser trocados por renderHero()
+// (loja sem banners próprios → bloco removido; loja com banners → reescrito).
 let currentSlide = 0;
 const slideInterval = 4000; // 4 segundos
-let slideTimer;
+let slideTimer = null;
+function _slides() { return document.querySelectorAll('.hero-slide'); }
+function _dots() { return document.querySelectorAll('.hero-dot'); }
 
 function goToSlide(index) {
-  slides[currentSlide].classList.remove('active');
-  dots[currentSlide].classList.remove('active');
-  currentSlide = index;
-  slides[currentSlide].classList.add('active');
-  dots[currentSlide].classList.add('active');
+  const s = _slides(), d = _dots();
+  if (!s.length) return;
+  if (s[currentSlide]) s[currentSlide].classList.remove('active');
+  if (d[currentSlide]) d[currentSlide].classList.remove('active');
+  currentSlide = ((index % s.length) + s.length) % s.length;
+  s[currentSlide].classList.add('active');
+  if (d[currentSlide]) d[currentSlide].classList.add('active');
 }
 
-function nextSlide() {
-  goToSlide((currentSlide + 1) % slides.length);
-}
+function nextSlide() { goToSlide(currentSlide + 1); }
 
 function startSlideshow() {
+  clearInterval(slideTimer);
+  if (_slides().length < 2) return;
   slideTimer = setInterval(nextSlide, slideInterval);
 }
 
 function resetSlideshow() {
-  clearInterval(slideTimer);
-  startSlideshow();
+  currentSlide = 0;
+  const s = _slides(), d = _dots();
+  s.forEach((el, i) => el.classList.toggle('active', i === 0));
+  d.forEach((el, i) => el.classList.toggle('active', i === 0));
+  if (s.length) startSlideshow(); else clearInterval(slideTimer);
 }
 
-dots.forEach(dot => {
-  dot.addEventListener('click', function() {
-    goToSlide(parseInt(this.dataset.index));
-    resetSlideshow();
-  });
+document.addEventListener('click', e => {
+  const dot = e.target.closest && e.target.closest('.hero-dot');
+  if (!dot) return;
+  goToSlide(parseInt(dot.dataset.index) || 0);
+  resetSlideshow();
 });
 
-if (slides.length > 1) startSlideshow();
+startSlideshow();
 
 const revealEls = document.querySelectorAll('.reveal');
 const observer = new IntersectionObserver(entries => {
@@ -1067,13 +922,606 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
   });
 });
 
-document.querySelectorAll('.cat-pill').forEach(pill => {
-  pill.addEventListener('click', function(e) {
-    e.preventDefault();
-    document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
-    this.classList.add('active');
+// As pílulas de categoria são recriadas por renderCats(); o clique é tratado por
+// delegação no bloco dinâmico abaixo (evita listeners presos a elementos removidos).
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LOJA DINÂMICA — branding, catálogo, carrinho e checkout
+     Lê o estabelecimento de ?loja=ID (loja-data.js) e reescreve a
+     página inteira. O MESMO site.html serve qualquer segmento:
+     bebidas, hamburgueria, pizzaria, açaí, mercado etc.
+     ═══════════════════════════════════════════════════════════════ -->
+<style>
+  .product-img-emoji{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+    font-size:3.4rem;background:linear-gradient(135deg,#FFF7ED,#FFEDD5)}
+  /* logo enviado: "contain" para não cortar a marca do estabelecimento */
+  .logo-mark img{width:100%;height:100%;object-fit:contain;border-radius:inherit}
+  .footer-logo-mark img{width:100%;height:100%;object-fit:contain;border-radius:inherit;background:#fff}
+  .pcard-add{width:100%;margin-top:10px}
+  .store-status{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;font-weight:700;
+    padding:5px 11px;border-radius:999px;background:#FEE2E2;color:#B91C1C}
+  .store-status.open{background:#DCFCE7;color:#15803D}
+  .store-status.paused{background:#FEF3C7;color:#B45309}
+  .store-status .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+</style>
+<script>
+/* ═══════════ 1. ESTABELECIMENTO ═══════════ */
+// O site NÃO tem loja padrão: sem ?loja=ID válido ele não carrega a loja de
+// outra pessoa — mostra "Estabelecimento não encontrado". Nenhum nome fixo.
+const LOJA_ID = (new URLSearchParams(location.search).get('loja') || '').trim();
+const TEN = getTenant(LOJA_ID);
+const LOJA_OK = !TEN.naoEncontrado;
+const TPL = templateByType(TEN.businessType);
+// leitura pura: o site NUNCA semeia o catálogo (quem semeia é o painel)
+let PRODUTOS = lerProdutos(LOJA_ID).filter(p => p.ativo !== false);
+let CART = [];
+try { CART = JSON.parse(storeGet('dp_' + LOJA_ID + '_cart') || '[]') || []; } catch (e) { CART = []; }
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const precoDe = p => (Number(p.promocao) > 0 ? Number(p.promocao) : Number(p.preco));
+const temPromo = p => Number(p.promocao) > 0 && Number(p.promocao) < Number(p.preco);
+const descontoDe = p => temPromo(p) ? Math.round((1 - p.promocao / p.preco) * 100) : 0;
+// usa a mesma regra do painel (loja-data.js) para o avatar nunca divergir
+const iniciais = iniciaisNome;
+// avatar neutro enquanto a loja não tem nome (não é marca de nenhuma loja)
+const INICIAIS_NEUTRAS = 'LO';
+const ABERTA = (TEN.statusLoja || 'aberta') === 'aberta';
+const soWhats = (extra) => 'https://wa.me/' + String(TEN.whats || '').replace(/\D/g, '') + (extra ? '?text=' + encodeURIComponent(extra) : '');
+// cor da marca: deriva tons a partir do hex salvo em Minha Loja
+function hexRgba(hex, a) {
+  const h = String(hex || '').replace('#', '');
+  const f = h.length === 3 ? h.split('').map(c => c + c).join('') : h.padEnd(6, '0').slice(0, 6);
+  const n = parseInt(f, 16) || 0;
+  return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+function escurecer(hex, q) {
+  const h = String(hex || '').replace('#', '');
+  const f = h.length === 3 ? h.split('').map(c => c + c).join('') : h.padEnd(6, '0').slice(0, 6);
+  const n = parseInt(f, 16) || 0;
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v => Math.max(0, Math.round(v * (1 - q))));
+  return '#' + c.map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+/* ═══════════ 2. BRANDING ═══════════ */
+function renderBranding() {
+  // TEN.logoImg = logo enviada pela loja em "Minha Loja".
+  // Sem logo, avatar de iniciais do nome cadastrado (genérico).
+  const ini = TEN.logo || iniciais(TEN.nome) || INICIAIS_NEUTRAS;
+  // cor da marca em 4 tons; sem cor definida, o laranja padrão do tema
+  const cor = TEN.cor || '#F15A24';
+  document.documentElement.style.setProperty('--orange', cor);
+  document.documentElement.style.setProperty('--orange-dark', TEN.cor ? escurecer(cor, 0.18) : '#D44914');
+  document.documentElement.style.setProperty('--orange-glow', TEN.cor ? hexRgba(cor, 0.25) : 'rgba(241,90,36,0.25)');
+  document.documentElement.style.setProperty('--orange-light', TEN.cor ? hexRgba(cor, 0.10) : '#FFF3EE');
+  // título: "Nome do estabelecimento — Delivery". O nome vem SEMPRE do
+  // cadastro da loja; nada de nome fixo de produto.
+  document.title = (TEN.nome ? TEN.nome + ' — Delivery' : 'Delivery');
+  const md = $('metaDesc'); if (md) md.content = TEN.desc || (TEN.nome ? 'Peça online em ' + TEN.nome + '. Entrega rápida.' : 'Peça online com entrega rápida.');
+  const ot = $('ogTitle'); if (ot) ot.content = (TEN.nome ? TEN.nome + ' — Delivery' : 'Delivery');
+  const od = $('ogDesc'); if (od) od.content = TEN.desc || 'Peça online com entrega rápida.';
+  const oi = $('ogImage'); if (oi && TEN.logoImg) oi.content = TEN.logoImg;
+
+  // logos (header, rodapé) — imagem enviada pela loja ou avatar de iniciais
+  [['headerLogoMark', 'logo-mark'], ['footerLogoMark', 'footer-logo-mark']].forEach(([id, cls]) => {
+    const el = $(id); if (!el) return;
+    if (TEN.logoImg) { el.innerHTML = '<img src="' + TEN.logoImg + '" alt="' + esc(TEN.nome) + '">'; el.style.background = 'transparent'; }
+    else { el.textContent = ini; el.style.background = TEN.cor || '#F15A24'; el.style.color = '#fff'; }
   });
+  const ht = $('headerLogoText'); if (ht) ht.textContent = TEN.nome;
+  const fn = $('footerBrandName'); if (fn) fn.textContent = TEN.nome;
+  const fd = $('footerBrandDesc'); if (fd) fd.textContent = TEN.desc || heroDescricao(TEN);
+  const fc = $('footerCopy'); if (fc) fc.textContent = '© ' + new Date().getFullYear() + (TEN.nome ? ' ' + TEN.nome + ' — ' : ' ') + 'Todos os direitos reservados.';
+  const ftg = $('footerTagline'); if (ftg) ftg.textContent = 'Peça online com entrega rápida';
+  const fw = $('footerWhats'); if (fw) fw.href = soWhats('Olá! Vim pelo site da ' + TEN.nome + '.');
+  const wf = $('whatsFloat'); if (wf) wf.href = soWhats('Olá! Vim pelo site da ' + TEN.nome + '.');
+  const cw = $('ctaWhats'); if (cw) cw.href = soWhats('Olá! Gostaria de fazer um pedido.');
+
+  // status da loja
+  const banner = $('closedBanner');
+  if (!ABERTA && banner) {
+    banner.textContent = (TEN.statusLoja === 'pausada' ? '⏸️ ' : '🔒 ') + TEN.nome + ' está ' +
+      (TEN.statusLoja === 'pausada' ? 'com os pedidos pausados' : 'fechada') + ' no momento. ' +
+      (TEN.horario ? 'Horário: ' + TEN.horario : '');
+    banner.classList.add('show');
+  } else if (banner) banner.classList.remove('show');
+}
+
+/* ═══════════ 3. HERO ═══════════ */
+function renderHero() {
+  // Banners: SÓ os banners enviados pela própria loja (TEN.banners, via Minha
+  // Loja). Loja sem banners não tem carrossel — o hero usa o fundo do tema,
+  // sem sobrar arte de outra loja.
+  const secHero = document.querySelector('.hero');
+  const slideshow = $('heroSlideshow');
+  const banners = Array.isArray(TEN.banners) ? TEN.banners.filter(Boolean) : [];
+  if (slideshow) {
+    if (banners.length) {
+      slideshow.innerHTML = banners.map((src, i) =>
+        '<img class="hero-slide custom' + (i === 0 ? ' active' : '') + '" src="' + src + '" alt="Banner ' + esc(TEN.nome) + '">'
+      ).join('') + (banners.length > 1 ? '<div class="hero-dots">' + banners.map((_, i) =>
+        '<button class="hero-dot' + (i === 0 ? ' active' : '') + '" data-index="' + i + '" aria-label="Banner ' + (i + 1) + '"></button>').join('') + '</div>' : '');
+    } else {
+      if (slideshow.parentNode) slideshow.remove();
+      if (secHero) secHero.classList.add('sem-banners');
+    }
+    resetSlideshow(); // para o timer se o slideshow saiu do DOM
+  }
+  const ct = $('heroChipTxt');
+  if (ct) ct.textContent = ABERTA
+    ? 'Entrega em até ' + (TEN.tempoPrep || 30) + ' minutos'
+    : ('Loja ' + (TEN.statusLoja === 'pausada' ? 'com pedidos pausados' : 'fechada'));
+
+  // Headline e descrição vêm do segmento + NOME DA LOJA (loja-data.js).
+  // Nenhuma frase fixa mora no HTML: trocar o segmento troca o texto.
+  const h = $('heroHeading');
+  if (h) h.innerHTML = heroHeadline(TEN.nome, TEN.businessType);
+  const d = $('heroDesc');
+  if (d) d.textContent = heroDescricao(TEN);
+
+  document.querySelectorAll('[data-hero-stat="produtos"]').forEach(e => e.textContent = PRODUTOS.length);
+  document.querySelectorAll('[data-hero-stat="tempo"]').forEach(e => e.textContent = (TEN.tempoPrep || 30) + 'min');
+  // "Satisfação" só aparece com avaliações reais — nada de número inventado.
+  const avs = getAvaliacoes(LOJA_ID);
+  document.querySelectorAll('[data-hero-stat="satisfacao"]').forEach(e => {
+    const box = e.parentElement;
+    if (!avs.length) { if (box) box.style.display = 'none'; return; }
+    const media = avs.reduce((s, a) => s + (Number(a.nota) || 0), 0) / avs.length;
+    e.textContent = media.toFixed(1);
+    const lbl = box && box.querySelector('.hero-stat-lbl');
+    if (lbl) lbl.textContent = 'Avaliação';
+  });
+
+  // cards flutuantes = 3 primeiros produtos com foto
+  const comFoto = PRODUTOS.filter(p => p.img).slice(0, 3);
+  ['heroFloat1', 'heroFloat2', 'heroFloat3'].forEach((id, i) => {
+    const el = $(id); if (!el) return;
+    const p = comFoto[i];
+    if (!p) { el.style.display = 'none'; return; }
+    // o card nasce oculto no HTML: só aparece quando há produto DESTA loja
+    el.style.display = '';
+    el.querySelector('.hero-float-img').src = p.img;
+    el.querySelector('.hero-float-img').alt = p.nome;
+    el.querySelector('.hero-float-info').innerHTML = '<strong>' + esc(p.nome) + '</strong> ' + fmtBRL(precoDe(p));
+  });
+  // sem nenhum produto com foto, a coluna direita fica vazia: centraliza o texto
+  const right = $('heroRight');
+  if (right && !comFoto.length) {
+    right.style.display = 'none';
+    const hc = document.querySelector('.hero-content');
+    if (hc) hc.style.gridTemplateColumns = '1fr';
+  }
+}
+
+/* ═══════════ 4. CATEGORIAS ═══════════ */
+let CAT_ATIVA = 'todas';
+function catsDisponiveis() {
+  const usadas = new Set(PRODUTOS.map(p => p.cat));
+  const ordem = (TPL.cats || []).filter(c => usadas.has(c));
+  usadas.forEach(c => { if (!ordem.includes(c)) ordem.push(c); });
+  return ordem;
+}
+function renderCats() {
+  const alvo = $('catPills'); if (!alvo) return;
+  CAT_ATIVA = 'todas';
+  alvo.innerHTML = '<a href="#produtos" class="cat-pill active" data-cat="todas"><span class="cat-pill-emoji">🛍️</span> Todos</a>' +
+    catsDisponiveis().map(c =>
+      '<a href="#produtos" class="cat-pill" data-cat="' + esc(c) + '"><span class="cat-pill-emoji">' + categoriaComEmoji(c) + '</span> ' + esc(c) + '</a>'
+    ).join('');
+  const fc = $('footerCats');
+  if (fc) fc.innerHTML = catsDisponiveis().slice(0, 6).map(c => '<li><a href="#produtos" data-cat="' + esc(c) + '">' + esc(c) + '</a></li>').join('');
+}
+document.addEventListener('click', e => {
+  const pill = e.target.closest && e.target.closest('.cat-pill, #footerCats a');
+  if (!pill) return;
+  e.preventDefault();
+  CAT_ATIVA = pill.dataset.cat || 'todas';
+  document.querySelectorAll('.cat-pill').forEach(p => p.classList.toggle('active', p.dataset.cat === CAT_ATIVA));
+  renderProdutos();
+  const alvo = $('produtos');
+  if (alvo) window.scrollTo({ top: alvo.getBoundingClientRect().top + window.pageYOffset - 120, behavior: 'smooth' });
 });
+
+/* ═══════════ 5. PRODUTOS, PROMOÇÕES, COMBOS ═══════════ */
+function cardProduto(p, extraCls) {
+  const img = p.img
+    ? '<img class="product-img" src="' + p.img + '" alt="' + esc(p.nome) + '" loading="lazy">'
+    : '<div class="product-img-emoji">' + (p.emoji || categoriaComEmoji(p.cat)) + '</div>';
+  // estoque vazio/ausente = ilimitado; somente 0 explícito bloqueia a venda
+  const esgotado = p.estoque !== '' && p.estoque != null && Number(p.estoque) === 0;
+  const tag = temPromo(p) ? '<span class="product-tag">-' + descontoDe(p) + '%</span>'
+    : (esgotado ? '<span class="product-tag best">Esgotado</span>' : '');
+  const old = temPromo(p) ? '<span class="product-price-old">' + fmtBRL(p.preco) + '</span>' : '';
+  return '<div class="product-card reveal reveal-d1 ' + (extraCls || '') + '">' +
+    '<div class="product-img-wrap">' + img + tag + '</div>' +
+    '<div class="product-info">' +
+    '<div class="product-cat">' + esc(p.cat) + '</div>' +
+    '<div class="product-name">' + esc(p.nome) + '</div>' +
+    '<div class="product-desc">' + esc(p.desc || '') + '</div>' +
+    '<div class="product-price-row"><div>' + old + '<span class="product-price">' + fmtBRL(precoDe(p)) + '</span></div></div>' +
+    '<button class="btn btn-primary product-btn pcard-add" ' + (esgotado ? 'disabled style="opacity:.5;cursor:not-allowed"' : 'onclick="abrirProduto(\'' + p.id + '\')"') + '>' +
+    (esgotado ? 'Esgotado' : '🛒 Adicionar') + '</button>' +
+    '</div></div>';
+}
+function renderProdutos() {
+  const g = $('productsGrid'); if (!g) return;
+  const lista = CAT_ATIVA === 'todas' ? PRODUTOS : PRODUTOS.filter(p => p.cat === CAT_ATIVA);
+  // catálogo vazio é diferente de categoria vazia — a mensagem muda
+  g.innerHTML = lista.length ? lista.map(p => cardProduto(p)).join('')
+    : (PRODUTOS.length ? '<div class="empty-state">Nenhum produto nesta categoria.</div>'
+      : '<div class="empty-state">🛒<br>Catálogo em preparação.<br><span style="font-size:.84rem">Fale com a loja pelo WhatsApp para saber o que está disponível hoje.</span></div>');
+  observarReveal();
+}
+function renderPromos() {
+  const promos = PRODUTOS.filter(temPromo);
+  const feat = $('promoFeatured');
+  if (feat) {
+    const dois = promos.slice(0, 2);
+    feat.innerHTML = dois.length ? dois.map(p =>
+      '<div class="promo-hero-card reveal reveal-d1">' +
+      (p.img ? '<img class="promo-hero-bg" src="' + p.img + '" alt="' + esc(p.nome) + '" loading="lazy">' : '<div class="promo-hero-bg" style="background:' + (TEN.cor || '#F15A24') + '"></div>') +
+      '<div class="promo-hero-overlay"></div><div class="promo-hero-content">' +
+      '<span class="promo-hero-badge">-' + descontoDe(p) + '%</span>' +
+      '<h3 class="promo-hero-title">' + esc(p.nome) + '</h3>' +
+      '<div class="promo-hero-row"><span class="promo-hero-old">' + fmtBRL(p.preco) + '</span>' +
+      '<span class="promo-hero-price">' + fmtBRL(p.promocao) + '</span>' +
+      '<button class="btn btn-primary promo-hero-btn" onclick="abrirProduto(\'' + p.id + '\')">Aproveitar</button></div></div></div>'
+    ).join('') : '<div class="empty-state">Nenhuma promoção ativa no momento.</div>';
+  }
+  const g = $('promosGrid');
+  if (g) {
+    const resto = promos.slice(2, 6);
+    g.innerHTML = resto.length ? resto.map(p => cardProduto(p, 'reveal-d3')).join('')
+      : '<div class="empty-state">Novas promoções em breve.</div>';
+  }
+  const navP = $('navPromo'), navPM = $('navPromoM');
+  const visivel = promos.length > 0;
+  if (navP) navP.style.display = visivel ? '' : 'none';
+  if (navPM) navPM.style.display = visivel ? '' : 'none';
+  // sem promoções, a seção inteira sai da página (não fica bloco vazio)
+  const sec = $('promocoes');
+  if (sec && !visivel) sec.style.display = 'none';
+}
+function renderCombos() {
+  const g = $('combosGrid'); if (!g) return;
+  const combos = PRODUTOS.filter(p => p.cat === 'Combos');
+  const navC = $('navCombos'), navCM = $('navCombosM');
+  if (navC) navC.style.display = combos.length ? '' : 'none';
+  if (navCM) navCM.style.display = combos.length ? '' : 'none';
+  if (!combos.length) { const s = $('combos'); if (s) s.style.display = 'none'; return; }
+  g.innerHTML = combos.map(p =>
+    '<div class="combo-card reveal reveal-d1">' +
+    '<div class="combo-icon-row"><div class="combo-icon-item">' +
+    (p.img ? '<img src="' + p.img + '" alt="' + esc(p.nome) + '" loading="lazy">' : '<span style="font-size:2rem">' + (p.emoji || '📦') + '</span>') +
+    '</div></div>' +
+    '<div class="combo-name">' + esc(p.nome) + '</div>' +
+    '<div class="combo-desc">' + esc(p.desc || '') + '</div>' +
+    '<div class="combo-price-row">' + (temPromo(p) ? '<span class="combo-old">' + fmtBRL(p.preco) + '</span>' : '') +
+    '<span class="combo-price">' + fmtBRL(precoDe(p)) + '</span></div>' +
+    (temPromo(p) ? '<span class="combo-save">Economize ' + fmtBRL(p.preco - p.promocao) + '</span>' : '') +
+    '<div style="margin-top:14px"><button class="btn btn-primary btn-sm" style="width:100%" onclick="abrirProduto(\'' + p.id + '\')">Comprar Combo</button></div>' +
+    '</div>'
+  ).join('');
+}
+
+/* ═══════════ 6. INFORMAÇÕES DA LOJA + RODAPÉ ═══════════ */
+function renderInfo() {
+  // subtítulo do catálogo derivado do segmento (sem frase fixa de um segmento)
+  const csub = $('catalogoSub');
+  if (csub) csub.textContent = 'Produtos e preços de ' + (TEN.nome || 'nossa loja') + '.';
+  const bd = $('deliveryBannerDesc');
+  if (bd) bd.textContent = 'Peça agora em ' + TEN.nome + ' e receba com rapidez em toda a região.';
+  const t = $('dlvTempo'); if (t) t.textContent = TEN.tempoPrep || 30;
+  const r = $('dlvRaio'); if (r) r.textContent = TEN.raio || 12;
+  const avs = getAvaliacoes(LOJA_ID);
+  const avWrap = $('dlvAvalWrap'), avNum = $('dlvAval');
+  if (avWrap) {
+    if (avs.length) { avWrap.style.display = ''; if (avNum) avNum.textContent = (avs.reduce((s, a) => s + (Number(a.nota) || 0), 0) / avs.length).toFixed(1); }
+    else avWrap.style.display = 'none';
+  }
+  const dh = $('dlvHeading'); if (dh) dh.innerHTML = 'Receba seu pedido <span>em toda a região.</span>';
+  const h = $('aboutHeading'); if (h) h.textContent = 'Sobre ' + TEN.nome;
+  // eyebrow: categoria cadastrada ou o nome do segmento (nunca texto fixo)
+  const ey = $('aboutEyebrow'); if (ey) ey.textContent = TEN.categoria || segmentoNome(TEN.businessType) || 'Nossa história';
+  const at = $('aboutText');
+  if (at) {
+    at.innerHTML = '<p>' + esc(heroDescricao(TEN)) + '</p>' +
+      '<p style="margin-top:14px">Atuamos como <strong>' + esc(TEN.categoria || segmentoNome(TEN.businessType) || 'delivery') + '</strong> com ' +
+      '<strong>' + PRODUTOS.length + ' produtos</strong> no catálogo. ' +
+      (TEN.endereco ? 'Estamos em <strong>' + esc(TEN.endereco) + '</strong>. ' : '') +
+      'Entregamos em um raio de <strong>' + (TEN.raio || 12) + ' km</strong> com tempo médio de <strong>' + (TEN.tempoPrep || 30) + ' minutos</strong>.</p>' +
+      (Number(TEN.minimo) > 0 ? '<p style="margin-top:14px">Pedido mínimo de <strong>' + fmtBRL(TEN.minimo) + '</strong> para entrega.</p>' : '');
+  }
+  const badge = $('aboutBadgeNum'), badgeLbl = $('aboutBadgeLabel');
+  const primeiro = PRODUTOS.find(p => p.img);
+  const ai = $('aboutImg');
+  const col = $('aboutImgCol');
+  if (ai && col) {
+    if (primeiro) { ai.src = primeiro.img; ai.alt = TEN.nome; col.style.display = ''; ai.style.display = ''; }
+    else {
+      // sem foto no catálogo, não deixa foto de outra loja no "Sobre"
+      col.style.display = 'none';
+      const grid = document.querySelector('.about-grid'); if (grid) grid.style.gridTemplateColumns = '1fr';
+    }
+  }
+  if (badge) badge.textContent = PRODUTOS.length;
+  if (badgeLbl) badgeLbl.innerHTML = 'Produtos<br>no catálogo';
+
+  const cs = $('ctaSub');
+  if (cs) cs.textContent = ABERTA ? 'Peça agora e receba em até ' + (TEN.tempoPrep || 30) + ' minutos.' : 'Voltamos em breve. Consulte nosso horário.';
+
+  // contato
+  const end = $('footerEndereco');
+  if (end) { if (TEN.endereco) { end.hidden = false; end.querySelector('span:last-child').innerHTML = esc(TEN.endereco); } else end.hidden = true; }
+  const tel = $('footerTelefone');
+  if (tel) { if (TEN.phone) { tel.hidden = false; tel.querySelector('span:last-child').textContent = TEN.phone; } else tel.hidden = true; }
+  const wi = $('footerWhatsItem');
+  if (wi) { if (TEN.whats) { wi.hidden = false; wi.querySelector('span:last-child').textContent = 'WhatsApp: ' + (TEN.phone || TEN.whats); } else wi.hidden = true; }
+  const hr = $('footerHorario');
+  if (hr) { if (TEN.horario) { hr.hidden = false; hr.querySelector('span:last-child').innerHTML = esc(TEN.horario).replace(' • ', '<br>'); } else hr.hidden = true; }
+}
+let _obsReveal = null;
+function renderAvaliacoes() {
+  const g = $('reviewsGrid'); if (!g) return;
+  // sem avaliações cadastradas a seção inteira fica oculta (nada é inventado)
+  const lista = getAvaliacoes(LOJA_ID);
+  if (!lista.length) {
+    const sec = g.closest('section'); if (sec) sec.style.display = 'none';
+    return;
+  }
+  const media = lista.reduce((s, a) => s + (Number(a.nota) || 0), 0) / lista.length;
+  const nota = $('revNota'); if (nota) nota.textContent = media.toFixed(1);
+  // estrelas derivadas da média real (nunca 5 estrelas fixas no HTML)
+  const stEl = $('revStars');
+  if (stEl) { const cheias = Math.max(0, Math.min(5, Math.round(media))); stEl.textContent = '★'.repeat(cheias) + '☆'.repeat(5 - cheias); }
+  const tot = $('revTotal'); if (tot) tot.textContent = lista.length + (lista.length === 1 ? ' avaliação' : ' avaliações');
+  g.innerHTML = lista.slice(0, 6).map(a => {
+    const st = '★'.repeat(Math.max(0, Math.min(5, Math.round(Number(a.nota) || 0))));
+    return '<div class="review-card reveal reveal-d1">' +
+      '<div class="review-stars">' + st + '</div>' +
+      '<p class="review-text">"' + esc(a.texto) + '"</p>' +
+      '<div class="review-author"><div class="review-avatar">' + esc(a.autor || a.iniciais || '?').substring(0, 2).toUpperCase() + '</div>' +
+      '<div><div class="review-author-name">' + esc(a.autor) + '</div>' +
+      '<div class="review-author-role">' + esc(a.quando || 'Cliente') + '</div></div></div></div>';
+  }).join('');
+}
+function observarReveal() {
+  if (_obsReveal) _obsReveal.disconnect();
+  const els = document.querySelectorAll('.reveal:not(.visible)');
+  if (!els.length) return;
+  _obsReveal = new IntersectionObserver(es => es.forEach(x => { if (x.isIntersecting) x.target.classList.add('visible') }), { threshold: 0.1 });
+  els.forEach(e => _obsReveal.observe(e));
+}
+
+/* ═══════════ 7. CARRINHO ═══════════ */
+function salvarCart() { storeSet('dp_' + LOJA_ID + '_cart', JSON.stringify(CART)); }
+function cartTotal() { return CART.reduce((s, i) => s + i.preco * i.qtd, 0); }
+function cartQtd() { return CART.reduce((s, i) => s + i.qtd, 0); }
+function addCart(produto, qtd, opcoes, obs) {
+  const chave = produto.id + '|' + (opcoes || []).map(o => o.nome).sort().join(',');
+  const ex = CART.find(i => i.chave === chave && (i.obs || '') === (obs || ''));
+  const precoBase = precoDe(produto) + (opcoes || []).reduce((s, o) => s + Number(o.preco || 0), 0);
+  if (ex) { ex.qtd += qtd; ex.preco = precoBase; }
+  else CART.push({ chave: chave, id: produto.id, nome: produto.nome, preco: precoBase, qtd: qtd, opts: (opcoes || []).map(o => o.nome), obs: obs || '', img: produto.img || '', emoji: produto.emoji || categoriaComEmoji(produto.cat) });
+  salvarCart(); renderCart(); abrirCart();
+}
+function renderCart() {
+  const body = $('cartBody'), foot = $('cartFoot'), cnt = $('cartCount');
+  if (cnt) cnt.textContent = cartQtd();
+  const fl = $('cartFloat'); if (fl) fl.classList.toggle('has-items', cartQtd() > 0);
+  if (!body) return;
+  // item do carrinho sem lista de opções (dados antigos) não pode quebrar a tela
+  CART.forEach(i => { if (!Array.isArray(i.opts)) i.opts = []; });
+  if (!CART.length) {
+    body.innerHTML = '<div class="cart-empty">🛒<br>Seu carrinho está vazio.<br><span style="font-size:.8rem">Escolha produtos no catálogo.</span></div>';
+    if (foot) foot.innerHTML = '';
+    return;
+  }
+  body.innerHTML = CART.map((i, idx) => {
+    const img = i.img ? '<div class="cart-item-img"><img src="' + i.img + '" alt=""></div>' : '<div class="cart-item-img">' + i.emoji + '</div>';
+    return '<div class="cart-item">' + img +
+      '<div class="cart-item-info"><div class="cart-item-name">' + esc(i.nome) + '</div>' +
+      (i.opts.length ? '<div class="cart-item-opts">' + esc(i.opts.join(' • ')) + '</div>' : '') +
+      (i.obs ? '<div class="cart-item-opts">Obs: ' + esc(i.obs) + '</div>' : '') +
+      '<div class="cart-item-price">' + fmtBRL(i.preco) + '</div></div>' +
+      '<div><div class="cart-qty"><button onclick="mudarQtd(' + idx + ',-1)">−</button><span>' + i.qtd + '</span>' +
+      '<button onclick="mudarQtd(' + idx + ',1)">+</button></div>' +
+      '<button class="cart-item-remove" onclick="removerItem(' + idx + ')">remover</button></div></div>';
+  }).join('');
+  const sub = cartTotal();
+  const minimo = Number(TEN.minimo) || 0;
+  const falta = minimo > 0 ? minimo - sub : 0;
+  if (foot) foot.innerHTML =
+    '<div class="cart-line"><span>Subtotal</span><span>' + fmtBRL(sub) + '</span></div>' +
+    '<div class="cart-line total"><span>Total</span><span>' + fmtBRL(sub) + '</span></div>' +
+    (falta > 0 ? '<div class="cart-min-warn">Pedido mínimo de ' + fmtBRL(minimo) + '. Faltam ' + fmtBRL(falta) + '.</div>' : '') +
+    '<button class="btn btn-primary" style="width:100%;margin-top:12px"' +
+      (falta > 0 || !ABERTA ? ' disabled' : ' onclick="abrirCheckout()"') + '>' +
+      (!ABERTA ? 'Loja ' + TEN.statusLoja : falta > 0 ? 'Faltam ' + fmtBRL(falta) : 'Finalizar pedido') + '</button>';
+}
+function mudarQtd(i, d) { CART[i].qtd += d; if (CART[i].qtd < 1) CART.splice(i, 1); salvarCart(); renderCart(); }
+function removerItem(i) { CART.splice(i, 1); salvarCart(); renderCart(); }
+/* ═══════════ 2b. FAVICON + LOJA INEXISTENTE ═══════════ */
+// favicon: usa a logo enviada quando existir; senão um favicon neutro (emoji
+// do segmento), nunca uma marca fixa de loja.
+function renderFavicon() {
+  const emoji = (TPL && TPL.emoji) || '🛍️';
+  const svg = TEN.logoImg
+    ? null
+    : 'data:image/svg+xml,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="88">' + emoji + '</text></svg>');
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link); }
+  link.href = TEN.logoImg || svg;
+}
+// loja não encontrada: esconde a loja inteira e mostra só o aviso.
+function renderNaoEncontrado() {
+  const box = $('lojaNaoEncontrada');
+  document.querySelectorAll('body > *:not(#lojaNaoEncontrada)').forEach(el => {
+    if (el.tagName !== 'SCRIPT') el.style.display = 'none';
+  });
+  if (box) box.style.display = '';
+  const idEl = $('lojaNaoEncontradaId');
+  if (idEl) idEl.textContent = LOJA_ID ? 'Link recebido: ?loja=' + LOJA_ID : 'Nenhum estabelecimento informado no link.';
+  document.title = 'Estabelecimento não encontrado';
+}
+
+function abrirCart() { $('cartPanel').classList.add('open'); $('cartPanel').setAttribute('aria-hidden', 'false'); $('cartOverlay').classList.add('show'); }
+function fecharCart() { $('cartPanel').classList.remove('open'); $('cartPanel').setAttribute('aria-hidden', 'true'); $('cartOverlay').classList.remove('show'); }
+
+/* ═══════════ 8. MODAL DO PRODUTO ═══════════ */
+let OPT_ATUAL = null;
+function abrirProduto(id) {
+  const p = PRODUTOS.find(x => x.id === id); if (!p) return;
+  if (!ABERTA) { alert('A loja está ' + TEN.statusLoja + ' no momento.'); return; }
+  OPT_ATUAL = p;
+  $('optTitulo').textContent = p.nome;
+  const adics = (p.tipo === 'adicional' && Array.isArray(p.opcoes)) ? p.opcoes
+    : (p.tipo === 'variacao' && Array.isArray(p.opcoes)) ? p.opcoes : [];
+  $('optBody').innerHTML =
+    (p.img ? '<img src="' + p.img + '" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:12px;margin-bottom:12px">' : '') +
+    '<div style="font-size:1.3rem;font-weight:800;color:var(--orange);margin-bottom:8px">' + fmtBRL(precoDe(p)) + '</div>' +
+    (p.desc ? '<div style="font-size:.85rem;color:var(--gray-600);margin-bottom:14px">' + esc(p.desc) + '</div>' : '') +
+    (adics.length ? '<div class="sm-field"><label>' + (p.tipo === 'variacao' ? 'Escolha o tamanho' : 'Adicionais') + '</label>' +
+      adics.map((o, i) => '<label class="sm-opt"><span><input type="' + (p.tipo === 'variacao' ? 'radio' : 'checkbox') + '" name="optg" value="' + i + '"> ' + esc(o.nome) + '</span><span class="sm-opt-price">+ ' + fmtBRL(o.preco) + '</span></label>').join('') + '</div>' : '') +
+    '<div class="sm-field"><label>Quantidade</label><input type="number" id="optQtd" value="1" min="1" step="1"></div>';
+  $('optObs').value = '';
+  $('optOverlay').classList.add('show');
+}
+function fecharProduto() { $('optOverlay').classList.remove('show'); OPT_ATUAL = null; }
+function addOptAtual() {
+  if (!OPT_ATUAL) return;
+  const p = OPT_ATUAL;
+  const qtd = Math.max(1, parseInt(($('optQtd') || {}).value || '1', 10) || 1);
+  const sel = Array.from(document.querySelectorAll('#optBody input:checked')).map(i => (p.opcoes || [])[parseInt(i.value, 10)]).filter(Boolean);
+  addCart(p, qtd, sel, ($('optObs').value || '').trim());
+  fecharProduto();
+}
+
+/* ═══════════ 9. CHECKOUT ═══════════ */
+function fretePara(endereco, tipo) {
+  if (tipo === 'retirada') return 0;
+  let cfg = null;
+  try { cfg = JSON.parse(storeGet('dp_' + LOJA_ID + '_entrega') || 'null'); } catch (e) { cfg = null; }
+  const faixas = (cfg && Array.isArray(cfg.faixas) && cfg.faixas.length) ? cfg.faixas : [{ ate: 3, valor: Number(TEN.taxaBase) || 5 }];
+  // sem geocodificação: assume a faixa base. O painel ajusta o valor final.
+  const base = faixas[0] ? Number(faixas[0].valor) || 0 : 0;
+  return base;
+}
+function abrirCheckout() {
+  if (!CART.length) return;
+  if (!ABERTA) { alert('A loja está ' + TEN.statusLoja + '.'); return; }
+  const minimo = Number(TEN.minimo) || 0;
+  if (minimo > 0 && cartTotal() < minimo) { alert('Pedido mínimo de ' + fmtBRL(minimo) + '.'); return; }
+  atualizarResumo();
+  $('smSuccess').style.display = 'none';
+  $('smForm').style.display = '';
+  $('smOverlay').classList.add('show');
+}
+function atualizarResumo() {
+  const tipo = ($('smTipo') || {}).value || 'entrega';
+  const frete = fretePara('', tipo);
+  const sub = cartTotal();
+  $('smResumo').innerHTML =
+    '<div class="cart-line"><span>Subtotal (' + cartQtd() + ' itens)</span><span>' + fmtBRL(sub) + '</span></div>' +
+    '<div class="cart-line"><span>Taxa de entrega</span><span>' + (tipo === 'retirada' ? 'Retirada na loja' : fmtBRL(frete)) + '</span></div>' +
+    '<div class="cart-line total"><span>Total</span><span>' + fmtBRL(sub + frete) + '</span></div>';
+}
+function fecharCheckout() { $('smOverlay').classList.remove('show'); }
+function enviarPedido() {
+  const nome = ($('smNome').value || '').trim();
+  const fone = ($('smFone').value || '').trim();
+  const tipo = $('smTipo').value;
+  const end = ($('smEnd').value || '').trim();
+  if (!nome) { alert('Informe seu nome.'); return; }
+  if (!fone) { alert('Informe seu telefone/WhatsApp.'); return; }
+  if (tipo === 'entrega' && !end) { alert('Informe o endereço de entrega.'); return; }
+  const frete = fretePara(end, tipo);
+  const sub = cartTotal();
+  const items = CART.map(i => ({ nome: i.nome, qtd: i.qtd, preco: i.preco, opts: i.opts }));
+  // grava no MESMO contrato de pedidos do painel (dp_{tenantId}_orders)
+  let orders = [];
+  try { orders = JSON.parse(storeGet('dp_' + LOJA_ID + '_orders') || '[]') || []; } catch (e) { orders = []; }
+  if (!Array.isArray(orders)) orders = [];
+  const seq = orders.reduce((m, x) => Math.max(m, x.seq || 1000), 1000) + 1;
+  const pag = $('smPag').value;
+  const pedido = {
+    id: 'o' + Date.now(), seq: seq, source: 'site', customer: nome, phone: fone,
+    address: tipo === 'retirada' ? 'Retirada na loja' : end,
+    items: items, subtotal: sub, frete: frete, total: sub + frete,
+    pag: pag, payOk: pag !== 'Dinheiro', status: 'new', driver: '',
+    obs: ($('smObs').value || '') + (tipo === 'retirada' ? ' [RETIRADA]' : ''),
+    createdAt: new Date().toISOString(), timestamps: {}
+  };
+  orders.unshift(pedido);
+  storeSet('dp_' + LOJA_ID + '_orders', JSON.stringify(orders));
+
+  const linhas = items.map(i => '• ' + i.qtd + 'x ' + i.nome + (i.opts && i.opts.length ? ' (' + i.opts.join(', ') + ')' : '') + ' — ' + fmtBRL(i.preco * i.qtd)).join('\n');
+  const msg = 'Olá, ' + TEN.nome + '! Quero fazer um pedido:\n\n' + linhas +
+    '\n\nSubtotal: ' + fmtBRL(sub) + '\nEntrega: ' + (tipo === 'retirada' ? 'Retirada' : fmtBRL(frete)) + '\nTotal: ' + fmtBRL(sub + frete) +
+    '\n\nNome: ' + nome + '\nTelefone: ' + fone + (tipo === 'entrega' ? '\nEndereço: ' + end : '') +
+    '\nPagamento: ' + pag + '\nPedido nº ' + seq;
+
+  window.open(soWhats(msg), '_blank');
+  $('smForm').style.display = 'none';
+  $('smSuccessMsg').textContent = 'Pedido #' + seq + ' registrado. Finalize a confirmação pelo WhatsApp.';
+  $('smSuccess').style.display = '';
+  CART = []; salvarCart(); renderCart();
+}
+function fecharSucesso() { fecharCheckout(); }
+
+/* ═══════════ 10. BOOT ═══════════ */
+function renderStore() {
+  if (!LOJA_OK) { renderNaoEncontrado(); return; }
+  renderFavicon();
+  renderBranding();
+  renderHero();
+  renderCats();
+  renderProdutos();
+  renderPromos();
+  renderCombos();
+  renderAvaliacoes();
+  renderInfo();
+  renderCart();
+  observarReveal();
+}
+(function initSite() {
+  renderStore();
+  if (!LOJA_OK) return;  // loja inexistente: não monta carrinho nem botões
+  // botão direto para o painel DESTA loja (?loja=ID montado a partir do tenant atual,
+  // nunca uma URL fixa com id de loja de demonstração)
+  const lk = document.createElement('a');
+  lk.href = 'plataforma.html' + (LOJA_ID ? '?loja=' + encodeURIComponent(LOJA_ID) : '');
+  lk.textContent = 'Painel da loja';
+  lk.style.cssText = 'position:fixed;left:18px;bottom:28px;z-index:997;background:rgba(13,13,13,.82);color:#fff;' +
+    'font-size:.74rem;font-weight:700;padding:9px 14px;border-radius:999px;text-decoration:none;backdrop-filter:blur(6px)';
+  document.body.appendChild(lk);
+  const cf = $('cartFloat'); if (cf) cf.addEventListener('click', abrirCart);
+  const cc = $('cartClose'); if (cc) cc.addEventListener('click', fecharCart);
+  const co = $('cartOverlay'); if (co) co.addEventListener('click', fecharCart);
+  const oc = $('optClose'); if (oc) oc.addEventListener('click', fecharProduto);
+  const oo = $('optOverlay'); if (oo) oo.addEventListener('click', e => { if (e.target.id === 'optOverlay') fecharProduto() });
+  const oa = $('optAdd'); if (oa) oa.addEventListener('click', addOptAtual);
+  const sc = $('smClose'); if (sc) sc.addEventListener('click', fecharCheckout);
+  const so = $('smOverlay'); if (so) so.addEventListener('click', e => { if (e.target.id === 'smOverlay') fecharCheckout() });
+  const se = $('smEnviar'); if (se) se.addEventListener('click', enviarPedido);
+  const sk = $('smOk'); if (sk) sk.addEventListener('click', fecharSucesso);
+  const st = $('smTipo'); if (st) st.addEventListener('change', () => {
+    const ret = st.value === 'retirada';
+    $('smEndWrap').style.display = ret ? 'none' : '';
+    atualizarResumo();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { fecharCart(); fecharProduto(); fecharCheckout(); } });
+  // botões de pedido rolam para o catálogo
+  ['desktopOrderBtn', 'mobileOrderBtn', 'heroOrderBtn', 'heroCatalogBtn', 'ctaOrder', 'dlvBtn'].forEach(id => {
+    const el = $(id); if (el) el.addEventListener('click', ev => {
+      ev.preventDefault();
+      const alvo = $('produtos');
+      if (alvo) window.scrollTo({ top: alvo.getBoundingClientRect().top + window.pageYOffset - 100, behavior: 'smooth' });
+    });
+  });
+})();
 </script>
 
 </body>
