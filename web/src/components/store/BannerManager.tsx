@@ -11,7 +11,13 @@ import {
   updateBannerAction,
   uploadBannerImageAction,
 } from '@/app/actions/store-ops';
-import { BANNER_ACCEPT_ATTR, validateBannerFile } from '@/lib/banner-image';
+import {
+  BANNER_ACCEPT_ATTR,
+  BANNER_LIBRARY,
+  isBannerLibraryPath,
+  validateBannerFile,
+  type BannerLibraryItem,
+} from '@/lib/banner-image';
 import {
   Alert,
   Badge,
@@ -40,6 +46,18 @@ import type { StoreBannerView } from '@/lib/data/store-ops';
  * recomendada) são um ATALHO de usabilidade — a validação de verdade é a
  * do servidor (`uploadBannerImageAction`), que confere formato e tamanho
  * de novo e só devolve a URL que o storage gerou.
+ *
+ * ── Duas origens, um só salvar ──
+ * Além do upload (que continua exatamente como era), o modal oferece
+ * ESCOLHER UMA IMAGEM DO ACERVO — um arquivo que já está no repositório,
+ * em `public/catalog/banners/`. A escolha grava o caminho público
+ * (`/catalog/banners/banner-01.png`) direto em `imagePath`, sem passar
+ * pelo storage: o arquivo já está publicado, subir de novo seria duplicar.
+ *
+ * O que decide entre as duas é qual origem foi mexida por último, e não um
+ * botão separado: escolher do acervo descarta o arquivo pendente, e
+ * escolher um arquivo limpa a escolha do acervo. Assim nunca há dúvida
+ * sobre o que o "Salvar" vai gravar.
  *
  * Os banners DAQUI são só os da loja. Quando ela não tem nenhum, a
  * vitrine usa os padrões da plataforma para o segmento — o lojista não
@@ -146,6 +164,26 @@ export function BannerManager({
       linkUrl: banner.linkUrl ?? '',
       active: banner.active,
     });
+  }
+
+  /**
+   * Escolher uma imagem do acervo.
+   *
+   * Descartar o arquivo pendente (`resetFile`) não é detalhe: sem isso, um
+   * arquivo escolhido antes continuaria no estado e o `save()` subiria ele,
+   * ignorando a escolha do acervo que o lojista acabou de fazer na tela.
+   */
+  function chooseFromLibrary(item: BannerLibraryItem) {
+    resetFile();
+    setDraft((current) => (current ? { ...current, imagePath: item.path } : current));
+  }
+
+  /** Volta para "envie um arquivo" quando o banner NÃO é do acervo. */
+  function clearImage() {
+    if (isBannerLibraryPath(draft?.imagePath)) {
+      resetFile();
+      setDraft((current) => (current ? { ...current, imagePath: '' } : current));
+    }
   }
 
   function run(action: () => Promise<{ ok: true } | { ok: false; error: string }>, onOk?: () => void) {
@@ -257,7 +295,11 @@ export function BannerManager({
     run(() => reorderBannersAction(ids));
   }
 
+  // `previewUrl` só existe quando há arquivo escolhido, e nesse caso ele
+  // ganha — é o que acabou de ser selecionado. Sem arquivo, o caminho do
+  // rascunho serve igual para URL http(s) e para `/catalog/banners/...`.
   const previewSource = previewUrl ?? draft?.imagePath ?? null;
+  const usingLibraryImage = isBannerLibraryPath(draft?.imagePath);
   const ratioOff =
     imageInfo && imageInfo.height > 0 && Math.abs(imageInfo.width / imageInfo.height - IDEAL_RATIO) > 1;
 
@@ -392,8 +434,9 @@ export function BannerManager({
         )}
 
         <p className="mt-4 text-[0.72rem] text-ink-400">
-          Você envia o arquivo da imagem — a plataforma guarda e devolve o endereço. Sem banner
-          cadastrado, a vitrine usa o destaque montado com os seus produtos.
+          Você envia o arquivo da imagem — a plataforma guarda e devolve o endereço — ou escolhe uma
+          imagem que já faz parte do acervo. Sem banner cadastrado, a vitrine usa o destaque montado
+          com os seus produtos.
         </p>
       </Card>
 
@@ -405,7 +448,7 @@ export function BannerManager({
           setDraft(null);
         }}
         title={draft?.id ? 'Editar banner' : 'Novo banner'}
-        subtitle="Envie o arquivo da imagem no formato largo (4:1) para o topo da loja."
+        subtitle="Envie o arquivo da imagem (formato largo, 4:1) ou escolha uma que já existe no acervo."
         size="md"
         footer={
           <>
@@ -472,14 +515,18 @@ export function BannerManager({
                 <span className="block text-[0.86rem] font-semibold text-ink-700">
                   {pendingFile
                     ? pendingFile.name
-                    : draft.imagePath
-                      ? 'Imagem atual mantida — clique para trocar'
-                      : 'Clique para enviar a imagem'}
+                    : usingLibraryImage
+                      ? 'Imagem do acervo escolhida — clique para enviar um arquivo'
+                      : draft.imagePath
+                        ? 'Imagem atual mantida — clique para trocar'
+                        : 'Clique para enviar a imagem'}
                 </span>
                 <span className="mt-1 block text-[0.72rem] text-ink-400">
                   {pendingFile
                     ? 'Clique para escolher outro arquivo.'
-                    : 'O arquivo sobe ao salvar o banner.'}
+                    : usingLibraryImage
+                      ? 'A escolha do acervo só sai do lugar quando você envia um arquivo.'
+                      : 'O arquivo sobe ao salvar o banner.'}
                 </span>
               </label>
 
@@ -497,10 +544,83 @@ export function BannerManager({
               )}
             </Field>
 
+            {/* ── Acervo da plataforma ───────────────────────────────────
+                Alternativa ao upload. A lista (`BANNER_LIBRARY`) é o único
+                lugar do código com nomes de arquivo de banner; acrescentar
+                um banner novo à pasta é acrescentar o nome lá. A validação
+                do servidor aceita qualquer
+                `/catalog/banners/<arquivo>.<ext>`, então o arquivo novo já
+                funciona mesmo antes de aparecer nesta grade. */}
+            {BANNER_LIBRARY.length > 0 && (
+              <Field
+                label="Ou use uma imagem do acervo"
+                hint="Imagens que já fazem parte da plataforma. Não precisam de upload."
+              >
+                <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {/* As miniaturas abaixo são a ÚNICA checagem de existência
+                      do arquivo, e é de propósito: uma consulta ao servidor
+                      por banner deixaria a tela lenta para avisar algo que o
+                      próprio <img> já mostra (miniatura vazia). A validação
+                      de verdade é de forma, no servidor. */}
+                  {BANNER_LIBRARY.map((item) => {
+                    const selected = draft.imagePath === item.path;
+                    return (
+                      <li key={item.path}>
+                        <button
+                          type="button"
+                          onClick={() => chooseFromLibrary(item)}
+                          aria-pressed={selected}
+                          title={item.path}
+                          className={cn(
+                            'block w-full overflow-hidden rounded border-2 text-left transition-all',
+                            selected
+                              ? 'border-brand'
+                              : 'border-ink-100 hover:border-ink-200',
+                          )}
+                        >
+                          <span className="block h-[46px] bg-ink-50">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={item.path}
+                              alt=""
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          </span>
+                          <span
+                            className={cn(
+                              'block truncate px-2 py-1 text-[0.7rem] font-semibold',
+                              selected ? 'bg-brand-light/40 text-ink-800' : 'text-ink-500',
+                            )}
+                          >
+                            {selected ? '✓ ' : ''}
+                            {item.label}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Field>
+            )}
+
             {previewSource && (
-              <div className="mb-3.5 h-[110px] overflow-hidden rounded border border-ink-100 bg-ink-50">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={previewSource} alt="" className="h-full w-full object-cover" />
+              <div className="mb-3.5">
+                <p className="mb-1 text-[0.72rem] font-semibold text-ink-500">Prévia</p>
+                <div className="h-[110px] overflow-hidden rounded border border-ink-100 bg-ink-50">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={previewSource} alt="" className="h-full w-full object-cover" />
+                </div>
+                {usingLibraryImage && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <p className="text-[0.72rem] text-ink-500">
+                      Imagem do acervo · <code>{draft.imagePath}</code>
+                    </p>
+                    <Button size="sm" variant="ghost" onClick={clearImage} disabled={pending}>
+                      Enviar um arquivo em vez desta
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 

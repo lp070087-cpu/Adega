@@ -14,7 +14,7 @@ import {
   deliveryZoneSchema,
 } from '@/lib/validations/store-ops';
 import { getStorage, validateImageUrl } from '@/lib/storage';
-import { validateBannerFile } from '@/lib/banner-image';
+import { validateBannerFile, validateBannerImagePath } from '@/lib/banner-image';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -181,6 +181,12 @@ export async function saveVisualIdentityAction(input: unknown): Promise<OpsActio
 }
 
 // ── BANNERS (4.19) ─────────────────────────────────────────────────────
+//
+// `validateBannerImagePath` (e não `validateImageUrl`) porque banner é a
+// única imagem que aceita duas origens: URL do storage OU um arquivo do
+// acervo (`/catalog/banners/<arquivo>`). As regras e o porquê estão em
+// `@/lib/banner-image`. `validateImageUrl` segue intocada — logo e fotos
+// de produto continuam exigindo http(s).
 
 export async function createBannerAction(input: unknown): Promise<OpsActionResult> {
   try {
@@ -190,7 +196,7 @@ export async function createBannerAction(input: unknown): Promise<OpsActionResul
 
     let image: string | null;
     try {
-      image = validateImageUrl(parsed.data.imagePath);
+      image = validateBannerImagePath(parsed.data.imagePath);
     } catch (error) {
       return {
         ok: false,
@@ -232,7 +238,7 @@ export async function updateBannerAction(
 
     let image: string | null;
     try {
-      image = validateImageUrl(parsed.data.imagePath);
+      image = validateBannerImagePath(parsed.data.imagePath);
     } catch (error) {
       return {
         ok: false,

@@ -363,6 +363,10 @@ export function GlobalProductPicker({
                           ? `${item.globalCategory.imagePath ?? ''}`.trim() || null
                           : null
                       }
+                      // Aqui `basePath` é uma VARIAÇÃO do nome, não o mesmo
+                      // arquivo de `defaultImageUrl`: tentar o nome exato
+                      // antes do palpite pelas extensões.
+                      preferBasePath
                       emoji={item.emoji}
                       alt={item.name}
                       size={52}

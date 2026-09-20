@@ -2,38 +2,55 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { CATALOG_BASE_PATH, CATALOG_EXTENSIONS } from '@/lib/catalog-images';
+import { productImageCandidates } from '@/lib/catalog-images';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
  * MINIATURA DE PRODUTO
  * -----------------------------------------------------------------------
  * Uma <img> comum não resolve o problema real do acervo: o arquivo pode
- * existir como .webp, .jpg ou .png, e o banco não sabe qual. Em vez de
- * fazer uma consulta ao servidor para descobrir, o componente TENTA os
- * caminhos em ordem e fica com o primeiro que carregar.
+ * existir como .webp, .jpg ou .png, e o banco não sabe qual — ele guarda o
+ * caminho SEM extensão de propósito. Em vez de fazer uma consulta ao
+ * servidor para descobrir, o componente TENTA os caminhos em ordem e fica
+ * com o primeiro que carregar.
  *
  * Ordem de tentativa:
  *   1. customImageUrl   (foto do lojista — URL ou caminho)
- *   2. defaultImageUrl  (imagem global, compartilhada)
- *   3. emoji            (reserva, quando não há arquivo nenhum)
+ *   2. globalImageUrl   (imagem global, compartilhada)
+ *   3. basePath         (nome do arquivo, quando difere do global)
+ *   4. emoji            (reserva, quando não há arquivo nenhum)
  *
  * Nenhuma tentativa gera erro visível: se todas falharem, aparece o
  * emoji. É por isso que o acervo pode estar pela metade sem quebrar a
  * interface.
+ *
+ * ── Quem monta a lista é `productImageCandidates()` ──
+ * A montagem do caminho NÃO mora mais aqui. Havia duas implementações
+ * divergentes: esta expandia as extensões de `basePath`, mas passava
+ * `globalImageUrl` por um `toUrl()` que só prefixava — e `globalImageUrl` é
+ * exatamente o campo que vem sem extensão do banco. Resultado: a loja
+ * pública tentava `/catalog/bebidas/cervejas/heineken-lata-350ml`, recebia
+ * 404 e caía no texto alternativo, enquanto o arquivo
+ * `heineken-lata-350ml.jpeg` estava lá. Agora a regra é uma só, em
+ * `src/lib/catalog-images.ts`, e vale para os seis consumidores.
  * ═══════════════════════════════════════════════════════════════════════
  */
 
 export type ProductThumbProps = {
   /** Foto própria do estabelecimento. Tem prioridade sobre a global. */
   customImageUrl?: string | null;
-  /** Imagem da biblioteca global. */
+  /** Imagem da biblioteca global (guardada no banco SEM extensão). */
   globalImageUrl?: string | null;
   /**
-   * Caminho-base sem extensão para tentar as variações de arquivo.
-   * Ex.: "bebidas/refrigerantes/coca-cola-350ml".
+   * Caminho-base para tentar as variações de arquivo. Ex.:
+   * "bebidas/refrigerantes/coca-cola" ou o valor já com extensão.
    */
   basePath?: string | null;
+  /**
+   * Quando basePath é uma VARIAÇÃO do produto (onboarding), ele deve ser
+   * tentado antes da imagem global. Ver `productImageCandidates()`.
+   */
+  preferBasePath?: boolean;
   /** Reserva quando não há imagem. */
   emoji?: string | null;
   alt: string;
@@ -43,31 +60,11 @@ export type ProductThumbProps = {
   rounded?: 'md' | 'full';
 };
 
-function toUrl(path: string | null | undefined): string | null {
-  if (!path) return null;
-  const trimmed = path.trim();
-  if (!trimmed) return null;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  if (trimmed.startsWith('/')) return trimmed;
-  return `${CATALOG_BASE_PATH}/${trimmed.replace(/^\/+/, '')}`;
-}
-
-/** Expande um caminho-base nas extensões aceitas. */
-function expand(base: string | null | undefined): string[] {
-  if (!base || !base.trim()) return [];
-  const clean = base.trim().replace(/^\/+/, '');
-  // Se já tem extensão, é um arquivo — não expande.
-  if (/\.(webp|jpe?g|png|avif)$/i.test(clean)) {
-    const url = toUrl(clean);
-    return url ? [url] : [];
-  }
-  return CATALOG_EXTENSIONS.map((ext) => `${CATALOG_BASE_PATH}/${clean}${ext}`);
-}
-
 export function ProductThumb({
   customImageUrl,
   globalImageUrl,
   basePath,
+  preferBasePath = false,
   emoji,
   alt,
   size = 48,
@@ -75,25 +72,24 @@ export function ProductThumb({
   rounded = 'md',
 }: ProductThumbProps) {
   // Lista de URLs a tentar, na ordem de precedência.
-  const candidates = React.useMemo(() => {
-    const list: string[] = [];
-    const custom = toUrl(customImageUrl);
-    if (custom) list.push(custom);
-    const global = toUrl(globalImageUrl);
-    if (global) list.push(global);
-    list.push(...expand(basePath));
-    return Array.from(new Set(list));
-  }, [customImageUrl, globalImageUrl, basePath]);
+  const candidates = React.useMemo(
+    () => productImageCandidates({ customImageUrl, globalImageUrl, basePath, preferBasePath }),
+    [customImageUrl, globalImageUrl, basePath, preferBasePath],
+  );
 
   const [index, setIndex] = React.useState(0);
+  const resetKey = candidates.join('|');
 
   // Trocar de produto recomeça a tentativa do zero — sem isso o índice
   // antigo vazaria para o produto seguinte e a foto sumiria.
   React.useEffect(() => {
     setIndex(0);
-  }, [candidates.join('|')]);
+  }, [resetKey]);
 
-  const src = candidates[index];
+  // Passar do fim da lista significa "nenhum arquivo serviu". O índice
+  // para no tamanho da lista para não continuar incrementando para sempre
+  // a cada novo erro.
+  const src = index < candidates.length ? candidates[index] : undefined;
   const showFallback = !src;
 
   return (
@@ -114,6 +110,11 @@ export function ProductThumb({
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
+          // Sem `key`, o React reaproveita o mesmo nó quando só o `src`
+          // muda e o navegador pode não recarregar. Com a chave por URL,
+          // cada candidato é um <img> novo e a tentativa seguinte é de
+          // fato disparada.
+          key={src}
           src={src}
           alt={alt}
           width={size}
@@ -121,7 +122,7 @@ export function ProductThumb({
           loading="lazy"
           decoding="async"
           className="h-full w-full object-cover"
-          onError={() => setIndex((current) => current + 1)}
+          onError={() => setIndex((current) => Math.min(current + 1, candidates.length))}
         />
       )}
     </div>

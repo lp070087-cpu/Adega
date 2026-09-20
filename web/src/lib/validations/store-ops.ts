@@ -89,10 +89,21 @@ export const saveVisualIdentitySchema = z.object({
 export const storeBannerInputSchema = z.object({
   title: requiredText('Título do banner', 2, 80),
   subtitle: optionalText(160),
-  // A imagem chega como URL — o arquivo sobe pelo storage
-  // (`uploadBannerImageAction`) e vira uma URL http(s). Base64 no banco
-  // continua fora de questão; a barreira de verdade é `validateImageUrl`.
-  imagePath: z.string().trim().url('Endereço da imagem inválido').max(500),
+  // A imagem de um banner tem DUAS origens possíveis:
+  //
+  //   • upload  → o arquivo sobe pelo storage e vira uma URL http(s);
+  //   • acervo  → um arquivo que já está em `public/catalog/banners/`,
+  //               referenciado como `/catalog/banners/<arquivo>`.
+  //
+  // Por isso `z.string().url()` saiu daqui: ele recusa a segunda origem.
+  // O campo continua sendo texto (nada de binário), e a barreira de
+  // verdade passou a ser `validateBannerImagePath()` — chamada pelas duas
+  // ações de banner, que é quem decide de fato o que entra no banco. Aqui
+  // só se garante que é texto não vazio e de tamanho são.
+  //
+  // `validateImageUrl()` NÃO foi afrouxada: ela segue valendo para logo e
+  // demais imagens do sistema, exigindo http(s).
+  imagePath: z.string().trim().min(1, 'Informe a imagem do banner.').max(500),
   linkUrl: z.string().trim().url('Link inválido').max(500).optional().or(z.literal('')),
   active: z.boolean().default(true),
 });
