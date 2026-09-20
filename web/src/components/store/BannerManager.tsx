@@ -11,6 +11,7 @@ import {
   updateBannerAction,
   uploadBannerImageAction,
 } from '@/app/actions/store-ops';
+import { BANNER_ACCEPT_ATTR, validateBannerFile } from '@/lib/banner-image';
 import {
   Alert,
   Badge,
@@ -62,10 +63,6 @@ type Draft = {
 
 const EMPTY: Draft = { id: null, title: '', subtitle: '', imagePath: '', linkUrl: '', active: true };
 
-/** Formatos aceitos — espelha BANNER_IMAGE_TYPES do server action. */
-const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
-/** Tamanho máximo em bytes (5 MB) — espelha BANNER_MAX_BYTES. */
-const MAX_BYTES = 5 * 1024 * 1024;
 /** Dimensão recomendada para o topo da vitrine (proporção 4:1). */
 const RECOMMENDED_WIDTH = 1200;
 const RECOMMENDED_HEIGHT = 300;
@@ -175,12 +172,12 @@ export function BannerManager({
     setImageError(null);
     if (!file) return;
 
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      setImageError('Formato não aceito. Envie PNG, JPG, JPEG ou WEBP.');
-      return;
-    }
-    if (file.size > MAX_BYTES) {
-      setImageError('Arquivo grande demais. O limite é 5 MB.');
+    // Mesma função que o servidor usa (`@/lib/banner-image`): formato e
+    // tamanho são a MESMA regra, não duas parecidas. Aqui é atalho de
+    // usabilidade; a barreira real continua sendo a do `uploadBannerImageAction`.
+    const invalidFile = validateBannerFile(file);
+    if (invalidFile) {
+      setImageError(invalidFile);
       return;
     }
 
@@ -468,7 +465,7 @@ export function BannerManager({
               >
                 <input
                   type="file"
-                  accept="image/png,image/jpeg,image/webp"
+                  accept={BANNER_ACCEPT_ATTR}
                   onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
                   className="sr-only"
                 />

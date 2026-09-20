@@ -175,7 +175,13 @@ const CERVEJAS: GlobalProductSeed[] = [
   { c: 'cervejas', n: 'Petra Lata 350ml', b: 'Petra', e: '🍺', v: 350, u: 'ml', p: 3.99, s: S.BEBIDA },
   { c: 'cervejas', n: 'Amstel Lata 350ml', b: 'Amstel', e: '🍺', v: 350, u: 'ml', p: 4.99, s: S.BEBIDA },
   { c: 'cervejas', n: 'Amstel Ultra Lata 350ml', b: 'Amstel', e: '🍺', v: 350, u: 'ml', p: 5.49, s: S.BEBIDA },
-  { c: 'cervejas', n: 'Pepsi Lata 350ml', b: 'Pepsi', e: '🍺', v: 350, u: 'ml', p: 4.99, s: S.BEBIDA },
+  // NOTA: existia aqui um "Pepsi Lata 350ml" (e: '🍺') que era engano em
+  // dois níveis — Pepsi não é cerveja, e o mesmo nome já existe em
+  // REFRIGERANTES. Como seedSlug() usa só o nome, os dois viravam o MESMO
+  // slug: findDuplicateSlugs() acusava repetição e o seed ABORTAVA a carga
+  // inteira antes de gravar qualquer produto. Era por isso que a biblioteca
+  // aparecia vazia em todos os segmentos. Nada foi perdido: o Pepsi
+  // continua na lista de refrigerantes, com S.TODOS (que inclui BEVERAGE).
   { c: 'cervejas', n: 'Michelob Ultra Lata 350ml', b: 'Michelob', e: '🍺', v: 350, u: 'ml', p: 7.49, s: S.ALCOOL },
   { c: 'cervejas', n: 'Therezópolis Gold 355ml', b: 'Therezópolis', e: '🍺', v: 355, u: 'ml', p: 13.9, s: S.ALCOOL },
   { c: 'cervejas', n: 'Patagonia Amber Lager 355ml', b: 'Patagonia', e: '🍺', v: 355, u: 'ml', p: 12.9, s: S.ALCOOL },

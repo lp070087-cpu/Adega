@@ -285,7 +285,13 @@ export type AddToCatalogResult = {
   created: number;
   skipped: number;
   categoriesCreated: number;
-  /** Ids dos Products criados — o onboarding usa para editar preço em lote. */
+  /**
+   * Ids dos Products criados, na ordem em que os produtos foram pedidos.
+   *
+   * Os produtos entram em UMA escrita (`createManyAndReturn`), então os
+   * ids vêm do banco e são reordenados por `globalProductId` antes de sair
+   * — o histórico dependia da ordem de inserção das linhas.
+   */
   productIds: string[];
 };
 
@@ -356,102 +362,216 @@ export async function copyGlobalProductsTx(
     where: { organizationId },
     select: { id: true, name: true, slug: true },
   });
-  const categoryByName = new Map(storeCategories.map((c) => [c.name, c.id]));
-  let categoryPosition = storeCategories.length;
+  // ── Chave da categoria ──
+  //
+  // UMA normalização só — sem espaço nas pontas, sem diferença entre
+  // maiúscula e minúscula — usada para as TRÊS coisas: achar a categoria
+  // que a loja já tem, decidir quais criar e ler de volta o mapa.
+  //
+  // O motivo de existir uma função em vez de comparar `name === name`:
+  // no meio do caminho convivem dois nomes que podem não ser o mesmo
+  // texto — o que está gravado na loja e o que veio do catálogo global.
+  // Enquanto a ESCRITA e a LEITURA do mapa usarem chaves diferentes, a
+  // busca devolve `undefined` e o produto importado entra com
+  // `categoryId: null`, sem categoria e em silêncio.
+  //
+  // Hoje o acervo não tem nenhum nome com espaço nas pontas (conferido:
+  // 27 folhas e 356 produtos, zero casos), então isto é garantia de
+  // consistência, não correção de dado existente. Custa nada e fecha a
+  // porta para um defeito que só apareceria como "produto sem categoria".
+  const categoryKeyOf = (name: string) => name.trim().toLowerCase();
+
+  /**
+   * Nome normalizado → id da categoria da loja. Guarda tanto as que já
+   * existiam quanto as que esta cópia acabou de criar.
+   */
+  const categoryIdByKey = new Map<string, string>(
+    storeCategories.map((c) => [categoryKeyOf(c.name), c.id]),
+  );
   let categoriesCreated = 0;
 
-  const resolveCategory = async (globalCategory: { name: string; icon: string | null } | null) => {
-    /**
-     * Categoria escolhida à mão pelo lojista. Precisa ser DESTA loja: o id
-     * chega do formulário e nem o schema (que valida só a forma) nem a
-     * chave estrangeira (que exige apenas que a linha exista) impedem o id
-     * de outra organização. Sem a conferência, os produtos importados
-     * ficariam pendurados na categoria alheia e o catálogo serializaria
-     * nome, slug e emoji dela.
-     */
-    if (categoryId) {
-      const own = await tx.category.findFirst({
-        where: { id: categoryId, organizationId },
-        select: { id: true },
-      });
-      if (!own) throw new Error('Categoria não encontrada.');
-      return own.id;
-    }
-    if (!globalCategory) return null;
-    const name = globalCategory.name;
-    const found = categoryByName.get(name);
-    if (found) return found;
+  // ── Slug da categoria nova, SEM ir ao banco ──
+  // A versão anterior perguntava ao banco, uma vez por colisão, dentro do
+  // laço (`findFirst` com slug candidato). Agora as duas fontes de verdade
+  // são montadas em memória antes de qualquer escrita: `categoryIdByKey`
+  // (nomes) e `usedCategorySlugs` (slugs). Como depois de cada criação os
+  // dois são atualizados, o resultado é o mesmo — só que sem N+1.
+  const usedCategorySlugs = new Set(storeCategories.map((c) => c.slug));
 
-    const created = await tx.category.create({
-      data: {
-        organizationId,
-        name,
-        slug: await uniqueStoreCategorySlug(tx, organizationId, name),
-        emoji: globalCategory.icon,
-        position: categoryPosition++,
-      },
-    });
-    categoryByName.set(name, created.id);
+  // ── Nomes de categoria global usados pelos produtos ──
+  // Calculado ANTES de criar categoria: o conjunto de categorias novas sai
+  // de uma passada só, e não de uma decisão por produto (era daí que vinha
+  // o N+1 — cada produto com categoria nova segurava a transação por mais
+  // duas idas ao Neon).
+  const ownsCategoryName = new Set(
+    storeCategories.map((c) => categoryKeyOf(c.name)),
+  );
+  const claimedCategoryNames = new Set<string>();
+  const categoriesToCreate = new Map<string, { name: string; icon: string | null }>();
+  for (const global of toCreate) {
+    const category = global.globalCategory;
+    if (!category) continue;
+    const key = categoryKeyOf(category.name);
+    if (ownsCategoryName.has(key) || claimedCategoryNames.has(key)) continue;
+    claimedCategoryNames.add(key);
+    categoriesToCreate.set(key, { name: category.name, icon: category.icon });
+  }
+
+  /**
+   * `createManyAndReturn` é uma ida ao banco, não N. Importa porque a
+   * transação é interativa: o relógio dela corre desde a primeira query, e
+   * o Neon está do outro lado da rede.
+   *
+   * A ordem das linhas que voltam NÃO é a ordem enviada, então o laço
+   * abaixo não usa posição nenhuma: cada linha volta com o próprio `name`,
+   * que é o que identifica a categoria aqui (nome + organização é único).
+   * Se voltasse um nome não previsto, é melhor derrubar a transação do que
+   * pendurar produto em categoria inventada.
+   */
+  const rowsByPosition = [...categoriesToCreate.values()].map(({ name, icon }, index) => {
+    const slug = uniqueSlugFrom(usedCategorySlugs, name, 'categoria');
+    // Reserva o slug imediatamente: duas categorias novas de nomes
+    // parecidos não podem sair daqui com o mesmo slug.
+    usedCategorySlugs.add(slug);
+    return {
+      organizationId,
+      name,
+      slug,
+      emoji: icon,
+      position: storeCategories.length + index,
+    };
+  });
+
+  const createdRows =
+    rowsByPosition.length > 0
+      ? await tx.category.createManyAndReturn({
+          data: rowsByPosition,
+          select: { id: true, name: true },
+        })
+      : [];
+
+  for (const row of createdRows) {
+    const planned = categoriesToCreate.get(categoryKeyOf(row.name));
+    // Rede de segurança: sem isto, um nome inesperado viraria chave
+    // `undefined` no mapa e o produto cairia em categoria errada.
+    if (!planned) throw new Error(`Categoria "${row.name}" não estava prevista na cópia.`);
+    // Mesma chave da leitura (`categoryIdFor`) e do teste de existência
+    // (`ownsCategoryName`) — é isso que garante que o produto recém-copiado
+    // ache a categoria que acabou de nascer.
+    categoryIdByKey.set(categoryKeyOf(planned.name), row.id);
     categoriesCreated++;
-    return created.id;
+  }
+
+  /**
+   * Categoria escolhida à mão pelo lojista. Precisa ser DESTA loja: o id
+   * chega do formulário e nem o schema (que valida só a forma) nem a
+   * chave estrangeira (que exige apenas que a linha exista) impedem o id
+   * de outra organização. Sem a conferência, os produtos importados
+   * ficariam pendurados na categoria alheia e o catálogo serializaria
+   * nome, slug e emoji dela.
+   *
+   * Uma consulta só, antes do laço — e nenhuma escrita. É aqui que a
+   * variável é validada, não em cada produto.
+   */
+  let destinationCategoryId: string | null = null;
+  if (categoryId) {
+    const own = await tx.category.findFirst({
+      where: { id: categoryId, organizationId },
+      select: { id: true },
+    });
+    if (!own) throw new Error('Categoria não encontrada.');
+    destinationCategoryId = own.id;
+  }
+
+  const categoryIdFor = (globalCategory: { name: string } | null): string | null => {
+    if (destinationCategoryId) return destinationCategoryId;
+    if (!globalCategory) return null;
+    // Mesma chave usada para montar o mapa — ver `categoryKeyOf`.
+    return categoryIdByKey.get(categoryKeyOf(globalCategory.name)) ?? null;
   };
 
   // ── Produtos ──
-  const basePosition = await tx.product.count({ where: { organizationId } });
-  const productIds: string[] = [];
-  const usedSlugs = new Set(
-    (await tx.product.findMany({ where: { organizationId }, select: { slug: true } })).map(
-      (p) => p.slug,
-    ),
+  // Sem `count` nem `findMany` de slugs: a lista de produtos já está sendo
+  // carregada para descobrir os slugs livres, e `length` responde o que o
+  // `count` responderia. Eram duas idas ao banco para dizer o que uma já
+  // dizia.
+  const existingProducts = await tx.product.findMany({
+    where: { organizationId },
+    select: { slug: true, position: true },
+  });
+  const usedSlugs = new Set(existingProducts.map((p) => p.slug));
+  let position =
+    existingProducts.reduce((max, p) => Math.max(max, p.position + 1), 0);
+
+  /**
+   * Os produtos vão em UMA escrita. Antes era um `create` por produto —
+   * 300 produtos significavam 300 idas ao Neon dentro da mesma transação
+   * interativa, e era isso que estourava os 5 s.
+   *
+   * O `id` fica com o banco (`@default(cuid())`). Foi tentador gerar aqui
+   * para devolver `productIds` na ordem, mas o cliente Prisma não expõe o
+   * gerador de cuid, e inventar um id com `randomUUID()` mudaria o formato
+   * dos ids desta tabela só quando inserida em lote — o tipo de detalhe que
+   * ninguém lembra depois. O `globalProductId` devolve a mesma informação:
+   * é único por loja, e todo produto criado aqui tem um.
+   */
+  const data: Prisma.ProductCreateManyInput[] = toCreate.map((global) => ({
+    organizationId,
+    categoryId: categoryIdFor(global.globalCategory),
+    globalProductId: global.id,
+
+    name: global.name,
+    slug: uniqueSlugFrom(usedSlugs, global.slug || global.name),
+    description: global.description ?? buildDescription(global.brand, global.volume, global.unit),
+    emoji: global.emoji,
+
+    // A imagem NÃO é copiada. `imageUrl` e `customImageUrl` ficam nulos de
+    // propósito — a resolução cai no global.
+    imageUrl: null,
+    customImageUrl: null,
+
+    barcode: global.barcode,
+    // SKU nasce vazio: o lojista define o código dele, se quiser.
+    sku: null,
+
+    price: prices[global.id] ?? toNumber(global.suggestedPrice),
+    promotionalPrice: null,
+    cost: null,
+
+    // Entra zerado: estoque é saldo real, não se presume no cadastro.
+    stock: 0,
+    minimumStock: 0,
+    trackStock: true,
+
+    active: true,
+    available: true,
+    type: global.suggestedType,
+    position: position++,
+    featured,
+  }));
+
+  // `skipDuplicates` fica no padrão (false) de propósito. O par
+  // `@@unique([organizationId, slug])` já foi respeitado em memória por
+  // `uniqueSlugFrom`; pular em silêncio esconderia uma colisão real,
+  // devolvendo "criado" para um produto que não entrou. Assim, colisão
+  // inesperada derruba a transação e a tela mostra o erro.
+  const created =
+    data.length > 0
+      ? await tx.product.createManyAndReturn({
+          data,
+          select: { id: true, globalProductId: true },
+        })
+      : [];
+
+  // Ordem normalizada pelo `globalProductId` — a mesma sequência de
+  // `toCreate`, sem depender de o banco devolver as linhas na ordem em que
+  // foram enviadas.
+  const productIdByGlobalId = new Map(
+    created.map((row) => [row.globalProductId, row.id] as const),
   );
-
-  let position = basePosition;
-  for (const global of toCreate) {
-    const slug = uniqueSlugFrom(usedSlugs, global.slug || global.name);
-    usedSlugs.add(slug);
-
-    const price = prices[global.id] ?? toNumber(global.suggestedPrice);
-
-    const product = await tx.product.create({
-      data: {
-        organizationId,
-        categoryId: await resolveCategory(global.globalCategory),
-        globalProductId: global.id,
-
-        name: global.name,
-        slug,
-        description: global.description ?? buildDescription(global.brand, global.volume, global.unit),
-        emoji: global.emoji,
-
-        // A imagem NÃO é copiada. `imageUrl` e `customImageUrl` ficam
-        // nulos de propósito — a resolução cai no global.
-        imageUrl: null,
-        customImageUrl: null,
-
-        barcode: global.barcode,
-        // SKU nasce vazio: o lojista define o código dele, se quiser.
-        sku: null,
-
-        price,
-        promotionalPrice: null,
-        cost: null,
-
-        // Entra zerado: estoque é saldo real, não se presume no cadastro.
-        stock: 0,
-        minimumStock: 0,
-        trackStock: true,
-
-        active: true,
-        available: true,
-        type: global.suggestedType,
-        position: position++,
-        featured,
-      },
-      select: { id: true },
-    });
-
-    productIds.push(product.id);
-  }
+  const productIds = toCreate
+    .map((global) => productIdByGlobalId.get(global.id))
+    .filter((id): id is string => Boolean(id));
 
   return {
     created: productIds.length,
@@ -460,6 +580,7 @@ export async function copyGlobalProductsTx(
     productIds,
   };
 }
+
 
 function buildDescription(
   brand: string | null,
@@ -473,33 +594,20 @@ function buildDescription(
   return parts.length ? parts.join(' · ') : null;
 }
 
-/** Evita colisão de slug sem ir ao banco: já temos todos em memória. */
-function uniqueSlugFrom(used: Set<string>, name: string): string {
-  const base = slugify(name) || 'produto';
+/**
+ * Evita colisão de slug sem ir ao banco: já temos todos em memória.
+ *
+ * Vale para produtos e para categorias — a chave única é a mesma nos dois
+ * casos (`organizationId` + `slug`), então a regra de desempate também é.
+ * O `fallback` só muda o nome quando a `slugify` devolve vazio ("???" vira
+ * "produto", categoria sem letra nenhuma vira "categoria").
+ */
+function uniqueSlugFrom(used: Set<string>, name: string, fallback = 'produto'): string {
+  const base = slugify(name) || fallback;
   if (!used.has(base)) return base;
   let i = 2;
   while (used.has(`${base}-${i}`) && i < 500) i++;
   return `${base}-${i}`;
-}
-
-async function uniqueStoreCategorySlug(
-  tx: Prisma.TransactionClient,
-  organizationId: string,
-  name: string,
-): Promise<string> {
-  const base = slugify(name) || 'categoria';
-  let candidate = base;
-  let i = 2;
-  while (
-    await tx.category.findFirst({
-      where: { organizationId, slug: candidate },
-      select: { id: true },
-    })
-  ) {
-    candidate = `${base}-${i++}`;
-    if (i > 200) return `${base}-${Date.now()}`;
-  }
-  return candidate;
 }
 
 /**

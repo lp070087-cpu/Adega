@@ -17,6 +17,7 @@
     "db:drift": "node scripts/db-drift-check.mjs",
     "db:align": "prisma db execute --schema prisma/schema.prisma --file prisma/sql/phase3-align.sql",
     "db:seed": "tsx prisma/seed.ts",
+    "catalog:map": "tsx scripts/build-catalog-map.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

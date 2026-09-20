@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation';
 import type { BusinessType } from '@prisma/client';
 import { cn, formatBRL } from '@/lib/utils';
+import { ProductThumb } from '@/components/catalog/ProductThumb';
 import { initialsFromName } from '@/data/business-copy';
 import { BUSINESS_TYPES } from '@/data/business-templates';
 import {
@@ -229,9 +230,21 @@ export function OnboardingWizardV3({
   useEffect(() => {
     if (step !== 5) return;
     let alive = true;
+    setLibraryLoading(true);
 
-    (async () => {
-      setLibraryLoading(true);
+    /**
+     * Mesmo atraso do passo do slug (280 ms), e pelo mesmo motivo: sem ele,
+     * CADA tecla digitada na busca disparava duas server actions (filtros +
+     * busca) e, atrás delas, até cinco consultas ao banco (árvore de
+     * categorias, marcas, a categoria do filtro, a página de produtos e a
+     * contagem). O custo não era o tamanho da resposta — a busca já vem
+     * paginada em 60 itens — era a enxurrada de requisições enquanto a
+     * pessoa digita.
+     *
+     * O `clearTimeout` da limpeza é o que faz valer: só a última tecla
+     * chega ao servidor.
+     */
+    const timer = setTimeout(async () => {
       const [filters, result] = await Promise.all([
         getLibraryFiltersAction(),
         searchLibraryAction({
@@ -247,6 +260,11 @@ export function OnboardingWizardV3({
         setLibraryFilters({ categories: filters.categories, brands: filters.brands ?? [] });
       }
 
+      // `ok` E `items` — nesta ordem. Checar só `items` tratava uma FALHA
+      // (ok:false, sem items) como "biblioteca vazia", e a mensagem real
+      // do servidor era substituída por um genérico. O lojista via "nada
+      // para o seu segmento" quando o problema era outro, e o passo
+      // seguinte recusava o avanço sem explicar por quê.
       if (result.ok && result.items) {
         setLibrary(result.items as LibraryProduct[]);
         // 3.9: mostrar SÓ o que existe de verdade. Acervo vazio não é erro
@@ -261,13 +279,19 @@ export function OnboardingWizardV3({
         );
       } else {
         setLibrary([]);
-        setLibraryNote('Não foi possível carregar a biblioteca agora. Tente novamente em instantes.');
+        // A mensagem do servidor vem primeiro: ela diz o que de fato
+        // aconteceu (sessão expirada, acervo não carregado). O genérico é
+        // o último recurso, não o padrão.
+        setLibraryNote(
+          result.error ?? 'Não foi possível carregar a biblioteca agora. Tente novamente em instantes.',
+        );
       }
       setLibraryLoading(false);
-    })();
+    }, 280);
 
     return () => {
       alive = false;
+      clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, search, categorySlug, brand, onlyRecommended]);
@@ -1699,30 +1723,28 @@ function ColorField({ value, onChange }: { value: string; onChange: (value: stri
 /**
  * Imagem do produto da biblioteca.
  *
- * A foto NÃO é copiada para a loja: `defaultImageUrl` é um caminho único,
- * compartilhado. Se o acervo ainda não tem arquivo para o item, cai no
- * emoji — e não inventamos imagem para preencher a tela (3.9).
+ * Delega para `ProductThumb`, o componente que a vitrine, o painel e o
+ * seletor de catálogo já usam. Antes esta tela tinha uma <img> própria, e
+ * isso custava caro em DOIS pontos:
+ *
+ * 1. `defaultImageUrl` é CAMINHO RELATIVO ("bebidas/cervejas/skol-lata-350ml"),
+ *    não URL. Usado cru como `src`, o navegador resolvia a partir de
+ *    /onboarding e pedia /bebidas/cervejas/... — 404 em todo produto.
+ * 2. Pior: `seedImagePath` grava o caminho SEM EXTENSÃO, porque o banco
+ *    não sabe se o arquivo do acervo é .webp, .jpg ou .png. Só o
+ *    ProductThumb expande o caminho-base em CATALOG_EXTENSIONS e fica com
+ *    o primeiro que carregar. Uma <img> de extensão única erra sempre.
+ *
+ * Ou seja: a resolução de imagem tem um dono só. Esta função existe apenas
+ * para não repetir as props nos dois pontos de uso.
  */
 function Thumb({ product, size = 'md' }: { product: LibraryProduct; size?: 'sm' | 'md' }) {
-  const [failed, setFailed] = useState(false);
-  const box = size === 'sm' ? 'h-8 w-8 text-[0.9rem]' : 'h-10 w-10 text-[1.1rem]';
-
-  if (!product.defaultImageUrl || failed) {
-    return (
-      <span className={cn('grid shrink-0 place-items-center rounded bg-ink-50', box)} aria-hidden>
-        {product.emoji ?? '📦'}
-      </span>
-    );
-  }
-
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={product.defaultImageUrl}
-      alt=""
-      loading="lazy"
-      onError={() => setFailed(true)}
-      className={cn('shrink-0 rounded object-cover', box)}
+    <ProductThumb
+      globalImageUrl={product.defaultImageUrl}
+      emoji={product.emoji}
+      alt={product.name}
+      size={size === 'sm' ? 32 : 40}
     />
   );
 }

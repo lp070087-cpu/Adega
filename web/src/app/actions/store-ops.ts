@@ -14,6 +14,7 @@ import {
   deliveryZoneSchema,
 } from '@/lib/validations/store-ops';
 import { getStorage, validateImageUrl } from '@/lib/storage';
+import { validateBannerFile } from '@/lib/banner-image';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -318,11 +319,11 @@ export async function reorderBannersAction(ids: string[]): Promise<OpsActionResu
 // provedor está configurado, o adapter devolve erro claro e a tela mostra
 // isso em vez de fingir sucesso.
 
-/** Formatos aceitos — os mesmos que o input do cliente anuncia. */
-export const BANNER_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
-
-/** Tamanho máximo em bytes (5 MB). */
-export const BANNER_MAX_BYTES = 5 * 1024 * 1024;
+// Formato e tamanho aceitos NÃO moram aqui: um módulo `'use server'` só
+// pode exportar função assíncrona, e uma constante exportada daqui derruba
+// a página inteira em runtime. As regras estão em `@/lib/banner-image`,
+// que a tela do cliente importa também — assim o limite do aviso é
+// literalmente o mesmo número que o servidor aplica.
 
 export async function uploadBannerImageAction(
   formData: FormData,
@@ -335,20 +336,11 @@ export async function uploadBannerImageAction(
       return { ok: false, error: 'Selecione um arquivo de imagem.', field: 'file' };
     }
 
-    if (!(BANNER_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-      return {
-        ok: false,
-        error: 'Formato não aceito. Envie PNG, JPG, JPEG ou WEBP.',
-        field: 'file',
-      };
-    }
-
-    if (file.size > BANNER_MAX_BYTES) {
-      return {
-        ok: false,
-        error: 'Arquivo grande demais. O limite é 5 MB.',
-        field: 'file',
-      };
+    // Mesma checagem que a tela faz, com o mesmo texto — as duas leem o
+    // limite de `@/lib/banner-image`. A da tela é atalho; esta é a que vale.
+    const invalidFile = validateBannerFile(file);
+    if (invalidFile) {
+      return { ok: false, error: invalidFile, field: 'file' };
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
