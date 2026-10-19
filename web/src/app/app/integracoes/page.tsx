@@ -1,74 +1,13 @@
 import { requireOrgPage } from '@/lib/auth/guards';
-import { can } from '@/lib/permissions';
-import { isEncryptionConfigured } from '@/lib/crypto';
-import { getIntegrations, getIntegrationEvents } from '@/lib/data/integrations';
-import {
-  IntegrationsManager,
-  type IntegrationRow,
-  type IntegrationEventRow,
-} from '@/components/integrations/IntegrationsManager';
-
+import Link from 'next/link';
+import { Cable } from 'lucide-react';
 export const metadata = { title: 'Integrações' };
-export const dynamic = 'force-dynamic';
-
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * INTEGRAÇÕES
- * -----------------------------------------------------------------------
- * `encryptionReady` é lido no SERVIDOR e desce como prop. A tela não
- * descobre isso por conta própria: variável de ambiente sem NEXT_PUBLIC_
- * não chega ao navegador, e é assim que deve ser.
- * ═══════════════════════════════════════════════════════════════════════
- */
 export default async function IntegrationsPage() {
-  const ctx = await requireOrgPage('MANAGE_INTEGRATIONS');
-
-  const [integrations, eventsRaw] = await Promise.all([
-    getIntegrations(ctx.organizationId),
-    getIntegrationEvents(ctx.organizationId, { limit: 40 }),
-  ]);
-
-  const rows: IntegrationRow[] = integrations.map((integration) => ({
-    id: integration.id,
-    provider: integration.provider,
-    status: integration.status,
-    externalMerchantId: integration.externalMerchantId,
-    lastSyncAt: integration.lastSyncAt ? integration.lastSyncAt.toISOString() : null,
-    lastError: integration.lastError,
-    credentials: integration.credentials.map((credential) => ({
-      id: credential.id,
-      hint: credential.hint,
-      updatedAt: credential.updatedAt.toISOString(),
-    })),
-    events: integration.events,
-  }));
-
-  const events: IntegrationEventRow[] = eventsRaw.map((event) => ({
-    id: event.id,
-    provider: event.provider,
-    externalEventId: event.externalEventId,
-    eventType: event.eventType,
-    status: event.status,
-    error: event.error,
-    receivedAt: event.receivedAt.toISOString(),
-    processedAt: event.processedAt ? event.processedAt.toISOString() : null,
-  }));
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-[1.05rem] font-extrabold text-ink-900">Integrações</h2>
-        <p className="text-[0.8rem] text-ink-500">
-          Marketplaces, mapas e o estado real de cada conexão.
-        </p>
-      </div>
-
-      <IntegrationsManager
-        integrations={rows}
-        events={events}
-        canManage={can(ctx.role, 'MANAGE_INTEGRATIONS')}
-        encryptionReady={isEncryptionConfigured()}
-      />
-    </div>
-  );
+  await requireOrgPage();
+  return <section className="mx-auto max-w-xl rounded-xl border border-ink-200 bg-white p-8">
+    <Cable className="mb-4 h-7 w-7 text-ink-500" aria-hidden="true" />
+    <h1 className="text-xl font-semibold">Integrações administradas pela plataforma</h1>
+    <p className="mt-3 text-sm leading-6 text-ink-500">As conexões e seus registros foram preservados. Para configurar um serviço, entre em contato com a administração da plataforma.</p>
+    <Link href="/app" className="mt-5 inline-block text-sm font-semibold text-brand">Voltar ao painel</Link>
+  </section>;
 }

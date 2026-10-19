@@ -26,6 +26,7 @@
  */
 
 import { slugify } from '@/lib/utils';
+import { CATALOG_PHOTOS } from '@/lib/catalog-photo-manifest';
 
 /** Base pública das imagens do acervo. Trocar aqui para usar CDN. */
 export const CATALOG_BASE_PATH = '/catalog';
@@ -73,6 +74,12 @@ export function normalizeCatalogRelativePath(raw: string): string {
 function expandRelative(relative: string): string[] {
   const clean = normalizeCatalogRelativePath(relative);
   if (!clean) return [];
+  // This legacy asset shows a 473ml package, while its filename claims 350ml.
+  // Keep the archive intact, but never advertise an incorrect package photograph.
+  if (/^bebidas\/cervejas\/original-lata-350ml(?:\.[^.]+)?$/i.test(clean)) return [];
+  if (/^conveniencia\/chocolates\/chocolate-lacta-shot-40g(?:\.[^.]+)?$/i.test(clean)) return [];
+  const exact = CATALOG_PHOTOS[clean.split('/').pop() ?? ''];
+  if (exact && !EXTENSION_RE.test(clean)) return [exact];
   if (EXTENSION_RE.test(clean)) return [`${CATALOG_BASE_PATH}/${clean}`];
   return CATALOG_EXTENSIONS.map((extension) => `${CATALOG_BASE_PATH}/${clean}${extension}`);
 }
@@ -158,6 +165,7 @@ export function productImageCandidates(input: {
   imageUrl?: string | null;
   basePath?: string | null;
   preferBasePath?: boolean;
+  productName?: string | null;
 }): string[] {
   // Quando a base é uma VARIAÇÃO do produto (onboarding), a ordem natural
   // não serve: `globalImageUrl` e `basePath` são o mesmo arquivo, e o
@@ -166,7 +174,8 @@ export function productImageCandidates(input: {
     ? [input.customImageUrl, input.basePath, input.globalImageUrl, input.imageUrl]
     : [input.customImageUrl, input.globalImageUrl, input.imageUrl, input.basePath];
 
-  return Array.from(new Set(ordered.flatMap((source) => catalogImageCandidates(source))));
+  const exactLocal = input.productName ? CATALOG_PHOTOS[slugify(input.productName)] : undefined;
+  return Array.from(new Set([...ordered.flatMap((source) => catalogImageCandidates(source)), ...(exactLocal ? [exactLocal] : [])]));
 }
 
 /**

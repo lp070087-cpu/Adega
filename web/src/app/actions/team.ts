@@ -4,6 +4,9 @@ import { revalidatePath } from 'next/cache';
 import type { Role } from '@prisma/client';
 import { requirePermission, toActionError } from '@/lib/auth/guards';
 import { prisma } from '@/lib/db';
+import { withOrganizationTransaction } from '@/lib/data/transaction';
+import { assertPlatformQuota } from '@/lib/platform/quotas';
+import { OperationError } from '@/lib/operation-error';
 import { hashPassword } from '@/lib/auth/password';
 import { outranks, roleRank } from '@/lib/permissions';
 import { teamMemberSchema, updateTeamMemberSchema } from '@/lib/validations/operations';
@@ -42,7 +45,6 @@ const TENANT_ASSIGNABLE_ROLES: Role[] = [
   'ATTENDANT',
   'KITCHEN',
   'DISPATCHER',
-  'DRIVER',
 ];
 
 /**
@@ -82,85 +84,37 @@ export async function createTeamMemberAction(formData: FormData): Promise<TeamAc
     const d = parsed.data;
 
     if (!TENANT_ASSIGNABLE_ROLES.includes(d.role)) {
-      return { ok: false, error: 'Papel inválido para esta loja.', field: 'role' };
+      return { ok: false, error: 'Papel inválido para equipe. Cadastre entregadores na área Entregadores.', field: 'role' };
     }
 
     if (roleRank(d.role) >= roleRank(ctx.role) && ctx.role !== 'OWNER') {
       return { ok: false, error: 'Você não pode criar alguém com papel igual ou superior ao seu.' };
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email: d.email },
-      select: { id: true, name: true },
-    });
-
-    if (existingUser) {
-      const alreadyMember = await prisma.organizationUser.findUnique({
-        where: {
-          organizationId_userId: { organizationId: ctx.organizationId, userId: existingUser.id },
-        },
-        select: { id: true, active: true, role: true },
-      });
-
-      if (alreadyMember?.active) {
-        return { ok: false, error: 'Esta pessoa já faz parte da equipe.', field: 'email' };
-      }
-
-      if (alreadyMember) {
-        if (alreadyMember.role === 'OWNER' || (!outranks(ctx.role, alreadyMember.role) && ctx.role !== 'OWNER')) {
-          return { ok: false, error: 'Você não pode reativar ou alterar alguém de nível igual ou superior.' };
-        }
-        // Vínculo desativado: reativar em vez de criar outro.
-        await prisma.organizationUser.update({
-          where: { id: alreadyMember.id },
-          data: { active: true, role: d.role, shift: d.shift ?? null },
+    const passwordHash = d.password ? await hashPassword(d.password) : null;
+    await withOrganizationTransaction(ctx.organizationId, async (tx) => {
+      const existingUser = await tx.user.findUnique({ where: { email: d.email }, select: { id: true } });
+      if (existingUser) {
+        const member = await tx.organizationUser.findUnique({
+          where: { organizationId_userId: { organizationId: ctx.organizationId, userId: existingUser.id } },
+          select: { id: true, active: true, role: true },
         });
-        revalidatePath('/app/equipe');
-        return { ok: true };
+        if (member?.active) throw new OperationError('Esta pessoa já faz parte da equipe.');
+        if (member && (member.role === 'OWNER' || (!outranks(ctx.role, member.role) && ctx.role !== 'OWNER'))) {
+          throw new OperationError('Você não pode reativar ou alterar alguém de nível igual ou superior.');
+        }
+        await assertPlatformQuota(tx, ctx.organizationId, 'users');
+        if (member) {
+          await tx.organizationUser.update({ where: { id: member.id }, data: { active: true, role: d.role, shift: d.shift ?? null } });
+        } else {
+          await tx.organizationUser.create({ data: { organizationId: ctx.organizationId, userId: existingUser.id, role: d.role, active: true, shift: d.shift ?? null, acceptedAt: new Date() } });
+        }
+        return;
       }
-
-      await prisma.organizationUser.create({
-        data: {
-          organizationId: ctx.organizationId,
-          userId: existingUser.id,
-          role: d.role,
-          active: true,
-          shift: d.shift ?? null,
-          acceptedAt: new Date(),
-        },
-      });
-
-      revalidatePath('/app/equipe');
-      return { ok: true };
-    }
-
-    // Usuário novo: só cria com senha. Sem isso a pessoa não conseguiria entrar.
-    if (!d.password) {
-      return { ok: false, error: 'Informe uma senha inicial para o novo usuário.', field: 'password' };
-    }
-
-    await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          name: d.name,
-          email: d.email,
-          phone: d.phone ?? null,
-          passwordHash: await hashPassword(d.password!),
-          // Entra com senha provisória: o app pede a troca no primeiro acesso.
-          mustChangePassword: true,
-        },
-      });
-
-      await tx.organizationUser.create({
-        data: {
-          organizationId: ctx.organizationId,
-          userId: user.id,
-          role: d.role,
-          active: true,
-          shift: d.shift ?? null,
-          acceptedAt: new Date(),
-        },
-      });
+      if (!passwordHash) throw new OperationError('Informe uma senha inicial para o novo usuário.');
+      await assertPlatformQuota(tx, ctx.organizationId, 'users');
+      const user = await tx.user.create({ data: { name: d.name, email: d.email, phone: d.phone ?? null, passwordHash, mustChangePassword: true } });
+      await tx.organizationUser.create({ data: { organizationId: ctx.organizationId, userId: user.id, role: d.role, active: true, shift: d.shift ?? null, acceptedAt: new Date() } });
     });
 
     revalidatePath('/app/equipe');
@@ -187,7 +141,7 @@ export async function updateTeamMemberAction(input: {
 
     const member = await prisma.organizationUser.findFirst({
       where: { id: parsed.data.memberId, organizationId: ctx.organizationId },
-      select: { id: true, role: true, userId: true, organizationId: true },
+      select: { id: true, role: true, userId: true, organizationId: true, active: true },
     });
     if (!member) return { ok: false, error: 'Membro não encontrado.' };
 
@@ -216,7 +170,14 @@ export async function updateTeamMemberAction(input: {
       }
     }
 
-    await prisma.$transaction(async (tx) => {
+    await withOrganizationTransaction(ctx.organizationId, async (tx) => {
+      const current = await tx.organizationUser.findFirst({ where: { id: member.id, organizationId: ctx.organizationId } });
+      if (!current) throw new OperationError('Membro não encontrado.');
+      if (current.role === 'OWNER' || (!outranks(ctx.role, current.role) && ctx.role !== 'OWNER')) throw new OperationError('Você não pode alterar alguém de nível igual ou superior.');
+      const nextRole = parsed.data.role ?? current.role;
+      const nextActive = parsed.data.active ?? current.active;
+      if (nextActive && nextRole === 'DRIVER' && !current.active) throw new OperationError('Reative o entregador na área Entregadores.');
+      if (nextActive && nextRole !== 'DRIVER' && (!current.active || current.role === 'DRIVER')) await assertPlatformQuota(tx, ctx.organizationId, 'users');
       await tx.organizationUser.update({
         where: { id: member.id },
         data: {

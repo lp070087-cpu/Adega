@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { copyByType } from '@/data/business-copy';
 import type { BusinessType } from '@prisma/client';
@@ -152,7 +153,7 @@ export function StoreHeader({
             className="relative flex h-10 items-center gap-2 rounded-full border-2 border-ink-200 px-3.5 text-[0.82rem] font-bold text-ink-700 transition-all hover:border-ink-300"
             aria-label={`Abrir sacola (${cartCount} ${cartCount === 1 ? 'item' : 'itens'})`}
           >
-            <span aria-hidden="true">🛍️</span>
+            <ShoppingBag size={18} aria-hidden="true" />
             <span className="hidden sm:inline">Sacola</span>
             {cartCount > 0 && (
               <span

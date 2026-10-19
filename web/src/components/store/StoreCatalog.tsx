@@ -90,6 +90,8 @@ export type StoreInfo = {
   allowPickup: boolean;
   allowOwnDelivery: boolean;
   openState: StoreOpenState;
+  allowNewOrders?: boolean;
+  commercialMessage?: string | null;
   address: string | null;
   district: string | null;
   city: string | null;
@@ -169,12 +171,14 @@ export function StoreCatalog({
   categories,
   products,
   sections,
+  hero,
 }: {
   store: StoreInfo;
   categories: Array<{ id: string; name: string; slug: string; emoji: string | null }>;
   products: StoreProduct[];
   /** Seções que existem de fato nesta loja — o menu não mostra âncora vazia. */
   sections: Array<{ id: string; label: string }>;
+  hero?: React.ReactNode;
 }) {
   const [search, setSearch] = React.useState('');
   const [activeCategory, setActiveCategory] = React.useState('all');
@@ -213,6 +217,7 @@ export function StoreCatalog({
   } | null>(null);
 
   const closed = store.openState !== 'OPEN';
+  const commercialBlocked = store.allowNewOrders === false;
   const storageKey = cartStorageKey(store.slug);
 
   /**
@@ -274,9 +279,14 @@ export function StoreCatalog({
       list.push(product);
       byCategory.set(key, list);
     }
-    return categories
+    const groups = categories
       .map((category) => ({ category, items: byCategory.get(category.id) ?? [] }))
       .filter((group) => group.items.length > 0);
+    const uncategorized = byCategory.get('__sem_categoria__') ?? [];
+    if (uncategorized.length > 0) {
+      groups.push({ category: { id: '__sem_categoria__', name: 'Outros produtos', slug: 'outros', emoji: null }, items: uncategorized });
+    }
+    return groups;
   }, [visible, categories]);
 
   /**
@@ -380,6 +390,7 @@ export function StoreCatalog({
 
   async function submitOrder(formData: FormData) {
     if (checkoutLocked.current) return;
+    if (commercialBlocked) { setError(store.commercialMessage ?? 'Novos pedidos indisponíveis.'); return; }
     setSending(true);
     setError(null);
 
@@ -486,7 +497,8 @@ export function StoreCatalog({
         onCartClick={() => setCartOpen(true)}
       />
 
-      <div id="cardapio" className="mx-auto max-w-[1180px] px-4 py-6 sm:px-5 sm:py-8">
+      {hero}
+      <div id="cardapio" className="store-showcase mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-8 sm:py-12">
         {success && !order && (
           <div className="mb-4">
             <Alert tone="success" title="Tudo certo">
@@ -495,6 +507,7 @@ export function StoreCatalog({
           </div>
         )}
 
+        {commercialBlocked && <div className="mb-4"><Alert tone="warn" title="Pedidos temporariamente indisponíveis">{store.commercialMessage}</Alert></div>}
         {closed && (
           <div className="mb-4">
             <Alert
@@ -512,7 +525,7 @@ export function StoreCatalog({
         )}
 
         {/* ── Busca e categorias ── */}
-        <div className="mb-5 space-y-3">
+        <div className="store-catalog-tools mb-5 space-y-3">
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -541,7 +554,6 @@ export function StoreCatalog({
                   brandColor={store.brandColor}
                   onClick={() => setActiveCategory(category.id)}
                 >
-                  {category.emoji ? `${category.emoji} ` : ''}
                   {category.name}
                 </CategoryChip>
               ))}
@@ -549,6 +561,11 @@ export function StoreCatalog({
           )}
         </div>
 
+        <div className="store-showcase-heading">
+          <span>SELECIONADOS PARA VOCÊ</span>
+          <h2>Explore nossa vitrine</h2>
+          <p>Encontre seus favoritos e monte seu pedido.</p>
+        </div>
         {/* ── Lista de produtos ── */}
         {grouped.length === 0 ? (
           <p className="rounded-lg border border-ink-100 bg-white p-8 text-center text-[0.86rem] text-ink-500">
@@ -561,15 +578,15 @@ export function StoreCatalog({
             {grouped.map((group) => (
               <section key={group.category.id} id={`cat-${group.category.slug}`}>
                 <h2 className="mb-3 text-[1.05rem] font-extrabold text-ink-900">
-                  {group.category.emoji ? `${group.category.emoji} ` : ''}
                   {group.category.name}
                 </h2>
 
-                <ul className="grid gap-3 sm:grid-cols-2">
+                <ul className="store-product-grid">
                   {group.items.map((product) => (
                     <ProductCard
                       key={product.id}
                       product={product}
+                      categoryName={group.category.name}
                       brandColor={store.brandColor}
                       closed={closed}
                       onAdd={() => quickAdd(product)}
@@ -592,7 +609,7 @@ export function StoreCatalog({
                 : `${promos.length} produtos com desconto no cardápio`}
             </p>
 
-            <ul className="grid gap-3 sm:grid-cols-2">
+            <ul className="store-product-grid">
               {promos.map((product) => (
                 <ProductCard
                   key={`promo-${product.id}`}
@@ -614,7 +631,7 @@ export function StoreCatalog({
               Conjuntos montados pela loja, com preço fechado.
             </p>
 
-            <ul className="grid gap-3 sm:grid-cols-2">
+            <ul className="store-product-grid">
               {combos.map((product) => (
                 <ProductCard
                   key={`combo-${product.id}`}
@@ -670,7 +687,7 @@ export function StoreCatalog({
               Continuar comprando
             </Button>
             <Button
-              disabled={closed || belowMinimum || cart.length === 0}
+              disabled={closed || commercialBlocked || belowMinimum || cart.length === 0}
               onClick={() => {
                 setCartOpen(false);
                 setCheckoutOpen(true);
@@ -1096,11 +1113,13 @@ function ChoiceButton({
  */
 function ProductCard({
   product,
+  categoryName,
   brandColor,
   closed,
   onAdd,
 }: {
   product: StoreProduct;
+  categoryName?: string;
   brandColor: string;
   closed: boolean;
   onAdd: () => void;
@@ -1121,17 +1140,22 @@ function ProductCard({
   const isCombo = product.comboItems.length > 0;
 
   return (
-    <li className="flex items-start gap-3 rounded-lg border border-ink-100 bg-white p-3">
+    <li className="store-product-card" style={{ '--store-brand': brandColor } as React.CSSProperties}>
+      <div className="store-product-photo">
+      {onPromo && <span className="store-product-discount">−{Math.round((1 - price / product.price) * 100)}%</span>}
       <ProductThumb
         customImageUrl={product.customImageUrl}
         globalImageUrl={product.globalImageUrl}
         basePath={product.basePath}
         emoji={product.emoji}
         alt={product.name}
-        size={68}
+        size={220}
+        className="store-product-thumb"
       />
+      </div>
 
-      <div className="min-w-0 flex-1">
+      <div className="store-product-info min-w-0 flex-1">
+        {categoryName && <p className="store-product-category">{categoryName}</p>}
         <div className="flex flex-wrap items-center gap-1.5">
           <p className="text-[0.88rem] font-bold text-ink-900">{product.name}</p>
           {onPromo && !isCombo && (
@@ -1160,7 +1184,7 @@ function ProductCard({
 
         <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
           <span className="text-[0.9rem] font-extrabold text-ink-900">{formatBRL(price)}</span>
-          {(onPromo || isCombo) && separate > price && (
+          {(onPromo || (isCombo && separate > price)) && (
             <span className="text-[0.76rem] text-ink-400 line-through">
               {formatBRL(onPromo ? product.price : separate)}
             </span>

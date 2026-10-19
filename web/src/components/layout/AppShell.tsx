@@ -65,7 +65,7 @@ export function AppShell({
   const canChangeStatus = permissions.includes('MANAGE_ORDERS');
 
   return (
-    <div className="flex min-h-screen bg-ink-50">
+    <div className="panel-shell flex min-h-screen bg-ink-50">
       <AppSidebar
         organizationName={organizationName}
         organizationSlug={organizationSlug}
@@ -91,7 +91,7 @@ export function AppShell({
           onOpenMenu={() => setMobileOpen(true)}
         />
 
-        <main className="min-w-0 flex-1 p-4 lg:p-6">{children}</main>
+        <main className="panel-content min-w-0 flex-1 p-4 lg:p-7">{children}</main>
       </div>
     </div>
   );

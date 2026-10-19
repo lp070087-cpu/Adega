@@ -34,7 +34,7 @@ export type Permission = (typeof PERMISSIONS)[number];
 /** Papéis operacionais (PLATFORM_ADMIN é tratado à parte). */
 type TenantRole = Exclude<Role, 'PLATFORM_ADMIN'>;
 
-const ALL: Permission[] = [...PERMISSIONS];
+const ALL: Permission[] = PERMISSIONS.filter((permission) => permission !== 'MANAGE_INTEGRATIONS');
 
 /**
  * Matriz de acesso.

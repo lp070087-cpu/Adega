@@ -2,6 +2,8 @@ import 'server-only';
 import type { DriverStatus, VehicleType } from '@prisma/client';
 import { prisma, toNumber } from '@/lib/db';
 import { hashPassword } from '@/lib/auth/password';
+import { withOrganizationTransaction } from '@/lib/data/transaction';
+import { assertPlatformQuota } from '@/lib/platform/quotas';
 
 /**
  * Entregadores e despacho.
@@ -178,7 +180,8 @@ export async function createDriver(
 
     const passwordHash = await hashPassword(input.password);
 
-    return prisma.$transaction(async (tx) => {
+    return withOrganizationTransaction(organizationId, async (tx) => {
+      if (input.active) await assertPlatformQuota(tx, organizationId, 'drivers');
       const user = await tx.user.create({
         data: { name: input.name, email, username, passwordHash, phone: input.phone },
       });
@@ -186,7 +189,7 @@ export async function createDriver(
       // Vínculo com a organização no papel DRIVER: é o que dá acesso
       // ao app do entregador e a mais nada.
       await tx.organizationUser.create({
-        data: { organizationId, userId: user.id, role: 'DRIVER', active: true, acceptedAt: new Date() },
+        data: { organizationId, userId: user.id, role: 'DRIVER', active: input.active, acceptedAt: new Date() },
       });
 
       return tx.driver.create({
@@ -203,7 +206,9 @@ export async function createDriver(
     });
   }
 
-  return prisma.driver.create({
+  return withOrganizationTransaction(organizationId, async (tx) => {
+    if (input.active) await assertPlatformQuota(tx, organizationId, 'drivers');
+    return tx.driver.create({
     data: {
       organizationId,
       name: input.name,
@@ -212,6 +217,7 @@ export async function createDriver(
       vehiclePlate: input.vehiclePlate?.toUpperCase() || null,
       active: input.active,
     },
+  });
   });
 }
 
@@ -226,7 +232,11 @@ export async function updateDriver(
     active?: boolean;
   },
 ) {
-  const result = await prisma.driver.updateMany({
+  return withOrganizationTransaction(organizationId, async (tx) => {
+  const current = await tx.driver.findFirst({ where: { id: driverId, organizationId }, select: { active: true, userId: true } });
+  if (!current) throw new Error('Entregador não encontrado.');
+  if (input.active === true && !current.active) await assertPlatformQuota(tx, organizationId, 'drivers');
+  const result = await tx.driver.updateMany({
     where: { id: driverId, organizationId },
     data: {
       ...(input.name ? { name: input.name } : {}),
@@ -239,7 +249,11 @@ export async function updateDriver(
     },
   });
   if (result.count === 0) throw new Error('Entregador não encontrado.');
+  if (input.active !== undefined && current.userId) {
+    await tx.organizationUser.updateMany({ where: { organizationId, userId: current.userId, role: 'DRIVER' }, data: { active: input.active } });
+  }
   return { ok: true };
+  });
 }
 
 export async function setDriverStatus(

@@ -2,6 +2,9 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { X } from 'lucide-react';
+import { Icon } from './Icon';
+export { Icon } from './Icon';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -19,7 +22,7 @@ type ButtonSize = 'sm' | 'md' | 'lg';
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
   primary: 'bg-brand text-white hover:bg-brand-dark shadow-xs',
-  secondary: 'bg-white text-ink-700 border-2 border-ink-200 hover:border-brand hover:text-brand',
+  secondary: 'bg-white text-ink-700 border border-ink-200 hover:border-brand hover:text-brand',
   ghost: 'bg-transparent text-ink-600 hover:bg-ink-100 hover:text-ink-900',
   danger: 'bg-danger text-white hover:brightness-95',
   success: 'bg-success text-white hover:brightness-95',
@@ -28,7 +31,7 @@ const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
 const BUTTON_SIZES: Record<ButtonSize, string> = {
   sm: 'text-[0.78rem] px-3.5 py-2 rounded-sm gap-1.5',
   md: 'text-[0.86rem] px-4 py-2.5 rounded-sm gap-2',
-  lg: 'text-[0.95rem] px-6 py-3.5 rounded-full gap-2',
+  lg: 'text-[0.95rem] px-6 py-3 rounded-sm gap-2',
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -54,7 +57,7 @@ export function Button({
       disabled={disabled || loading}
       className={cn(
         'inline-flex items-center justify-center font-semibold transition-all duration-200',
-        'disabled:opacity-55 disabled:cursor-not-allowed active:scale-[.985]',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-55 disabled:cursor-not-allowed',
         BUTTON_VARIANTS[variant],
         BUTTON_SIZES[size],
         fullWidth && 'w-full',
@@ -164,7 +167,7 @@ export function Card({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div {...props} className={cn('rounded-lg border border-ink-100 bg-white p-[22px]', className)}>
+    <div {...props} className={cn('ui-card rounded-lg border border-ink-200 bg-white p-[22px]', className)}>
       {children}
     </div>
   );
@@ -220,7 +223,7 @@ export function StatCard({
   trend?: { value: string; positive: boolean };
 }) {
   return (
-    <div className="rounded-lg border border-ink-100 bg-white p-5 transition-all duration-200 hover:shadow-sm">
+    <div className="ui-stat rounded-lg border border-ink-200 bg-white p-5">
       <div className="mb-3 flex items-center justify-between">
         <span
           className={cn(
@@ -228,7 +231,7 @@ export function StatCard({
             STAT_TONES[tone],
           )}
         >
-          {icon}
+          <Icon name={icon} />
         </span>
         {trend && (
           <span
@@ -300,7 +303,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center px-5 py-14 text-center">
-      <span className="mb-3 text-[2.4rem] opacity-70">{icon}</span>
+      <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-ink-50 text-ink-400"><Icon name={icon} className="h-6 w-6" /></span>
       <p className="text-[0.92rem] font-bold text-ink-700">{title}</p>
       {description && (
         <p className="mt-1.5 max-w-md text-[0.8rem] leading-relaxed text-ink-500">{description}</p>
@@ -311,6 +314,34 @@ export function EmptyState({
 }
 
 // ── MODAL ──────────────────────────────────────────────────────────────
+
+function useDialogFocus(open: boolean) {
+  const ref = React.useRef<HTMLElement | null>(null);
+  React.useEffect(() => {
+    if (!open || !ref.current) return;
+    const dialog = ref.current;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]',
+    )).filter((element) => element.getClientRects().length > 0);
+    (focusable()[0] ?? dialog).focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const elements = focusable();
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (!first) { event.preventDefault(); dialog.focus(); return; }
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first.focus();
+      }
+    };
+    dialog.addEventListener('keydown', onKey);
+    return () => { dialog.removeEventListener('keydown', onKey); previous?.focus(); };
+  }, [open]);
+  return (element: HTMLElement | null) => { ref.current = element; };
+}
 
 export function Modal({
   open,
@@ -329,6 +360,7 @@ export function Modal({
   footer?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
+  const dialogRef = useDialogFocus(open);
   // Esc fecha — o painel original tinha essa mesma saída rápida.
   React.useEffect(() => {
     if (!open) return;
@@ -357,6 +389,8 @@ export function Modal({
       }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -377,7 +411,7 @@ export function Modal({
             aria-label="Fechar"
             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-sm text-ink-400 transition-all hover:bg-ink-100 hover:text-ink-700"
           >
-            ✕
+            <X aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
 
@@ -408,6 +442,7 @@ export function Drawer({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const dialogRef = useDialogFocus(open);
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -427,6 +462,8 @@ export function Drawer({
       }}
     >
       <aside
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -443,7 +480,7 @@ export function Drawer({
             aria-label="Fechar"
             className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-400 transition-all hover:bg-ink-100 hover:text-ink-700"
           >
-            ✕
+            <X aria-hidden="true" className="h-4 w-4" />
           </button>
         </header>
 
@@ -483,7 +520,7 @@ export function Alert({
   return (
     <div
       role="alert"
-      className={cn('rounded border-2 px-4 py-3 text-[0.8rem] leading-relaxed', ALERT_TONES[tone], className)}
+      className={cn('rounded-sm border px-4 py-3 text-[0.8rem] leading-relaxed', ALERT_TONES[tone], className)}
     >
       {title && <p className="mb-0.5 font-bold">{title}</p>}
       <div className="[&_a]:underline">{children}</div>
@@ -510,7 +547,7 @@ export function Tabs<T extends string>({
           type="button"
           onClick={() => onChange(tab.value)}
           className={cn(
-            'rounded-full border-2 px-3.5 py-1.5 text-[0.78rem] font-semibold transition-all',
+            'rounded-sm border px-3.5 py-2 text-[0.78rem] font-semibold transition-all',
             value === tab.value
               ? 'border-brand bg-brand text-white'
               : 'border-ink-200 text-ink-600 hover:border-brand hover:text-brand',

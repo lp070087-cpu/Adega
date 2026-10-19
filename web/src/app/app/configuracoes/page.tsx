@@ -118,7 +118,7 @@ export default async function SettingsPage() {
                 value={<Badge tone="neutral">{organization.status}</Badge>}
               />
               {organization.isDemo && (
-                <Row label="Observação" value="Dados de demonstração (criados pelo seed)." />
+                <Row label="Observação" value="Conta de demonstração." />
               )}
             </dl>
           ) : (
@@ -129,23 +129,23 @@ export default async function SettingsPage() {
         {/* ── Infraestrutura ───────────────────────────────────────── */}
         <Card>
           <CardHeader
-            title="Infraestrutura"
-            subtitle="O que está configurado neste ambiente"
+            title="Serviços da conta"
+            subtitle="Disponibilidade dos serviços da plataforma"
           />
 
           <div className="space-y-3">
             <InfraRow
               label="Banco de dados"
               ok
-              detail="PostgreSQL (Neon), acessado só pelo servidor. O navegador nunca fala com o banco."
+              detail="Conexão disponível."
             />
             <InfraRow
-              label="Storage de imagens"
+              label="Envio de imagens"
               ok={storage.configured}
               detail={
                 storage.configured
-                  ? `Provedor "${storage.provider}" ativo.`
-                  : `Nenhum provedor de upload configurado (adapter atual: "${storage.provider}"). As imagens entram por URL. Nada de base64 no banco.`
+                  ? 'Envio de arquivos disponível.'
+                  : 'Envio de arquivos indisponível. Use uma URL de imagem.'
               }
             />
             <InfraRow
@@ -153,8 +153,8 @@ export default async function SettingsPage() {
               ok={encryptionReady}
               detail={
                 encryptionReady
-                  ? 'TOKEN_ENCRYPTION_KEY presente. Credenciais de integração são gravadas cifradas (AES-256-GCM).'
-                  : 'TOKEN_ENCRYPTION_KEY ausente. O sistema RECUSA gravar credencial de terceiro — preferimos a integração desligada a um segredo em texto puro.'
+                  ? 'Proteção de credenciais ativa.'
+                  : 'Configuração pendente com o administrador da plataforma.'
               }
             />
             <InfraRow
@@ -163,13 +163,13 @@ export default async function SettingsPage() {
               detail={
                 connectedIntegrations > 0
                   ? `${connectedIntegrations} marcada(s) como conectada(s).`
-                  : 'Nenhuma conectada. Os adapters de marketplace ainda não foram implementados — a área de Integrações explica o que falta em cada uma.'
+                  : 'Nenhum provedor ativo. A gestão de integrações é feita pela plataforma.'
               }
             />
           </div>
 
           <p className="mt-4 text-[0.72rem] text-ink-400">
-            Esta é uma leitura do ambiente do servidor. Nenhuma chave é exibida — só se ela existe.
+            Para alterar a configuração de serviços, entre em contato com o suporte.
           </p>
         </Card>
       </div>
@@ -177,7 +177,7 @@ export default async function SettingsPage() {
       {/* ── Permissões do perfil ───────────────────────────────────── */}
       <Card>
         <CardHeader
-          title="O que o seu perfil pode fazer"
+          title="Permissões de acesso"
           subtitle={`Você entrou como ${ROLE_LABEL[ctx.role] ?? ctx.role}`}
         />
 

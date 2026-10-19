@@ -123,7 +123,7 @@ export function DynamicStoreHero({
   // Até 5 cards: mais que isso o hero vira parede de imagens e rouba a
   // atenção do botão. O lojista pode destacar 20 produtos — o topo
   // mostra os primeiros.
-  const highlights = featuredProducts.slice(0, 5);
+  const highlights = featuredProducts.slice(0, 3);
 
   // ── Slideshow ──
   // A lista de banners é a que o SERVIDOR mandou (StoreBanner da própria
@@ -287,14 +287,14 @@ export function DynamicStoreHero({
               </span>
             </div>
 
-            <h1 className="store-hero-title">{organization.name}</h1>
+            <h1 className="store-hero-title">{slides[activeIndex]?.title?.trim() || organization.name}</h1>
             {storeDescription && <p className="store-hero-tagline">{storeDescription}</p>}
-            <p className="store-hero-tagline store-hero-tagline-segment">{tagline}</p>
+            <p className="store-hero-tagline store-hero-tagline-segment">{slides[activeIndex]?.subtitle?.trim() || tagline}</p>
 
             <div className="store-hero-facts">
               {organization.averageDeliveryTime ? (
                 <span className="store-hero-fact">
-                  🛵 {organization.averageDeliveryTime} min
+                  Entrega em cerca de {organization.averageDeliveryTime} min
                 </span>
               ) : null}
               {organization.minimumOrder > 0 ? (
@@ -304,9 +304,12 @@ export function DynamicStoreHero({
               ) : null}
             </div>
 
+            <div className="store-hero-buttons">
             <a href={ctaHref} className="store-hero-cta">
               {ctaLabel}
             </a>
+            <a href="#sobre" className="store-hero-cta store-hero-cta-secondary">Conheça a loja</a>
+            </div>
           </div>
 
           {/* ── Composição de produtos ── */}
@@ -331,7 +334,7 @@ export function DynamicStoreHero({
                     customImageUrl={product.customImageUrl}
                     globalImageUrl={product.globalImageUrl}
                     emoji={product.emoji}
-                    alt=""
+                    alt={product.name}
                     size={84}
                     className="store-hero-thumb"
                   />
@@ -387,7 +390,8 @@ const HERO_CSS = `
 .store-hero {
   position: relative;
   isolation: isolate;
-  padding: clamp(2rem, 5vw, 3.75rem) 1.25rem;
+  display: flex; align-items: center; min-height: min(760px, calc(100svh - 76px));
+  padding: 80px 32px;
   background: linear-gradient(135deg, var(--hero-brand) 0%, #14161d 100%);
   color: #fff;
   /* O swipe é horizontal por natureza: sem isto o navegador pode
@@ -395,6 +399,7 @@ const HERO_CSS = `
   touch-action: pan-y;
 }
 .store-hero-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
+.store-hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg,#080808d9 0%,#08080888 52%,#08080833 100%); }
 
 /* ── Slideshow: camadas sobrepostas com transição de opacidade ──
    O tempo de 1.2s é o da versão aprovada. Todas as camadas ficam
@@ -419,7 +424,7 @@ const HERO_CSS = `
 }
 .store-hero-inner {
   position: relative;
-  max-width: 1180px;
+  max-width: 1200px; width: 100%;
   margin: 0 auto;
   display: grid;
   gap: 2rem;
@@ -444,7 +449,7 @@ const HERO_CSS = `
 }
 .store-hero-status.is-open .store-hero-dot { animation: store-hero-pulse 2s ease-in-out infinite; }
 .store-hero-title {
-  margin: 0 0 0.5rem; font-size: clamp(1.7rem, 4vw, 2.6rem);
+  margin: 0 0 0.5rem; font-size: clamp(2.6rem, 5.5vw, 4rem);
   font-weight: 800; line-height: 1.1; letter-spacing: -0.02em;
 }
 .store-hero-tagline {
@@ -460,9 +465,11 @@ const HERO_CSS = `
 }
 .store-hero-cta {
   display: inline-block; padding: 0.85rem 1.6rem; border-radius: 999px;
-  background: #fff; color: #14161d; font-weight: 800; font-size: 0.9rem;
+  background: var(--hero-brand); color: #fff; font-weight: 800; font-size: 0.9rem;
   text-decoration: none; transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+.store-hero-buttons { display:flex; gap:14px; flex-wrap:wrap; margin-top:28px; }
+.store-hero-cta-secondary { background: #ffffff12; border:1px solid #ffffff5c; }
 .store-hero-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 24px #0000003d; }
 .store-hero-cta:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
@@ -487,20 +494,22 @@ const HERO_CSS = `
 .store-hero-carousel-dot:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 
 .store-hero-stage {
-  display: flex; flex-wrap: wrap; gap: 0.85rem; justify-content: center;
+  position:relative; height:380px;
 }
 .store-hero-card {
-  margin: 0; width: 128px; padding: 0.85rem 0.6rem;
+  position:absolute; margin:0; width:210px; padding:14px 18px;
   border-radius: 1rem; background: #ffffff17;
   border: 1px solid #ffffff26; backdrop-filter: blur(10px);
-  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  display: flex; flex-direction: row; flex-wrap:wrap; align-items: center; gap: 0.5rem;
   opacity: 0;
   animation:
     store-hero-enter 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards,
     store-hero-float var(--float-duration, 6s) ease-in-out infinite;
   animation-delay: calc(var(--card-index, 0) * 0.09s), var(--float-delay, 0s);
 }
-.store-hero-card:nth-child(even) { transform: translateY(14px); }
+.store-hero-card:nth-child(1) {top:5%;right:0;}
+.store-hero-card:nth-child(2) {top:36%;left:0;}
+.store-hero-card:nth-child(3) {bottom:0;right:12%;}
 .store-hero-card-name {
   font-size: 0.72rem; font-weight: 700; text-align: center; line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
@@ -539,7 +548,9 @@ const HERO_CSS = `
     background: linear-gradient(180deg, #00000073 0%, #000000b8 100%);
   }
   /* Espaço para os dots não caírem em cima do botão. */
+  .store-hero { padding:48px 22px 50px; min-height:560px; }
   .store-hero-inner { padding-bottom: 2.25rem; }
+  .store-hero-stage { display:none; }
 }
 
 /* Acessibilidade: sem movimento — nada flutua, nada troca sozinho. O

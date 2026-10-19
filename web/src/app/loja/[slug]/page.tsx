@@ -1,3 +1,4 @@
+import './store.css';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import {
@@ -13,6 +14,7 @@ import { copyByType } from '@/data/business-copy';
 import { normalizeSchedule, storeOpenState, type WeekdaySchedule } from '@/lib/schedule';
 import { formatBRL } from '@/lib/utils';
 import type { BusinessType } from '@prisma/client';
+import { getCommercialAccess } from '@/lib/platform/access';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -114,6 +116,7 @@ export default async function PublicStorePage({ params }: PageProps) {
    * "aberta" às 2h da manhã só porque ninguém trocou o status.
    */
   const openState = storeOpenState(store.storeStatus, schedule);
+  const commercial = await getCommercialAccess(store.id);
 
   const heroProducts = featured.map((product) => ({
     id: product.id,
@@ -204,9 +207,8 @@ export default async function PublicStorePage({ params }: PageProps) {
     ...(hasContact ? [{ id: 'contato', label: 'Contato' }] : []),
   ];
 
-  return (
-    <main className="min-h-screen bg-ink-50">
-      <DynamicStoreHero
+  const hero = (
+    <DynamicStoreHero
         organization={{
           name: store.name,
           slug: store.slug,
@@ -227,57 +229,12 @@ export default async function PublicStorePage({ params }: PageProps) {
           linkUrl: banner.linkUrl,
         }))}
       />
+  );
 
-      {/*
-        Loja sem produto publicado não inventa catálogo: a tela diz o que
-        aconteceu e para onde ir. Um cardápio de demonstração aqui faria o
-        cliente pedir algo que a loja não vende.
-      */}
-      {products.length === 0 ? (
-        <section id="cardapio" className="mx-auto max-w-[1180px] px-4 py-14 sm:px-5">
-          <div className="rounded-xl border border-ink-100 bg-white px-6 py-12 text-center">
-            <span className="text-[2.4rem]" aria-hidden="true">
-              🍽️
-            </span>
-            <h2 className="mt-3 text-[1.05rem] font-extrabold text-ink-900">
-              Este estabelecimento ainda não publicou produtos.
-            </h2>
-            <p className="mx-auto mt-2 max-w-md text-[0.84rem] leading-relaxed text-ink-500">
-              {fullAddress
-                ? `A loja fica em ${fullAddress}.`
-                : 'Volte em breve para ver o cardápio.'}
-              {store.whatsapp || store.phone
-                ? ' Se preferir, fale direto com o estabelecimento.'
-                : ''}
-            </p>
-
-            {(store.whatsapp || store.phone) && (
-              <div className="mt-5 flex flex-wrap justify-center gap-2.5">
-                {store.whatsapp && (
-                  <a
-                    href={`https://wa.me/${normalizeWhatsApp(store.whatsapp)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-full px-5 py-2.5 text-[0.84rem] font-extrabold text-white"
-                    style={{ backgroundColor: store.brandColor }}
-                  >
-                    Falar no WhatsApp
-                  </a>
-                )}
-                {store.phone && (
-                  <a
-                    href={`tel:${store.phone.replace(/\D/g, '')}`}
-                    className="rounded-full border-2 border-ink-200 bg-white px-5 py-2.5 text-[0.84rem] font-semibold text-ink-700"
-                  >
-                    Ligar
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      ) : (
-        <StoreCatalog
+  return (
+    <main className="storefront min-h-screen bg-white" style={{ "--store-brand": store.brandColor } as React.CSSProperties}>
+      <StoreCatalog
+        hero={hero}
           store={{
             id: store.id,
             slug: store.slug,
@@ -296,6 +253,8 @@ export default async function PublicStorePage({ params }: PageProps) {
             allowPickup: store.allowPickup,
             allowOwnDelivery: store.allowOwnDelivery,
             openState,
+            allowNewOrders: commercial.allowNewOrders,
+            commercialMessage: commercial.allowNewOrders ? null : commercial.message,
             address: addressLine,
             district: store.district,
             city: store.city,
@@ -306,7 +265,6 @@ export default async function PublicStorePage({ params }: PageProps) {
           products={products}
           sections={sections}
         />
-      )}
 
       <StoreAbout
         store={{
@@ -329,9 +287,4 @@ export default async function PublicStorePage({ params }: PageProps) {
       <StoreFooter store={{ name: store.name, slug: store.slug }} />
     </main>
   );
-}
-
-function normalizeWhatsApp(value: string): string {
-  const digits = value.replace(/\D/g, '');
-  return digits.startsWith('55') ? digits : `55${digits}`;
 }

@@ -6,6 +6,7 @@ import { permissionsOf } from '@/lib/permissions';
 import { ROLE_LABEL } from '@/data/business-copy';
 import { getOrderCounters } from '@/lib/data/orders';
 import { AppShell } from '@/components/layout/AppShell';
+import { getCommercialAccess } from '@/lib/platform/access';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -33,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   if (ctx.role === 'DRIVER') redirect('/entregador');
+  const commercial = await getCommercialAccess(ctx.organizationId);
 
   const [organization, counters, notifications] = await Promise.all([
     prisma.organization.findUnique({
@@ -85,6 +87,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       }))}
       user={{ name: ctx.user.name }}
     >
+      {commercial.message && <div role="status" className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">{commercial.message}</div>}
       {children}
     </AppShell>
   );

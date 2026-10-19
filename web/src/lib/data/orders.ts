@@ -8,6 +8,7 @@ import { deductOrderStock, restoreOrderStock } from '@/lib/data/inventory';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
 import { registerOrderInCash } from '@/lib/data/cash';
 import { canTransition } from '@/lib/validations/order';
+import { getCommercialAccess } from '@/lib/platform/access';
 import {
   calculateDeliveryFee,
   isOutsideDeliveryArea,
@@ -352,6 +353,8 @@ export async function createOrderFromCheckout(
     });
     if (existing) return { orderId: existing.id, displayId: existing.displayId, total: toNumber(existing.total) };
   }
+  const commercial = await getCommercialAccess(organizationId);
+  if (!commercial.allowNewOrders) throw new CheckoutError(commercial.message ?? 'Novos pedidos indisponíveis.');
   const organization = await prisma.organization.findUnique({
     where: { id: organizationId },
     select: {

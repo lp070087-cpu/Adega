@@ -289,6 +289,9 @@ model Organization {
   subscriptions      Subscription[]
   banners            StoreBanner[]
   combos             Combo[]
+  platformContract PlatformContract?
+  platformSupport PlatformSupportCase[]
+  platformCharges SaaSCharge[]
   deliveryZones      DeliveryZone[]
 
   @@index([slug])
@@ -348,6 +351,7 @@ model User {
   notifications      Notification[]
   sessions           Session[]
   accounts           Account[]
+  platformOperator PlatformOperator?
   driverProfile      Driver?
   employeeProfile    Employee?
 
@@ -1243,6 +1247,7 @@ model Plan {
   updatedAt  DateTime @updatedAt
 
   subscriptions Subscription[]
+  platformContracts PlatformContract[]
 }
 
 model Subscription {
@@ -1262,4 +1267,91 @@ model Subscription {
 
   @@index([organizationId, status])
   @@index([planId])
+}
+
+// Central platform authorization is independent of tenant OrganizationUser.role.
+model PlatformOperator {
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  audits PlatformAudit[]
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  role      String   @default("SUPPORT")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Commercial record, deliberately separate from legacy Subscription queries.
+model PlatformContract {
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  charges SaaSCharge[]
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  planId         String
+  status         String   @default("PENDING")
+  period         String   @default("MONTHLY")
+  amount         Decimal  @db.Decimal(10, 2)
+  startedAt      DateTime
+  dueAt          DateTime
+  trialEndsAt    DateTime?
+  cancelledAt    DateTime?
+  enforceAccess  Boolean  @default(false)
+  graceDays      Int      @default(7)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@unique([id, organizationId])
+  @@index([status, dueAt])
+}
+
+model SaaSCharge {
+  contract PlatformContract @relation(fields: [contractId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  id             String   @id @default(cuid())
+  contractId     String
+  organizationId String
+  competence     String
+  amount         Decimal  @db.Decimal(10, 2)
+  dueAt          DateTime
+  status         String   @default("PENDING")
+  paymentMethod  String?
+  paidAt         DateTime?
+  reference      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@unique([contractId, competence])
+  @@index([organizationId, status, dueAt])
+}
+
+model PlatformAudit {
+  operator PlatformOperator @relation(fields: [operatorId], references: [id], onDelete: Restrict)
+  id             String   @id @default(cuid())
+  operatorId     String
+  action         String
+  resourceType   String
+  resourceId     String
+  organizationId String?
+  reason         String
+  details        Json?
+  createdAt      DateTime @default(now())
+  @@index([createdAt])
+  @@index([organizationId, createdAt])
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model PlatformSupportCase {
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  notes          String?
+  status         String   @default("OPEN")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([organizationId, status])
 }

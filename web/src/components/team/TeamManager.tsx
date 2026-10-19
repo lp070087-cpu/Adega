@@ -67,13 +67,12 @@ const ASSIGNABLE_ROLES = [
   'ATTENDANT',
   'KITCHEN',
   'DISPATCHER',
-  'DRIVER',
 ] as const;
 
 const ROLE_HINT: Record<string, string> = {
-  OWNER: 'Acesso total, inclusive equipe e integrações.',
-  ADMIN: 'Acesso total, inclusive equipe e integrações.',
-  MANAGER: 'Toda a operação. Não mexe em equipe nem em integrações.',
+  OWNER: 'Gestão da loja e da equipe.',
+  ADMIN: 'Gestão da loja e da equipe.',
+  MANAGER: 'Gestão da operação, sem administrar a equipe.',
   ATTENDANT: 'Pedidos, clientes e caixa.',
   KITCHEN: 'Somente pedidos, para o preparo.',
   DISPATCHER: 'Pedidos e entregadores.',

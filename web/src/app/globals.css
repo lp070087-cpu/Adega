@@ -192,3 +192,42 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Painel operacional: identidade independente da marca das lojas públicas. */
+.panel-shell {
+  --radius: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #202733;
+  background: #f5f6f8;
+  line-height: 1.5;
+}
+.panel-sidebar { background: #fff; border-color: #e3e6eb; }
+.panel-sidebar nav { padding: 16px 12px; }
+.panel-sidebar nav a { margin-bottom: 3px; padding-top: 9px; padding-bottom: 9px; font-size: .82rem; border-radius: 7px; }
+.panel-sidebar nav a[aria-current='page'] { background: #fff1e9; color: #b94316; box-shadow: inset 3px 0 #f15a24; }
+.panel-sidebar > div:first-child { min-height: 81px; }
+.panel-shell > div > header { min-height: 81px; background: rgba(255,255,255,.97); }
+.panel-content { max-width: 1800px; width: 100%; margin: 0 auto; }
+.panel-content h2, .panel-content h3 { letter-spacing: -.025em; }
+.panel-shell .ui-card, .panel-shell .ui-stat { border-color: #e3e6eb; border-radius: 12px; box-shadow: 0 1px 2px #17202e03; }
+.panel-shell .ui-stat > div:first-child > span:first-child { width: 34px; height: 34px; border-radius: 8px; background: #f6f7f9; color: #667184; }
+.panel-shell .ui-stat > p:nth-of-type(2) { font-variant-numeric: tabular-nums; letter-spacing: -.04em; font-weight: 650; }
+.panel-shell .field-input { border: 1px solid #dce0e6; border-radius: 7px; background: white; padding: 10px 12px; font-size: .84rem; }
+.panel-shell .field-input:focus { border-color: #dc7047; box-shadow: 0 0 0 3px #f15a2414; }
+.panel-shell .field-label { color: #4b5563; font-size: .77rem; }
+.panel-shell table { border-collapse: separate; border-spacing: 0; font-size: .8rem; }
+.panel-shell thead { background: #f8f9fb; }
+.panel-shell th { color: #697386; font-size: .68rem; font-weight: 600; letter-spacing: .035em; }
+.panel-shell td { border-color: #edf0f3; vertical-align: middle; }
+.panel-shell tbody tr { transition: background .15s; }
+.panel-shell tbody tr:hover { background: #fafbfc; }
+.panel-shell :is(button,a,input,select,textarea):focus-visible { outline: 2px solid #d96032; outline-offset: 3px; }
+.panel-shell button, .panel-shell a { -webkit-tap-highlight-color: transparent; }
+@media (max-width: 639px) {
+  .panel-shell > div > header { gap: 8px; min-height: 68px; }
+  .panel-content { padding: 18px 14px; }
+  .panel-shell .ui-card { padding: 16px; }
+  .panel-shell .ui-stat { padding: 16px; }
+}

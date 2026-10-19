@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { X, ExternalLink } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { initialsFromName } from '@/data/business-copy';
@@ -30,7 +32,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/app/dashboard', label: 'Visão Geral', icon: '📊', permission: 'VIEW_DASHBOARD' },
       {
         href: '/app/pedidos',
-        label: 'Central de Pedidos',
+        label: 'Pedidos',
         icon: '🧭',
         permission: 'MANAGE_ORDERS',
         badgeKey: 'novos',
@@ -41,7 +43,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/app/banners', label: 'Banners', icon: '🖼️', permission: 'MANAGE_SETTINGS' },
       { href: '/app/clientes', label: 'Clientes', icon: '👥', permission: 'VIEW_CUSTOMERS' },
       { href: '/app/entregadores', label: 'Entregadores', icon: '🛵', permission: 'MANAGE_DRIVERS' },
-      { href: '/app/expedicao', label: 'Mapa / Expedição', icon: '🗺️', permission: 'MANAGE_DRIVERS' },
+      { href: '/app/expedicao', label: 'Expedição', icon: '🗺️', permission: 'MANAGE_DRIVERS' },
     ],
   },
   {
@@ -54,20 +56,10 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'Integrações',
-    items: [
-      {
-        href: '/app/integracoes',
-        label: 'Integrações',
-        icon: '🔌',
-        permission: 'MANAGE_INTEGRATIONS',
-      },
-    ],
-  },
-  {
     title: 'Configurações',
     items: [
-      { href: '/app/equipe', label: 'Equipe / Funcionários', icon: '👤', permission: 'MANAGE_TEAM' },
+      { href: '/app/assinatura', label: 'Plano e assinatura', icon: '💳', permission: 'MANAGE_SETTINGS' },
+      { href: '/app/equipe', label: 'Equipe', icon: '👤', permission: 'MANAGE_TEAM' },
       { href: '/app/configuracoes', label: 'Configurações', icon: '⚙️', permission: 'MANAGE_SETTINGS' },
     ],
   },
@@ -119,7 +111,7 @@ export function AppSidebar({
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-[500] flex w-[260px] flex-col border-r border-ink-200 bg-white transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0',
+          'panel-sidebar fixed inset-y-0 left-0 z-[500] flex w-[260px] flex-col border-r border-ink-200 bg-white transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -150,7 +142,7 @@ export function AppSidebar({
             aria-label="Fechar menu"
             className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-sm text-ink-400 hover:bg-ink-100 lg:hidden"
           >
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -175,6 +167,7 @@ export function AppSidebar({
                     <Link
                       key={item.href}
                       href={item.href}
+                      aria-current={active ? 'page' : undefined}
                       onClick={onCloseMobile}
                       className={cn(
                         'relative flex items-center gap-3 rounded-sm px-3.5 py-[11px] text-[0.88rem] font-medium transition-all duration-200',
@@ -184,7 +177,7 @@ export function AppSidebar({
                       )}
                     >
                       <span className="w-6 flex-shrink-0 text-center text-[1.15rem]" aria-hidden>
-                        {item.icon}
+                        <Icon name={item.icon} className="h-[19px] w-[19px]" />
                       </span>
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>
                       {badge !== undefined && badge > 0 && (
@@ -201,6 +194,7 @@ export function AppSidebar({
         </nav>
 
         <div className="border-t border-ink-100 p-2.5">
+          <Link href={`/loja/${organizationSlug}`} target="_blank" rel="noopener noreferrer" className="mb-2 flex items-center justify-between rounded-sm px-3 py-2.5 text-xs font-medium text-ink-600 hover:bg-ink-100">Abrir loja pública <ExternalLink className="h-3.5 w-3.5" /></Link>
           <div className="flex items-center gap-2.5 rounded border border-ink-200 bg-ink-50 p-[10px_12px]">
             <span className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-brand text-[0.8rem] font-bold text-white">
               {initialsFromName(roleLabel)}

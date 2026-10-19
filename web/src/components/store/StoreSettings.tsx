@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -35,19 +35,19 @@ import {
 import type { BusinessType, StoreStatus } from '@prisma/client';
 
 /**
- * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ * ═══════════════════════════════════════════════════════════════════════
  * MINHA LOJA
  * -----------------------------------------------------------------------
- * Identidade, endereÃ§o, entrega e o endereÃ§o pÃºblico da loja.
+ * Identidade, endereço, entrega e o endereço público da loja.
  *
- * SÃ³ a PRÃ“PRIA loja: o organizationId vem da sessÃ£o no servidor, nunca
- * deste formulÃ¡rio. NÃ£o existe campo de organizaÃ§Ã£o aqui â€” se existisse,
+ * Só a PRÓPRIA loja: o organizationId vem da sessão no servidor, nunca
+ * deste formulário. Não existe campo de organização aqui — se existisse,
  * seria uma porta para editar a loja de outro.
  *
- * A logo Ã© URL, nÃ£o arquivo. O storage ainda nÃ£o estÃ¡ plugado, e base64
- * no banco estÃ¡ descartado de propÃ³sito â€” a tela diz isso Ã  vontade em
- * vez de aceitar o arquivo e guardar um binÃ¡rio gigante.
- * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ * A logo é URL, não arquivo. O storage ainda não está plugado, e base64
+ * no banco está descartado de propósito — a tela diz isso à vontade em
+ * vez de aceitar o arquivo e guardar um binário gigante.
+ * ═══════════════════════════════════════════════════════════════════════
  */
 
 export type StoreFormData = {
@@ -87,8 +87,8 @@ export type StoreFormData = {
   /**
    * Agenda estruturada (settings.openingHours) e faixas de frete
    * (settings.deliveryTiers). Chegam separadas de `openingHours` porque
-   * sÃ£o coisas diferentes: o texto Ã© o que a vitrine mostra, a agenda Ã© o
-   * que permite saber se a loja estÃ¡ aberta agora.
+   * são coisas diferentes: o texto é o que a vitrine mostra, a agenda é o
+   * que permite saber se a loja está aberta agora.
    */
   schedule: WeekdaySchedule[];
   deliveryTiers: Array<{ upToKm: number; fee: number }>;
@@ -124,7 +124,7 @@ const STORE_STATUSES: Array<{ value: StoreStatus; label: string; hint: string; t
   {
     value: 'CLOSED',
     label: 'Fechada',
-    hint: 'Fora do horÃ¡rio. A vitrine aparece como fechada.',
+    hint: 'Fora do horário. A vitrine aparece como fechada.',
     tone: 'border-danger/40 bg-danger-bg text-danger',
   },
 ];
@@ -144,9 +144,9 @@ export function StoreSettings({
   publicUrl: string;
   canManage: boolean;
   /**
-   * Abrir/fechar Ã© decisÃ£o operacional, nÃ£o de configuraÃ§Ã£o: quem cuida
-   * do balcÃ£o precisa poder pausar a loja sem ganhar acesso ao resto
-   * desta tela. Por isso a permissÃ£o Ã© separada (MANAGE_ORDERS).
+   * Abrir/fechar é decisão operacional, não de configuração: quem cuida
+   * do balcão precisa poder pausar a loja sem ganhar acesso ao resto
+   * desta tela. Por isso a permissão é separada (MANAGE_ORDERS).
    */
   canChangeStatus: boolean;
   tilesHint: string;
@@ -163,11 +163,11 @@ export function StoreSettings({
   const [copied, setCopied] = useState(false);
 
   /**
-   * Copiar o link Ã© o que o lojista realmente faz com este endereÃ§o:
-   * manda no grupo do bairro, pÃµe na bio, manda no WhatsApp. Sem HTTPS
-   * (rodando local) a API de clipboard nÃ£o existe â€” nesse caso o texto Ã©
-   * selecionado, que Ã© o comportamento honesto em vez de um "copiado" que
-   * nÃ£o copiou nada.
+   * Copiar o link é o que o lojista realmente faz com este endereço:
+   * manda no grupo do bairro, põe na bio, manda no WhatsApp. Sem HTTPS
+   * (rodando local) a API de clipboard não existe — nesse caso o texto é
+   * selecionado, que é o comportamento honesto em vez de um "copiado" que
+   * não copiou nada.
    */
   async function copyLink() {
     try {
@@ -175,7 +175,7 @@ export function StoreSettings({
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
-      window.prompt('Copie o endereÃ§o da sua loja:', publicUrl);
+      window.prompt('Copie o endereço da sua loja:', publicUrl);
     }
   }
 
@@ -225,13 +225,13 @@ export function StoreSettings({
   }
 
   /**
-   * Agenda e entrega salvam por conta prÃ³pria.
+   * Agenda e entrega salvam por conta própria.
    *
-   * POR QUE NÃƒO VÃƒO JUNTO NO "SALVAR ALTERAÃ‡Ã•ES": a agenda Ã© uma lista
-   * aninhada (7 dias Ã— atÃ© 4 perÃ­odos) e a entrega tem as faixas. Mandar
-   * as duas junto com o resto faria qualquer erro de horÃ¡rio bloquear a
-   * troca do nome da loja â€” campos sem relaÃ§Ã£o nenhuma entre si. Aqui
-   * cada bloco tem seu botÃ£o e seu recado.
+   * POR QUE NÃO VÃO JUNTO NO "SALVAR ALTERAÇÕES": a agenda é uma lista
+   * aninhada (7 dias × até 4 períodos) e a entrega tem as faixas. Mandar
+   * as duas junto com o resto faria qualquer erro de horário bloquear a
+   * troca do nome da loja — campos sem relação nenhuma entre si. Aqui
+   * cada bloco tem seu botão e seu recado.
    */
   function saveSchedule() {
     setError(null);
@@ -310,7 +310,7 @@ export function StoreSettings({
   function changeStatus(next: StoreStatus) {
     setError(null);
     const previous = status;
-    // Otimista: a troca de status Ã© reversÃ­vel e o servidor confirma
+    // Otimista: a troca de status é reversível e o servidor confirma
     // logo em seguida. Se falhar, o valor volta ao anterior.
     setStatus(next);
 
@@ -330,17 +330,17 @@ export function StoreSettings({
   return (
     <div className="space-y-4">
       {error && (
-        <Alert tone="danger" title="NÃ£o foi possÃ­vel salvar">
+        <Alert tone="danger" title="Não foi possível salvar">
           {error}
         </Alert>
       )}
       {saved && !error && (
-        <Alert tone="success" title="AlteraÃ§Ãµes salvas">
-          A vitrine pÃºblica jÃ¡ reflete o que foi alterado.
+        <Alert tone="success" title="Alterações salvas">
+          A vitrine pública já reflete o que foi alterado.
         </Alert>
       )}
 
-      {/* â”€â”€ Status da loja â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Status da loja ─────────────────────────────────────────── */}
       <Card>
         <CardHeader
           title="Status da loja"
@@ -372,16 +372,16 @@ export function StoreSettings({
 
         {!canChangeStatus && (
           <p className="mt-3 text-[0.74rem] text-ink-400">
-            Seu perfil nÃ£o pode alterar o status da loja.
+            Seu perfil não pode alterar o status da loja.
           </p>
         )}
       </Card>
 
-      {/* â”€â”€ EndereÃ§o pÃºblico â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Endereço público ───────────────────────────────────────── */}
       <Card>
         <CardHeader
           title="Sua loja na internet"
-          subtitle="Este Ã© o endereÃ§o que o cliente acessa para pedir."
+          subtitle="Este é o endereço que o cliente acessa para pedir."
         />
         <div className="flex flex-wrap items-center gap-3">
           <code className="min-w-0 flex-1 truncate rounded border border-ink-200 bg-ink-50 px-3.5 py-2.5 text-[0.82rem] text-ink-700">
@@ -404,8 +404,8 @@ export function StoreSettings({
           </Link>
         </div>
         <p className="mt-2.5 text-[0.74rem] text-ink-500">
-          O endereÃ§o Ã© derivado do nome e muda junto com ele. Se o novo endereÃ§o jÃ¡ estiver em uso
-          por outra loja, o sistema adiciona um nÃºmero no final em vez de recusar a alteraÃ§Ã£o.
+          O endereço é derivado do nome e muda junto com ele. Se o novo endereço já estiver em uso
+          por outra loja, o sistema adiciona um número no final em vez de recusar a alteração.
         </p>
       </Card>
 
@@ -414,8 +414,8 @@ export function StoreSettings({
         onChange={setTab}
         tabs={[
           { value: 'identity', label: 'Identidade' },
-          { value: 'address', label: 'EndereÃ§o' },
-          { value: 'hours', label: 'HorÃ¡rios' },
+          { value: 'address', label: 'Endereço' },
+          { value: 'hours', label: 'Horários' },
           { value: 'delivery', label: 'Entrega' },
         ]}
       />
@@ -442,7 +442,7 @@ export function StoreSettings({
                 />
               </Field>
 
-              <Field label="Tipo de negÃ³cio" hint="Muda as sugestÃµes e os textos da vitrine.">
+              <Field label="Tipo de negócio" hint="Muda as sugestões e os textos da vitrine.">
                 <Select
                   value={form.businessType}
                   onChange={(e) => set('businessType', e.target.value)}
@@ -458,7 +458,7 @@ export function StoreSettings({
 
               <Field
                 label="Cor da marca"
-                hint="Usada no painel, nos botÃµes e no topo da vitrine."
+                hint="Usada no painel, nos botões e no topo da vitrine."
               >
                 <div className="flex items-center gap-2.5">
                   <input
@@ -481,21 +481,21 @@ export function StoreSettings({
 
               <Field
                 label="Logo"
-                hint="URL pÃºblica da imagem. O upload direto entra quando o storage estiver configurado."
+                hint="URL pública da imagem. O upload direto entra quando o storage estiver configurado."
                 error={fieldError === 'logoUrl' ? error ?? undefined : undefined}
               >
                 <Input
                   value={form.logoUrl ?? ''}
                   onChange={(e) => set('logoUrl', e.target.value || null)}
-                  placeholder="https://â€¦"
+                  placeholder="https://…"
                   disabled={!canManage}
                 />
               </Field>
             </div>
 
             <Field
-              label="DescriÃ§Ã£o"
-              hint="Aparece no topo da vitrine. Sem descriÃ§Ã£o, usamos a frase do seu segmento."
+              label="Descrição"
+              hint="Aparece no topo da vitrine. Sem descrição, usamos a frase do seu segmento."
             >
               <Textarea
                 value={form.description ?? ''}
@@ -515,7 +515,7 @@ export function StoreSettings({
                   disabled={!canManage}
                 />
               </Field>
-              <Field label="WhatsApp" hint="Usado no botÃ£o de contato da vitrine.">
+              <Field label="WhatsApp" hint="Usado no botão de contato da vitrine.">
                 <Input
                   value={form.whatsapp ?? ''}
                   onChange={(e) => set('whatsapp', e.target.value || null)}
@@ -535,8 +535,8 @@ export function StoreSettings({
 
             {copy && (
               <Alert tone="neutral">
-                Como <strong>{copy.noun}</strong>, a vitrine abre com a frase â€œ{copy.description}â€.
-                A sua descriÃ§Ã£o acima tem prioridade.
+                Como <strong>{copy.noun}</strong>, a vitrine abre com a frase “{copy.description}”.
+                A sua descrição acima tem prioridade.
               </Alert>
             )}
           </>
@@ -545,7 +545,7 @@ export function StoreSettings({
         {tab === 'address' && (
           <>
             <CardHeader
-              title="EndereÃ§o e horÃ¡rio"
+              title="Endereço e horário"
               subtitle="Aparece na vitrine e no comprovante dos pedidos."
             />
 
@@ -557,7 +557,7 @@ export function StoreSettings({
                   disabled={!canManage}
                 />
               </Field>
-              <Field label="NÃºmero">
+              <Field label="Número">
                 <Input
                   value={form.addressNumber ?? ''}
                   onChange={(e) => set('addressNumber', e.target.value || null)}
@@ -612,9 +612,9 @@ export function StoreSettings({
             </Field>
 
             <Alert tone="neutral">
-              O status <strong>Aberta / Pausada / Fechada</strong> nÃ£o Ã© automÃ¡tico pelo horÃ¡rio â€”
-              quem decide Ã© vocÃª, na primeira seÃ§Ã£o desta pÃ¡gina. Assim uma sexta cheia nÃ£o derruba
-              a vitrine por causa de um horÃ¡rio mal cadastrado.
+              O status <strong>Aberta / Pausada / Fechada</strong> não é automático pelo horário —
+              quem decide é você, na primeira seção desta página. Assim uma sexta cheia não derruba
+              a vitrine por causa de um horário mal cadastrado.
             </Alert>
           </>
         )}
@@ -622,8 +622,8 @@ export function StoreSettings({
         {tab === 'hours' && (
           <>
             <CardHeader
-              title="HorÃ¡rios de funcionamento"
-              subtitle="Um dia pode ter mais de um perÃ­odo â€” almoÃ§o e jantar, por exemplo."
+              title="Horários de funcionamento"
+              subtitle="Um dia pode ter mais de um período — almoço e jantar, por exemplo."
             />
 
             <ScheduleEditor
@@ -637,7 +637,7 @@ export function StoreSettings({
                 Salvo aqui, o resumo vai sozinho para o texto que a vitrine mostra.
               </p>
               <Button loading={pending} onClick={saveSchedule} disabled={!canManage}>
-                Salvar horÃ¡rios
+                Salvar horários
               </Button>
             </div>
           </>
@@ -647,36 +647,32 @@ export function StoreSettings({
           <>
             <CardHeader
               title="Entrega"
-              subtitle="Regras que valem na vitrine e no cÃ¡lculo do frete."
+              subtitle="Regras que valem na vitrine e no cálculo do frete."
             />
 
-            {/* â”€â”€ Modalidades de atendimento (4.22) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── Modalidades de atendimento (4.22) ─────────────────── */}
             <div className="mb-4 space-y-2">
               <Modality
                 checked={form.allowPickup}
                 onChange={(v) => set('allowPickup', v)}
                 disabled={!canManage}
-                label="Retirada no balcÃ£o"
-                hint="O cliente busca no endereÃ§o da loja. Nesse caso o frete Ã© zero."
+                label="Retirada no balcão"
+                hint="O cliente busca no endereço da loja. Nesse caso o frete é zero."
               />
               <Modality
                 checked={form.allowOwnDelivery}
                 onChange={(v) => set('allowOwnDelivery', v)}
                 disabled={!canManage}
-                label="Entrega prÃ³pria"
-                hint="VocÃª entrega com a sua equipe. O frete segue as regras abaixo."
+                label="Entrega própria"
+                hint="Você entrega com a sua equipe. O frete segue as regras abaixo."
               />
-              <Modality
-                checked={form.allowMarketplace}
-                onChange={(v) => set('allowMarketplace', v)}
-                disabled={!canManage}
-                label="Entrega por parceiro (marketplace)"
-                hint="iFood, 99Food e ZÃ© Delivery ainda nÃ£o tÃªm integraÃ§Ã£o. Ligar aqui sÃ³ sinaliza a intenÃ§Ã£o â€” nenhum pedido entra por esses canais enquanto o adapter nÃ£o existir."
-              />
+              <p className="rounded-lg border border-ink-100 px-4 py-3 text-sm text-ink-500">
+                Canais parceiros são administrados pela plataforma. A disponibilidade será informada após a conexão do serviço.
+              </p>
             </div>
 
             <div className="grid gap-x-4 sm:grid-cols-2">
-              <Field label="Pedido mÃ­nimo" hint="Zero libera qualquer valor.">
+              <Field label="Pedido mínimo" hint="Zero libera qualquer valor.">
                 <MoneyInput
                   value={money(form.minimumOrder)}
                   onChange={(e) => set('minimumOrder', parseMoney(e.target.value))}
@@ -684,7 +680,7 @@ export function StoreSettings({
                 />
               </Field>
 
-              <Field label="Taxa base de entrega" hint="Valor cobrado antes do cÃ¡lculo por km.">
+              <Field label="Taxa base de entrega" hint="Valor cobrado antes do cálculo por km.">
                 <MoneyInput
                   value={money(form.baseDeliveryFee)}
                   onChange={(e) => set('baseDeliveryFee', parseMoney(e.target.value))}
@@ -692,7 +688,7 @@ export function StoreSettings({
                 />
               </Field>
 
-              <Field label="Valor por km excedente" hint="Somado Ã  taxa base alÃ©m do raio incluso.">
+              <Field label="Valor por km excedente" hint="Somado à taxa base além do raio incluso.">
                 <MoneyInput
                   value={money(form.extraKmFee)}
                   onChange={(e) => set('extraKmFee', parseMoney(e.target.value))}
@@ -700,7 +696,7 @@ export function StoreSettings({
                 />
               </Field>
 
-              <Field label="Raio de entrega (km)" hint="Fora do raio, o endereÃ§o Ã© recusado.">
+              <Field label="Raio de entrega (km)" hint="Fora do raio, o endereço é recusado.">
                 <Input
                   value={String(form.deliveryRadius)}
                   onChange={(e) => set('deliveryRadius', Number(e.target.value) || 0)}
@@ -710,8 +706,8 @@ export function StoreSettings({
               </Field>
 
               <Field
-                label="Tempo mÃ©dio de entrega (min)"
-                hint="Aparece no topo da vitrine. Ã‰ estimativa, nÃ£o promessa."
+                label="Tempo médio de entrega (min)"
+                hint="Aparece no topo da vitrine. É estimativa, não promessa."
               >
                 <Input
                   value={String(form.averageDeliveryTime)}
@@ -722,10 +718,10 @@ export function StoreSettings({
               </Field>
             </div>
 
-            {/* â”€â”€ Modo de taxa (Fase 3) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── Modo de taxa (Fase 3) ─────────────────────────────── */}
             <Field
-              label="Como o frete Ã© calculado"
-              hint="Uma Ãºnica regra vale na vitrine, no checkout e no mapa da expediÃ§Ã£o."
+              label="Como o frete é calculado"
+              hint="Uma única regra vale na vitrine, no checkout e no mapa da expedição."
             >
               <Select
                 value={form.deliveryFeeMode}
@@ -739,11 +735,11 @@ export function StoreSettings({
               >
                 <option value="FIXED">Taxa fixa + valor por km excedente</option>
                 <option value="BY_NEIGHBORHOOD">Taxa por bairro</option>
-                <option value="BY_DISTANCE_BAND">Taxa por faixa de distÃ¢ncia</option>
+                <option value="BY_DISTANCE_BAND">Taxa por faixa de distância</option>
               </Select>
             </Field>
 
-            {/* â”€â”€ Bairros e taxas (Fase 3) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── Bairros e taxas (Fase 3) ──────────────────────────── */}
             {form.deliveryFeeMode === 'BY_NEIGHBORHOOD' && (
               <DeliveryZones
                 zones={form.deliveryZones}
@@ -754,7 +750,7 @@ export function StoreSettings({
               />
             )}
 
-            {/* â”€â”€ Faixas por distÃ¢ncia (4.22 / Fase 3) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── Faixas por distância (4.22 / Fase 3) ──────────────── */}
             {form.deliveryFeeMode === 'BY_DISTANCE_BAND' && (
               <DeliveryTiers
                 tiers={form.deliveryTiers}
@@ -763,7 +759,7 @@ export function StoreSettings({
               />
             )}
 
-            {/* â”€â”€ LocalizaÃ§Ã£o e Ã¡rea de entrega (Fase 3) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {/* ── Localização e área de entrega (Fase 3) ─────────────── */}
             <DeliveryAreaMap
               latitude={form.latitude}
               longitude={form.longitude}
@@ -777,23 +773,23 @@ export function StoreSettings({
             <Alert tone="info">
               {form.deliveryFeeMode === 'FIXED' && (
                 <>
-                  VocÃª entrega em atÃ© <strong>{form.deliveryRadius} km</strong>. A taxa Ã©{' '}
+                  Você entrega em até <strong>{form.deliveryRadius} km</strong>. A taxa é{' '}
                   <strong>{formatBRL(form.baseDeliveryFee)}</strong> dentro do raio, somando{' '}
-                  <strong>{formatBRL(form.extraKmFee)}</strong> por km excedente. O cÃ¡lculo pela
-                  distÃ¢ncia real acontece quando a loja e o endereÃ§o tÃªm coordenadas â€” sem
+                  <strong>{formatBRL(form.extraKmFee)}</strong> por km excedente. O cálculo pela
+                  distância real acontece quando a loja e o endereço têm coordenadas — sem
                   coordenada, vale a taxa base.
                 </>
               )}
               {form.deliveryFeeMode === 'BY_NEIGHBORHOOD' && (
                 <>
-                  O frete sai da taxa de cada bairro. O endereÃ§o que nÃ£o estiver em nenhum bairro
-                  ativo Ã© recusado no checkout. DistÃ¢ncia e coordenada do bairro sÃ£o informativas
-                  (mapa) â€” nÃ£o mudam o preÃ§o.
+                  O frete sai da taxa de cada bairro. O endereço que não estiver em nenhum bairro
+                  ativo é recusado no checkout. Distância e coordenada do bairro são informativas
+                  (mapa) — não mudam o preço.
                 </>
               )}
               {form.deliveryFeeMode === 'BY_DISTANCE_BAND' && (
                 <>
-                  O frete sai da faixa que alcanÃ§a a distÃ¢ncia do endereÃ§o. Sem faixas cadastradas,
+                  O frete sai da faixa que alcança a distância do endereço. Sem faixas cadastradas,
                   vale a taxa base.
                 </>
               )}
@@ -802,8 +798,8 @@ export function StoreSettings({
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-4">
               <p className="text-[0.74rem] text-ink-400">
                 {summarizeSchedule(form.schedule)
-                  ? 'O horÃ¡rio de funcionamento fica na aba HorÃ¡rios.'
-                  : 'VocÃª ainda nÃ£o definiu horÃ¡rios.'}
+                  ? 'O horário de funcionamento fica na aba Horários.'
+                  : 'Você ainda não definiu horários.'}
               </p>
               <Button loading={pending} onClick={saveDelivery} disabled={!canManage}>
                 Salvar entrega
@@ -812,8 +808,8 @@ export function StoreSettings({
           </>
         )}
 
-        {/* Identidade e endereÃ§o continuam no botÃ£o Ãºnico: sÃ£o campos
-            soltos, e salvar junto nÃ£o cria dependÃªncia entre eles. */}
+        {/* Identidade e endereço continuam no botão único: são campos
+            soltos, e salvar junto não cria dependência entre eles. */}
         {canManage && (tab === 'identity' || tab === 'address') && (
           <div className="mt-5 flex justify-end gap-2.5 border-t border-ink-100 pt-4">
             <Button
@@ -828,7 +824,7 @@ export function StoreSettings({
               Descartar
             </Button>
             <Button loading={pending} onClick={save}>
-              Salvar alteraÃ§Ãµes
+              Salvar alterações
             </Button>
           </div>
         )}
@@ -875,11 +871,11 @@ function Modality({
 }
 
 /**
- * Faixas de frete por distÃ¢ncia.
+ * Faixas de frete por distância.
  *
- * EdiÃ§Ã£o por lista, sem drag-and-drop: subir/descer e remover. A ordenaÃ§Ã£o
- * final Ã© feita no servidor (por km crescente), porque uma faixa fora de
- * ordem daria um frete errado â€” e o cliente nÃ£o deve poder causar isso.
+ * Edição por lista, sem drag-and-drop: subir/descer e remover. A ordenação
+ * final é feita no servidor (por km crescente), porque uma faixa fora de
+ * ordem daria um frete errado — e o cliente não deve poder causar isso.
  */
 function DeliveryTiers({
   tiers,
@@ -894,9 +890,9 @@ function DeliveryTiers({
     <div className="mt-2 rounded-lg border border-ink-200 p-3.5">
       <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[0.84rem] font-semibold text-ink-800">Faixas por distÃ¢ncia</p>
+          <p className="text-[0.84rem] font-semibold text-ink-800">Faixas por distância</p>
           <p className="text-[0.74rem] text-ink-500">
-            Opcional. Se vocÃª nÃ£o usar faixas, vale a taxa base acima.
+            Opcional. Se você não usar faixas, vale a taxa base acima.
           </p>
         </div>
         <Button
@@ -912,7 +908,7 @@ function DeliveryTiers({
 
       {tiers.length === 0 ? (
         <p className="py-2 text-[0.78rem] text-ink-400">
-          Nenhuma faixa. O frete Ã© a taxa base, sem variaÃ§Ã£o por distÃ¢ncia.
+          Nenhuma faixa. O frete é a taxa base, sem variação por distância.
         </p>
       ) : (
         <ul className="space-y-2">
@@ -920,7 +916,7 @@ function DeliveryTiers({
             <li key={index} className="flex flex-wrap items-end gap-2">
               <div className="w-[130px]">
                 <label className="field-label" htmlFor={`tier-km-${index}`}>
-                  AtÃ© (km)
+                  Até (km)
                 </label>
                 <Input
                   id={`tier-km-${index}`}
@@ -970,7 +966,7 @@ function DeliveryTiers({
   );
 }
 
-/** PrÃ³ximo limite sugerido, para nÃ£o repetir a mesma faixa. */
+/** Próximo limite sugerido, para não repetir a mesma faixa. */
 function tierSuggestion(tiers: Array<{ upToKm: number }>): number {
   const last = tiers[tiers.length - 1];
   return last ? Math.round((last.upToKm + 2) * 10) / 10 : 3;
@@ -985,10 +981,10 @@ function parseMoney(value: string): number {
 /**
  * Bairros com taxa de entrega.
  *
- * A lista Ã© editada linha a linha, sem arrastar. DistÃ¢ncia e coordenada
- * sÃ£o opcionais e informativas (desenho do mapa), nunca a fonte do preÃ§o:
- * o preÃ§o Ã© a taxa digitada. O nome do bairro Ã© o que o cliente informa no
- * checkout â€” por isso nÃ£o pode haver dois bairros com o mesmo nome.
+ * A lista é editada linha a linha, sem arrastar. Distância e coordenada
+ * são opcionais e informativas (desenho do mapa), nunca a fonte do preço:
+ * o preço é a taxa digitada. O nome do bairro é o que o cliente informa no
+ * checkout — por isso não pode haver dois bairros com o mesmo nome.
  */
 type ZoneRow = {
   id?: string;
@@ -1037,7 +1033,7 @@ function DeliveryZones({
       <div className="mb-2.5">
         <p className="text-[0.84rem] font-semibold text-ink-800">Bairros atendidos</p>
         <p className="text-[0.74rem] text-ink-500">
-          Cada bairro tem a prÃ³pria taxa. O cliente sÃ³ Ã© atendido se o bairro dele estiver aqui e
+          Cada bairro tem a própria taxa. O cliente só é atendido se o bairro dele estiver aqui e
           ativo.
         </p>
       </div>
@@ -1045,7 +1041,7 @@ function DeliveryZones({
       <ul className="space-y-2">
         {zones.length === 0 && (
           <li className="py-1 text-[0.78rem] text-ink-400">
-            Nenhum bairro cadastrado. O checkout recusa entregas atÃ© vocÃª cadastrar ao menos um.
+            Nenhum bairro cadastrado. O checkout recusa entregas até você cadastrar ao menos um.
           </li>
         )}
         {zones.map((zone) =>

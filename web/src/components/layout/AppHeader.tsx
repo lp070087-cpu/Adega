@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui';
+import { Bell, ChevronDown, Menu } from 'lucide-react';
 import { logoutAction } from '@/app/actions/auth';
 import { setStoreStatusAction } from '@/app/actions/organization';
 
@@ -70,7 +70,7 @@ export function AppHeader({
         aria-label="Abrir menu"
         className="flex h-9 w-9 items-center justify-center rounded-sm text-ink-600 transition-all hover:bg-ink-100 lg:hidden"
       >
-        ☰
+        <Menu aria-hidden="true" className="h-5 w-5" />
       </button>
 
       <div className="min-w-0 flex-1">
@@ -97,7 +97,7 @@ export function AppHeader({
               <option value="CLOSED">Loja fechada</option>
             </select>
             <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[0.6rem]">
-              ▾
+              <ChevronDown className="h-3.5 w-3.5" />
             </span>
           </div>
         ) : (
@@ -120,9 +120,10 @@ export function AppHeader({
               setShowUser(false);
             }}
             aria-label="Notificações"
+            aria-expanded={showAlerts}
             className="relative flex h-9 w-9 items-center justify-center rounded-sm text-[1.05rem] text-ink-600 transition-all hover:bg-ink-100"
           >
-            🔔
+            <Bell aria-hidden="true" className="h-[19px] w-[19px]" />
             {notifications.length > 0 && (
               <span className="absolute right-1 top-1 min-w-[16px] rounded-full bg-brand px-1 text-center text-[0.6rem] font-bold text-white">
                 {notifications.length}
@@ -131,7 +132,7 @@ export function AppHeader({
           </button>
 
           {showAlerts && (
-            <div className="absolute right-0 top-11 w-[320px] rounded-lg border border-ink-200 bg-white p-2 shadow-lg animate-fade-in">
+            <div className="absolute right-0 top-11 w-[min(320px,calc(100vw-2rem))] max-h-[65dvh] overflow-y-auto rounded-lg border border-ink-200 bg-white p-2 shadow-lg animate-fade-in">
               <p className="px-2 py-1.5 text-[0.72rem] font-bold uppercase tracking-wide text-ink-400">
                 Notificações
               </p>
@@ -162,6 +163,8 @@ export function AppHeader({
               setShowUser((v) => !v);
               setShowAlerts(false);
             }}
+            aria-expanded={showUser}
+            aria-label="Menu da conta"
             className="flex items-center gap-2 rounded-full border border-ink-200 py-1 pl-1 pr-3 transition-all hover:border-brand"
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-[0.68rem] font-bold text-white">

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { Package } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { productImageCandidates } from '@/lib/catalog-images';
 
@@ -65,7 +66,6 @@ export function ProductThumb({
   globalImageUrl,
   basePath,
   preferBasePath = false,
-  emoji,
   alt,
   size = 48,
   className,
@@ -73,8 +73,8 @@ export function ProductThumb({
 }: ProductThumbProps) {
   // Lista de URLs a tentar, na ordem de precedência.
   const candidates = React.useMemo(
-    () => productImageCandidates({ customImageUrl, globalImageUrl, basePath, preferBasePath }),
-    [customImageUrl, globalImageUrl, basePath, preferBasePath],
+    () => productImageCandidates({ customImageUrl, globalImageUrl, basePath, preferBasePath, productName: alt }),
+    [customImageUrl, globalImageUrl, basePath, preferBasePath, alt],
   );
 
   const [index, setIndex] = React.useState(0);
@@ -104,9 +104,7 @@ export function ProductThumb({
       role={showFallback ? 'img' : undefined}
     >
       {showFallback ? (
-        <span style={{ fontSize: size * 0.45 }} aria-hidden="true">
-          {emoji || '📦'}
-        </span>
+        <Package size={Math.min(40, size * 0.45)} strokeWidth={1.2} className="text-ink-300" aria-hidden="true" />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -121,7 +119,7 @@ export function ProductThumb({
           height={size}
           loading="lazy"
           decoding="async"
-          className="h-full w-full object-cover"
+          className="h-full w-full object-contain"
           onError={() => setIndex((current) => Math.min(current + 1, candidates.length))}
         />
       )}

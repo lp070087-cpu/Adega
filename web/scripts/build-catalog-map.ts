@@ -85,7 +85,6 @@ const IMAGE_MAP: Record<string, string> = {
   'Product_26894_ca2b8da7-11f3-4fad-908a-ac8fd1f2bd30': 'Stella Artois Lata 350ml',
   'Product_8753_6d866c7f-a71c-46fa-9d39-14561549b110': 'Skol Litrão 1L',
   'Product_8771_a943eadd-ced3-4281-a9e3-25055b8d4253': 'Original Garrafa 600ml',
-  'f71ace83-original-lata-473ml': 'Original Lata 350ml',
   '00027292_a2eae1d8-c122-482d-8758-c38f4c8a8dd6': 'Amstel Lata 350ml',
   'Product_90571_ae3ad9dc-7ec3-437f-a628-db8e7f2b7cbe': 'Skol Fardo 12 Latas 350ml',
   'Product_38145_510c6fea-171c-4154-ab3a-8fa94ee6b46e': 'Brahma Fardo 12 Latas 350ml',
