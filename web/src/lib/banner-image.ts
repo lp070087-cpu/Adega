@@ -206,3 +206,15 @@ export function validateBannerImagePath(value: string | null | undefined): strin
     'Envie um arquivo pelo formulário, escolha uma imagem do acervo, ou informe uma URL http(s).',
   );
 }
+
+/** Registros antigos inválidos não devem produzir um slide vazio na vitrine. */
+export function renderableBanners<T extends { imagePath: string }>(banners: readonly T[], failedPaths: readonly string[] = []): T[] {
+  return banners.flatMap((banner) => {
+    try {
+      const imagePath = validateBannerImagePath(banner.imagePath);
+      return imagePath && !failedPaths.includes(imagePath) ? [{ ...banner, imagePath }] : [];
+    } catch {
+      return [];
+    }
+  });
+}

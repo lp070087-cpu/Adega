@@ -69,9 +69,7 @@ const IMAGE_MAP: Record<string, string> = {
   // inteira de erro.
 
   // ── Cervejas ────────────────────────────────────────────────────────
-  // Foto é a lata de 473ml; o produto da biblioteca é a de 350ml — mesma
-  // linha Brahma Chopp, então serve. Fica registrado que o volume difere.
-  'Product_8517_7be09571-d8ed-486e-bad6-58ee843739be': 'Brahma Chopp Lata 350ml',
+  // Brahma Chopp supplier photo is 473ml; never map it to the 350ml product.
   'Product_16652_c9f6e250-8c73-451c-90a4-63a4fcb88041': 'Spaten Long Neck 355ml',
   'Product_12884_d539af7a-3b8e-448e-a41f-e529f683f247': 'Spaten Lata 350ml',
   '00009991_73e9b9f8-3d70-4136-80b3-28373f62c841': 'Heineken Lata 350ml',
@@ -122,7 +120,7 @@ const IMAGE_MAP: Record<string, string> = {
 
   // ── Conveniência ────────────────────────────────────────────────────
   '00009702_50936fc9-3ca9-4e01-80dd-5f20420f5a10': 'Chocolate Lacta Ao Leite 80g',
-  '00009705_1b525e97-fd24-424e-ae0b-e6c1097ee9db': 'Chocolate Lacta Shot 40g',
+  // Lacta Shot supplier photo is 80g; never map it to the 40g product.
   '00025978_5d5f899b-736f-448c-8986-0f8aafce9454': 'Salgadinho Doritos Queijo 140g',
 };
 

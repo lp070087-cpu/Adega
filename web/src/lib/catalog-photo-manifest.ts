@@ -3,7 +3,6 @@ export const CATALOG_PHOTOS: Record<string, string> = {
   // Original approved storefront assets; brand/package checked against loja-data.js.
   "brahma-litrao-1l": "/catalog/bebidas/cervejas/brahma-litrao-1l.jpg",
   "brahma-litrinho-300ml": "/catalog/bebidas/cervejas/brahma-litrinho-300ml.jpg",
-  "brahma-chopp-lata-350ml": "/catalog/bebidas/cervejas/brahma-chopp-lata-350ml.jpeg",
   "amstel-lata-350ml": "/catalog/bebidas/cervejas/amstel-lata-350ml.jpeg",
   "brahma-fardo-12-latas-350ml": "/catalog/bebidas/cervejas/brahma-fardo-12-latas-350ml.jpeg",
   "budweiser-lata-350ml": "/catalog/bebidas/cervejas/budweiser-lata-350ml.jpeg",
@@ -16,6 +15,7 @@ export const CATALOG_PHOTOS: Record<string, string> = {
   "original-garrafa-600ml": "/catalog/bebidas/cervejas/original-garrafa-600ml.jpeg",
   "skol-fardo-12-latas-350ml": "/catalog/bebidas/cervejas/skol-fardo-12-latas-350ml.jpeg",
   "skol-litrao-1l": "/catalog/bebidas/cervejas/skol-litrao-1l.jpeg",
+  "skol-garrafa-600ml": "/catalog/bebidas/cervejas/skol-garrafa-600ml.jpg",
   "spaten-lata-350ml": "/catalog/bebidas/cervejas/spaten-lata-350ml.jpeg",
   "spaten-long-neck-355ml": "/catalog/bebidas/cervejas/spaten-long-neck-355ml.jpeg",
   "stella-artois-lata-350ml": "/catalog/bebidas/cervejas/stella-artois-lata-350ml.jpeg",
@@ -42,5 +42,6 @@ export const CATALOG_PHOTOS: Record<string, string> = {
   "whisky-red-label-1l": "/catalog/bebidas/whisky/whisky-red-label-1l.jpeg",
   "whisky-white-horse-1l": "/catalog/bebidas/whisky/whisky-white-horse-1l.jpeg",
   "chocolate-lacta-ao-leite-80g": "/catalog/conveniencia/chocolates/chocolate-lacta-ao-leite-80g.jpeg",
+  "chocolate-lacta-oreo-80g": "/catalog/conveniencia/chocolates/chocolate-lacta-oreo-80g.jpeg",
   "salgadinho-doritos-queijo-140g": "/catalog/conveniencia/salgadinhos/salgadinho-doritos-queijo-140g.jpeg"
 };

@@ -15,6 +15,7 @@ import { normalizeSchedule, storeOpenState, type WeekdaySchedule } from '@/lib/s
 import { formatBRL } from '@/lib/utils';
 import type { BusinessType } from '@prisma/client';
 import { getCommercialAccess } from '@/lib/platform/access';
+import { selectHeroProducts } from '@/lib/store-hero-products';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -118,7 +119,9 @@ export default async function PublicStorePage({ params }: PageProps) {
   const openState = storeOpenState(store.storeStatus, schedule);
   const commercial = await getCommercialAccess(store.id);
 
-  const heroProducts = featured.map((product) => ({
+  // Sem destaques configurados, mostrar produtos reais do próprio catálogo.
+  // Isso não cria promoção nem associa um banner à organização.
+  const heroProducts = selectHeroProducts(featured, catalog.products).map((product) => ({
     id: product.id,
     name: product.name,
     emoji: product.emoji,

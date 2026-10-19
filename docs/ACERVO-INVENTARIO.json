@@ -1,0 +1,1384 @@
+{
+  "groups": [
+    {
+      "folder": "biblioteca-produtos",
+      "files": 221,
+      "bytes": 973436,
+      "extensions": {
+        ".jpeg": 218,
+        ".png": 2,
+        ".webp": 1
+      },
+      "uniqueByteContents": 207,
+      "identicalCopies": 14,
+      "duplicateGroups": [
+        [
+          "biblioteca-produtos\\category_novidades (1).png",
+          "biblioteca-produtos\\category_novidades.png"
+        ],
+        [
+          "biblioteca-produtos\\Product_21245_55f25120-0619-4c2d-acae-470f043a511b (1).jpeg",
+          "biblioteca-produtos\\Product_41606_9ecb783e-76e9-410f-98bf-a818465d3fc3 (1).jpeg"
+        ],
+        [
+          "biblioteca-produtos\\Product_21245_55f25120-0619-4c2d-acae-470f043a511b.jpeg",
+          "biblioteca-produtos\\Product_29351_63240611-b13b-43f9-9990-ee41e190504d (1).jpeg",
+          "biblioteca-produtos\\Product_41606_9ecb783e-76e9-410f-98bf-a818465d3fc3.jpeg"
+        ],
+        [
+          "biblioteca-produtos\\Product_21246_8a997c0e-74c7-488d-a7b2-b11b88f71218 (1).jpeg",
+          "biblioteca-produtos\\Product_21247_41d5cc7d-338a-4a35-84e2-db66c5df003a (1).jpeg",
+          "biblioteca-produtos\\Product_36936_b58bce95-c140-4017-90a0-5dc7be3b0d87.jpeg"
+        ],
+        [
+          "biblioteca-produtos\\Product_21246_8a997c0e-74c7-488d-a7b2-b11b88f71218.jpeg",
+          "biblioteca-produtos\\Product_29351_63240611-b13b-43f9-9990-ee41e190504d.jpeg"
+        ],
+        [
+          "biblioteca-produtos\\Product_21247_41d5cc7d-338a-4a35-84e2-db66c5df003a.jpeg",
+          "biblioteca-produtos\\Product_36936_b58bce95-c140-4017-90a0-5dc7be3b0d87 (1).jpeg"
+        ],
+        [
+          "biblioteca-produtos\\Product_8725_3e3e8404-cbae-4f8d-b0f1-1bbc978efc58 (1).jpeg",
+          "biblioteca-produtos\\Product_8726_7e6129c2-ee2d-45f9-83d2-20a2ad934e9f.jpeg"
+        ],
+        [
+          "biblioteca-produtos\\Product_8725_3e3e8404-cbae-4f8d-b0f1-1bbc978efc58.jpeg",
+          "biblioteca-produtos\\Product_8726_7e6129c2-ee2d-45f9-83d2-20a2ad934e9f (1).jpeg"
+        ],
+        [
+          "biblioteca-produtos\\Product_8734_ea1bbae1-15bb-41e1-bbe7-b39d96556bfa (1).jpeg",
+          "biblioteca-produtos\\Product_8735_5675f227-87db-497c-9c61-2ffb10fb3272 (1).jpeg"
+        ],
+        [
+          "biblioteca-produtos\\Product_8734_ea1bbae1-15bb-41e1-bbe7-b39d96556bfa.jpeg",
+          "biblioteca-produtos\\Product_8735_5675f227-87db-497c-9c61-2ffb10fb3272.jpeg"
+        ],
+        [
+          "biblioteca-produtos\\Product_8761_d3edcebd-4e3a-43b2-930c-90d466a122d9 (1).jpeg",
+          "biblioteca-produtos\\Product_8762_356714ba-ddb2-4aa1-9726-a73f57804ba0 (1).jpeg"
+        ],
+        [
+          "biblioteca-produtos\\Product_8761_d3edcebd-4e3a-43b2-930c-90d466a122d9.jpeg",
+          "biblioteca-produtos\\Product_8762_356714ba-ddb2-4aa1-9726-a73f57804ba0.jpeg"
+        ]
+      ]
+    },
+    {
+      "folder": "public/catalog",
+      "files": 50,
+      "bytes": 9129472,
+      "extensions": {
+        ".png": 4,
+        ".jpeg": 42,
+        ".jpg": 3,
+        ".webp": 1
+      },
+      "uniqueByteContents": 50,
+      "identicalCopies": 0,
+      "duplicateGroups": []
+    },
+    {
+      "folder": "../Public produtos",
+      "files": 14,
+      "bytes": 9524891,
+      "extensions": {
+        ".png": 4,
+        ".jpg": 9,
+        ".webp": 1
+      },
+      "uniqueByteContents": 14,
+      "identicalCopies": 0,
+      "duplicateGroups": []
+    },
+    {
+      "folder": "Banneres public",
+      "files": 4,
+      "bytes": 8551762,
+      "extensions": {
+        ".png": 4
+      },
+      "uniqueByteContents": 4,
+      "identicalCopies": 0,
+      "duplicateGroups": []
+    }
+  ],
+  "deployedManifest": 43,
+  "seedProducts": 356,
+  "seedProductsWithExactNamePhoto": 41,
+  "seedProductsWithoutExactNamePhoto": [
+    {
+      "name": "Skol Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Brahma Chopp Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Brahma Chopp Garrafa 600ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Brahma Duplo Malte Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Antarctica Pilsen Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Antarctica Boa Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Antarctica Sub Zero Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Original Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Heineken Garrafa 600ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Heineken Fardo 12 Long Neck",
+      "category": "cervejas"
+    },
+    {
+      "name": "Colorado Appia 600ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Colorado Ribeirão Lager 600ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Colorado Demoiselle 600ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Eisenbahn Pilsen 355ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Eisenbahn Weizenbier 500ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Baden Baden Cristal 355ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Devassa Puro Malte Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Itaipava Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Itaipava Garrafa 600ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Crystal Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Crystal Garrafa 600ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Petra Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Amstel Ultra Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Michelob Ultra Lata 350ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Therezópolis Gold 355ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Patagonia Amber Lager 355ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Blue Moon 355ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Goose Island IPA 355ml",
+      "category": "cervejas"
+    },
+    {
+      "name": "Coca-Cola Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Coca-Cola Garrafa 600ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Coca-Cola Garrafa 1L",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Coca-Cola Garrafa 2L",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Coca-Cola Zero Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Coca-Cola Zero Garrafa 2L",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Coca-Cola Fardo 12 Latas 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Guaraná Kuat Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Fanta Laranja Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Fanta Laranja Garrafa 2L",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Fanta Uva Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Sprite Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Sprite Garrafa 2L",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Schweppes Tônica Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Schweppes Citrus Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Sukita Laranja Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Dolly Guaraná Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Dolly Limão Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Tubaína Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Guaraná Jesus Lata 350ml",
+      "category": "refrigerantes"
+    },
+    {
+      "name": "Monster Energy Lata 473ml",
+      "category": "energeticos"
+    },
+    {
+      "name": "Monster Ultra Lata 473ml",
+      "category": "energeticos"
+    },
+    {
+      "name": "Monster Mango Loco 473ml",
+      "category": "energeticos"
+    },
+    {
+      "name": "TNT Energy Drink Lata 269ml",
+      "category": "energeticos"
+    },
+    {
+      "name": "Vibez Energy Drink 269ml",
+      "category": "energeticos"
+    },
+    {
+      "name": "Fusion Energy Drink 269ml",
+      "category": "energeticos"
+    },
+    {
+      "name": "Baly Energy Drink 500ml",
+      "category": "energeticos"
+    },
+    {
+      "name": "Speed Energy Drink 269ml",
+      "category": "energeticos"
+    },
+    {
+      "name": "Água Mineral Crystal 500ml",
+      "category": "aguas"
+    },
+    {
+      "name": "Água Mineral Crystal 1,5L",
+      "category": "aguas"
+    },
+    {
+      "name": "Água Mineral Crystal 5L",
+      "category": "aguas"
+    },
+    {
+      "name": "Água com Gás Crystal 500ml",
+      "category": "aguas"
+    },
+    {
+      "name": "Água Mineral Bonafont 500ml",
+      "category": "aguas"
+    },
+    {
+      "name": "Água Mineral Bonafont 1,5L",
+      "category": "aguas"
+    },
+    {
+      "name": "Água Tônica Antarctica Lata 350ml",
+      "category": "aguas"
+    },
+    {
+      "name": "Água de Coco Sococo 200ml",
+      "category": "aguas"
+    },
+    {
+      "name": "Água de Coco Kero 1L",
+      "category": "aguas"
+    },
+    {
+      "name": "Suco Del Valle Uva 1L",
+      "category": "sucos"
+    },
+    {
+      "name": "Suco Del Valle Laranja 1L",
+      "category": "sucos"
+    },
+    {
+      "name": "Suco Del Valle Maracujá 1L",
+      "category": "sucos"
+    },
+    {
+      "name": "Suco Del Valle Pêssego 1L",
+      "category": "sucos"
+    },
+    {
+      "name": "Suco Del Valle Kapo Uva 200ml",
+      "category": "sucos"
+    },
+    {
+      "name": "Suco Kapo Laranja 200ml",
+      "category": "sucos"
+    },
+    {
+      "name": "Suco Natural One Laranja 900ml",
+      "category": "sucos"
+    },
+    {
+      "name": "Suco Natural One Limão 900ml",
+      "category": "sucos"
+    },
+    {
+      "name": "Suco Prats Uva 900ml",
+      "category": "sucos"
+    },
+    {
+      "name": "Suco Maguary Maracujá 1L",
+      "category": "sucos"
+    },
+    {
+      "name": "Néctar Sufresh Pêssego 1L",
+      "category": "sucos"
+    },
+    {
+      "name": "Limonada Pronta Natural One 900ml",
+      "category": "sucos"
+    },
+    {
+      "name": "Ice Smirnoff Original 275ml",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Ice Smirnoff Green Apple 275ml",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Ice Smirnoff Pink 275ml",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Ice Smirnoff Mango 275ml",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Ice Smirnoff Fardo 6 Unidades",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Skol Beats Senorial 269ml",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Corona Sun Brew 330ml",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Stella Artois Cidra 275ml",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Vinho Branco Suave Cantinho 750ml",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Caipirinha Pronta Sagatiba 275ml",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Gin Tônica Pronta Bombay 275ml",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Whisky Cola Pronto Jack 275ml",
+      "category": "drinks-prontos"
+    },
+    {
+      "name": "Whisky Red Label 750ml",
+      "category": "whisky"
+    },
+    {
+      "name": "Whisky Black Label 1L",
+      "category": "whisky"
+    },
+    {
+      "name": "Whisky Black Label 750ml",
+      "category": "whisky"
+    },
+    {
+      "name": "Whisky Jack Daniel’s Old No.7 1L",
+      "category": "whisky"
+    },
+    {
+      "name": "Whisky Jack Daniel’s 750ml",
+      "category": "whisky"
+    },
+    {
+      "name": "Whisky Jack Daniel’s Honey 1L",
+      "category": "whisky"
+    },
+    {
+      "name": "Whisky Chivas Regal 12 Anos 1L",
+      "category": "whisky"
+    },
+    {
+      "name": "Whisky Buchanan’s Deluxe 1L",
+      "category": "whisky"
+    },
+    {
+      "name": "Whisky Ballantines Finest 1L",
+      "category": "whisky"
+    },
+    {
+      "name": "Whisky Natu Nobilis 1L",
+      "category": "whisky"
+    },
+    {
+      "name": "Vodka Absolut Original 750ml",
+      "category": "vodka"
+    },
+    {
+      "name": "Vodka Smirnoff 600ml",
+      "category": "vodka"
+    },
+    {
+      "name": "Vodka Skyy 1L",
+      "category": "vodka"
+    },
+    {
+      "name": "Vodka Ciroc 750ml",
+      "category": "vodka"
+    },
+    {
+      "name": "Vodka Grey Goose 750ml",
+      "category": "vodka"
+    },
+    {
+      "name": "Vodka Orloff 1L",
+      "category": "vodka"
+    },
+    {
+      "name": "Gin Bombay Sapphire 750ml",
+      "category": "gin"
+    },
+    {
+      "name": "Gin Beefeater 750ml",
+      "category": "gin"
+    },
+    {
+      "name": "Gin Hendrick’s 750ml",
+      "category": "gin"
+    },
+    {
+      "name": "Gin Bulldog 750ml",
+      "category": "gin"
+    },
+    {
+      "name": "Gin Amázzoni 750ml",
+      "category": "gin"
+    },
+    {
+      "name": "Gin Tônica Lata 350ml",
+      "category": "gin"
+    },
+    {
+      "name": "Vinho Tinto Periquita 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Vinho Tinto Miolo Seleção 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Vinho Tinto Salton Talento 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Vinho Tinto Pérgola 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Vinho Branco Casal Garcia 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Vinho Branco Concha y Toro 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Vinho Rosé Periquita 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Vinho Rosé Miolo 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Vinho Suave Sangue de Boi 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Vinho Suave Quinta do Morgado 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Vinho Tinto Chileno Gato Negro 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Vinho Tinto Argentino Trapiche 750ml",
+      "category": "vinho"
+    },
+    {
+      "name": "Espumante Chandon Brut 750ml",
+      "category": "espumantes"
+    },
+    {
+      "name": "Espumante Chandon Rosé 750ml",
+      "category": "espumantes"
+    },
+    {
+      "name": "Espumante Salton Rosé 750ml",
+      "category": "espumantes"
+    },
+    {
+      "name": "Espumante Miolo Brut 750ml",
+      "category": "espumantes"
+    },
+    {
+      "name": "Espumante Perrier-Jouët 750ml",
+      "category": "espumantes"
+    },
+    {
+      "name": "Espumante Freixenet Cordon Negro 750ml",
+      "category": "espumantes"
+    },
+    {
+      "name": "Espumante Prosecco Italiano 750ml",
+      "category": "espumantes"
+    },
+    {
+      "name": "Cachaça 51 965ml",
+      "category": "cachaca"
+    },
+    {
+      "name": "Cachaça 51 600ml",
+      "category": "cachaca"
+    },
+    {
+      "name": "Cachaça Velho Barreiro 965ml",
+      "category": "cachaca"
+    },
+    {
+      "name": "Cachaça Ypióca Ouro 965ml",
+      "category": "cachaca"
+    },
+    {
+      "name": "Cachaça Salinas 965ml",
+      "category": "cachaca"
+    },
+    {
+      "name": "Cachaça Seleta 965ml",
+      "category": "cachaca"
+    },
+    {
+      "name": "Cachaça Leblon 750ml",
+      "category": "cachaca"
+    },
+    {
+      "name": "Cachaça Artesanal Copa 750ml",
+      "category": "cachaca"
+    },
+    {
+      "name": "Chopp Brahma Barril 5L",
+      "category": "chopp"
+    },
+    {
+      "name": "Chopp Skol Barril 5L",
+      "category": "chopp"
+    },
+    {
+      "name": "Chopp Heineken Barril 5L",
+      "category": "chopp"
+    },
+    {
+      "name": "Chopp Artesanal IPA Growler 1L",
+      "category": "chopp"
+    },
+    {
+      "name": "Chopp Artesanal Pilsen Growler 1L",
+      "category": "chopp"
+    },
+    {
+      "name": "Gelo Tradicional 1kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo Tradicional 2kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo Tradicional 3kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo Tradicional 5kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo Tradicional 10kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo em Cubos 2kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo em Cubos 5kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo Triturado 2kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo Triturado 5kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo de Coco 1kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo Saborizado Limão 1kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo Saborizado Morango 1kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Gelo Saborizado Uva 1kg",
+      "category": "gelo"
+    },
+    {
+      "name": "Chocolate Lacta Diamante Negro 80g",
+      "category": "chocolates"
+    },
+    {
+      "name": "Chocolate Lacta Shot 40g",
+      "category": "chocolates"
+    },
+    {
+      "name": "Chocolate Nestlé Alpino 85g",
+      "category": "chocolates"
+    },
+    {
+      "name": "Chocolate Nestlé Prestígio 75g",
+      "category": "chocolates"
+    },
+    {
+      "name": "Chocolate Nestlé Crunch 85g",
+      "category": "chocolates"
+    },
+    {
+      "name": "Chocolate Garoto Talento Castanha 85g",
+      "category": "chocolates"
+    },
+    {
+      "name": "Chocolate Garoto Serenata de Amor 80g",
+      "category": "chocolates"
+    },
+    {
+      "name": "Chocolate Garoto Baton 80g",
+      "category": "chocolates"
+    },
+    {
+      "name": "Chocolate Hershey’s Cookies 92g",
+      "category": "chocolates"
+    },
+    {
+      "name": "Chocolate Ferrero Rocher 3 Unidades",
+      "category": "chocolates"
+    },
+    {
+      "name": "Chocolate Kinder Ovo 20g",
+      "category": "chocolates"
+    },
+    {
+      "name": "Chocolate Bis Laka 100g",
+      "category": "chocolates"
+    },
+    {
+      "name": "Batata Ruffles Original 100g",
+      "category": "salgadinhos"
+    },
+    {
+      "name": "Batata Ruffles Churrasco 100g",
+      "category": "salgadinhos"
+    },
+    {
+      "name": "Batata Pringles Original 104g",
+      "category": "salgadinhos"
+    },
+    {
+      "name": "Batata Pringles Cheddar 104g",
+      "category": "salgadinhos"
+    },
+    {
+      "name": "Salgadinho Cheetos Requeijão 140g",
+      "category": "salgadinhos"
+    },
+    {
+      "name": "Salgadinho Cheetos Parmesão 45g",
+      "category": "salgadinhos"
+    },
+    {
+      "name": "Salgadinho Fandangos Presunto 140g",
+      "category": "salgadinhos"
+    },
+    {
+      "name": "Amendoim Dori Torrado 100g",
+      "category": "salgadinhos"
+    },
+    {
+      "name": "Amendoim Japônes Dori 100g",
+      "category": "salgadinhos"
+    },
+    {
+      "name": "Castanha de Caju Dori 100g",
+      "category": "salgadinhos"
+    },
+    {
+      "name": "Pipoca de Micro-ondas Yoki 100g",
+      "category": "salgadinhos"
+    },
+    {
+      "name": "Bala Fini Beijos 500g",
+      "category": "doces"
+    },
+    {
+      "name": "Bala Fini Ursinhos 80g",
+      "category": "doces"
+    },
+    {
+      "name": "Bala Fini Tubes 80g",
+      "category": "doces"
+    },
+    {
+      "name": "Bala Halls Menta 26g",
+      "category": "doces"
+    },
+    {
+      "name": "Chiclete Trident Menta 8g",
+      "category": "doces"
+    },
+    {
+      "name": "Chiclete Mentos Fruit 30g",
+      "category": "doces"
+    },
+    {
+      "name": "Paçoca Amor 20g",
+      "category": "doces"
+    },
+    {
+      "name": "Pé de Moleque Yoki 30g",
+      "category": "doces"
+    },
+    {
+      "name": "Doce de Leite Marilan 400g",
+      "category": "doces"
+    },
+    {
+      "name": "Arroz Tio João Tipo 1 5kg",
+      "category": "mercearia"
+    },
+    {
+      "name": "Feijão Carioca Camil 1kg",
+      "category": "mercearia"
+    },
+    {
+      "name": "Açúcar Refinado União 1kg",
+      "category": "mercearia"
+    },
+    {
+      "name": "Café Torrado Melitta 500g",
+      "category": "mercearia"
+    },
+    {
+      "name": "Óleo de Soja Liza 900ml",
+      "category": "mercearia"
+    },
+    {
+      "name": "Macarrão Instantâneo Nissin 80g",
+      "category": "mercearia"
+    },
+    {
+      "name": "Molho de Tomate Quero 340g",
+      "category": "mercearia"
+    },
+    {
+      "name": "Leite Integral Italac 1L",
+      "category": "mercearia"
+    },
+    {
+      "name": "Pão de Forma Pullman 500g",
+      "category": "mercearia"
+    },
+    {
+      "name": "Ovos Brancos Dúzia",
+      "category": "mercearia"
+    },
+    {
+      "name": "Papel Higiênico Neve 4 Rolos",
+      "category": "mercearia"
+    },
+    {
+      "name": "Guardanapo de Papel 50 Unidades",
+      "category": "mercearia"
+    },
+    {
+      "name": "X-Burger",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "X-Salada",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "X-Bacon",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "X-Tudo",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "X-Calabresa",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "X-Frango",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "X-Egg",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "X-Cheddar",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "Smash Burger Duplo",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "Veggie Burger",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "Hambúrguer Artesanal Costela",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "Hambúrguer Artesanal Picanha",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "X-Salada Duplo",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "X-Bacon Duplo",
+      "category": "hamburgueres"
+    },
+    {
+      "name": "Pizza Calabresa",
+      "category": "pizzas"
+    },
+    {
+      "name": "Pizza Portuguesa",
+      "category": "pizzas"
+    },
+    {
+      "name": "Pizza Quatro Queijos",
+      "category": "pizzas"
+    },
+    {
+      "name": "Pizza Marguerita",
+      "category": "pizzas"
+    },
+    {
+      "name": "Pizza Mussarela",
+      "category": "pizzas"
+    },
+    {
+      "name": "Pizza Frango com Catupiry",
+      "category": "pizzas"
+    },
+    {
+      "name": "Pizza Pepperoni",
+      "category": "pizzas"
+    },
+    {
+      "name": "Pizza Bacon",
+      "category": "pizzas"
+    },
+    {
+      "name": "Pizza Vegetariana",
+      "category": "pizzas"
+    },
+    {
+      "name": "Pizza Doce Chocolate",
+      "category": "pizzas"
+    },
+    {
+      "name": "Pizza Dois Sabores",
+      "category": "pizzas"
+    },
+    {
+      "name": "Pizza Napolitana",
+      "category": "pizzas"
+    },
+    {
+      "name": "Hot Dog Simples",
+      "category": "hot-dog"
+    },
+    {
+      "name": "Hot Dog Completo",
+      "category": "hot-dog"
+    },
+    {
+      "name": "Hot Dog com Cheddar",
+      "category": "hot-dog"
+    },
+    {
+      "name": "Hot Dog Duplo",
+      "category": "hot-dog"
+    },
+    {
+      "name": "Dogão na Chapa",
+      "category": "hot-dog"
+    },
+    {
+      "name": "Batata Frita Simples",
+      "category": "porcoes"
+    },
+    {
+      "name": "Batata Frita com Cheddar e Bacon",
+      "category": "porcoes"
+    },
+    {
+      "name": "Batata Frita Rústica",
+      "category": "porcoes"
+    },
+    {
+      "name": "Onion Rings",
+      "category": "porcoes"
+    },
+    {
+      "name": "Frango a Passarinho",
+      "category": "porcoes"
+    },
+    {
+      "name": "Isca de Frango Empanada",
+      "category": "porcoes"
+    },
+    {
+      "name": "Calabresa Acebolada",
+      "category": "porcoes"
+    },
+    {
+      "name": "Polenta Frita",
+      "category": "porcoes"
+    },
+    {
+      "name": "Mandioca Frita",
+      "category": "porcoes"
+    },
+    {
+      "name": "Picanha na Chapa",
+      "category": "porcoes"
+    },
+    {
+      "name": "Filé de Tilápia Empanado",
+      "category": "porcoes"
+    },
+    {
+      "name": "Camarão Empanado",
+      "category": "porcoes"
+    },
+    {
+      "name": "Bolinho de Bacalhau 6 Unidades",
+      "category": "porcoes"
+    },
+    {
+      "name": "Torresmo",
+      "category": "porcoes"
+    },
+    {
+      "name": "Coxinha de Frango",
+      "category": "salgados"
+    },
+    {
+      "name": "Risoles de Carne",
+      "category": "salgados"
+    },
+    {
+      "name": "Pastel de Carne",
+      "category": "salgados"
+    },
+    {
+      "name": "Pastel de Queijo",
+      "category": "salgados"
+    },
+    {
+      "name": "Pastel de Pizza",
+      "category": "salgados"
+    },
+    {
+      "name": "Empada de Frango",
+      "category": "salgados"
+    },
+    {
+      "name": "Esfiha de Carne",
+      "category": "salgados"
+    },
+    {
+      "name": "Pão de Queijo",
+      "category": "salgados"
+    },
+    {
+      "name": "Enroladinho de Salsicha",
+      "category": "salgados"
+    },
+    {
+      "name": "Kibe Frito",
+      "category": "salgados"
+    },
+    {
+      "name": "Arroz Branco",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Feijão Carioca",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Arroz com Feijão",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Farofa",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Salada Verde",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Vinagrete",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Purê de Batata",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Legumes Refogados",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Marmitex P",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Marmitex M",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Marmitex G",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Prato Executivo",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Feijoada Completa",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Bife a Cavalo",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Frango Grelhado com Legumes",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Parmegiana de Frango",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Lasanha Bolonhesa",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Espaguete a Bolonhesa",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Fettuccine Alfredo",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Nhoque ao Sugo",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Temaki Salmão",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Combinado Sushi 20 Peças",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Yakisoba de Frango",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Kafta com Arroz",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Escondidinho de Carne",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Strogonoff de Frango",
+      "category": "acompanhamentos"
+    },
+    {
+      "name": "Combo X-Burger + Batata + Refrigerante",
+      "category": "combos"
+    },
+    {
+      "name": "Combo X-Bacon + Batata + Refrigerante",
+      "category": "combos"
+    },
+    {
+      "name": "Combo X-Tudo + Batata + Refrigerante",
+      "category": "combos"
+    },
+    {
+      "name": "Combo Casal 2 Burgers + Batata Grande",
+      "category": "combos"
+    },
+    {
+      "name": "Combo Família 4 Burgers + 2 Batatas",
+      "category": "combos"
+    },
+    {
+      "name": "Combo Pizza Grande + Refrigerante 2L",
+      "category": "combos"
+    },
+    {
+      "name": "Combo 2 Pizzas Grandes",
+      "category": "combos"
+    },
+    {
+      "name": "Combo Hot Dog + Batata + Refrigerante",
+      "category": "combos"
+    },
+    {
+      "name": "Combo Porção de Frango + 4 Cervejas",
+      "category": "combos"
+    },
+    {
+      "name": "Combo Açaí 500ml + Toppings",
+      "category": "combos"
+    },
+    {
+      "name": "Açaí 300ml",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Açaí 500ml",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Açaí 700ml",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Açaí 1L",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Açaí com Granola e Banana",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Açaí com Morango",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Tigela de Açaí Completa",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Pudim de Leite",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Petit Gateau",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Brownie com Sorvete",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Mousse de Maracujá",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Sorvete 1L",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Sorvete Pote 2L",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Açaí na Tigela 200ml",
+      "category": "sobremesas"
+    },
+    {
+      "name": "Pão Francês 1kg",
+      "category": "salgados"
+    },
+    {
+      "name": "Pão de Queijo Congelado 1kg",
+      "category": "salgados"
+    },
+    {
+      "name": "Bolo de Cenoura Fatia",
+      "category": "doces"
+    },
+    {
+      "name": "Bolo de Chocolate Fatia",
+      "category": "doces"
+    },
+    {
+      "name": "Sonho de Creme",
+      "category": "doces"
+    },
+    {
+      "name": "Croissant",
+      "category": "doces"
+    },
+    {
+      "name": "Rosquinha de Coco 400g",
+      "category": "doces"
+    },
+    {
+      "name": "Biscoito Recheado Oreo 90g",
+      "category": "doces"
+    },
+    {
+      "name": "Biscoito Passatempo 130g",
+      "category": "doces"
+    },
+    {
+      "name": "Wafer Bauducco Chocolate 140g",
+      "category": "doces"
+    }
+  ],
+  "deployedPhotosByCategory": {
+    "bebidas/cervejas": 19,
+    "bebidas/drinks-prontos": 2,
+    "bebidas/energeticos": 4,
+    "bebidas/espumantes": 1,
+    "bebidas/gin": 2,
+    "bebidas/refrigerantes": 5,
+    "bebidas/vinho": 3,
+    "bebidas/vodka": 2,
+    "bebidas/whisky": 2,
+    "conveniencia/chocolates": 2,
+    "conveniencia/salgadinhos": 1
+  }
+}

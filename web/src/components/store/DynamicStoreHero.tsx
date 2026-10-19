@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { cn, formatBRL } from '@/lib/utils';
 import { ProductThumb } from '@/components/catalog/ProductThumb';
+import { renderableBanners } from '@/lib/banner-image';
 import { copyByType, initialsFromName } from '@/data/business-copy';
 import { STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
 import type { BusinessType } from '@prisma/client';
@@ -129,7 +130,8 @@ export function DynamicStoreHero({
   // A lista de banners é a que o SERVIDOR mandou (StoreBanner da própria
   // organização, `placement = hero`, ordenado por `position`). Este
   // componente não conhece arquivo de banner nenhum.
-  const slides = banners;
+  const [failedImages, setFailedImages] = React.useState<string[]>([]);
+  const slides = renderableBanners(banners, failedImages);
   const hasSlideshow = slides.length > 1;
 
   const [active, setActive] = React.useState(0);
@@ -225,7 +227,7 @@ export function DynamicStoreHero({
 
       <section
         id="inicio"
-        className="store-hero relative overflow-hidden"
+        className={cn('store-hero relative overflow-hidden', slides.length > 0 ? 'has-banners' : 'has-catalog')}
         // A cor da marca vem do tenant, não de um tema fixo. É o que faz a
         // mesma tela parecer "a cara" de cada estabelecimento.
         style={{ '--hero-brand': organization.brandColor } as React.CSSProperties}
@@ -254,14 +256,18 @@ export function DynamicStoreHero({
               // outros podem esperar.
               loading={index === 0 ? 'eager' : 'lazy'}
               decoding="async"
+              fetchPriority={index === 0 ? 'high' : 'auto'}
+              onError={() => setFailedImages((failed) => failed.includes(slide.imagePath) ? failed : [...failed, slide.imagePath])}
               draggable={false}
             />
           ))}
 
           {/* Sem banner: mantém o gradiente da marca, que já é o fundo da
               própria section. Sem a imagem, nada de arte de outra loja. */}
-          <span className="store-hero-glow store-hero-glow-a" />
-          <span className="store-hero-glow store-hero-glow-b" />
+          {slides.length === 0 && <>
+            <span className="store-hero-glow store-hero-glow-a" />
+            <span className="store-hero-glow store-hero-glow-b" />
+          </>}
         </div>
 
         <div className="store-hero-inner">
@@ -398,8 +404,8 @@ const HERO_CSS = `
      interpretar o arrastar como rolagem lateral da página. */
   touch-action: pan-y;
 }
-.store-hero-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
-.store-hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg,#080808d9 0%,#08080888 52%,#08080833 100%); }
+.store-hero-bg { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.store-hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg,#080808b8 0%,#08080852 52%,#08080814 100%); }
 
 /* ── Slideshow: camadas sobrepostas com transição de opacidade ──
    O tempo de 1.2s é o da versão aprovada. Todas as camadas ficam
@@ -424,6 +430,7 @@ const HERO_CSS = `
 }
 .store-hero-inner {
   position: relative;
+  z-index: 1;
   max-width: 1200px; width: 100%;
   margin: 0 auto;
   display: grid;
@@ -550,7 +557,14 @@ const HERO_CSS = `
   /* Espaço para os dots não caírem em cima do botão. */
   .store-hero { padding:48px 22px 50px; min-height:560px; }
   .store-hero-inner { padding-bottom: 2.25rem; }
-  .store-hero-stage { display:none; }
+  .store-hero.has-banners { padding-top: calc(50vw + 28px); min-height: 0; background: #181818; }
+  .has-banners .store-hero-bg { bottom: auto; height: 50vw; }
+  .has-banners .store-hero-bg::after { background: linear-gradient(0deg,#181818 0%,transparent 30%); }
+  .has-banners .store-hero-slide { object-fit: contain; object-position: center; }
+  .has-banners .store-hero-stage { display:none; }
+  .has-catalog .store-hero-stage { height:auto; display:flex; gap:12px; overflow:hidden; padding:8px 0; }
+  .has-catalog .store-hero-card { position:relative; inset:auto; width: min(42vw,210px); flex-shrink:0; }
+  .has-catalog .store-hero-card:nth-child(3) { display:none; }
 }
 
 /* Acessibilidade: sem movimento — nada flutua, nada troca sozinho. O

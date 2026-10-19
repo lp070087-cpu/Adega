@@ -23,6 +23,37 @@ Antes da aplicação: confirmar nomes de tabelas existentes, backup recuperável
 
 ## Primeiro operador
 
+### Conta indicada e procedimento preparado em 19/10/2026
+
+Consulta somente de leitura confirmou uma única conta ativa `lp070087@gmail.com`, com `User.id` `cmu0pypp60000jm9opt2k0l7j`. As seis tabelas novas estavam ausentes: nenhum conflito de nomes foi encontrado nessa consulta. Não foi concedido privilégio. A indicação da conta não é autorização para aplicar a migração, que continua aguardando aprovação específica.
+
+A consulta do histórico confirmou que `_prisma_migrations` existe, mas está vazia.
+Isso não representa uma baseline aplicada; o schema legado deve ser preservado
+e o procedimento de aplicação SQL explícita acima continua necessário.
+
+Na pasta `web/`, com a conexão do ambiente escolhido conferida e sem exibir seu conteúdo:
+
+```powershell
+# Somente leitura: pode ser repetido antes e depois da migração.
+node --env-file=.env --import tsx scripts/platform-owner.ts
+
+# SOMENTE após aprovação específica, backup recuperável e ensaio isolado:
+npx prisma db execute --schema prisma/schema.prisma --file prisma/migrations/20261019180000_platform_commercial/migration.sql
+
+# SOMENTE após migração e aprovação da concessão à conta/ID conferidos:
+node --env-file=.env --import tsx scripts/platform-owner.ts --apply-approved --user-id cmu0pypp60000jm9opt2k0l7j --approval "REFERENCIA DA APROVACAO ESPECIFICA"
+```
+
+O script não aplica SQL nem cria usuário. No modo de concessão, exige todas as tabelas, conta ativa e ID correspondente, bloqueia bootstrap se houver outro OWNER ativo e grava concessão/auditoria na mesma transação serializável. Repetição após OWNER ativo retorna UNCHANGED e não duplica operador/auditoria. Um lock transacional coordena execuções simultâneas. Não imprimir nem versionar a conexão. Se a conta não existir ou mudar de identidade, corrigir o cadastro pelo processo normal, sem trocar o destinatário do script.
+
+Após verificar a concessão, ativar apenas `PLATFORM_ADMIN_ENABLED=true` e publicar a configuração. Manter `PLATFORM_BILLING_ENFORCEMENT_ENABLED=false`. Validar login real e todas as seções de `/admin`; não executar esse teste concedendo privilégios sem aprovação.
+
+### Impacto e recuperação
+
+São criados seis conjuntos de dados novos, nove índices além das seis chaves primárias, sete FKs com ON DELETE RESTRICT e dez CHECKs. Todas as instruções ALTER TABLE se referem às tabelas novas. As tabelas User, Organization e Plan são apenas alvos de FK; nenhuma coluna ou linha delas é alterada. A migração não é repetível: se qualquer tabela já existir, interromper e reconciliar o estado, sem DROP ou IF NOT EXISTS que oculte divergência. Há dependência de PostgreSQL, tabelas legadas e permissões DDL adequadas. O histórico Prisma anterior deve ser conferido/baseline aprovado separadamente.
+
+Recuperação: antes de executar, confirmar backup/restore ou ponto de recuperação Neon e ensaio em banco isolado. Falha dentro de BEGIN/COMMIT deve reverter a estrutura inteira; confirmar o estado antes de repetir. Após ativação, desligar a flag administrativa e conservar as tabelas/auditoria; não apagar dados para reverter. Incidente com dados requer restauração aprovada ou correção aditiva, com impacto nos dados posteriores avaliado pelo responsável.
+
 Não há endpoint público de bootstrap. A primeira autorização exige intervenção explícita de responsável pelo banco, em transação:
 
 - Conferir `User.id` aprovado, conta ativa e titularidade.

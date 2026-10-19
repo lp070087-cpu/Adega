@@ -5,6 +5,7 @@ import { getDriverOrders } from '@/lib/data/orders';
 import { getOrganizationById } from '@/lib/data/organization';
 import { DriverApp, type DriverOrder } from '@/components/driver/DriverApp';
 import { DriverLoginForm } from '@/components/driver/DriverLoginForm';
+import { Truck } from 'lucide-react';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -41,7 +42,7 @@ export default async function DriverPage() {
       <main className="flex min-h-screen items-center justify-center bg-ink-50 p-4">
         <div className="w-full max-w-[460px] rounded-xl bg-white p-10 text-center shadow-xl">
           <span className="mx-auto mb-4 flex h-[46px] w-[46px] items-center justify-center rounded bg-brand-light text-[1.3rem]">
-            🛵
+            <Truck size={25} aria-hidden="true" />
           </span>
 
           <h1 className="text-[1.35rem] font-extrabold text-ink-900">Área do Entregador</h1>

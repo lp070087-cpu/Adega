@@ -77,6 +77,7 @@ function expandRelative(relative: string): string[] {
   // This legacy asset shows a 473ml package, while its filename claims 350ml.
   // Keep the archive intact, but never advertise an incorrect package photograph.
   if (/^bebidas\/cervejas\/original-lata-350ml(?:\.[^.]+)?$/i.test(clean)) return [];
+  if (/^bebidas\/cervejas\/brahma-chopp-lata-350ml(?:\.[^.]+)?$/i.test(clean)) return [];
   if (/^conveniencia\/chocolates\/chocolate-lacta-shot-40g(?:\.[^.]+)?$/i.test(clean)) return [];
   const exact = CATALOG_PHOTOS[clean.split('/').pop() ?? ''];
   if (exact && !EXTENSION_RE.test(clean)) return [exact];

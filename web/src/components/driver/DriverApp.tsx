@@ -1,5 +1,6 @@
 'use client';
 
+import { Bike, Car, Footprints, MapPin, Navigation, CheckCircle2 } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn, formatBRL, formatPhone } from '@/lib/utils';
@@ -98,12 +99,10 @@ export type DriverStore = {
   longitude: number | null;
 };
 
-const VEHICLE_ICON: Record<string, string> = {
-  MOTORCYCLE: '🏍️',
-  CAR: '🚗',
-  BICYCLE: '🚲',
-  ON_FOOT: '🚶',
-};
+function VehicleIcon({ type }: { type: string }) {
+  const Icon = type === 'CAR' ? Car : type === 'ON_FOOT' ? Footprints : Bike;
+  return <Icon className="inline-block align-middle" size={17} aria-hidden="true" />;
+}
 
 const PAYMENT_LABEL: Record<string, string> = {
   CASH: 'Dinheiro',
@@ -340,7 +339,7 @@ export function DriverApp({
             </div>
 
             <span className="flex-shrink-0 rounded-full bg-white/15 px-2 py-1 text-[0.72rem] font-bold">
-              {VEHICLE_ICON[driver.vehicleType] ?? '🏍️'} {driver.vehiclePlate ?? '—'}
+              <VehicleIcon type={driver.vehicleType} /> {driver.vehiclePlate ?? '—'}
             </span>
           </div>
         </header>
@@ -492,7 +491,7 @@ export function DriverApp({
                 </span>
                 <p className="mt-2 text-[1.05rem] font-bold text-ink-900">{driver.name}</p>
                 <p className="text-[0.76rem] text-ink-400">
-                  {VEHICLE_ICON[driver.vehicleType] ?? '🏍️'}{' '}
+                  <VehicleIcon type={driver.vehicleType} />{' '}
                   {driver.vehiclePlate ?? 'sem placa cadastrada'} • {store.name}
                 </p>
               </div>
@@ -631,7 +630,7 @@ function OrderCard({
       </div>
 
       <p className="mt-2.5 text-[0.8rem] leading-relaxed text-ink-600">
-        📍 {order.deliveryAddress}
+        <MapPin className="inline-block" size={14} aria-hidden="true" /> {order.deliveryAddress}
         {order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}
         {order.deliveryDistrict ? ` — ${order.deliveryDistrict}` : ''}
       </p>
@@ -787,7 +786,7 @@ function OrderSheet({
               rel="noopener noreferrer"
               className="rounded-sm bg-brand px-3 py-2 text-center text-[0.74rem] font-bold text-white hover:bg-brand-dark"
             >
-              🧭 ABRIR ROTA
+              <Navigation className="inline-block" size={16} aria-hidden="true" /> Abrir rota
             </a>
             <a
               href={route.waze}
@@ -878,7 +877,7 @@ function OrderSheet({
               disabled={disabled}
               onClick={() => onStep('DELIVERED', receiver.trim() || undefined)}
             >
-              ✅ Confirmar entrega
+              <CheckCircle2 className="inline-block" size={16} aria-hidden="true" /> Confirmar entrega
             </Button>
           </>
         ) : (

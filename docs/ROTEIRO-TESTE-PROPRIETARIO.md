@@ -1,0 +1,16 @@
+# Teste manual posterior pelo proprietário
+
+Este roteiro não foi executado automaticamente e pode criar dados. Preferir banco isolado e contas de teste. Em produção, o proprietário deve decidir explicitamente quais registros reais aceita criar. Não usar cartão real nem simular pagamento online confirmado.
+
+1. Entrar como estabelecimento e conferir que `/admin` continua proibido. Em outra organização, conferir que IDs privados da primeira não aparecem nem podem ser alterados.
+2. Cadastrar conta de estabelecimento de teste, concluir onboarding, importar um produto global duas vezes e conferir ausência de duplicação. Configurar preço, estoque, horário, entrega/retirada e identidade da loja.
+3. Configurar um banner próprio, abrir a loja e confirmar imagem em desktop/celular, autoplay, indicadores e swipe. Abrir outra loja e verificar que o banner não aparece nela. Conferir os quatro produtos de referência e produtos sem foto.
+4. Adicionar produto à sacola, alterar quantidade, pesquisar/categorizar, fechar e reabrir a sacola. Conferir promoção real, total e disponibilidade. Em retirada, conferir frete zero; em entrega, endereço e taxa.
+5. Enviar um único pedido de teste por método implementado, inclusive duplo clique, e conferir uma única criação. Conferir estoque e total no painel, no detalhe e no acompanhamento público.
+6. Confirmar/preparar pedido e atribuir entregador ativo. Entrar em `/entregador` em celular com a conta vinculada. Conferir apenas entregas próprias, endereço e navegação externa. Testar chegada à loja, retirada, início da rota e chegada ao cliente.
+7. Em um pedido próprio de teste, registrar tentativa sem sucesso com motivo. Conferir retorno READY na expedição, remoção da atribuição e preservação de estoque/pagamento. Reatribuir pelo painel. Em outro pedido, concluir entrega e conferir histórico, acompanhamento, indicadores e caixa segundo a forma de recebimento configurada.
+8. Alternar rede/offline e voltar à aba. Conferir aviso e atualização periódica controlada (30s em aba visível), sem promessa de GPS contínuo. Instalar pela opção disponível no navegador Android/iPhone e conferir ícone, retorno, login e layout. Instalação depende do suporte do navegador; não há confirmação offline de entregas.
+9. Depois da migração/concessão aprovadas, entrar com a conta proprietária em `/admin`. Conferir todas as seções e acesso negado a conta comum. Criar plano de teste, contrato explícito e cobrança de teste no ambiente isolado; registrar pagamento manual apenas quando intencional e conferir auditoria/valores. Repetir pagamento deve ser impedido. Verificar limites ao ativar novo usuário/entregador, sem desativar os existentes.
+10. Manter restrição comercial desligada. Sua ativação requer decisão posterior específica; antes dela testar, em ambiente isolado, que pedidos novos são restringidos conforme contrato e entregas/pedidos existentes continuam operáveis.
+
+Inspeção de código: vínculo do entregador é revalidado no servidor; consulta e transições usam organização/entregador; falha registra motivo e retorna à expedição em transação; navegação é externa e localização pontual manual. Testes com mocks existentes cobrem transições e guardas. Nenhum pedido, pagamento ou entrega real foi criado nesta revisão. A validação autenticada/mobile completa fica para este roteiro.

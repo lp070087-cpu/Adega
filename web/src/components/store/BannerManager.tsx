@@ -81,10 +81,10 @@ type Draft = {
 
 const EMPTY: Draft = { id: null, title: '', subtitle: '', imagePath: '', linkUrl: '', active: true };
 
-/** Dimensão recomendada para o topo da vitrine (proporção 4:1). */
+/** Proporção das artes do acervo aprovado; outras proporções continuam aceitas. */
 const RECOMMENDED_WIDTH = 1200;
-const RECOMMENDED_HEIGHT = 300;
-const IDEAL_RATIO = 4;
+const RECOMMENDED_HEIGHT = 600;
+const IDEAL_RATIO = 2;
 
 /** Lê as dimensões reais de um arquivo de imagem no navegador. */
 function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
@@ -458,7 +458,7 @@ export function BannerManager({
           setDraft(null);
         }}
         title={draft?.id ? 'Editar banner' : 'Novo banner'}
-        subtitle="Envie o arquivo da imagem (formato largo, 4:1) ou escolha uma que já existe no acervo."
+        subtitle="Escolha uma imagem do acervo ou envie sua própria arte."
         size="md"
         footer={
           <>

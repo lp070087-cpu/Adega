@@ -82,6 +82,19 @@ test('store banners read only the requested tenant, with explicit platform fallb
   assert.equal(calls[0].where.active, true);
   assert.deepEqual(calls[1].where.OR[1], { businessTypes: { has: 'BEVERAGE' } });
 });
+
+test('own banners take precedence and never query another tenant or platform defaults', async () => {
+  const calls: any[] = [];
+  const own = [{ id: 'banner-a', organizationId: 'tenant-a', imagePath: '/catalog/banners/banner-01.png' }];
+  const data = load('src/lib/data/global-catalog.ts', {
+    'server-only': {}, '@/lib/utils': { slugify: (value: string) => value },
+    '@/lib/db': { toNumber: Number, prisma: { storeBanner: { findMany: async (query: any) => { calls.push(query); return own; } } } },
+  });
+  assert.deepEqual(await data.getBannersForStore('tenant-a', 'BEVERAGE'), own);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].where, { organizationId: 'tenant-a', active: true, placement: 'hero' });
+  assert.deepEqual(calls[0].orderBy, { position: 'asc' });
+});
 test('plan requests always use session tenant and never create contracts or charges', async () => {
   const previous = process.env.PLATFORM_ADMIN_ENABLED;
   process.env.PLATFORM_ADMIN_ENABLED = 'true';

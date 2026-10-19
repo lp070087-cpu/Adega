@@ -29,7 +29,12 @@ test('no fuzzy brand or volume matching and no known wrong-volume legacy photos'
   assert.equal(productImageCandidates({ productName: 'Brahma Litrão 1L' })[0], '/catalog/bebidas/cervejas/brahma-litrao-1l.jpg');
   assert.equal(productImageCandidates({ productName: 'Brahma Litrinho 300ml' })[0], '/catalog/bebidas/cervejas/brahma-litrinho-300ml.jpg');
   assert.deepEqual(productImageCandidates({ productName: 'Brahma Litrinho 355ml' }), []);
-  assert.ok(catalogImageCandidates('bebidas/cervejas/brahma-chopp-lata-350ml').includes('/catalog/bebidas/cervejas/brahma-chopp-lata-350ml.jpeg'));
+  assert.deepEqual(catalogImageCandidates('bebidas/cervejas/brahma-chopp-lata-350ml'), []);
+  assert.deepEqual(catalogImageCandidates('/catalog/bebidas/cervejas/brahma-chopp-lata-350ml.jpeg'), []);
+  assert.deepEqual(productImageCandidates({ productName: 'Skol Lata 350ml' }), []);
+  assert.equal(productImageCandidates({ productName: 'Skol Garrafa 600ml' })[0], '/catalog/bebidas/cervejas/skol-garrafa-600ml.jpg');
+  assert.equal(productImageCandidates({ productName: 'Chocolate Lacta Oreo 80g' })[0], '/catalog/conveniencia/chocolates/chocolate-lacta-oreo-80g.jpeg');
+  assert.deepEqual(productImageCandidates({ productName: 'Chocolate Lacta Oreo 90g' }), []);
   assert.deepEqual(catalogImageCandidates('/catalog/bebidas/cervejas/original-lata-350ml.webp'), []);
   assert.deepEqual(catalogImageCandidates('/catalog/conveniencia/chocolates/chocolate-lacta-shot-40g.jpeg'), []);
 });
