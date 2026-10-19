@@ -145,11 +145,17 @@ export function isOpenNow(
   if (days.length === 0) return null;
 
   const anyPeriod = days.some((day) => !day.closed && day.periods.length > 0);
-  if (!anyPeriod) return null;
+  if (!anyPeriod) return days.every((day) => day.closed) ? false : null;
 
-  const minutesNow = now.getHours() * 60 + now.getMinutes();
-  const today = days.find((day) => day.weekday === now.getDay());
-  const yesterdayWeekday = (now.getDay() + 6) % 7;
+  // Use the store's Brazilian operating timezone on both browser and server.
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(now);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(part('weekday'));
+  const minutesNow = Number(part('hour')) * 60 + Number(part('minute'));
+  const today = days.find((day) => day.weekday === weekday);
+  const yesterdayWeekday = (weekday + 6) % 7;
   const yesterday = days.find((day) => day.weekday === yesterdayWeekday);
 
   const inPeriod = (period: OpeningPeriod): [number, number] => [
@@ -157,7 +163,7 @@ export function isOpenNow(
     toMinutes(period.close),
   ];
 
-  for (const period of today?.periods ?? []) {
+  for (const period of today?.closed ? [] : today?.periods ?? []) {
     const [start, end] = inPeriod(period);
     if (end > start) {
       if (minutesNow >= start && minutesNow < end) return true;

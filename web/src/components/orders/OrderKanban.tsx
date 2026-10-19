@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useMemo, useState } from 'react';
 import { cn, formatBRL, timeAgo } from '@/lib/utils';
@@ -52,6 +52,7 @@ export type KanbanOrder = {
   customerPhone: string;
   total: number;
   deliveryFee: number;
+  deliveryType?: string;
   paymentMethod: string | null;
   paymentStatus: string;
   deliveryAddress: string;
@@ -198,7 +199,9 @@ function OrderCard({
    * (avanço em destaque) â€” a variante de contorno cinza que existia antes
    * era código morto que só o compilador conseguia ver.
    */
-  const options = nextStatuses(order.status as OrderStatus).filter((s) => s !== 'CANCELLED');
+  const options = order.deliveryType === 'PICKUP' && order.status === 'READY'
+    ? ['DELIVERED' as OrderStatus]
+    : nextStatuses(order.status as OrderStatus).filter((s) => s !== 'CANCELLED');
   const itemCount = order.items.reduce((acc, i) => acc + i.quantity, 0);
 
   // Pedido novo há muito tempo: sinaliza atraso sem precisar de relatório.

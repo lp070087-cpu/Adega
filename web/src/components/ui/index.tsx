@@ -361,12 +361,12 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          'my-auto w-full rounded-xl bg-white p-6 shadow-xl',
+          'my-auto flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-xl bg-white p-4 shadow-xl sm:p-6',
           widths[size],
         )}
         style={{ borderRadius: 'var(--radius-xl)' }}
       >
-        <div className="mb-5 flex items-start justify-between gap-4">
+        <div className="mb-5 flex shrink-0 items-start justify-between gap-4">
           <div>
             <h2 className="text-[1.05rem] font-extrabold text-ink-900">{title}</h2>
             {subtitle && <p className="mt-1 text-[0.78rem] text-ink-500">{subtitle}</p>}
@@ -381,10 +381,10 @@ export function Modal({
           </button>
         </div>
 
-        <div className="max-h-[65vh] overflow-y-auto">{children}</div>
+        <div className="min-h-0 overflow-y-auto">{children}</div>
 
         {footer && (
-          <div className="mt-5 flex justify-end gap-2.5 border-t border-ink-100 pt-4">{footer}</div>
+          <div className="mt-5 flex shrink-0 flex-wrap justify-end gap-2.5 border-t border-ink-100 pt-4">{footer}</div>
         )}
       </div>
     </div>
@@ -447,10 +447,10 @@ export function Drawer({
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-[18px_22px]">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-[18px_22px]">{children}</div>
 
         {footer && (
-          <footer className="flex justify-end gap-2.5 border-t border-ink-100 p-[16px_22px]">
+          <footer className="flex shrink-0 flex-wrap justify-end gap-2.5 border-t border-ink-100 p-[16px_22px]">
             {footer}
           </footer>
         )}

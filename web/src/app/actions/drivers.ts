@@ -1,8 +1,10 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { OperationError } from '@/lib/operation-error';
 import type { DriverStatus } from '@prisma/client';
-import { requirePermission, toActionError } from '@/lib/auth/guards';
+import { requirePermission, requireDriver, toActionError } from '@/lib/auth/guards';
+import { withOrganizationTransaction } from '@/lib/data/transaction';
 import * as drivers from '@/lib/data/drivers';
 import { createDriverWithLoginSchema, driverStatusSchema } from '@/lib/validations/operations';
 
@@ -131,4 +133,47 @@ function revalidateDrivers() {
   revalidatePath('/app/entregadores');
   revalidatePath('/app/expedicao');
   revalidatePath('/app/pedidos');
+  revalidatePath('/entregador');
+}
+
+/** Failed attempts return to dispatch; they never mark the order paid or restore stock. */
+export async function reportFailedDeliveryAction(input: { orderId: string; reason: string }): Promise<DriverActionResult> {
+  try {
+    const ctx = await requireDriver();
+    const reason = typeof input.reason === 'string' ? input.reason.trim() : '';
+    if (reason.length < 5 || reason.length > 300) {
+      return { ok: false, error: 'Descreva o motivo com 5 a 300 caracteres.' };
+    }
+    await withOrganizationTransaction(ctx.organizationId, async (tx) => {
+      const order = await tx.order.findFirst({ where: {
+        id: input.orderId, organizationId: ctx.organizationId, driverId: ctx.driver.id,
+        status: 'DISPATCHED',
+      }, include: { delivery: true } });
+      if (!order?.delivery || !['IN_TRANSIT', 'ARRIVED'].includes(order.delivery.status)) {
+        throw new OperationError('Esta entrega não está em rota ou já foi atualizada.');
+      }
+      const note = `Tentativa sem sucesso (${ctx.driver.name}): ${reason}`;
+      await tx.delivery.update({ where: { id: order.delivery.id }, data: {
+        status: 'FAILED', notes: [order.delivery.notes, note].filter(Boolean).join('\n'),
+      } });
+      await tx.order.update({ where: { id: order.id }, data: {
+        status: 'READY', driverId: null, dispatchedAt: null,
+        notes: [order.notes, note].filter(Boolean).join('\n'),
+      } });
+      const remaining = await tx.order.count({ where: {
+        organizationId: ctx.organizationId, driverId: ctx.driver.id,
+        status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
+      } });
+      await tx.driver.update({ where: { id: ctx.driver.id }, data: { status: remaining ? 'BUSY' : 'RETURNING' } });
+      await tx.notification.create({ data: {
+        organizationId: ctx.organizationId, type: 'DELIVERY',
+        title: `Entrega não concluída — #${order.displayId}`, message: reason,
+        href: `/app/pedidos?pedido=${order.id}`,
+      } });
+    });
+    revalidateDrivers();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, ...toActionError(error) };
+  }
 }

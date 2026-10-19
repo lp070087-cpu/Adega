@@ -85,7 +85,7 @@ export async function createTeamMemberAction(formData: FormData): Promise<TeamAc
       return { ok: false, error: 'Papel inválido para esta loja.', field: 'role' };
     }
 
-    if (d.role !== 'OWNER' && roleRank(d.role) >= roleRank(ctx.role) && ctx.role !== 'OWNER') {
+    if (roleRank(d.role) >= roleRank(ctx.role) && ctx.role !== 'OWNER') {
       return { ok: false, error: 'Você não pode criar alguém com papel igual ou superior ao seu.' };
     }
 
@@ -99,7 +99,7 @@ export async function createTeamMemberAction(formData: FormData): Promise<TeamAc
         where: {
           organizationId_userId: { organizationId: ctx.organizationId, userId: existingUser.id },
         },
-        select: { id: true, active: true },
+        select: { id: true, active: true, role: true },
       });
 
       if (alreadyMember?.active) {
@@ -107,6 +107,9 @@ export async function createTeamMemberAction(formData: FormData): Promise<TeamAc
       }
 
       if (alreadyMember) {
+        if (alreadyMember.role === 'OWNER' || (!outranks(ctx.role, alreadyMember.role) && ctx.role !== 'OWNER')) {
+          return { ok: false, error: 'Você não pode reativar ou alterar alguém de nível igual ou superior.' };
+        }
         // Vínculo desativado: reativar em vez de criar outro.
         await prisma.organizationUser.update({
           where: { id: alreadyMember.id },
@@ -223,13 +226,7 @@ export async function updateTeamMemberAction(input: {
         },
       });
 
-      // Desligar o vínculo também bloqueia o login.
-      if (parsed.data.active === false) {
-        await tx.user.update({
-          where: { id: member.userId },
-          data: { active: false },
-        });
-      }
+      // A desativação pertence à loja. O usuário pode trabalhar em outra organização.
     });
 
     revalidatePath('/app/equipe');
@@ -262,13 +259,7 @@ export async function removeTeamMemberAction(memberId: string): Promise<TeamActi
     await prisma.$transaction(async (tx) => {
       await tx.organizationUser.delete({ where: { id: member.id } });
 
-      // Sem nenhum outro vínculo, o login não serve para nada: desativa.
-      const remaining = await tx.organizationUser.count({
-        where: { userId: member.userId, active: true },
-      });
-      if (remaining === 0) {
-        await tx.user.update({ where: { id: member.userId }, data: { active: false } });
-      }
+      // Remover um vínculo nunca altera a conta global da pessoa.
     });
 
     revalidatePath('/app/equipe');

@@ -10,6 +10,7 @@ import {
   setMyDriverStatusAction,
 } from '@/app/actions/orders';
 import { logoutAction } from '@/app/actions/auth';
+import { reportFailedDeliveryAction } from '@/app/actions/drivers';
 import { Alert, Badge, Button, Card, EmptyState, Input } from '@/components/ui';
 
 /**
@@ -224,10 +225,11 @@ export function DriverApp({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [online, setOnline] = useState(true);
 
   // "Agora" congelado na renderização — Date.now() no corpo do componente
   // mudaria a cada re-render e faria os minutos piscarem sem motivo.
-  const [now] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
   // ── TEMPO REAL (estrutura de polling) ─────────────────────────────
   // O navegador não entrega GPS com a aba fechada, então não há
@@ -236,14 +238,23 @@ export function DriverApp({
   // nada. Polling controlado (e interrompido ao sair da tela), não
   // long-polling nem websocket — é a estrutura simples e honesta.
   useEffect(() => {
-    if (!document.hidden && tab !== 'perfil') {
-      const timer = window.setInterval(() => {
-        router.refresh();
-      }, 30000);
-      return () => window.clearInterval(timer);
-    }
-    return undefined;
-  }, [router, tab]);
+    const refresh = () => {
+      setOnline(navigator.onLine);
+      setNow(Date.now());
+      if (!document.hidden && navigator.onLine && tab !== 'perfil' && !pending) router.refresh();
+    };
+    setOnline(navigator.onLine);
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener('online', refresh);
+    window.addEventListener('offline', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('online', refresh);
+      window.removeEventListener('offline', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [router, tab, pending]);
 
   const active = useMemo(
     () => orders.filter((o) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED'),
@@ -265,7 +276,11 @@ export function DriverApp({
     setError(null);
     setNotice(null);
     startTransition(async () => {
-      const result = await action();
+      let result;
+      try { result = await action(); } catch {
+        setError('Não foi possível conectar. Confira sua conexão e atualize antes de tentar novamente.');
+        return;
+      }
       if (!result.ok) {
         setError(result.error ?? 'Não foi possível concluir.');
         return;
@@ -362,6 +377,7 @@ export function DriverApp({
       </div>
 
       <main className="flex-1 space-y-3 p-4 pb-24">
+        {!online && <Alert tone="warn">Sem conexão. As entregas exibidas podem estar desatualizadas. Reconecte para registrar alterações.</Alert>}
         {error && (
           <Alert tone="danger" title="Não foi possível concluir">
             {error}
@@ -383,7 +399,7 @@ export function DriverApp({
                 <EmptyState
                   icon="🛵"
                   title="Nenhuma entrega atribuída"
-                  description="Quando a loja designar um pedido para você, ele aparece aqui. A tela não se atualiza sozinha: toque em Atualizar para buscar de novo."
+                  description="Quando a loja designar um pedido para você, ele aparece aqui. Atualizamos a cada 30 segundos enquanto esta tela está aberta e conectada."
                   action={
                     <Button variant="secondary" size="sm" onClick={() => router.refresh()}>
                       ↻ Atualizar
@@ -551,6 +567,10 @@ export function DriverApp({
           store={store}
           disabled={pending}
           onClose={() => setOpenId(null)}
+          onFailure={(reason) => run(
+            () => reportFailedDeliveryAction({ orderId: openOrder.id, reason }),
+            () => { setNotice('Tentativa registrada. A loja recebeu o pedido para novo despacho.'); setOpenId(null); },
+          )}
           onStep={(step, notes) =>
             run(
               () => driverStepAction({ orderId: openOrder.id, step, notes }),
@@ -582,7 +602,7 @@ function OrderCard({
   onStep: (step: Step, notes?: string) => void;
 }) {
   const step = nextStep(order.delivery);
-  const isDelivery = step === 'DELIVERED';
+  const isDelivery = order.status === 'DELIVERED';
   const cobrar =
     order.paymentMethod === 'CASH' && order.paymentStatus !== 'PAID' ? order.total : null;
 
@@ -673,15 +693,18 @@ function OrderSheet({
   disabled,
   onClose,
   onStep,
+  onFailure,
 }: {
   order: DriverOrder;
   store: DriverStore;
   disabled: boolean;
   onClose: () => void;
   onStep: (step: Step, notes?: string) => void;
+  onFailure: (reason: string) => void;
 }) {
   const step = nextStep(order.delivery);
   const [receiver, setReceiver] = useState('');
+  const [failureReason, setFailureReason] = useState('');
   const phone = order.customerPhone.replace(/\D/g, '');
   const jaEntregue = order.status === 'DELIVERED';
 
@@ -864,6 +887,15 @@ function OrderSheet({
           </Button>
         )}
 
+        {!jaEntregue && ['IN_TRANSIT', 'ARRIVED'].includes(order.delivery?.status ?? '') && (
+          <div className="mt-4 border-t border-ink-100 pt-4">
+            <label className="field-label" htmlFor="failed-delivery-reason">Não foi possível entregar?</label>
+            <Input id="failed-delivery-reason" maxLength={300} value={failureReason}
+              onChange={(event) => setFailureReason(event.target.value)} placeholder="Informe o motivo da tentativa sem sucesso" />
+            <Button variant="secondary" fullWidth className="mt-2" disabled={disabled || failureReason.trim().length < 5}
+              onClick={() => onFailure(failureReason.trim())}>Registrar tentativa sem sucesso</Button>
+          </div>
+        )}
         {order.delivery?.notes && (
           <p className="mt-4 text-[0.74rem] leading-relaxed text-ink-400">
             Registro anterior: {order.delivery.notes}

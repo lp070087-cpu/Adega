@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
+import { logoutAction } from '@/app/actions/auth';
 import { requireDriver, AuthError } from '@/lib/auth/guards';
 import { getDriverOrders } from '@/lib/data/orders';
 import { getOrganizationById } from '@/lib/data/organization';
@@ -71,10 +71,23 @@ export default async function DriverPage() {
   try {
     ctx = await requireDriver();
   } catch (error) {
-    // Quem está logado mas não é entregador volta ao painel em vez de ver
-    // uma tela de erro.
+    // Um vínculo DRIVER desativado não pode voltar a /app, que redireciona
+    // para cá. Exibir recuperação local evita esse ciclo de navegação.
     if (error instanceof AuthError) {
-      redirect(error.code === 'UNAUTHENTICATED' ? '/login' : '/app?semPermissao=1');
+      return (
+        <main className="flex min-h-screen items-center justify-center bg-ink-50 p-4">
+          <div role="alert" className="w-full max-w-[460px] rounded-xl bg-white p-6 text-center shadow-xl sm:p-10">
+            <h1 className="text-xl font-extrabold text-ink-900">Acesso ao entregador indisponível</h1>
+            <p className="mt-3 text-sm text-ink-500">{error.message} Peça ao estabelecimento para conferir seu cadastro.</p>
+            <form action={logoutAction} className="mt-6">
+              <button type="submit" className="min-h-11 rounded-xl bg-brand px-5 py-3 font-semibold text-white">Sair e entrar com outra conta</button>
+            </form>
+            {session.user.role !== 'DRIVER' && (
+              <a href="/app" className="mt-4 inline-flex min-h-11 items-center font-semibold text-brand hover:underline">Abrir painel do estabelecimento</a>
+            )}
+          </div>
+        </main>
+      );
     }
     throw error;
   }

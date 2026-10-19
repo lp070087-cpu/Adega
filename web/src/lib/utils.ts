@@ -99,15 +99,11 @@ export function formatPhone(value: string | null | undefined): string {
 
 /** InÃ­cio do dia no fuso local do servidor. */
 export function startOfDay(date: Date = new Date()): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  return new Date(`${dayKey(date)}T00:00:00-03:00`);
 }
 
 export function endOfDay(date: Date = new Date()): Date {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
+  return new Date(startOfDay(date).getTime() + 86_400_000 - 1);
 }
 
 export function addDays(date: Date, days: number): Date {
@@ -118,7 +114,9 @@ export function addDays(date: Date, days: number): Date {
 
 /** Chave estÃ¡vel para agrupar por dia (YYYY-MM-DD). */
 export function dayKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
 /** MÃ©dia segura: nunca divide por zero. */

@@ -4,6 +4,7 @@ import type { Role } from '@prisma/client';
 import { auth } from './index';
 import { prisma } from '@/lib/db';
 import { can, type Permission } from '@/lib/permissions';
+import { OperationError } from '@/lib/operation-error';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -125,6 +126,11 @@ export async function requireOrg(): Promise<OrganizationContext> {
     throw new AuthError('Sessão expirada. Entre novamente.', 'UNAUTHENTICATED');
   }
 
+  const account = await prisma.user.findUnique({ where: { id: user.id }, select: { active: true } });
+  if (!account?.active) {
+    throw new AuthError('Conta desativada. Entre em contato com o responsável.', 'UNAUTHENTICATED');
+  }
+
   // O vínculo vem do banco (ver resolveMembership). O papel usado adiante
   // é o ATUAL, não o do token: desativar alguém tem efeito imediato.
   const membership = await resolveMembership(user.id, user.organizationId);
@@ -202,6 +208,7 @@ export async function requireOrgPage(permission?: Permission): Promise<Organizat
     if (error instanceof AuthError) {
       if (error.code === 'UNAUTHENTICATED') redirect('/login');
       if (error.code === 'NO_ORGANIZATION') redirect('/onboarding');
+      if (!permission) redirect('/login?acesso=removido');
       // Sem permissão: volta para o dashboard em vez de tela de erro.
       redirect('/app?semPermissao=1');
     }
@@ -226,6 +233,12 @@ export async function getCurrentOrganization() {
 export async function requireOnboardingUser() {
   const session = await auth();
   if (!session?.user?.id) redirect('/login');
+
+  const account = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { active: true },
+  });
+  if (!account?.active) redirect('/login?acessoRemovido=1');
 
   // Quem já tem loja não volta para o onboarding. A pergunta é feita ao
   // BANCO, não ao token: logo após criar a loja o JWT ainda está velho, e
@@ -269,7 +282,8 @@ export async function requireDriver() {
 
 /** Erros de guard viram resposta de server action em vez de stack trace. */
 export function toActionError(error: unknown): { error: string } {
-  if (error instanceof AuthError) return { error: error.message };
-  if (error instanceof Error) return { error: error.message };
+  if (error instanceof AuthError || error instanceof OperationError) return { error: error.message };
+  // Erros de infraestrutura podem conter consultas, endereços e credenciais.
+  // Apenas erros de autorização explicitamente destinados ao usuário são públicos.
   return { error: 'Não foi possível concluir a operação.' };
 }

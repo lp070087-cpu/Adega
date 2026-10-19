@@ -32,6 +32,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     throw error;
   }
 
+  if (ctx.role === 'DRIVER') redirect('/entregador');
+
   const [organization, counters, notifications] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: ctx.organizationId },

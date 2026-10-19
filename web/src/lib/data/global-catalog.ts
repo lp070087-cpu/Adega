@@ -310,8 +310,9 @@ export async function addGlobalProductsToCatalog(
   globalProductIds: string[],
   options: AddToCatalogOptions = {},
 ): Promise<AddToCatalogResult> {
-  return prisma.$transaction((tx) =>
-    copyGlobalProductsTx(tx, organizationId, globalProductIds, options),
+  return prisma.$transaction(
+    (tx) => copyGlobalProductsTx(tx, organizationId, globalProductIds, options),
+    { timeout: 30000 },
   );
 }
 
@@ -329,12 +330,16 @@ export async function copyGlobalProductsTx(
   globalProductIds: string[],
   options: AddToCatalogOptions = {},
 ): Promise<AddToCatalogResult> {
-  const { prices = {}, skipExisting = true, categoryId, featured = false } = options;
+  const { prices = {}, categoryId, featured = false } = options;
 
   const unique = Array.from(new Set(globalProductIds.filter(Boolean)));
   if (unique.length === 0) {
     return { created: 0, skipped: 0, categoriesCreated: 0, productIds: [] };
   }
+
+  // Serializa importações da mesma loja antes de consultar vínculos existentes.
+  // A segunda requisição verá os produtos gravados pela primeira.
+  await tx.$queryRaw`SELECT "id" FROM "Organization" WHERE "id" = ${organizationId} FOR UPDATE`;
 
   const globals = await tx.globalProduct.findMany({
     where: { id: { in: unique }, active: true },
@@ -344,13 +349,11 @@ export async function copyGlobalProductsTx(
   /** Ignora id inexistente ou inativo: não é erro, é item fora do ar. */
   const missing = unique.length - globals.length;
 
-  // Vínculo já existente: nada a fazer. Só consultamos se vamos pular.
-  const existing = skipExisting
-    ? await tx.product.findMany({
+  // O vínculo com a biblioteca é único por loja, inclusive sob reenvio do formulário.
+  const existing = await tx.product.findMany({
         where: { organizationId, globalProductId: { in: globals.map((g) => g.id) } },
         select: { globalProductId: true },
-      })
-    : [];
+      });
   const alreadyThere = new Set(existing.map((e) => e.globalProductId));
 
   const toCreate = globals.filter((g) => !alreadyThere.has(g.id));

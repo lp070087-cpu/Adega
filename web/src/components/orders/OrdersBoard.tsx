@@ -7,10 +7,12 @@ import { ORDER_STATUS_LABEL, ORDER_SOURCE_LABEL } from '@/data/business-copy';
 import { updateOrderStatusAction } from '@/app/actions/orders';
 import { OrderKanban, type KanbanOrder } from './OrderKanban';
 import { OrderDrawer, type DrawerOrder } from './OrderDrawer';
+import { OperationalRefresh } from '@/components/layout/OperationalRefresh';
 import { Alert, Button, EmptyState, Select } from '@/components/ui';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { StatusBadge, SourceBadge, PaymentMethodBadge } from '@/components/ui/StatusBadge';
 import type { OrderStatus } from '@prisma/client';
+import { ManualOrderModal, type ManualProduct } from './ManualOrderModal';
 
 /**
  * Central de Pedidos: kanban para a operação, tabela para consulta.
@@ -21,11 +23,13 @@ import type { OrderStatus } from '@prisma/client';
  */
 
 export function OrdersBoard({
+  products,
   orders,
   drivers,
   canManageOrders,
   canManageDrivers,
 }: {
+  products: ManualProduct[];
   orders: DrawerOrder[];
   drivers: Array<{ id: string; name: string; status: string }>;
   canManageOrders: boolean;
@@ -46,7 +50,7 @@ export function OrdersBoard({
     return orders.filter((order) => {
       if (statusFilter === 'abertos' && ['DELIVERED', 'CANCELLED'].includes(order.status)) return false;
       if (statusFilter === 'fechados' && !['DELIVERED', 'CANCELLED'].includes(order.status)) return false;
-      if (statusFilter !== 'abertos' && statusFilter !== 'fechados' && order.status !== statusFilter)
+      if (statusFilter && statusFilter !== 'abertos' && statusFilter !== 'fechados' && order.status !== statusFilter)
         return false;
       if (sourceFilter && order.source !== sourceFilter) return false;
       if (term) {
@@ -136,11 +140,14 @@ export function OrdersBoard({
 
   return (
     <>
+      <div className="mb-3"><OperationalRefresh /></div>
       {error && (
         <Alert tone="danger" className="mb-4">
           {error}
         </Alert>
       )}
+
+      {canManageOrders && <div className="mb-4 flex justify-end"><ManualOrderModal products={products} onCreated={() => router.refresh()} /></div>}
 
       {/* Filtros */}
       <div className="mb-4 flex flex-wrap items-center gap-2.5 rounded-lg border border-ink-100 bg-white p-3.5">
@@ -242,7 +249,7 @@ export function OrdersBoard({
       )}
 
       <OrderDrawer
-        order={selected}
+        order={orders.find((order) => order.id === selected?.id) ?? null}
         open={Boolean(selected)}
         onClose={() => setSelected(null)}
         drivers={drivers}

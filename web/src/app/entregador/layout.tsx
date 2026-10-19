@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 export const metadata: Metadata = {
   title: 'Entregas',
   description: 'Pedidos atribuídos, rota e confirmação de entrega.',
+  appleWebApp: { capable: true, title: 'Entregador', statusBarStyle: 'default' },
   // O app do entregador é instalável e não deve ser indexado: o conteúdo
   // é de uma pessoa só, não do site.
   robots: { index: false, follow: false },
@@ -11,8 +12,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  // Trava o zoom: o app é usado com o celular na mão, na rua.
-  maximumScale: 1,
   themeColor: '#F15A24',
 };
 

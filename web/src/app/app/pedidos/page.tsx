@@ -1,5 +1,6 @@
-﻿import { requireOrgPage } from '@/lib/auth/guards';
+import { requireOrgPage } from '@/lib/auth/guards';
 import { can } from '@/lib/permissions';
+import { prisma, toNumber } from '@/lib/db';
 import { getOrders } from '@/lib/data/orders';
 import { getDrivers } from '@/lib/data/drivers';
 import { OrdersBoard } from '@/components/orders/OrdersBoard';
@@ -19,11 +20,19 @@ export const dynamic = 'force-dynamic';
 export default async function OrdersPage() {
   const ctx = await requireOrgPage('MANAGE_ORDERS');
 
-  const [orders, drivers] = await Promise.all([
+  const [orders, drivers, products] = await Promise.all([
     getOrders(ctx.organizationId, { perPage: 100, status: undefined }),
     can(ctx.role, 'MANAGE_DRIVERS')
       ? getDrivers(ctx.organizationId, { active: true })
       : Promise.resolve([]),
+    prisma.product.findMany({
+      where: { organizationId: ctx.organizationId, active: true, available: true },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, price: true, promotionalPrice: true,
+        variations: { where: { active: true }, select: { id: true, name: true, priceAdjustment: true } },
+        addonGroups: { select: { id: true, name: true, required: true, minSelections: true, maxSelections: true,
+          addons: { where: { active: true }, select: { id: true, name: true, price: true } } } } },
+    }),
   ]);
 
   // Só os campos que a tela usa — nada de mandar o objeto Prisma inteiro.
@@ -36,6 +45,7 @@ export default async function OrdersPage() {
     customerPhone: order.customerPhone,
     total: order.total,
     deliveryFee: order.deliveryFee,
+    deliveryType: order.deliveryType,
     subtotal: order.subtotal,
     discount: order.discount,
     paymentMethod: order.paymentMethod,
@@ -83,6 +93,11 @@ export default async function OrdersPage() {
 
       <OrdersBoard
         orders={serialized}
+        products={products.map((product) => ({
+          id: product.id, name: product.name, price: toNumber(product.promotionalPrice ?? product.price),
+          variations: product.variations.map((v) => ({ ...v, priceAdjustment: toNumber(v.priceAdjustment) })),
+          addonGroups: product.addonGroups.map((g) => ({ ...g, addons: g.addons.map((a) => ({ ...a, price: toNumber(a.price) })) })),
+        }))}
         drivers={drivers.map((driver) => ({
           id: driver.id,
           name: driver.name,

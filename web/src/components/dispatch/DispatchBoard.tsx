@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn, formatBRL } from '@/lib/utils';
@@ -86,7 +86,17 @@ export function DispatchBoard({
   // "Agora" fixado na renderização: usar Date.now() direto no corpo do
   // componente daria um valor diferente a cada re-render e faria os
   // minutos piscarem sem motivo.
-  const [now] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const refresh = () => {
+      if (document.hidden || !navigator.onLine || pending) return;
+      setNow(Date.now());
+      router.refresh();
+    };
+    const timer = window.setInterval(refresh, 30000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
+  }, [router, pending]);
 
   const waiting = useMemo(
     () => orders.filter((o) => o.status === 'WAITING_DRIVER' || o.status === 'READY'),
@@ -270,18 +280,6 @@ export function DispatchBoard({
                         {order.driverName ?? 'Sem entregador'} · saiu {agoFrom(order.createdAt, now)}
                       </p>
                     </div>
-                    {canDispatch && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={pending}
-                        onClick={() =>
-                          run(() => unassignDriverAction(order.id), () => setError(null))
-                        }
-                      >
-                        Liberar
-                      </Button>
-                    )}
                   </li>
                 ))}
               </ul>

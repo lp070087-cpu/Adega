@@ -1,4 +1,4 @@
-﻿import { z } from 'zod';
+import { z } from 'zod';
 import { OrderSource, OrderStatus, PaymentMethod } from '@prisma/client';
 import { optionalText, phoneSchema, requiredText, slugSchema } from './common';
 
@@ -33,6 +33,7 @@ const orderBaseSchema = z.object({
    * por esse id. Produto de outra loja simplesmente não é encontrado.
    */
   slug: slugSchema,
+  idempotencyKey: z.string().uuid().optional(),
   customerName: requiredText('Nome', 2, 120),
   customerPhone: phoneSchema,
   /**
@@ -70,6 +71,9 @@ const orderRefinementMessages = [
 ];
 
 export const checkoutSchema = orderBaseSchema
+  .refine((data) => ['CASH', 'PIX', 'CREDIT_CARD', 'DEBIT_CARD'].includes(data.paymentMethod), {
+    message: 'Escolha uma forma de pagamento na entrega ou retirada.', path: ['paymentMethod'],
+  })
   .refine(orderRefinements[0], orderRefinementMessages[0])
   .refine(orderRefinements[1], orderRefinementMessages[1]);
 
@@ -86,11 +90,13 @@ export const checkoutSchema = orderBaseSchema
  * atrapalharia o uso real do caixa.
  */
 export const manualOrderSchema = orderBaseSchema.omit({ slug: true }).extend({
-  source: z.nativeEnum(OrderSource).default('MANUAL'),
+  source: z.enum(['COUNTER', 'WHATSAPP', 'MANUAL']).default('COUNTER'),
   paymentStatus: z.enum(['PENDING', 'PAID']).default('PENDING'),
   discount: z.number().min(0).max(99999).default(0),
   deliveryFeeOverride: z.number().min(0).max(9999).optional(),
-});
+})
+  .refine(orderRefinements[0], orderRefinementMessages[0])
+  .refine(orderRefinements[1], orderRefinementMessages[1]);
 
 /** Transições de status do pedido. */
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {

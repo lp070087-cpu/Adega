@@ -4,8 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { BusinessType } from '@prisma/client';
 import { auth } from '@/lib/auth';
+import { toActionError } from '@/lib/auth/guards';
 import { prisma } from '@/lib/db';
 import { slugify } from '@/lib/utils';
+import { onboardingNumber as numberOr } from '@/lib/onboarding-number';
+import { lockOnboardingAccount } from '@/lib/data/onboarding-guard';
 import { slugExists } from '@/lib/data/organization';
 import { copyGlobalProductsTx } from '@/lib/data/global-catalog';
 import {
@@ -134,6 +137,7 @@ export async function completeOnboardingV2Action(
   try {
     const result = await prisma.$transaction(
       async (tx) => {
+        await lockOnboardingAccount(tx, userId);
         const org = await tx.organization.create({
           data: {
             slug,
@@ -268,12 +272,7 @@ export async function completeOnboardingV2Action(
 
     return { slug: result.slug, created: result.total };
   } catch (error) {
-    return {
-      error:
-        error instanceof Error
-          ? `Não foi possível criar o estabelecimento: ${error.message}`
-          : 'Não foi possível criar o estabelecimento.',
-    };
+    return toActionError(error);
   }
 }
 
@@ -285,14 +284,4 @@ function jsonOr<T>(value: FormDataEntryValue | null, fallback: T): T {
   } catch {
     return fallback;
   }
-}
-
-function numberOr(value: FormDataEntryValue | null, fallback: number): number {
-  if (value === null) return fallback;
-  const raw = String(value).trim();
-  if (!raw) return fallback;
-  // Aceita "29,90" e "29.90".
-  const normalized = raw.replace(/\./g, '').replace(',', '.');
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : fallback;
 }

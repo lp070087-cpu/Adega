@@ -1,8 +1,13 @@
-﻿import 'server-only';
+import 'server-only';
+import { OperationError } from '@/lib/operation-error';
 import type { OrderSource, OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { prisma, toNumber } from '@/lib/db';
 import { onlyDigits } from '@/lib/utils';
+import { normalizeSchedule, storeOpenState } from '@/lib/schedule';
 import { deductOrderStock, restoreOrderStock } from '@/lib/data/inventory';
+import { withOrganizationTransaction } from '@/lib/data/transaction';
+import { registerOrderInCash } from '@/lib/data/cash';
+import { canTransition } from '@/lib/validations/order';
 import {
   calculateDeliveryFee,
   isOutsideDeliveryArea,
@@ -37,6 +42,8 @@ export type CheckoutItemInput = {
 };
 
 export type CheckoutCustomerInput = {
+  idempotencyKey?: string;
+  source?: 'OWN_STORE' | 'COUNTER' | 'WHATSAPP' | 'MANUAL';
   customerName: string;
   customerPhone: string;
   /** DELIVERY = entrega no endereço; PICKUP = retirada no balcão. */
@@ -93,13 +100,40 @@ export async function priceCart(
     where: { id: { in: productIds }, organizationId },
     include: {
       variations: true,
+      combo: { include: { items: { include: { product: { include: { combo: { select: { id: true } } } } } } } },
       addonGroups: { include: { addons: true } },
     },
   });
 
   const byId = new Map(products.map((p) => [p.id, p]));
 
-  const priced: PricedItem[] = [];
+  const quantities = new Map<string, number>();
+  for (const item of items) {
+    if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 99) {
+      throw new CheckoutError('Quantidade inválida.', 'items');
+    }
+    quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
+  }
+  // Components and standalone units share the same stock budget.
+  const componentDemand = new Map(quantities);
+  for (const product of products) {
+    if (!product.combo) continue;
+    const quantity = quantities.get(product.id) ?? 0;
+    if (!product.combo.items.length) throw new CheckoutError('Combo sem produtos disponíveis.', 'items');
+    for (const part of product.combo.items) {
+      if (part.product.organizationId !== organizationId || !part.product.active || !part.product.available || part.product.combo !== null) {
+        throw new CheckoutError(`O combo "${product.name}" não está disponível no momento.`, 'items');
+      }
+      componentDemand.set(part.productId, (componentDemand.get(part.productId) ?? 0) + part.quantity * quantity);
+    }
+  }
+  for (const product of products) {
+    for (const part of product.combo?.items ?? []) {
+      if (part.product.trackStock && part.product.stock < (componentDemand.get(part.productId) ?? 0)) {
+        throw new CheckoutError(`Estoque insuficiente para o combo "${product.name}".`, 'items');
+      }
+    }
+  }  const priced: PricedItem[] = [];
 
   for (const item of items) {
     const product = byId.get(item.productId);
@@ -112,10 +146,10 @@ export async function priceCart(
       throw new CheckoutError(`"${product.name}" não está disponível no momento.`, 'items');
     }
 
-    const quantity = Math.max(1, Math.floor(item.quantity));
+    const quantity = item.quantity;
 
     // Estoque: confere antes de fechar, para não vender o que não tem.
-    if (product.trackStock && product.stock < quantity) {
+    if (product.trackStock && product.stock < (componentDemand.get(product.id) ?? quantity)) {
       throw new CheckoutError(
         product.stock === 0
           ? `"${product.name}" está esgotado.`
@@ -174,6 +208,9 @@ export async function priceCart(
       validAddonIds.has(id),
     );
 
+    if (chosenAddonIds.length !== new Set(item.addonIds ?? []).size) {
+      throw new CheckoutError('Um adicional escolhido não está mais disponível.', 'items');
+    }
     const options: PricedItem['options'] = [];
     if (chosenAddonIds.length > 0) {
       /**
@@ -241,6 +278,9 @@ export async function priceCart(
       }
     }
 
+    if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+      throw new CheckoutError('Produto com preço inválido. Entre em contato com a loja.', 'items');
+    }
     unitPrice = Math.round(unitPrice * 100) / 100;
     const total = Math.round(unitPrice * quantity * 100) / 100;
 
@@ -305,11 +345,19 @@ export async function createOrderFromCheckout(
   customer: CheckoutCustomerInput,
   items: CheckoutItemInput[],
 ): Promise<{ orderId: string; displayId: number; total: number }> {
+  if (customer.idempotencyKey) {
+    const existing = await prisma.order.findFirst({
+      where: { organizationId, source: customer.source ?? 'OWN_STORE', externalId: customer.idempotencyKey },
+      select: { id: true, displayId: true, total: true },
+    });
+    if (existing) return { orderId: existing.id, displayId: existing.displayId, total: toNumber(existing.total) };
+  }
   const organization = await prisma.organization.findUnique({
     where: { id: organizationId },
     select: {
       id: true,
       storeStatus: true,
+      status: true,
       minimumOrder: true,
       baseDeliveryFee: true,
       extraKmFee: true,
@@ -324,7 +372,12 @@ export async function createOrderFromCheckout(
   });
   if (!organization) throw new CheckoutError('Estabelecimento não encontrado.');
 
-  if (organization.storeStatus === 'CLOSED') {
+  if (organization.status !== 'ACTIVE' && organization.status !== 'TRIAL') {
+    throw new CheckoutError('Este estabelecimento não está disponível para pedidos.');
+  }
+  const openingHours = (organization.settings as Record<string, unknown> | null)?.openingHours;
+  const openState = storeOpenState(organization.storeStatus, normalizeSchedule(openingHours));
+  if (openState === 'CLOSED' || openState === 'CLOSED_BY_SCHEDULE') {
     throw new CheckoutError('A loja está fechada neste momento.');
   }
   if (organization.storeStatus === 'PAUSED') {
@@ -434,6 +487,15 @@ export async function createOrderFromCheckout(
   }
 
   const order = await prisma.$transaction(async (tx) => {
+    // Tenant lock serializes numbering and duplicate checkout requests.
+    await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
+    if (customer.idempotencyKey) {
+      const existing = await tx.order.findFirst({
+        where: { organizationId, source: customer.source ?? 'OWN_STORE', externalId: customer.idempotencyKey },
+        select: { id: true, displayId: true, total: true },
+      });
+      if (existing) return existing;
+    }
     const customerRecord = await upsertCustomer(
       tx,
       organizationId,
@@ -447,7 +509,8 @@ export async function createOrderFromCheckout(
       data: {
         organizationId,
         displayId,
-        source: 'OWN_STORE',
+        source: customer.source ?? 'OWN_STORE',
+        externalId: customer.idempotencyKey ?? null,
         customerId: customerRecord.id,
         customerName: customer.customerName,
         customerPhone: onlyDigits(customer.customerPhone),
@@ -670,13 +733,20 @@ export async function updateOrderStatus(
   organizationId: string,
   orderId: string,
   status: OrderStatus,
-  options: { reason?: string; userId?: string } = {},
+  options: { reason?: string; userId?: string; transaction?: Prisma.TransactionClient } = {},
 ) {
-  const order = await prisma.order.findFirst({
+  return withOrganizationTransaction(organizationId, async (tx) => {
+  const order = await tx.order.findFirst({
     where: { id: orderId, organizationId },
-    select: { id: true, status: true, notes: true, displayId: true },
+    select: { id: true, status: true, notes: true, displayId: true, deliveryType: true, driverId: true, total: true, paymentMethod: true },
   });
-  if (!order) throw new Error('Pedido não encontrado.');
+  if (!order) throw new OperationError('Pedido não encontrado.');
+  if (order.status === status) return { ok: true, status };
+  const pickupComplete = order.deliveryType === 'PICKUP' && order.status === 'READY' && status === 'DELIVERED';
+  if (!pickupComplete && !canTransition(order.status, status)) throw new OperationError('Transição de pedido inválida.');
+  if (order.deliveryType === 'PICKUP' && ['WAITING_DRIVER', 'DISPATCHED'].includes(status)) throw new OperationError('Pedido de retirada não pode ser despachado.');
+  if (order.deliveryType !== 'PICKUP' && status === 'DELIVERED' && order.status !== 'DISPATCHED') throw new OperationError('Despache o pedido antes de concluir.');
+  if (status === 'DISPATCHED' && !order.driverId) throw new OperationError('Atribua um entregador antes de despachar.');
 
   const now = new Date();
   const stamp: Prisma.OrderUpdateInput = {
@@ -696,17 +766,30 @@ export async function updateOrderStatus(
       : {}),
   };
 
-  await prisma.order.update({ where: { id: orderId }, data: stamp });
+  await tx.order.update({ where: { id: orderId }, data: stamp });
 
   // Efeitos colaterais de estoque, fora do update para não misturar.
   if (status === 'CONFIRMED') {
-    await deductOrderStock(organizationId, orderId, options.userId);
+    await deductOrderStock(organizationId, orderId, options.userId, tx);
   }
   if (status === 'CANCELLED') {
-    await restoreOrderStock(organizationId, orderId, options.userId);
+    await restoreOrderStock(organizationId, orderId, options.userId, tx);
+    await tx.delivery.updateMany({ where: { organizationId, orderId }, data: { status: 'FAILED' } });
+  }
+  if (status === 'DISPATCHED') {
+    await tx.delivery.updateMany({ where: { organizationId, orderId, status: { in: ['ASSIGNED', 'PICKED_UP'] } }, data: { status: 'IN_TRANSIT', startedAt: now } });
+  }
+  if (status === 'DELIVERED') {
+    await tx.delivery.updateMany({ where: { organizationId, orderId }, data: { status: 'DELIVERED', deliveredAt: now } });
+    if (order.paymentMethod) await registerOrderInCash(organizationId, orderId, order.paymentMethod, toNumber(order.total), tx);
+  }
+  if (order.driverId && ['CANCELLED', 'DELIVERED'].includes(status)) {
+    const other = await tx.order.count({ where: { organizationId, driverId: order.driverId, id: { not: orderId }, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
+    if (!other) await tx.driver.updateMany({ where: { id: order.driverId, organizationId }, data: { status: 'ONLINE' } });
   }
 
   return { ok: true, status };
+  }, options.transaction);
 }
 
 /**
@@ -718,19 +801,27 @@ export async function assignDriver(
   orderId: string,
   driverId: string,
 ) {
-  const driver = await prisma.driver.findFirst({
+  return withOrganizationTransaction(organizationId, async (tx) => {
+  const driver = await tx.driver.findFirst({
     where: { id: driverId, organizationId, active: true },
-    select: { id: true, name: true },
+    select: { id: true, name: true, status: true },
   });
-  if (!driver) throw new Error('Entregador não encontrado.');
+  if (!driver) throw new OperationError('Entregador não encontrado.');
 
-  const order = await prisma.order.findFirst({
+  const order = await tx.order.findFirst({
     where: { id: orderId, organizationId },
-    select: { id: true, displayId: true, status: true },
+    select: { id: true, displayId: true, status: true, driverId: true, deliveryType: true },
   });
-  if (!order) throw new Error('Pedido não encontrado.');
+  if (!order) throw new OperationError('Pedido não encontrado.');
+  if (order.deliveryType !== 'DELIVERY') throw new OperationError('Pedido de retirada não recebe entregador.');
+  if (!['READY', 'WAITING_DRIVER'].includes(order.status) || order.driverId) {
+    throw new OperationError('O pedido já foi atribuído ou não está pronto para despacho.');
+  }
+  const activeOrders = await tx.order.count({ where: {
+    organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
+  } });
+  if (driver.status !== 'ONLINE' || activeOrders) throw new OperationError('Entregador indisponível. Atualize a expedição.');
 
-  await prisma.$transaction(async (tx) => {
     await tx.order.update({
       where: { id: orderId },
       data: { driverId, status: 'WAITING_DRIVER' },
@@ -746,7 +837,9 @@ export async function assignDriver(
         status: 'ASSIGNED',
         assignedAt: new Date(),
       },
-      update: { driverId, status: 'ASSIGNED', assignedAt: new Date() },
+      update: { driverId, status: 'ASSIGNED', assignedAt: new Date(),
+        arrivedAt: null, pickedUpAt: null, startedAt: null, deliveredAt: null,
+        proofType: 'NONE', proofValue: null },
     });
 
     await tx.driver.update({ where: { id: driverId }, data: { status: 'BUSY' } });
@@ -762,39 +855,45 @@ export async function assignDriver(
         href: '/entregador',
       },
     });
-  });
-
   return { ok: true, driverName: driver.name };
+  });
 }
 
 export async function unassignDriver(organizationId: string, orderId: string) {
-  const order = await prisma.order.findFirst({
+  return withOrganizationTransaction(organizationId, async (tx) => {
+  const order = await tx.order.findFirst({
     where: { id: orderId, organizationId },
-    select: { id: true, driverId: true, status: true },
+    select: { id: true, driverId: true, status: true, delivery: { select: { status: true } } },
   });
-  if (!order) throw new Error('Pedido não encontrado.');
+  if (!order) throw new OperationError('Pedido não encontrado.');
+  if (order.status !== 'WAITING_DRIVER' || !order.driverId ||
+      !['PENDING', 'ASSIGNED'].includes(order.delivery?.status ?? '')) {
+    throw new OperationError('Só é possível remover o entregador antes da retirada do pedido.');
+  }
 
-  await prisma.$transaction(async (tx) => {
     await tx.order.update({
       where: { id: orderId },
       data: {
         driverId: null,
-        status: order.status === 'DISPATCHED' ? 'READY' : order.status,
+        status: 'READY',
       },
     });
     await tx.delivery.updateMany({
       where: { orderId, organizationId },
-      data: { driverId: null, status: 'PENDING' },
+      data: { driverId: null, status: 'PENDING', assignedAt: null, arrivedAt: null,
+        pickedUpAt: null, startedAt: null, deliveredAt: null },
     });
     if (order.driverId) {
+      const remaining = await tx.order.count({ where: {
+        organizationId, driverId: order.driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
+      } });
       await tx.driver.update({
         where: { id: order.driverId },
-        data: { status: 'ONLINE' },
+        data: { status: remaining ? 'BUSY' : 'ONLINE' },
       });
     }
-  });
-
   return { ok: true };
+  });
 }
 
 export async function updatePaymentStatus(
@@ -802,13 +901,21 @@ export async function updatePaymentStatus(
   orderId: string,
   paymentStatus: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED',
   paymentMethod?: PaymentMethod,
+  transaction?: Prisma.TransactionClient,
 ) {
-  const result = await prisma.order.updateMany({
+  return withOrganizationTransaction(organizationId, async (tx) => {
+  const order = await tx.order.findFirst({ where: { id: orderId, organizationId }, select: { status: true } });
+  if (!order) throw new OperationError('Pedido não encontrado.');
+  if (['DELIVERED', 'CANCELLED'].includes(order.status)) {
+    throw new OperationError('Pedido encerrado. Registre eventuais ajustes no caixa para preservar o histórico.');
+  }
+  const result = await tx.order.updateMany({
     where: { id: orderId, organizationId },
     data: { paymentStatus, ...(paymentMethod ? { paymentMethod } : {}) },
   });
-  if (result.count === 0) throw new Error('Pedido não encontrado.');
+  if (result.count === 0) throw new OperationError('Pedido não encontrado.');
   return { ok: true };
+  }, transaction);
 }
 
 /** Contadores exibidos nos badges laterais. */

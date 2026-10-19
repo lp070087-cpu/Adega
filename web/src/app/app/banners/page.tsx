@@ -2,6 +2,7 @@ import { requireOrgPage } from '@/lib/auth/guards';
 import { can } from '@/lib/permissions';
 import { countDefaultBanners, getStoreBanners } from '@/lib/data/store-ops';
 import { BannerManager } from '@/components/store/BannerManager';
+import { storageStatus } from '@/lib/storage';
 
 export const metadata = { title: 'Banners' };
 export const dynamic = 'force-dynamic';
@@ -34,6 +35,7 @@ export default async function BannersPage() {
         banners={banners}
         defaultBannerCount={defaultBannerCount}
         canManage={can(ctx.role, 'MANAGE_SETTINGS')}
+        uploadConfigured={storageStatus().configured}
       />
     </div>
   );

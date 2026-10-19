@@ -1,6 +1,6 @@
 import 'server-only';
 import { prisma, toNumber } from '@/lib/db';
-import { addDays, dayKey, startOfDay } from '@/lib/utils';
+import { addDays, dayKey, startOfDay, endOfDay } from '@/lib/utils';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -19,8 +19,7 @@ export const PAID_STATUSES = ['CONFIRMED', 'PREPARING', 'READY', 'WAITING_DRIVER
 export type Period = 'today' | '7d' | '30d' | 'custom';
 
 export function periodRange(period: Period, from?: Date, to?: Date): { start: Date; end: Date } {
-  const end = to ? new Date(to) : new Date();
-  end.setHours(23, 59, 59, 999);
+  const end = endOfDay(to ?? new Date());
 
   switch (period) {
     case 'today':
@@ -106,7 +105,7 @@ export async function getDashboard(organizationId: string) {
   // Pedidos por hora (0h–23h) para o gráfico do dia.
   const byHour = Array.from({ length: 24 }, (_, hour) => ({ hour, orders: 0, revenue: 0 }));
   for (const order of validToday) {
-    const hour = new Date(order.createdAt).getHours();
+    const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hourCycle: 'h23' }).format(order.createdAt));
     byHour[hour]!.orders += 1;
     byHour[hour]!.revenue = round2(byHour[hour]!.revenue + toNumber(order.total));
   }

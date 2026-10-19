@@ -72,7 +72,9 @@ export const moneyInputSchema = z
   .transform((v) => {
     if (typeof v === 'number') return v;
     // Formato BR: ponto é separador de milhar, vírgula é decimal.
-    const normalized = v.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+    const raw = v.trim().replace(/^R\$\s*/, '');
+    const normalized = raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw;
+    if (!normalized || !/^-?\d+(?:\.\d+)?$/.test(normalized)) return Number.NaN;
     return Number(normalized);
   })
   .pipe(moneySchema);

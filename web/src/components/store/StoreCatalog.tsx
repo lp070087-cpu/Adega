@@ -202,6 +202,7 @@ export function StoreCatalog({
    * só apareceria quando o motoboy chegasse no lugar errado.
    */
   const [order, setOrder] = React.useState<{
+    orderId: string;
     displayId: number;
     total: number;
     deliveryType: 'DELIVERY' | 'PICKUP';
@@ -374,7 +375,11 @@ export function StoreCatalog({
     );
   }
 
+  const checkoutRequest = React.useRef<string | null>(null);
+  const checkoutLocked = React.useRef(false);
+
   async function submitOrder(formData: FormData) {
+    if (checkoutLocked.current) return;
     setSending(true);
     setError(null);
 
@@ -398,7 +403,12 @@ export function StoreCatalog({
 
     // Enviado ao servidor: produto, quantidade, variação e adicionais.
     // Nenhum preço. O total é recalculado lá.
-    const result = await checkoutAction({
+    checkoutLocked.current = true;
+    checkoutRequest.current ??= crypto.randomUUID();
+    let result: Awaited<ReturnType<typeof checkoutAction>>;
+    try {
+      result = await checkoutAction({
+      idempotencyKey: checkoutRequest.current,
       slug: store.slug,
       customerName: String(formData.get('customerName') ?? '').trim(),
       customerPhone: String(formData.get('customerPhone') ?? '').trim(),
@@ -419,19 +429,27 @@ export function StoreCatalog({
       })),
     });
 
-    setSending(false);
+    } catch {
+      setError('Não foi possível confirmar o pedido. Tente novamente.');
+      return;
+    } finally {
+      checkoutLocked.current = false;
+      setSending(false);
+    }
 
     if (!result.ok) {
       setError(result.error);
       return;
     }
 
+    checkoutRequest.current = null;
     // O carrinho só é limpo com o pedido REALMENTE gravado.
     setCart([]);
     setCheckoutOpen(false);
     setCartOpen(false);
     setSuccess(null);
     setOrder({
+      orderId: result.data?.orderId ?? '',
       displayId: result.data?.displayId ?? 0,
       total: result.data?.total ?? 0,
       deliveryType,
@@ -939,6 +957,9 @@ export function StoreCatalog({
               </p>
             </div>
 
+            <a className="block rounded border-2 border-brand px-4 py-3 text-center font-semibold text-brand" href={`/loja/${store.slug}/pedido/${order.orderId}`}>
+              Acompanhar pedido
+            </a>
             <dl className="space-y-1.5 text-[0.82rem]">
               <div className="flex justify-between gap-4">
                 <dt className="text-ink-500">Número do pedido</dt>

@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/auth/password';
 import { signIn, signOut } from '@/lib/auth';
 import { driverLoginSchema, loginSchema, registerSchema } from '@/lib/validations/auth';
+import { passwordSchema } from '@/lib/validations/common';
 
 /**
  * Ações de autenticação.
@@ -162,7 +163,8 @@ export async function changePasswordAction(
   const next = String(formData.get('newPassword') ?? '');
   const confirm = String(formData.get('confirmPassword') ?? '');
 
-  if (next.length < 8) return { error: 'A nova senha precisa ter ao menos 8 caracteres.' };
+  const parsedPassword = passwordSchema.safeParse(next);
+  if (!parsedPassword.success) return { error: parsedPassword.error.errors[0]?.message ?? 'Senha inválida.' };
   if (next !== confirm) return { error: 'As senhas não conferem.', field: 'confirmPassword' };
 
   const user = await prisma.user.findUnique({

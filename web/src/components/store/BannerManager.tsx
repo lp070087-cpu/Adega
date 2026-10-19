@@ -115,11 +115,13 @@ export function BannerManager({
   banners,
   defaultBannerCount,
   canManage,
+  uploadConfigured,
 }: {
   banners: StoreBannerView[];
   /** Quantos banners padrão da plataforma existem para este segmento. */
   defaultBannerCount: number;
   canManage: boolean;
+  uploadConfigured: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -209,6 +211,10 @@ export function BannerManager({
   async function onFileChange(file: File | null) {
     setImageError(null);
     if (!file) return;
+    if (!uploadConfigured) {
+      setImageError('Envio de arquivos indisponível. Use uma imagem do acervo ou informe uma URL.');
+      return;
+    }
 
     // Mesma função que o servidor usa (`@/lib/banner-image`): formato e
     // tamanho são a MESMA regra, não duas parecidas. Aqui é atalho de
@@ -244,6 +250,10 @@ export function BannerManager({
 
       // Se há arquivo novo, sobe primeiro e usa a URL devolvida.
       if (pendingFile) {
+        if (!uploadConfigured) {
+          setImageError('Envio de arquivos indisponível. Use uma imagem do acervo ou informe uma URL.');
+          return;
+        }
         const formData = new FormData();
         formData.set('file', pendingFile);
         const uploaded = await uploadBannerImageAction(formData);
@@ -259,7 +269,7 @@ export function BannerManager({
       }
 
       if (!imagePath) {
-        setImageError('Envie a imagem do banner.');
+        setImageError('Escolha uma imagem do acervo ou informe uma URL de imagem.');
         return;
       }
 
@@ -500,7 +510,8 @@ export function BannerManager({
             >
               <label
                 className={cn(
-                  'block cursor-pointer rounded border-2 border-dashed px-4 py-6 text-center transition-all',
+                  'block rounded border-2 border-dashed px-4 py-6 text-center transition-all',
+                  uploadConfigured ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
                   imageError
                     ? 'border-danger bg-danger-bg/30'
                     : 'border-ink-200 hover:border-brand hover:bg-ink-50',
@@ -509,11 +520,14 @@ export function BannerManager({
                 <input
                   type="file"
                   accept={BANNER_ACCEPT_ATTR}
+                  disabled={!uploadConfigured || pending}
                   onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
                   className="sr-only"
                 />
                 <span className="block text-[0.86rem] font-semibold text-ink-700">
-                  {pendingFile
+                  {!uploadConfigured
+                    ? 'Envio de arquivos indisponível'
+                    : pendingFile
                     ? pendingFile.name
                     : usingLibraryImage
                       ? 'Imagem do acervo escolhida — clique para enviar um arquivo'
@@ -522,13 +536,28 @@ export function BannerManager({
                         : 'Clique para enviar a imagem'}
                 </span>
                 <span className="mt-1 block text-[0.72rem] text-ink-400">
-                  {pendingFile
+                  {!uploadConfigured
+                    ? 'Use uma imagem do acervo abaixo ou informe uma URL pública.'
+                    : pendingFile
                     ? 'Clique para escolher outro arquivo.'
                     : usingLibraryImage
                       ? 'A escolha do acervo só sai do lugar quando você envia um arquivo.'
                       : 'O arquivo sobe ao salvar o banner.'}
                 </span>
               </label>
+
+              <Input
+                value={draft.imagePath}
+                onChange={(e) => {
+                  resetFile();
+                  setDraft({ ...draft, imagePath: e.target.value });
+                }}
+                aria-label="URL pública da imagem do banner ou caminho do acervo"
+                placeholder="https://exemplo.com/banner.webp"
+                maxLength={500}
+                disabled={pending}
+                className="mt-3"
+              />
 
               {imageInfo && (
                 <p className="mt-1.5 text-[0.72rem] text-ink-500">
@@ -617,7 +646,7 @@ export function BannerManager({
                       Imagem do acervo · <code>{draft.imagePath}</code>
                     </p>
                     <Button size="sm" variant="ghost" onClick={clearImage} disabled={pending}>
-                      Enviar um arquivo em vez desta
+                      {uploadConfigured ? 'Trocar imagem' : 'Usar outra imagem ou URL'}
                     </Button>
                   </div>
                 )}

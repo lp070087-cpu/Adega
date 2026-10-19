@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { requireOrgPage } from '@/lib/auth/guards';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -14,6 +15,9 @@ import { redirect } from 'next/navigation';
  * diferentes: a aba de entrada é /app/dashboard, e só ela.
  * ═══════════════════════════════════════════════════════════════════════
  */
-export default function AppIndexPage() {
+export default async function AppIndexPage() {
+  const { role } = await requireOrgPage();
+  if (role === 'DRIVER') redirect('/entregador');
+  if (role === 'KITCHEN') redirect('/app/pedidos');
   redirect('/app/dashboard');
 }

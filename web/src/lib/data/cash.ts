@@ -1,6 +1,9 @@
 import 'server-only';
+import { OperationError } from '@/lib/operation-error';
 import type { PaymentMethod, Prisma, TransactionType } from '@prisma/client';
 import { prisma, toNumber } from '@/lib/db';
+import { withOrganizationTransaction } from '@/lib/data/transaction';
+import { startOfDay } from '@/lib/utils';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -53,7 +56,7 @@ export async function updateCashRegister(
     where: { id: registerId, organizationId },
     data: input,
   });
-  if (result.count === 0) throw new Error('Caixa não encontrado.');
+  if (result.count === 0) throw new OperationError('Caixa não encontrado.');
   return { ok: true };
 }
 
@@ -163,21 +166,22 @@ export async function openCashShift(
   input: { cashRegisterId: string; openingAmount: number },
   userId: string,
 ) {
-  const register = await prisma.cashRegister.findFirst({
+  return withOrganizationTransaction(organizationId, async (tx) => {
+  const register = await tx.cashRegister.findFirst({
     where: { id: input.cashRegisterId, organizationId, active: true },
     select: { id: true, name: true },
   });
-  if (!register) throw new Error('Caixa não encontrado ou inativo.');
+  if (!register) throw new OperationError('Caixa não encontrado ou inativo.');
 
-  const alreadyOpen = await prisma.cashShift.findFirst({
+  const alreadyOpen = await tx.cashShift.findFirst({
     where: { cashRegisterId: register.id, closedAt: null },
     select: { id: true },
   });
   if (alreadyOpen) {
-    throw new Error(`O caixa "${register.name}" já tem um turno aberto.`);
+    throw new OperationError(`O caixa "${register.name}" já tem um turno aberto.`);
   }
 
-  const shift = await prisma.cashShift.create({
+  const shift = await tx.cashShift.create({
     data: {
       cashRegisterId: register.id,
       openedByUserId: userId,
@@ -186,6 +190,7 @@ export async function openCashShift(
   });
 
   return { ...shift, openingAmount: toNumber(shift.openingAmount), registerName: register.name };
+  });
 }
 
 /**
@@ -197,12 +202,13 @@ export async function closeCashShift(
   input: { cashShiftId: string; closingAmount: number; notes?: string },
   userId: string,
 ) {
-  const shift = await prisma.cashShift.findFirst({
+  return withOrganizationTransaction(organizationId, async (tx) => {
+  const shift = await tx.cashShift.findFirst({
     where: { id: input.cashShiftId, cashRegister: { organizationId } },
     include: { transactions: true, cashRegister: { select: { name: true } } },
   });
-  if (!shift) throw new Error('Turno não encontrado.');
-  if (shift.closedAt) throw new Error('Este turno já foi fechado.');
+  if (!shift) throw new OperationError('Turno não encontrado.');
+  if (shift.closedAt) throw new OperationError('Este turno já foi fechado.');
 
   const totals = summarizeShift(
     shift.openingAmount,
@@ -215,7 +221,7 @@ export async function closeCashShift(
 
   const difference = round2(input.closingAmount - totals.expectedCash);
 
-  const closed = await prisma.cashShift.update({
+  const closed = await tx.cashShift.update({
     where: { id: shift.id },
     data: {
       closedAt: new Date(),
@@ -233,6 +239,7 @@ export async function closeCashShift(
     totals,
     registerName: shift.cashRegister.name,
   };
+  });
 }
 
 /** Sangria, suprimento, estorno ou ajuste. */
@@ -245,14 +252,15 @@ export async function createCashTransaction(
     description?: string;
   },
 ) {
-  const shift = await prisma.cashShift.findFirst({
+  return withOrganizationTransaction(organizationId, async (tx) => {
+  const shift = await tx.cashShift.findFirst({
     where: { id: input.cashShiftId, cashRegister: { organizationId } },
     select: { id: true, closedAt: true },
   });
-  if (!shift) throw new Error('Turno não encontrado.');
-  if (shift.closedAt) throw new Error('Não é possível lançar em um turno já fechado.');
+  if (!shift) throw new OperationError('Turno não encontrado.');
+  if (shift.closedAt) throw new OperationError('Não é possível lançar em um turno já fechado.');
 
-  const transaction = await prisma.cashTransaction.create({
+  const transaction = await tx.cashTransaction.create({
     data: {
       cashShiftId: shift.id,
       type: input.type,
@@ -263,6 +271,7 @@ export async function createCashTransaction(
   });
 
   return { ...transaction, amount: toNumber(transaction.amount) };
+  });
 }
 
 /**
@@ -274,21 +283,25 @@ export async function registerOrderInCash(
   orderId: string,
   paymentMethod: PaymentMethod,
   amount: number,
+  transaction?: Prisma.TransactionClient,
 ) {
-  const shift = await prisma.cashShift.findFirst({
+  return withOrganizationTransaction(organizationId, async (tx) => {
+  const order = await tx.order.findFirst({ where: { id: orderId, organizationId }, select: { id: true } });
+  if (!order) throw new OperationError('Pedido não encontrado.');
+  const shift = await tx.cashShift.findFirst({
     where: { closedAt: null, cashRegister: { organizationId } },
     select: { id: true },
   });
   // Sem caixa aberto a venda não trava — só não entra no turno.
   if (!shift) return { registered: false, reason: 'Nenhum turno aberto.' };
 
-  const existing = await prisma.cashTransaction.findFirst({
-    where: { cashShiftId: shift.id, orderId, type: 'SALE' },
+  const existing = await tx.cashTransaction.findFirst({
+    where: { orderId, type: 'SALE', cashShift: { cashRegister: { organizationId } } },
     select: { id: true },
   });
   if (existing) return { registered: false, reason: 'Venda já lançada neste turno.' };
 
-  await prisma.cashTransaction.create({
+  await tx.cashTransaction.create({
     data: {
       cashShiftId: shift.id,
       orderId,
@@ -300,6 +313,7 @@ export async function registerOrderInCash(
   });
 
   return { registered: true };
+  }, transaction);
 }
 
 /** Histórico de turnos fechados. */
@@ -360,8 +374,7 @@ export type CashHistoryItem = Awaited<ReturnType<typeof getCashHistory>>[number]
 
 /** Resumo do caixa para o topo da página. */
 export async function getCashSummary(organizationId: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = startOfDay();
 
   const open = await getOpenShift(organizationId);
 

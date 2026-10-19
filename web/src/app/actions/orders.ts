@@ -1,6 +1,7 @@
-﻿'use server';
+'use server';
 
 import { revalidatePath } from 'next/cache';
+import { OperationError } from '@/lib/operation-error';
 import type { OrderStatus, PaymentMethod } from '@prisma/client';
 import { requirePermission, requireOrg, toActionError } from '@/lib/auth/guards';
 import { toNumber } from '@/lib/db';
@@ -15,6 +16,8 @@ import {
   updatePaymentSchema,
 } from '@/lib/validations/order';
 import { canTransition } from '@/lib/validations/order';
+import { nextDriverStep } from '@/lib/validations/driver-flow';
+import { withOrganizationTransaction } from '@/lib/data/transaction';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -54,6 +57,7 @@ export async function checkoutAction(input: unknown): Promise<
     const result = await orders.createOrderFromCheckout(
       store.id,
       {
+        idempotencyKey: parsed.data.idempotencyKey,
         customerName: parsed.data.customerName,
         customerPhone: parsed.data.customerPhone,
         deliveryType: parsed.data.deliveryType,
@@ -96,6 +100,9 @@ export async function createManualOrderAction(formData: FormData): Promise<Order
 
     const items = parseJson(formData.get('items'));
     const parsed = manualOrderSchema.safeParse({
+      idempotencyKey: formData.get('idempotencyKey') || undefined,
+      deliveryType: formData.get('deliveryType') || 'PICKUP',
+      changeFor: formData.get('changeFor') ? Number(formData.get('changeFor')) : undefined,
       customerName: formData.get('customerName') || undefined,
       customerPhone: formData.get('customerPhone') || undefined,
       deliveryAddress: formData.get('deliveryAddress') || undefined,
@@ -115,17 +122,11 @@ export async function createManualOrderAction(formData: FormData): Promise<Order
     const result = await orders.createOrderFromCheckout(
       organizationId,
       {
-        customerName: parsed.data.customerName || 'Balcão',
-        customerPhone: parsed.data.customerPhone || '00000000000',
-        /**
-         * Balcão sem endereço é RETIRADA. O operador digita endereço só
-         * quando é entrega, então o próprio campo decide a modalidade — e
-         * o texto "Retirada no balcão" que antes ia no lugar do endereço
-         * deixou de virar um endereço falso na Central de Pedidos.
-         */
-        deliveryType: parsed.data.deliveryType === 'PICKUP' || !parsed.data.deliveryAddress
-          ? 'PICKUP'
-          : 'DELIVERY',
+        idempotencyKey: parsed.data.idempotencyKey,
+        source: parsed.data.source,
+        customerName: parsed.data.customerName,
+        customerPhone: parsed.data.customerPhone,
+        deliveryType: parsed.data.deliveryType,
         deliveryAddress: parsed.data.deliveryAddress,
         deliveryNumber: parsed.data.deliveryNumber,
         deliveryDistrict: parsed.data.deliveryDistrict,
@@ -175,7 +176,8 @@ export async function updateOrderStatusAction(input: {
     if (!current) return { ok: false, error: 'Pedido não encontrado.' };
 
     const from = current.status as OrderStatus;
-    if (from !== parsed.data.status && !canTransition(from, parsed.data.status)) {
+    if (from !== parsed.data.status && !canTransition(from, parsed.data.status) &&
+      !(current.deliveryType === 'PICKUP' && from === 'READY' && parsed.data.status === 'DELIVERED')) {
       return {
         ok: false,
         error: `Não é possível ir de "${from}" para "${parsed.data.status}".`,
@@ -186,16 +188,6 @@ export async function updateOrderStatusAction(input: {
       reason: parsed.data.reason,
       userId: user.id,
     });
-
-    // Venda entregue entra no turno de caixa aberto (idempotente).
-    if (parsed.data.status === 'DELIVERED' && current.paymentMethod) {
-      await registerOrderInCash(
-        organizationId,
-        parsed.data.orderId,
-        current.paymentMethod as PaymentMethod,
-        current.total,
-      ).catch(() => undefined);
-    }
 
     revalidateOrders();
     return { ok: true };
@@ -293,15 +285,27 @@ export async function driverStepAction(input: {
     });
     if (!driver) return { ok: false, error: 'Seu usuário não está vinculado a um entregador.' };
 
-    const order = await prisma.order.findFirst({
+    await withOrganizationTransaction(ctx.organizationId, async (tx) => {
+    const activeDriver = await tx.driver.findFirst({ where: {
+      id: driver.id, organizationId: ctx.organizationId, userId: ctx.user.id, active: true,
+    }, select: { id: true } });
+    if (!activeDriver) throw new OperationError('O acesso deste entregador foi desativado.');
+    const order = await tx.order.findFirst({
       where: {
         id: input.orderId,
         organizationId: ctx.organizationId,
         driverId: driver.id,
       },
-      include: { delivery: { select: { id: true } } },
+      include: { delivery: true },
     });
-    if (!order) return { ok: false, error: 'Pedido não encontrado ou não atribuído a você.' };
+    if (!order) throw new OperationError('Pedido não encontrado ou não atribuído a você.');
+    if (!['WAITING_DRIVER', 'DISPATCHED'].includes(order.status)) {
+      throw new OperationError('Este pedido não está disponível para entrega.');
+    }
+    if (!order.delivery || order.delivery.driverId !== driver.id ||
+        nextDriverStep(order.delivery) !== input.step) {
+      throw new OperationError('Passo inválido ou já registrado. Atualize as entregas.');
+    }
 
     const parsed = driverDeliveryStepSchema.safeParse({
       deliveryId: order.delivery?.id ?? order.id,
@@ -310,7 +314,7 @@ export async function driverStepAction(input: {
     });
     if (!parsed.success) {
       const issue = parsed.error.errors[0];
-      return { ok: false, error: issue?.message ?? 'Passo inválido.' };
+      throw new OperationError(issue?.message ?? 'Passo inválido.');
     }
 
     // Cada passo do app empurra o pedido para o status correspondente.
@@ -321,43 +325,27 @@ export async function driverStepAction(input: {
           ? 'DISPATCHED'
           : 'WAITING_DRIVER';
 
-    await prisma.$transaction(async (tx) => {
       await tx.delivery.updateMany({
-        where: { orderId: order.id, organizationId: ctx.organizationId },
+        where: { orderId: order.id, organizationId: ctx.organizationId, driverId: driver.id },
         data: deliveryStepData(parsed.data.step, parsed.data.notes),
       });
 
       if (target !== order.status && canTransition(order.status as OrderStatus, target)) {
-        const now = new Date();
-        await tx.order.update({
-          where: { id: order.id },
-          data: {
-            status: target,
-            ...(target === 'DISPATCHED' ? { dispatchedAt: now } : {}),
-            ...(target === 'DELIVERED'
-              ? { deliveredAt: now, paymentStatus: 'PAID' as const }
-              : {}),
-          },
+        await orders.updateOrderStatus(ctx.organizationId, order.id, target, {
+          userId: ctx.user.id, transaction: tx,
         });
+      } else if (target !== order.status) {
+        throw new OperationError('O pedido mudou de status. Atualize as entregas.');
       }
 
       if (target === 'DELIVERED') {
-        await tx.driver.update({ where: { id: driver.id }, data: { status: 'ONLINE' } });
+        const remaining = await tx.order.count({ where: {
+          organizationId: ctx.organizationId, driverId: driver.id,
+          status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
+        } });
+        await tx.driver.update({ where: { id: driver.id }, data: { status: remaining ? 'BUSY' : 'ONLINE' } });
       }
     });
-
-    // Baixa de estoque + lançamento no caixa ao concluir. Idempotentes.
-    if (target === 'DELIVERED') {
-      await orders
-        .updateOrderStatus(ctx.organizationId, order.id, 'DELIVERED', { userId: ctx.user.id })
-        .catch(() => undefined);
-      await registerOrderInCash(
-        ctx.organizationId,
-        order.id,
-        order.paymentMethod,
-        toNumber(order.total),
-      ).catch(() => undefined);
-    }
 
     revalidatePath('/entregador');
     revalidateOrders();
@@ -391,14 +379,23 @@ export async function setMyDriverStatusAction(
   status: 'OFFLINE' | 'ONLINE' | 'RETURNING',
 ): Promise<OrderActionResult> {
   try {
+    if (!['OFFLINE', 'ONLINE', 'RETURNING'].includes(status)) {
+      return { ok: false, error: 'Disponibilidade inválida.' };
+    }
     const ctx = await requireOrg();
-    const { prisma } = await import('@/lib/db');
 
-    const result = await prisma.driver.updateMany({
-      where: { organizationId: ctx.organizationId, userId: ctx.user.id, active: true },
-      data: { status },
+    await withOrganizationTransaction(ctx.organizationId, async (tx) => {
+      const driver = await tx.driver.findFirst({ where: {
+        organizationId: ctx.organizationId, userId: ctx.user.id, active: true,
+      } });
+      if (!driver) throw new OperationError('Entregador não encontrado.');
+      const active = await tx.order.count({ where: {
+        organizationId: ctx.organizationId, driverId: driver.id,
+        status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
+      } });
+      if (active) throw new OperationError('Conclua suas entregas antes de alterar a disponibilidade.');
+      await tx.driver.update({ where: { id: driver.id }, data: { status } });
     });
-    if (result.count === 0) return { ok: false, error: 'Entregador não encontrado.' };
 
     revalidatePath('/entregador');
     revalidatePath('/app/entregadores');
@@ -415,6 +412,11 @@ export async function sendDriverLocationAction(input: {
   accuracy?: number;
 }): Promise<OrderActionResult> {
   try {
+    if (!Number.isFinite(input.latitude) || Math.abs(input.latitude) > 90 ||
+        !Number.isFinite(input.longitude) || Math.abs(input.longitude) > 180 ||
+        (input.accuracy !== undefined && (!Number.isFinite(input.accuracy) || input.accuracy < 0))) {
+      return { ok: false, error: 'Localização inválida.' };
+    }
     const ctx = await requireOrg();
     const { recordDriverLocation } = await import('@/lib/data/drivers');
     const { prisma } = await import('@/lib/db');

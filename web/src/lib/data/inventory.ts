@@ -1,7 +1,9 @@
 import 'server-only';
+import { OperationError } from '@/lib/operation-error';
 import type { InventoryMovementType, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { toNumber } from '@/lib/db';
+import { withOrganizationTransaction } from '@/lib/data/transaction';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -125,19 +127,19 @@ export async function adjustStock(
   reason: string | undefined,
   userId?: string,
 ) {
-  if (quantity === 0) throw new Error('Informe uma quantidade diferente de zero.');
+  if (!Number.isSafeInteger(quantity) || quantity === 0) throw new OperationError('Informe uma quantidade inteira diferente de zero.');
 
-  return prisma.$transaction(async (tx) => {
+  return withOrganizationTransaction(organizationId, async (tx) => {
     const product = await tx.product.findFirst({
       where: { id: productId, organizationId },
       select: { id: true, name: true, stock: true, trackStock: true },
     });
-    if (!product) throw new Error('Produto não encontrado.');
+    if (!product) throw new OperationError('Produto não encontrado.');
 
     const previousStock = product.stock;
     const newStock = previousStock + quantity;
     if (newStock < 0) {
-      throw new Error(
+      throw new OperationError(
         `Estoque insuficiente: ${product.name} tem ${previousStock} un. e a saída pede ${Math.abs(quantity)}.`,
       );
     }
@@ -172,12 +174,13 @@ export async function setStock(
   reason: string | undefined,
   userId?: string,
 ) {
-  return prisma.$transaction(async (tx) => {
+  if (!Number.isSafeInteger(newStock) || newStock < 0) throw new OperationError('Informe um saldo inteiro não negativo.');
+  return withOrganizationTransaction(organizationId, async (tx) => {
     const product = await tx.product.findFirst({
       where: { id: productId, organizationId },
       select: { id: true, name: true, stock: true },
     });
-    if (!product) throw new Error('Produto não encontrado.');
+    if (!product) throw new OperationError('Produto não encontrado.');
 
     const previousStock = product.stock;
     const diff = newStock - previousStock;
@@ -211,13 +214,13 @@ export async function setStock(
  * flag e a gravação acontecem na MESMA transação, então dois cliques
  * simultâneos não geram baixa dupla.
  */
-export async function deductOrderStock(organizationId: string, orderId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+export async function deductOrderStock(organizationId: string, orderId: string, userId?: string, transaction?: Prisma.TransactionClient) {
+  return withOrganizationTransaction(organizationId, async (tx) => {
     const order = await tx.order.findFirst({
       where: { id: orderId, organizationId },
       include: { items: true },
     });
-    if (!order) throw new Error('Pedido não encontrado.');
+    if (!order) throw new OperationError('Pedido não encontrado.');
 
     // Já baixado: não faz nada. Esta é a proteção contra baixa dupla.
     if (order.stockDeducted) {
@@ -225,21 +228,30 @@ export async function deductOrderStock(organizationId: string, orderId: string, 
     }
 
     let movements = 0;
-
+    const demand = new Map<string, number>();
     for (const item of order.items) {
       if (!item.productId) continue;
+      demand.set(item.productId, (demand.get(item.productId) ?? 0) + item.quantity);
+      const combo = await tx.combo.findFirst({
+        where: { organizationId, productId: item.productId },
+        select: { items: { select: { productId: true, quantity: true } } },
+      });
+      for (const component of combo?.items ?? []) {
+        demand.set(component.productId, (demand.get(component.productId) ?? 0) + component.quantity * item.quantity);
+      }
+    }
 
+    for (const [productId, quantity] of demand) {
       const product = await tx.product.findFirst({
-        where: { id: item.productId, organizationId },
+        where: { id: productId, organizationId },
         select: { id: true, name: true, stock: true, trackStock: true },
       });
       // Produto sem controle de estoque (ou removido) não gera movimento.
       if (!product || !product.trackStock) continue;
 
       const previousStock = product.stock;
-      // Nunca deixa o saldo negativo: a venda é registrada, mas o
-      // estoque para em zero e o lojista vê a divergência no extrato.
-      const newStock = Math.max(0, previousStock - item.quantity);
+      if (previousStock < quantity) throw new OperationError(`Estoque insuficiente: ${product.name}.`);
+      const newStock = previousStock - quantity;
 
       await tx.product.update({ where: { id: product.id }, data: { stock: newStock } });
 
@@ -248,7 +260,7 @@ export async function deductOrderStock(organizationId: string, orderId: string, 
           organizationId,
           productId: product.id,
           type: 'SALE',
-          quantity: item.quantity,
+          quantity,
           previousStock,
           newStock,
           reason: `Pedido #${order.displayId}`,
@@ -262,17 +274,17 @@ export async function deductOrderStock(organizationId: string, orderId: string, 
     await tx.order.update({ where: { id: order.id }, data: { stockDeducted: true } });
 
     return { alreadyDeducted: false, movements };
-  });
+  }, transaction);
 }
 
 /** Devolve o estoque de um pedido cancelado. Idempotente pelo tipo CANCELLATION. */
-export async function restoreOrderStock(organizationId: string, orderId: string, userId?: string) {
-  return prisma.$transaction(async (tx) => {
+export async function restoreOrderStock(organizationId: string, orderId: string, userId?: string, transaction?: Prisma.TransactionClient) {
+  return withOrganizationTransaction(organizationId, async (tx) => {
     const order = await tx.order.findFirst({
       where: { id: orderId, organizationId },
       include: { items: true },
     });
-    if (!order) throw new Error('Pedido não encontrado.');
+    if (!order) throw new OperationError('Pedido não encontrado.');
     if (!order.stockDeducted) return { restored: false, movements: 0 };
 
     // Se já existe um cancelamento registrado, não devolve de novo.
@@ -282,13 +294,18 @@ export async function restoreOrderStock(organizationId: string, orderId: string,
     if (already > 0) return { restored: false, movements: 0 };
 
     let movements = 0;
-    for (const item of order.items) {
-      if (!item.productId) continue;
+    // Restore what was actually deducted, including combo components even
+    // when the catalog or stock-control setting changed after the sale.
+    const sold = await tx.inventoryMovement.findMany({
+      where: { organizationId, orderId, type: 'SALE' },
+      select: { productId: true, quantity: true },
+    });
+    for (const item of sold) {
       const product = await tx.product.findFirst({
         where: { id: item.productId, organizationId },
         select: { id: true, stock: true, trackStock: true },
       });
-      if (!product || !product.trackStock) continue;
+      if (!product) continue;
 
       const previousStock = product.stock;
       const newStock = previousStock + item.quantity;
@@ -312,7 +329,7 @@ export async function restoreOrderStock(organizationId: string, orderId: string,
 
     await tx.order.update({ where: { id: order.id }, data: { stockDeducted: false } });
     return { restored: true, movements };
-  });
+  }, transaction);
 }
 
 /** Valor total do estoque parado (custo × quantidade). */

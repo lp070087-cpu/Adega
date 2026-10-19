@@ -39,7 +39,7 @@ class ManualUrlStorage implements StorageAdapter {
 
   async upload(): Promise<UploadResult> {
     throw new Error(
-      'Storage de arquivos não configurado. Informe a URL da imagem ou configure um provedor (Vercel Blob, Cloudinary ou S3) em src/lib/storage.ts.',
+      'Envio de arquivos indisponível. Use uma imagem do acervo ou informe a URL da imagem.',
     );
   }
 }
@@ -103,6 +103,12 @@ export function validateImageUrl(url: string | null | undefined): string | null 
   }
   if (trimmed.length > 500) {
     throw new Error('URL da imagem muito longa.');
+  }
+  try {
+    const parsed = new URL(trimmed);
+    if (!parsed.hostname || parsed.username || parsed.password) throw new Error('invalid');
+  } catch {
+    throw new Error('Informe uma URL de imagem válida, sem usuário ou senha.');
   }
   return trimmed;
 }

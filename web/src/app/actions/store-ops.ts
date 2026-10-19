@@ -337,6 +337,10 @@ export async function uploadBannerImageAction(
   try {
     await requirePermission('MANAGE_SETTINGS');
 
+    if (!getStorage().isConfigured()) {
+      return { ok: false, error: 'Envio de arquivos indisponível. Use uma imagem do acervo ou informe uma URL.', field: 'file' };
+    }
+
     const file = formData.get('file');
     if (!(file instanceof File) || file.size === 0) {
       return { ok: false, error: 'Selecione um arquivo de imagem.', field: 'file' };

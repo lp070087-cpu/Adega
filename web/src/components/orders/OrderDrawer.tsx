@@ -129,7 +129,9 @@ export function OrderDrawer({
     });
   }
 
-  const options = nextStatuses(order.status as OrderStatus).filter((s) => s !== 'CANCELLED');
+  const options = order.deliveryType === 'PICKUP' && order.status === 'READY'
+    ? ['DELIVERED' as OrderStatus]
+    : nextStatuses(order.status as OrderStatus).filter((s) => s !== 'CANCELLED');
   const isOpen = !['DELIVERED', 'CANCELLED'].includes(order.status);
 
   return (
