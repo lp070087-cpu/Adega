@@ -248,6 +248,11 @@ export function DynamicStoreHero({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={slide.id}
+              ref={(image) => {
+                if (image?.complete && image.naturalWidth === 0) {
+                  setFailedImages(failed => failed.includes(slide.imagePath) ? failed : [...failed, slide.imagePath]);
+                }
+              }}
               src={slide.imagePath}
               alt=""
               className={cn('store-hero-slide', index === activeIndex && 'is-active')}

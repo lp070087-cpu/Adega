@@ -78,6 +78,8 @@ export function ProductThumb({
   );
 
   const [index, setIndex] = React.useState(0);
+  const [loadedSource, setLoadedSource] = React.useState<string>();
+  const imageRef = React.useRef<HTMLImageElement>(null);
   const resetKey = candidates.join('|');
 
   // Trocar de produto recomeça a tentativa do zero — sem isso o índice
@@ -91,11 +93,23 @@ export function ProductThumb({
   // a cada novo erro.
   const src = index < candidates.length ? candidates[index] : undefined;
   const showFallback = !src;
+  const advance = React.useCallback(() => {
+    setIndex(current => current === index ? Math.min(current + 1, candidates.length) : current);
+  }, [index, candidates.length]);
+
+  // A falha pode ocorrer no HTML inicial, antes de os handlers serem ligados.
+  // O navegador não repete esse evento depois da hidratação.
+  React.useEffect(() => {
+    const image = imageRef.current;
+    if (!src || !image?.complete) return;
+    if (image.naturalWidth === 0) advance();
+    else setLoadedSource(src);
+  }, [src, advance]);
 
   return (
     <div
       className={cn(
-        'flex flex-shrink-0 items-center justify-center overflow-hidden bg-ink-100',
+        'relative flex flex-shrink-0 items-center justify-center overflow-hidden bg-ink-100',
         rounded === 'full' ? 'rounded-full' : 'rounded',
         className,
       )}
@@ -103,9 +117,10 @@ export function ProductThumb({
       aria-label={showFallback ? alt : undefined}
       role={showFallback ? 'img' : undefined}
     >
-      {showFallback ? (
+      {(showFallback || loadedSource !== src) && (
         <Package size={Math.min(40, size * 0.45)} strokeWidth={1.2} className="text-ink-300" aria-hidden="true" />
-      ) : (
+      )}
+      {!showFallback && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           // Sem `key`, o React reaproveita o mesmo nó quando só o `src`
@@ -113,14 +128,17 @@ export function ProductThumb({
           // cada candidato é um <img> novo e a tentativa seguinte é de
           // fato disparada.
           key={src}
+          ref={imageRef}
           src={src}
           alt={alt}
           width={size}
           height={size}
           loading="lazy"
           decoding="async"
-          className="h-full w-full object-contain"
-          onError={() => setIndex((current) => Math.min(current + 1, candidates.length))}
+          className="absolute inset-0 h-full w-full object-contain"
+          style={{ visibility: loadedSource === src ? 'visible' : 'hidden' }}
+          onLoad={() => setLoadedSource(src)}
+          onError={advance}
         />
       )}
     </div>

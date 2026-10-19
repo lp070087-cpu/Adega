@@ -76,7 +76,7 @@ Instalação PWA/offline não é certificada nesta etapa.
 
 ## Verificação e retomada
 
-Validação consolidada: 80 testes aprovados, zero falhas; build e typecheck finais
+Validação consolidada anterior: 80 testes aprovados, zero falhas; build e typecheck
 aprovados, sem desativar verificações. Os quatro banners responderam HTTP200
 na produção. Status do novo commit/deploy e revisão visual após publicação
 são registrados na conversa, sem antecipar a confirmação.
@@ -85,6 +85,18 @@ essa validação seguindo [ROTEIRO-TESTE-PROPRIETARIO.md](ROTEIRO-TESTE-PROPRIET
 O navegador exibiu a versão anterior e confirmou hero sem slides; ao atualizar,
 o servidor local demorou na compilação e a conexão falhou. Revisão visual final
 não deve ser declarada concluída sem nova evidência após publicação.
+
+### Verificação de produção e correção complementar
+
+O deploy 4bf0ab8 foi confirmado. Navegador de produção abriu em 1365×900 e390×844:
+hero com produtos reais, navegação, vitrine em4/2 colunas. Não há promoção/banner
+associado no banco. A inspeção identificou imagens que falharam antes da hidratação,
+sem disparar novamente onError. ProductThumb agora confere complete/naturalWidth ao
+montar e a cada candidato, oculta a imagem até estar carregada e termina em SVG.
+Erros repetidos do mesmo candidato não pulam a próxima foto. Banners também
+conferem falhas anteriores à hidratação. Dois testes de ciclo do componente com
+hooks/DOM simulados passaram; suíte final com 82 testes, build e typecheck aprovados.
+Nova publicação e revisão final devem ser confirmadas na conversa.
 
 Publicar apenas código validado e fotos correspondentes; excluir .env, node_modules,
 .next e Banneres public. Confirmar deploy pelo status do hash, não apenas pelo push.
