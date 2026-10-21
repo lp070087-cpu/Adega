@@ -52,4 +52,4 @@ Campanhas não enviam mensagens em massa. Turbo depende de configuração e capa
 
 ## Publicação
 
-Commit/push/deploy: registrar somente após validações. A pasta original não versionada `web/Banneres public/` permanece excluída da entrega, assim como segredos e arquivos gerados.
+Código publicado em origin/main: `afbaa5f661b6406190eba7dda46d0b766100203a`. GitHub confirmou Vercel success / Deployment has completed para esse commit: https://vercel.com/lp070087-5894s-projects/adega/BSs8jLCjQ3AdVh8z4pKzMMiykmEM . Loja e entregador retornaram 200 nas URLs canônicas, links antigos redirecionaram uma única vez, manifests/workers retornaram 200 com escopos corretos e os painéis privados exigiram login. A loja publicada carregou catálogo e botão de instalação no navegador em 390 px; captura publicado-loja-390.jpg salva. Este registro documental posterior não altera o código validado. A pasta original não versionada `web/Banneres public/` permanece excluída da entrega, assim como segredos e arquivos gerados.
