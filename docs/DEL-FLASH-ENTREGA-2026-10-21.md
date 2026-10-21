@@ -61,4 +61,41 @@ Recuperação: manter flags desligadas em caso de erro, preservar auditoria e no
 
 ## Validação e publicação
 
-Testes: 183 aprovados com mocks e fixtures isoladas. TypeScript e Prisma validate aprovados. Build de produção aprovado. Login, cadastro, login do entregador, convite e loja renderizados no navegador nas oito larguras solicitadas (320, 360, 375, 390, 414, 768, 1024 e 1440), sem excesso horizontal. Capturas salvas na pasta de visualizações da sessão em del-flash-2026-10-21. Expansão de cervejas, adição de Amstel à sacola, contador, confirmação visível e remoção foram executados apenas no estado local do navegador, sem concluir pedido. Marca laranja da loja conferida como #fa7500. Painéis autenticados e instalação física não foram visualmente validados. Publicação: registrar após push/deploy confirmado. Nenhuma validação com mocks deve ser descrita como E2E real.
+### Retomada após interrupção
+
+O Git remoto foi reconferido: `9382e6c` permanecia publicado e sincronizado com `origin/main`. A única alteração local anterior à retomada era a confirmação de deploy neste relatório; a pasta original `web/Banneres public/` permaneceu sem versionamento.
+
+Consulta atual somente de leitura confirmou a conta proprietária ativa e a ausência das seis tabelas comerciais. Nenhuma concessão ou migração foi realizada. A prévia de estoque de 89 produtos, 12 unidades atuais e 2.225 propostas foi preservada; não foi reaplicada nem tratada como autorização.
+
+Foi corrigida uma lacuna do atendimento: o catálogo fornecido à IA agora inclui variantes ativas, com seus próprios IDs de seleção, preço vigente mais ajuste e link para o produto/variante reais. Embalagem, volume e quantidade por caixa não são herdados indevidamente do produto pai. Combos indisponíveis pelos componentes deixam de ser oferecidos. Nenhum produto, variante ou preço foi criado ou alterado no banco.
+
+Validação nova limitada ao recurso alterado: **15 testes direcionados aprovados, incluindo quatro novos**, e TypeScript aprovado. Os 183 testes da etapa anterior permanecem como evidência anterior, sem alegação de nova execução integral ou E2E real. Build de produção do ajuste aprovado. Nenhum schema Prisma foi alterado; a validação anterior foi preservada. Publicação do ajuste será registrada após confirmação.
+
+### Situação dos itens solicitados
+
+| Item | Classificação | Evidência e limite |
+|---|---|---|
+| Menu na ordem solicitada e Minha Loja em Configurações | Concluído no código; operação autenticada pendente | Navegação e redirecionamentos preservados; nenhuma sessão disponível para revisão visual interna |
+| Atendimento com IA e links de produtos/variantes | Implementado e validado com mocks | Catálogo real isolado por loja, preços do servidor, variantes ativas e disponibilidade de combos; sem chamada real à IA |
+| WhatsApp Business oficial | Dependente de credenciais/aprovação; conexão não ativa | Canal por organização, webhook, fila e atendimento humano preparados; migração Assistant e configuração oficial pendentes |
+| Embedded Signup Meta | Ainda não implementado/homologado | Botão permanece desativado; não é um fluxo OAuth funcional aguardando apenas uma chave |
+| Entrega Turbo e seleção de público | Implementado e testado com mocks | Independente, com prévia, consentimento e avisos internos; nenhum disparo real |
+| Campanhas separadas de pontos | Implementado e testado com mocks | Estados e regras separados; estorno avulso de caixa ainda não reverte pontos automaticamente |
+| Escalas recolhíveis | Implementado; teste operacional autenticado pendente | Accordion, validação antes de recolher e persistência; testes direcionados anteriores preservados |
+| Convite por loja e cadastro do entregador | Implementado; teste real de e-mail pendente | Exige perfil previamente aprovado, senha própria e prova de e-mail; depende de remetente/provedor |
+| Três PWAs independentes | Implementado e validado em código/HTTP | Manifests, escopos e ícones próprios; instalação física Android/iPhone/desktop pendente |
+| Ocultação de instalação no contexto instalado | Implementado; teste em aparelho pendente | Media query, modo standalone e suporte iOS; instruções mantidas em Configurações |
+| Disponibilização estoque → catálogo | Implementado e testado com mocks | Prévia, confirmação, auditoria e idempotência; nenhum saldo aplicado |
+| Todos os produtos publicados na vitrine | Corrigido e validado na etapa anterior | Sem corte por estoque zero/categoria desativada; disponibilidade de combos pelos componentes |
+| Skeletons em transições | Implementado e testado | Formatos reutilizáveis e limites de carregamento; não substituem validação visual das telas privadas |
+| Identidade Del Flash, ícones e manifests | Concluído e verificado em produção | Cores das lojas preservadas e IDs técnicos dos aplicativos mantidos |
+| Responsividade interna autenticada | Não validada visualmente | Nova tentativa de abrir `/app/dashboard` redirecionou ao login; não foram criadas credenciais nem burlada autenticação |
+| Asaas Sandbox e plano R$ 119,00 | Implementado e testado com mocks | Sem homologação real, credenciais ou cobranças; produção bloqueada |
+| Acesso vinculado à situação comercial | Implementado com ativação controlada | Política por contrato e flag desligadas; pagamentos Sandbox não liberam acesso real. Sincronização financeira de produção ainda requer conclusão/homologação de go-live |
+| Admin Central e link exclusivo | Dependente de aprovação | Seis tabelas ausentes; OWNER não concedido. Link depende de autorização global consultada no servidor |
+
+Procedimentos de backup, SQL aditivo, concessão restrita e recuperação permanecem descritos acima e em `ADMIN-COMERCIAL-ATIVACAO.md`. Nenhuma autorização operacional foi presumida nesta retomada.
+
+### Evidência preservada da etapa 9382e6c
+
+Testes: 183 aprovados com mocks e fixtures isoladas. TypeScript e Prisma validate aprovados. Build de produção aprovado. Login, cadastro, login do entregador, convite e loja renderizados no navegador nas oito larguras solicitadas (320, 360, 375, 390, 414, 768, 1024 e 1440), sem excesso horizontal. Capturas salvas na pasta de visualizações da sessão em del-flash-2026-10-21. Expansão de cervejas, adição de Amstel à sacola, contador, confirmação visível e remoção foram executados apenas no estado local do navegador, sem concluir pedido. Marca laranja da loja conferida como #fa7500. Painéis autenticados e instalação física não foram visualmente validados. Código publicado em origin/main: `9382e6c53fbbfb54e70da43832b8a4b59b12af28`. Vercel confirmou Deployment has completed: https://vercel.com/lp070087-5894s-projects/adega/3CaTK9BLaSyJHLsnCuUYiHNK6CtK . HTTP de produção confirmou login, entregador, convite, loja, configurações do cliente, favicon, manifest e ícone maskable com retorno 200; Admin Central e painel do estabelecimento redirecionam ao login. Navegador confirmou Entrar · Del Flash, com captura publicado-login-390.jpg. Este registro documental posterior não altera o código validado. Nenhuma validação com mocks deve ser descrita como E2E real.

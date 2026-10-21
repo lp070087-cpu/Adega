@@ -1,4 +1,4 @@
-export type AssistantProduct = { id: string; name: string; price: number; promotionalPrice: number | null; stock: number; trackStock: boolean; available: boolean; brand?: string | null; packSize?: number | null; volume?: number | null; unit?: string | null };
+export type AssistantProduct = { id: string; name: string; price: number; promotionalPrice: number | null; stock: number; trackStock: boolean; available: boolean; brand?: string | null; packSize?: number | null; volume?: number | null; unit?: string | null; productId?: string; variationId?: string; variationName?: string };
 export type CatalogDecision = { ids: string[]; question: 'RESULTS'|'BRAND'|'PACKAGING'|'HUMAN'|'NONE' };
 export function productLink(origin: string, slug: string, productId: string, variationId?: string) {
   const url = new URL(`/loja/${encodeURIComponent(slug)}`, origin);
@@ -16,7 +16,8 @@ export function catalogReply(decision: CatalogDecision, catalog: AssistantProduc
   if (!selected.length) return 'Não encontrei uma opção disponível com essa descrição. Você pode informar a marca, o volume ou falar com a equipe da loja?';
   return selected.map(p => {
     const price = p.promotionalPrice !== null && p.promotionalPrice < p.price ? p.promotionalPrice : p.price;
-    const pack = p.packSize && p.packSize > 1 ? ` · embalagem com ${p.packSize} unidades` : /\b(caixa|fardo|pack)\b/i.test(p.name) ? ' · embalagem conforme descrição' : ' · unidade';
-    return `${p.name}${pack} — ${price.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}\n${productLink(origin,slug,p.id)}`;
+    const pack = p.variationId ? ' · embalagem conforme a opção cadastrada' : p.packSize && p.packSize > 1 ? ` · embalagem com ${p.packSize} unidades` : /\b(caixa|fardo|pack)\b/i.test(p.name) ? ' · embalagem conforme descrição' : ' · unidade';
+    const name = p.variationName ? `${p.name} — ${p.variationName}` : p.name;
+    return `${name}${pack} — ${price.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}\n${productLink(origin,slug,p.productId ?? p.id,p.variationId)}`;
   }).join('\n\n')+'\n\nConfira a quantidade e finalize na loja. O pedido só será confirmado após o checkout.';
 }
