@@ -32,7 +32,7 @@ export async function platformAction(_previous:PlatformActionState,form:FormData
     await audit(tx,ctx,'COMMERCIAL_PLAN_PUBLISHED','Plan',plan.id,reason,undefined,{price:'119.00',preservedContracts:true});
    }else if(action==='plan'){
     const data=planSchema.parse({id:value(form,'id')||undefined,name:value(form,'name'),slug:value(form,'slug'),description:value(form,'description'),price:value(form,'price'),annualPrice:value(form,'annualPrice'),maxUsers:value(form,'maxUsers'),maxDrivers:value(form,'maxDrivers'),active:checked(form,'active'),features:value(form,'features')});
-    if(data.active&&(data.name!==ADEGA_COMMERCIAL_PLAN.name||data.slug!==ADEGA_COMMERCIAL_PLAN.slug||data.price!==ADEGA_COMMERCIAL_PLAN.monthlyPrice||data.annualPrice!==''))throw new PlatformAccessError('A oferta atual é Adega Completo por R$ 119,00 mensais, sem modalidade anual.');
+    if(data.active&&(data.name!==ADEGA_COMMERCIAL_PLAN.name||data.slug!==ADEGA_COMMERCIAL_PLAN.slug||data.price!==ADEGA_COMMERCIAL_PLAN.monthlyPrice||data.annualPrice!==''))throw new PlatformAccessError('A oferta atual é Del Flash Completo por R$ 119,00 mensais, sem modalidade anual.');
     const previous=data.id?await tx.plan.findUniqueOrThrow({where:{id:data.id}}):null;
     const existing=previous?.features && typeof previous.features==='object' && !Array.isArray(previous.features)?previous.features as Prisma.JsonObject:{};
     const saved={name:data.name,slug:data.slug,price:new Prisma.Decimal(data.price.toFixed(2)),maxUsers:data.maxUsers,maxDrivers:data.maxDrivers,active:data.active,features:{...existing,features:data.features.split('\n').map(s=>s.trim()).filter(Boolean),commercial:{description:data.description,annualPrice:data.annualPrice===''?null:data.annualPrice.toFixed(2)}}};
@@ -44,7 +44,7 @@ export async function platformAction(_previous:PlatformActionState,form:FormData
     await tx.organization.findUniqueOrThrow({where:{id:data.organizationId},select:{id:true}});
     const plan=await tx.plan.findUniqueOrThrow({where:{id:data.planId}});
     const previous=await tx.platformContract.findUnique({where:{organizationId:data.organizationId}});
-    if((!previous||previous.planId!==plan.id)&&plan.slug!==ADEGA_COMMERCIAL_PLAN.slug)throw new PlatformAccessError('Novas contratações devem utilizar o plano Adega Completo.');
+    if((!previous||previous.planId!==plan.id)&&plan.slug!==ADEGA_COMMERCIAL_PLAN.slug)throw new PlatformAccessError('Novas contratações devem utilizar o plano Del Flash Completo.');
     if(!plan.active && (!previous || previous.planId!==plan.id)) throw new PlatformAccessError('Plano desativado não pode receber novas assinaturas.');
     const reprice=checked(form,'reprice');
     const preserveAmount=previous&&previous.planId===plan.id&&previous.period===data.period&&!reprice;

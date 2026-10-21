@@ -5,7 +5,7 @@ import { getDriverOrders } from '@/lib/data/orders';
 import { getOrganizationById } from '@/lib/data/organization';
 import { DriverApp, type DriverOrder } from '@/components/driver/DriverApp';
 import { DriverLoginForm } from '@/components/driver/DriverLoginForm';
-import { Truck } from 'lucide-react';
+import { InstallLink } from '@/components/pwa/InstallLink';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -42,16 +42,17 @@ export default async function DriverPage() {
       <main className="flex min-h-screen items-center justify-center bg-ink-50 p-4">
         <div className="w-full min-w-0 max-w-[460px] rounded-xl bg-white p-5 text-center shadow-xl sm:p-10">
           <span className="mx-auto mb-4 flex h-[46px] w-[46px] items-center justify-center rounded bg-brand-light text-[1.3rem]">
-            <Truck size={25} aria-hidden="true" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/pwa/driver-192.png" alt="" width={46} height={46} className="rounded-xl"/>
           </span>
 
-          <h1 className="text-[1.35rem] font-extrabold text-ink-900">Área do Entregador</h1>
+          <h1 className="text-[1.35rem] font-extrabold text-ink-900">Del Flash Entregador</h1>
           <p className="mt-1.5 text-[0.84rem] text-ink-500">
             Entre com o e-mail cadastrado pelo estabelecimento para ver suas entregas. Acessos antigos por usuário continuam aceitos.
           </p>
 
           <DriverLoginForm />
-          <a href="/entregador/instalar" className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-brand">Instalar app no celular</a>
+          <InstallLink href="/entregador/instalar">Instalar app no celular</InstallLink>
 
           <p className="mt-6 text-[0.8rem] text-ink-500">
             É dono ou atendente da loja?{' '}

@@ -20,10 +20,10 @@ const config: Config = {
       },
       colors: {
         brand: {
-          DEFAULT: '#F15A24',
-          dark: '#D44914',
-          light: '#FFF3EE',
-          soft: '#FFEDE5',
+          DEFAULT: 'rgb(var(--brand-rgb, 8 126 164) / <alpha-value>)',
+          dark: '#0B1F3A',
+          light: '#EAF5FF',
+          soft: '#EAF5FF',
         },
         ink: {
           DEFAULT: '#0D0D0D',

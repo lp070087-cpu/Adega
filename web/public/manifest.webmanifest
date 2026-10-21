@@ -1,14 +1,14 @@
 {
   "id": "/entregador",
-  "name": "Adega — Entregador",
-  "short_name": "Entregador",
+  "name": "Del Flash Entregador",
+  "short_name": "DF Entregador",
   "description": "App do entregador: pedidos atribuídos, rota e confirmação de entrega.",
   "start_url": "/entregador/",
   "scope": "/entregador/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F7F7F8",
-  "theme_color": "#F15A24",
+  "theme_color": "#0B1F3A",
   "lang": "pt-BR",
   "dir": "ltr",
   "icons": [
@@ -25,10 +25,10 @@
       "type": "image/png"
     },
     {
+      "src": "/pwa/driver-maskable-512.png",
       "purpose": "maskable",
-      "src": "/icon-maskable.svg",
       "sizes": "512x512",
-      "type": "image/svg+xml"
+      "type": "image/png"
     }
   ]
 }

@@ -8,11 +8,11 @@ export function storeAppPath(slug: string): string {
 export function customerManifest(store: { slug: string; name: string; brandColor: string }): MetadataRoute.Manifest {
   const path = storeAppPath(store.slug);
   return {
-    id: path, name: store.name, short_name: store.name.slice(0, 24),
+    id: path, name: `${store.name} · Del Flash Loja`, short_name: store.name.slice(0, 24),
     description: `Catálogo, pedidos e benefícios de ${store.name}.`,
     start_url: `${path}/`, scope: `${path}/`, display: 'standalone', lang: 'pt-BR',
     background_color: '#ffffff', theme_color: /^#[0-9a-f]{6}$/i.test(store.brandColor) ? store.brandColor : '#F15A24',
-    icons: [192, 512].map(size => ({ src: `/pwa/customer-${size}.png`, sizes: `${size}x${size}`, type: 'image/png', purpose: 'any' })),
+    icons: [...[192, 512].map(size => ({ src: `/pwa/customer-${size}.png`, sizes: `${size}x${size}`, type: 'image/png', purpose: 'any' as const })), { src: '/pwa/customer-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }],
   };
 }
 

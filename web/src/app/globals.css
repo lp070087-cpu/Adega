@@ -13,11 +13,11 @@
  */
 
 :root {
-  --orange: #f15a24;
-  --orange-dark: #d44914;
-  --orange-glow: rgba(241, 90, 36, 0.25);
-  --orange-light: #fff3ee;
-  --orange-soft: #ffede5;
+  --orange: #087ea4;
+  --orange-dark: #0b1f3a;
+  --orange-glow: rgba(8, 126, 164, 0.25);
+  --orange-light: #eaf5ff;
+  --orange-soft: #eaf5ff;
 
   --black: #0d0d0d;
   --white: #ffffff;
@@ -51,9 +51,9 @@
   --transition-fast: 0.14s cubic-bezier(0.25, 0.1, 0.25, 1);
 
   /* Cor de marca por tenant (loja pública). Sobrescrita inline. */
-  --brand: #f15a24;
-  --brand-dark: #d44914;
-  --brand-light: #fff3ee;
+  --brand: #087ea4;
+  --brand-dark: #0b1f3a;
+  --brand-light: #eaf5ff;
 
   color-scheme: light;
 }
@@ -206,8 +206,8 @@ textarea {
 .panel-sidebar { background: #fff; border-color: #e3e6eb; }
 .panel-sidebar nav { padding: 16px 12px; }
 .panel-sidebar nav a { margin-bottom: 3px; padding-top: 9px; padding-bottom: 9px; font-size: .82rem; border-radius: 7px; }
-.panel-sidebar nav a[aria-current='page'] { background: #fff1e9; color: #b94316; box-shadow: inset 3px 0 #f15a24; }
-.panel-sidebar > div:first-child { min-height: 81px; }
+.panel-sidebar nav a[aria-current='page'] { background: #eaf5ff; color: #087ea4; box-shadow: inset 3px 0 #087ea4; }
+.panel-sidebar > div:first-child { min-height: 64px; }
 .panel-shell > div > header { min-height: 81px; background: rgba(255,255,255,.97); }
 .panel-content { max-width: 1800px; width: 100%; margin: 0 auto; }
 .panel-content > *, .panel-content form, .panel-content label, .panel-content fieldset { min-width:0; }
@@ -218,7 +218,7 @@ textarea {
 .panel-shell .ui-stat > div:first-child > span:first-child { width: 34px; height: 34px; border-radius: 8px; background: #f6f7f9; color: #667184; }
 .panel-shell .ui-stat > p:nth-of-type(2) { font-variant-numeric: tabular-nums; letter-spacing: -.04em; font-weight: 650; }
 .panel-shell .field-input { border: 1px solid #dce0e6; border-radius: 7px; background: white; padding: 10px 12px; font-size: .84rem; }
-.panel-shell .field-input:focus { border-color: #dc7047; box-shadow: 0 0 0 3px #f15a2414; }
+.panel-shell .field-input:focus { border-color: #168fe5; box-shadow: 0 0 0 3px #087ea414; }
 .panel-shell .field-label { color: #4b5563; font-size: .77rem; }
 .panel-shell table { border-collapse: separate; border-spacing: 0; font-size: .8rem; }
 .panel-shell thead { background: #f8f9fb; }
@@ -226,7 +226,7 @@ textarea {
 .panel-shell td { border-color: #edf0f3; vertical-align: middle; }
 .panel-shell tbody tr { transition: background .15s; }
 .panel-shell tbody tr:hover { background: #fafbfc; }
-.panel-shell :is(button,a,input,select,textarea):focus-visible { outline: 2px solid #d96032; outline-offset: 3px; }
+.panel-shell :is(button,a,input,select,textarea):focus-visible { outline: 2px solid #087ea4; outline-offset: 3px; }
 .panel-shell button, .panel-shell a { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 639px) {
   .panel-shell > div > header { gap: 8px; min-height: 68px; }
@@ -238,3 +238,12 @@ textarea {
   .panel-shell .ui-card { min-width:0; }
   .panel-shell button, [role='dialog'] button { min-height:44px; min-width:44px; }
 }
+
+/* Del Flash interactions retain each storefront's configured brand. */
+.storefront button { transition: background-color .16s, box-shadow .16s, transform .12s; }
+.storefront button:enabled:active { transform: scale(.98); box-shadow: 0 0 0 3px color-mix(in srgb, var(--store-brand) 18%, transparent); }
+.storefront .text-brand { color: var(--store-brand); }
+.storefront [class*="bg-brand-light"] { background-color: color-mix(in srgb, var(--store-brand) 9%, white); }
+.storefront [class*="border-brand"] { border-color: color-mix(in srgb, var(--store-brand) 35%, transparent); }
+@media(prefers-reduced-motion:reduce) { .storefront button:enabled:active { transform:none; } }
+@media(display-mode:standalone) { [data-install-main="true"] { display:none; } }

@@ -5,7 +5,7 @@ import { Download, X } from 'lucide-react';
 
 type InstallEvent = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
 
-export function InstallApp({ worker, scope, name }: { worker: string; scope: string; name: string }) {
+export function InstallApp({ worker, scope, name, alwaysShow = false }: { worker: string; scope: string; name: string; alwaysShow?: boolean }) {
   const [installEvent, setInstallEvent] = useState<InstallEvent | null>(null);
   const [installed, setInstalled] = useState(false);
   const [instructions, setInstructions] = useState(false);
@@ -43,10 +43,10 @@ export function InstallApp({ worker, scope, name }: { worker: string; scope: str
     setInstallEvent(null);
   }
 
-  if (installed) return null;
-  return <section className="my-3 min-w-0 rounded-xl bg-white p-3 text-ink-900 sm:p-4" aria-label={`Aplicativo ${name}`}>
+  if (installed && !alwaysShow) return null;
+  return <section data-install-main={!alwaysShow ? 'true' : undefined} className="my-3 min-w-0 rounded-xl bg-white p-3 text-ink-900 sm:p-4" aria-label={`Aplicativo ${name}`}>
     <button type="button" onClick={install} className="inline-flex min-h-11 max-w-full items-center justify-center gap-2 rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold">
-      <Download size={18} className="shrink-0" aria-hidden="true" /> <span>Instalar aplicativo</span>
+      <Download size={18} className="shrink-0" aria-hidden="true" /> <span>{installed ? 'Instruções do aplicativo' : 'Instalar aplicativo'}</span>
     </button>
     {instructions && <div className="mt-3 max-w-xl text-sm leading-relaxed">
       <div className="flex items-start justify-between gap-3"><h2 className="font-semibold">{name} na tela inicial</h2><button type="button" aria-label="Fechar instruções de instalação" onClick={() => setInstructions(false)} className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg"><X size={18} /></button></div>

@@ -8,6 +8,7 @@ import { ProductThumb } from '@/components/catalog/ProductThumb';
 import { StoreHeader } from '@/components/store/StoreHeader';
 import { STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
 import type { BusinessType } from '@prisma/client';
+import { groupPublishedStoreProducts } from '@/lib/store-catalog-groups';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -203,6 +204,11 @@ export function StoreCatalog({
   const [checkoutOpen, setCheckoutOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [success, setSuccess] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!success) return;
+    const timer = window.setTimeout(() => setSuccess(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [success]);
   const [sending, setSending] = React.useState(false);
   const [hydrated, setHydrated] = React.useState(false);
   /** Modalidade escolhida no checkout — muda o frete mostrado e os campos. */
@@ -288,23 +294,7 @@ export function StoreCatalog({
     });
   }, [products, debouncedSearch, activeCategory, categories]);
 
-  const grouped = React.useMemo(() => {
-    const byCategory = new Map<string, StoreProduct[]>();
-    for (const product of visible) {
-      const key = product.categoryId ?? '__sem_categoria__';
-      const list = byCategory.get(key) ?? [];
-      list.push(product);
-      byCategory.set(key, list);
-    }
-    const groups = categories
-      .map((category) => ({ category, items: byCategory.get(category.id) ?? [] }))
-      .filter((group) => group.items.length > 0);
-    const uncategorized = byCategory.get('__sem_categoria__') ?? [];
-    if (uncategorized.length > 0) {
-      groups.push({ category: { id: '__sem_categoria__', name: 'Outros produtos', slug: 'outros', emoji: null }, items: uncategorized });
-    }
-    return groups;
-  }, [visible, categories]);
+  const grouped = React.useMemo(() => groupPublishedStoreProducts(visible, categories), [visible, categories]);
 
   /**
    * Promoções e combos são RECORTES do mesmo catálogo, não listas paralelas.
@@ -520,10 +510,8 @@ export function StoreCatalog({
       {hero}
       <div id="cardapio" className="store-showcase mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-8 sm:py-12">
         {success && !order && (
-          <div className="mb-4">
-            <Alert tone="success" title="Tudo certo">
-              {success}
-            </Alert>
+          <div role="status" aria-live="polite" className="pointer-events-none fixed bottom-24 left-4 right-4 z-[1100] mx-auto max-w-md rounded-xl bg-[#0B1F3A] px-4 py-3 text-sm font-medium text-white shadow-lg motion-safe:animate-fade-in">
+            {success}
           </div>
         )}
 

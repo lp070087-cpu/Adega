@@ -9,12 +9,13 @@ import { AppShell } from '@/components/layout/AppShell';
 import { getCommercialAccess } from '@/lib/platform/access';
 import type { Metadata } from 'next';
 import { InstallApp } from '@/components/pwa/InstallApp';
+import { requirePlatformOperator } from '@/lib/platform/auth';
 
 export const metadata: Metadata = {
   manifest: '/pwa/panel.webmanifest',
-  applicationName: 'Adega Gestão',
+  applicationName: 'Del Flash',
   icons: { apple: '/pwa/panel-192.png', icon: '/pwa/panel-192.png' },
-  appleWebApp: { capable: true, title: 'Adega Gestão', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'Del Flash', statusBarStyle: 'default' },
 };
 
 /**
@@ -44,6 +45,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (ctx.role === 'DRIVER') redirect('/entregador');
   const commercial = await getCommercialAccess(ctx.organizationId);
+  const centralAccess = await requirePlatformOperator().then(() => true).catch(() => false);
 
   const [organization, counters, notifications] = await Promise.all([
     prisma.organization.findUnique({
@@ -74,6 +76,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <AppShell
+      centralAccess={centralAccess}
       organizationName={organization.name}
       organizationSlug={organization.slug}
       brandColor={organization.brandColor}
@@ -98,7 +101,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       {commercial.message && <div role="status" className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">{commercial.message}</div>}
       {children}
-      <InstallApp name="Adega Gestão" worker="/pwa/panel-sw.js" scope="/app/" />
+      <InstallApp name="Del Flash" worker="/pwa/panel-sw.js" scope="/app/" />
     </AppShell>
   );
 }

@@ -34,7 +34,7 @@ export function asaasClient(config: AsaasConfig, fetcher: typeof fetch = fetch) 
   return {
     customers: (reference: string) => request<{ data: Array<{ id: string }> }>(`/customers?externalReference=${encodeURIComponent(reference)}&limit=100`),
     createCustomer: (input: { name: string; cpfCnpj: string; email: string; externalReference: string }) => request<{ id: string }>('/customers', 'POST', { ...input, notificationDisabled: true }),
-    createSubscription: (customer: string, reference: string, nextDueDate: string, billingType: 'PIX' | 'BOLETO') => request<{ id: string }>('/subscriptions', 'POST', { customer: id(customer), externalReference: reference, nextDueDate, billingType, cycle: 'MONTHLY', value: 119, description: 'Adega Completo' }),
+    createSubscription: (customer: string, reference: string, nextDueDate: string, billingType: 'PIX' | 'BOLETO') => request<{ id: string }>('/subscriptions', 'POST', { customer: id(customer), externalReference: reference, nextDueDate, billingType, cycle: 'MONTHLY', value: 119, description: 'Del Flash Completo' }),
     subscription: (value: string) => request<{ id: string; customer: string; status: string }>(`/subscriptions/${id(value)}`),
     payments: (value: string) => request<{ data: Array<{ id: string; status: string; value: number; dueDate: string }> }>(`/subscriptions/${id(value)}/payments?limit=100`),
     payment: (value: string) => request<{ id: string; subscription: string; customer: string; status: string; value: number; dueDate: string; paymentDate?: string; billingType: string }>(`/payments/${id(value)}`),

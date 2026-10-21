@@ -33,6 +33,7 @@ export type AppShellProps = {
   }>;
   user: { name: string };
   children: React.ReactNode;
+  centralAccess?: boolean;
 };
 
 export function AppShell({
@@ -48,6 +49,7 @@ export function AppShell({
   notifications,
   user,
   children,
+  centralAccess = false,
 }: AppShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -67,6 +69,7 @@ export function AppShell({
   return (
     <div className="panel-shell flex min-h-screen bg-ink-50">
       <AppSidebar
+        centralAccess={centralAccess}
         organizationName={organizationName}
         organizationSlug={organizationSlug}
         brandColor={brandColor}

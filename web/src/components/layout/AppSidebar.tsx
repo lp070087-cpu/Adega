@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { initialsFromName } from '@/data/business-copy';
 import type { Permission } from '@/lib/permissions';
+import { BrandMark } from '@/components/ui/BrandMark';
 
 /**
  * Sidebar do painel — mesmas seções, ícones e badges de plataforma.html.
@@ -27,46 +28,33 @@ export type NavItem = {
 export type NavSection = { title?: string; items: NavItem[] };
 
 export const NAV_SECTIONS: NavSection[] = [
-  {
-    items: [
-      { href: '/app/dashboard', label: 'Visão Geral', icon: '📊', permission: 'VIEW_DASHBOARD' },
-      {
-        href: '/app/pedidos',
-        label: 'Pedidos',
-        icon: '🧭',
-        permission: 'MANAGE_ORDERS',
-        badgeKey: 'novos',
-      },
-      { href: '/app/catalogo', label: 'Catálogo', icon: '🏷️', permission: 'MANAGE_PRODUCTS' },
-      { href: '/app/combos', label: 'Combos', icon: '🎁', permission: 'MANAGE_PRODUCTS' },
-      { href: '/app/banners', label: 'Banners', icon: '🖼️', permission: 'MANAGE_SETTINGS' },
-      { href: '/app/clientes', label: 'Clientes', icon: '👥', permission: 'VIEW_CUSTOMERS' },
-      { href: '/app/atendimento', label: 'Atendimento com IA', icon: 'chat', permission: 'MANAGE_SETTINGS' },
-      { href: '/app/campanhas', label: 'Campanhas', icon: 'campaign', permission: 'MANAGE_SETTINGS' },
-      { href: '/app/fidelidade', label: 'Programa de Pontos', icon: 'points', permission: 'MANAGE_SETTINGS' },
-      { href: '/app/entregadores', label: 'Entregadores', icon: '🛵', permission: 'MANAGE_DRIVERS' },
-      { href: '/app/expedicao', label: 'Expedição', icon: '🗺️', permission: 'MANAGE_DRIVERS' },
-    ],
-  },
-  {
-    title: 'Financeiro',
-    items: [
-      { href: '/app/caixa', label: 'Caixa', icon: '🧾', permission: 'MANAGE_CASH' },
-      { href: '/app/estoque', label: 'Estoque', icon: '📦', permission: 'MANAGE_STOCK' },
-      { href: '/app/vendas', label: 'Vendas', icon: '💰', permission: 'VIEW_REPORTS' },
-      { href: '/app/relatorios', label: 'Relatórios', icon: '📈', permission: 'VIEW_REPORTS' },
-    ],
-  },
-  {
-    title: 'Configurações',
-    items: [
-      { href: '/app/assinatura', label: 'Plano e assinatura', icon: '💳', permission: 'MANAGE_SETTINGS' },
-      { href: '/app/equipe', label: 'Equipe', icon: '👤', permission: 'MANAGE_TEAM' },
-      { href: '/app/configuracoes', label: 'Configurações', icon: '⚙️', permission: 'MANAGE_SETTINGS' },
-    ],
-  },
+  { title: 'Operação', items: [
+    { href: '/app/dashboard', label: 'Visão geral', icon: 'dashboard', permission: 'VIEW_DASHBOARD' },
+    { href: '/app/pedidos', label: 'Pedidos', icon: 'orders', permission: 'MANAGE_ORDERS', badgeKey: 'novos' },
+    { href: '/app/clientes', label: 'Clientes', icon: 'users', permission: 'VIEW_CUSTOMERS' },
+    { href: '/app/catalogo', label: 'Catálogo', icon: 'catalog', permission: 'MANAGE_PRODUCTS' },
+    { href: '/app/atendimento', label: 'Atendimento com IA', icon: 'chat', permission: 'MANAGE_SETTINGS' },
+  ] },
+  { title: 'Financeiro', items: [
+    { href: '/app/caixa', label: 'Caixa', icon: 'cash', permission: 'MANAGE_CASH' },
+    { href: '/app/vendas', label: 'Vendas', icon: 'sales', permission: 'VIEW_REPORTS' },
+    { href: '/app/estoque', label: 'Estoque', icon: 'stock', permission: 'MANAGE_STOCK' },
+    { href: '/app/relatorios', label: 'Relatórios', icon: 'reports', permission: 'VIEW_REPORTS' },
+  ] },
+  { title: 'Gestão', items: [
+    { href: '/app/combos', label: 'Combos', icon: 'combos', permission: 'MANAGE_PRODUCTS' },
+    { href: '/app/expedicao', label: 'Expedição', icon: 'dispatch', permission: 'MANAGE_DRIVERS' },
+    { href: '/app/entregadores', label: 'Entregadores', icon: 'drivers', permission: 'MANAGE_DRIVERS' },
+  ] },
+  { title: 'Marketing', items: [
+    { href: '/app/banners', label: 'Banners', icon: 'banners', permission: 'MANAGE_SETTINGS' },
+    { href: '/app/campanhas', label: 'Campanhas', icon: 'campaign', permission: 'MANAGE_SETTINGS' },
+    { href: '/app/fidelidade', label: 'Programa de pontos', icon: 'points', permission: 'MANAGE_SETTINGS' },
+  ] },
+  { title: 'Sistema', items: [
+    { href: '/app/configuracoes', label: 'Configurações', icon: 'settings', permission: 'MANAGE_SETTINGS' },
+  ] },
 ];
-
 export type SidebarProps = {
   organizationName: string;
   organizationSlug: string;
@@ -79,6 +67,7 @@ export type SidebarProps = {
   /** No mobile a sidebar é uma gaveta: este estado vem do AppShell. */
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  centralAccess?: boolean;
 };
 
 export function AppSidebar({
@@ -92,6 +81,7 @@ export function AppSidebar({
   storeStatus,
   mobileOpen,
   onCloseMobile,
+  centralAccess = false,
 }: SidebarProps) {
   const pathname = usePathname();
 
@@ -117,6 +107,7 @@ export function AppSidebar({
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
+        <div className="border-b border-ink-100 px-4 py-3"><BrandMark/></div>
         <div className="flex items-center gap-3 border-b border-ink-100 p-[16px_18px]">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -148,7 +139,7 @@ export function AppSidebar({
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-[10px_8px]">
+        <nav aria-label="Navegação do estabelecimento" className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-[10px_8px]">
           {NAV_SECTIONS.map((section, index) => {
             const visible = section.items.filter(allowed);
             if (visible.length === 0) return null;
@@ -195,7 +186,8 @@ export function AppSidebar({
           })}
         </nav>
 
-        <div className="border-t border-ink-100 p-2.5">
+        <div className="shrink-0 border-t border-ink-100 p-2.5">
+          {centralAccess && <Link href="/admin" onClick={onCloseMobile} className="mb-2 flex min-h-11 items-center gap-2 rounded-sm px-3 text-sm font-semibold text-brand"><Icon name="🎭"/>Admin Central</Link>}
           <Link href={`/loja/${organizationSlug}`} target="_blank" rel="noopener noreferrer" className="mb-2 flex items-center justify-between rounded-sm px-3 py-2.5 text-xs font-medium text-ink-600 hover:bg-ink-100">Abrir loja pública <ExternalLink className="h-3.5 w-3.5" /></Link>
           <div className="flex items-center gap-2.5 rounded border border-ink-200 bg-ink-50 p-[10px_12px]">
             <span className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-brand text-[0.8rem] font-bold text-white">

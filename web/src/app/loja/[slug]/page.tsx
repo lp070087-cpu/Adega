@@ -1,3 +1,4 @@
+import { brandRgb } from '@/lib/brand';
 import './store.css';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
@@ -16,6 +17,7 @@ import { formatBRL } from '@/lib/utils';
 import type { BusinessType } from '@prisma/client';
 import { getCommercialAccess } from '@/lib/platform/access';
 import { selectHeroProducts } from '@/lib/store-hero-products';
+import { storeProductAvailability } from '@/lib/store-product-availability';
 import { growthState } from '@/lib/growth';
 import { getPublicMobileBanners } from '@/lib/data/store-ops';
 
@@ -149,12 +151,10 @@ export default async function PublicStorePage({ params }: PageProps) {
     price: Number(product.price),
     promotionalPrice:
       product.promotionalPrice === null ? null : Number(product.promotionalPrice),
-    available: product.available,
-    trackStock: product.trackStock,
-    stock: product.stock,
+    ...storeProductAvailability(product, store.id),
     type: product.type,
     comboItems:
-      product.combo?.items.map((item) => ({
+      product.combo?.items.filter(item=>item.product.organizationId===store.id).map((item) => ({
         productId: item.product.id,
         name: item.product.name,
         unitPrice: Number(item.product.price),
@@ -239,7 +239,7 @@ export default async function PublicStorePage({ params }: PageProps) {
   );
 
   return (
-    <main className="storefront min-h-screen bg-white" style={{ "--store-brand": store.brandColor } as React.CSSProperties}>
+    <main className="storefront min-h-screen bg-white" style={{ "--store-brand": store.brandColor, "--brand": store.brandColor, "--orange": store.brandColor, "--brand-rgb": brandRgb(store.brandColor) } as React.CSSProperties}>
       <StoreCatalog
         transitionBanners={mobileBanners.filter(b=>b.placement.startsWith('transition:'))}
         hero={hero}

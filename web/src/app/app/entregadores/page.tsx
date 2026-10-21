@@ -9,6 +9,7 @@ import { DriverScheduleManager } from '@/components/drivers/DriverScheduleManage
 import { getDriverSchedules } from '@/lib/data/driver-schedules';
 import { readDriverSchedule } from '@/lib/driver-schedule';
 import {driverMailReady} from '@/lib/auth/driver-access';
+import { prisma } from '@/lib/db';
 
 export const metadata = { title: 'Entregadores' };
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function DriversPage() {
   const ctx = await requireOrgPage('MANAGE_DRIVERS');
+  const invitationStore = await prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { slug: true } });
 
   const [driversRaw, summary, settings] = await Promise.all([
     getDrivers(ctx.organizationId),
@@ -80,7 +82,7 @@ export default async function DriversPage() {
       />
       <DriverScheduleManager drivers={drivers} schedules={Object.fromEntries(drivers.map(driver => [driver.id, readDriverSchedule(settings, driver.id)]))} />
       <DriverInstall compact />
-      <DriverInstallShare />
+      <DriverInstallShare storeSlug={invitationStore?.slug} />
     </div>
   );
 }

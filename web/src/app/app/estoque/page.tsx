@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { stockDefaults } from '@/lib/stock-policy';
 import { StockInitialization } from '@/components/stock/StockInitialization';
+import { StockPublication } from '@/components/stock/StockPublication';
 import { requireOrgPage } from '@/lib/auth/guards';
 import { can } from '@/lib/permissions';
 import {
@@ -30,10 +31,11 @@ export default async function StockPage() {
   const ctx = await requireOrgPage('MANAGE_STOCK');
 
   const org = await prisma.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { settings: true } });
-  const [productsRaw, movementsPage, summary] = await Promise.all([
+  const [productsRaw, movementsPage, summary, catalogProducts] = await Promise.all([
     getStockProducts(ctx.organizationId),
     getInventoryMovements(ctx.organizationId, { perPage: 100 }),
     getInventoryValue(ctx.organizationId),
+    prisma.product.findMany({ where: { organizationId: ctx.organizationId }, select: { id:true, name:true, stock:true, minimumStock:true, active:true, available:true, trackStock:true }, orderBy: { name:'asc' } }),
   ]);
 
   const products: StockProduct[] = productsRaw.map((product) => ({
@@ -78,6 +80,7 @@ export default async function StockPage() {
       </div>
 
       <StockInitialization products={products} defaults={stockDefaults(org.settings)} canConfigure={can(ctx.role, 'MANAGE_SETTINGS')} />
+      {can(ctx.role, 'MANAGE_PRODUCTS') && <StockPublication products={catalogProducts} canInitialize={can(ctx.role, 'MANAGE_SETTINGS')} />}
       <StockManager
         products={products}
         movements={movements}

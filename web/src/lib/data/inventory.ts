@@ -70,11 +70,11 @@ export async function getInventoryMovements(
  * para mostrar nem ajuste para fazer, e listá-lo aqui só criaria a
  * ilusão de que o número significa alguma coisa.
  */
-export async function getStockProducts(organizationId: string, limit = 500) {
+export async function getStockProducts(organizationId: string, limit?: number) {
   return prisma.product.findMany({
     where: { organizationId, trackStock: true },
     orderBy: [{ stock: 'asc' }, { name: 'asc' }],
-    take: limit,
+    ...(limit === undefined ? {} : { take: limit }),
     select: {
       id: true,
       name: true,

@@ -18,7 +18,7 @@ test('three installed experiences have distinct identities; each customer store 
   assert.equal('/loja/loja-a-outra/'.startsWith(a.scope!), false);
   assert.equal('/app-outro/'.startsWith(panel.scope), false);
   assert.equal('/entregador-outro/'.startsWith(driver.scope), false);
-  assert.equal(a.name, 'Loja A');
+  assert.equal(a.name, 'Loja A · Del Flash Loja');
   assert.equal(a.theme_color, '#123456');
   assert.equal(panel.start_url.startsWith(panel.scope), true);
   assert.equal(driver.start_url.startsWith(driver.scope), true);

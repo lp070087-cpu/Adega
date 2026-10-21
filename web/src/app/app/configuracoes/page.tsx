@@ -3,6 +3,7 @@ import { requireOrgPage } from '@/lib/auth/guards';
 import { getOrganizationUsage } from '@/lib/data/organization';
 import { Card, CardHeader } from '@/components/ui';
 import { Store, Users, Package, MessageCircle } from 'lucide-react';
+import { InstallApp } from '@/components/pwa/InstallApp';
 export default async function SettingsPage() {
   const ctx = await requireOrgPage('MANAGE_SETTINGS');
   const usage = await getOrganizationUsage(ctx.organizationId);
@@ -12,5 +13,7 @@ export default async function SettingsPage() {
     <Card><CardHeader title="Equipe" subtitle={`${usage.users} pessoas com acesso à operação.`}/><Link className="inline-flex items-center gap-2 font-semibold text-brand" href="/app/equipe"><Users size={18}/>Gerenciar acessos</Link></Card>
     <Card><CardHeader title="Estoque" subtitle="Padrões iniciais e ajustes com histórico."/><Link className="inline-flex items-center gap-2 font-semibold text-brand" href="/app/estoque"><Package size={18}/>Configurar estoque</Link></Card>
     <Card><CardHeader title="Atendimento com IA" subtitle="Conexão oficial e serviços disponibilizados pela plataforma."/><Link className="inline-flex items-center gap-2 font-semibold text-brand" href="/app/atendimento"><MessageCircle size={18}/>Consultar atendimento</Link></Card>
+    <Card><CardHeader title="Plano e assinatura" subtitle="Del Flash Completo · R$ 119,00 por mês."/><Link className="inline-flex min-h-11 items-center font-semibold text-brand" href="/app/assinatura">Consultar meu plano</Link></Card>
+    <Card><CardHeader title="Instalar aplicativo" subtitle="Painel, loja e entregador mantêm acessos independentes."/><InstallApp name="Del Flash" worker="/pwa/panel-sw.js" scope="/app/" alwaysShow/><Link className="inline-flex min-h-11 items-center font-semibold text-brand" href="/entregador/instalar">Instalação do entregador</Link></Card>
   </div><p className="text-sm text-ink-500">Serviços externos e credenciais são administrados pela plataforma. Sua loja acessa apenas as opções operacionais autorizadas.</p></div>;
 }

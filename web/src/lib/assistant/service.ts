@@ -4,6 +4,7 @@ import { decrypt } from '@/lib/crypto';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
 import { catalogReply, type AssistantProduct, type CatalogDecision } from './catalog';
 import { z } from 'zod';
+import { readAssistantPreferences, assistantWithinHours } from './preferences';
 
 export async function assistantReady() {
   if (process.env.WHATSAPP_ASSISTANT_ENABLED !== 'true') return false;
@@ -65,16 +66,22 @@ export async function processAssistantInbox(organizationId?:string){
         await prisma.assistantThread.updateMany({where:{id:message.threadId,organizationId:message.organizationId},data:{status:'CLOSED'}});
         await prisma.assistantMessage.update({where:{id:message.id},data:{status:'PROCESSED'}});continue;
       }
-      const history=await prisma.assistantMessage.findMany({where:{organizationId:message.organizationId,threadId:message.threadId,direction:'IN'},orderBy:{createdAt:'desc'},take:6,select:{body:true}});
-      const catalog=await assistantCatalog(message.organizationId);
-      const decision=await interpretCatalog(message.body,history.reverse().map(h=>h.body),catalog);
-      const reply=catalogReply(decision,catalog,process.env.APP_PUBLIC_URL!,claimed.org.slug);
-      if(decision.question==='HUMAN')await prisma.assistantThread.updateMany({where:{id:message.threadId,organizationId:message.organizationId},data:{status:'HUMAN'}});
+      const preferences=readAssistantPreferences((claimed.org.settings as any)?.assistant?.preferences);
+      let reply: string;
+      if (!assistantWithinHours(preferences)) reply=preferences.awayMessage;
+      else {
+        const history=await prisma.assistantMessage.findMany({where:{organizationId:message.organizationId,threadId:message.threadId,direction:'IN'},orderBy:{createdAt:'desc'},take:6,select:{body:true}});
+        const catalog=await assistantCatalog(message.organizationId);
+        const decision=await interpretCatalog(message.body,history.reverse().map(h=>h.body),catalog);
+        reply=catalogReply(decision,catalog,process.env.APP_PUBLIC_URL!,claimed.org.slug);
+        if(decision.question==='HUMAN')await prisma.assistantThread.updateMany({where:{id:message.threadId,organizationId:message.organizationId},data:{status:'HUMAN'}});
+      }
       const outgoing=await prisma.assistantMessage.upsert({where:{externalId:`reply:${message.id}`},create:{organizationId:message.organizationId,threadId:message.threadId,externalId:`reply:${message.id}`,direction:'OUT',body:reply,status:'QUEUED'},update:{}});
       const maySend=await withOrganizationTransaction(message.organizationId,async tx=>{
         const freshChannel=await tx.assistantChannel.findUnique({where:{organizationId:message.organizationId}});
         const freshThread=await tx.assistantThread.findFirst({where:{id:message.threadId,organizationId:message.organizationId}});
         const freshOrg=await tx.organization.findUnique({where:{id:message.organizationId},select:{settings:true}});
+        if (JSON.stringify(readAssistantPreferences((freshOrg?.settings as any)?.assistant?.preferences)) !== JSON.stringify(preferences)) return false;
         return process.env.WHATSAPP_ASSISTANT_ENABLED==='true'&&Boolean(freshChannel?.enabled&&freshChannel.verifiedAt&&freshChannel.webhookVerifiedAt&&freshChannel.phoneNumberId===claimed.channel.phoneNumberId&&freshChannel.encryptedToken===claimed.channel.encryptedToken&&freshThread?.status==='BOT'&&(freshOrg?.settings as any)?.assistant?.enabled);
       });
       if(!maySend){await prisma.assistantMessage.updateMany({where:{id:outgoing.id,status:'QUEUED'},data:{status:'CANCELLED'}});await prisma.assistantMessage.update({where:{id:message.id},data:{status:'PROCESSED'}});continue;}

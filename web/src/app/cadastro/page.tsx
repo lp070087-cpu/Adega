@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { RegisterForm } from './RegisterForm';
+import { BrandMark } from '@/components/ui/BrandMark';
 
 export const metadata = { title: 'Criar conta' };
 
@@ -13,10 +14,8 @@ export default async function RegisterPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-ink-50 p-4">
-      <div className="w-full max-w-[520px] rounded-xl bg-white p-10 shadow-xl">
-        <span className="brand-mark mb-4 flex h-[46px] w-[46px] items-center justify-center text-[0.78rem]">
-          DP
-        </span>
+      <div className="w-full max-w-[520px] rounded-xl bg-white p-5 shadow-xl sm:p-10">
+        <div className="mb-4"><BrandMark/></div>
 
         <h1 className="text-[1.35rem] font-extrabold text-ink-900">Criar sua conta</h1>
         <p className="mt-1.5 text-[0.84rem] text-ink-500">

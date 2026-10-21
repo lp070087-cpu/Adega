@@ -31,7 +31,7 @@ export async function assistantSettings(input:{enabled:boolean}){
       const channel=await tx.assistantChannel.findUnique({where:{organizationId:ctx.organizationId}});
       if(input.enabled===true&&(!aiReady()||!channel?.enabled||!channel.verifiedAt||!channel.webhookVerifiedAt))throw new OperationError('Conexão oficial e serviço de IA ainda não verificados.');
       const org=await tx.organization.findUnique({where:{id:ctx.organizationId},select:{settings:true}});const settings=(org?.settings??{}) as Record<string,any>;
-      await tx.organization.update({where:{id:ctx.organizationId},data:{settings:{...settings,assistant:{enabled:input.enabled===true}}}});
+      await tx.organization.update({where:{id:ctx.organizationId},data:{settings:{...settings,assistant:{...settings.assistant,enabled:input.enabled===true}}}});
       await tx.notification.create({data:{organizationId:ctx.organizationId,userId:ctx.user.id,type:'SYSTEM',title:'Atendimento com IA',message:input.enabled?'Ativado pelo responsável da loja.':'Desativado pelo responsável da loja.',href:'/app/atendimento'}});
     });revalidatePath('/app/atendimento');return {ok:true};
   }catch(error){return {ok:false,...toActionError(error)};}

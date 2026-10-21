@@ -37,6 +37,7 @@ export function DriverInstall({ compact = false }: { compact?: boolean }) {
     catch { setStatus('Abra o menu do navegador e escolha adicionar à tela inicial.'); }
     setPrompt(null);
   }
+  if (installed && compact) return null;
   return <section className="rounded-xl border border-ink-200 bg-white p-4">
     <div className="flex items-center gap-2 font-semibold text-ink-900"><Smartphone size={20} aria-hidden="true" /> App do entregador</div>
     <p className="mt-2 text-sm text-ink-500">{installed ? 'O app está aberto no modo instalado.' : 'Abra as entregas diretamente pela tela inicial do celular.'}</p>

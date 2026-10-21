@@ -7,8 +7,6 @@ import { campaignSchema,loyaltySchema } from '@/lib/growth';
 import { updateGrowth,recordCampaignContact,redeemLoyalty } from '@/lib/data/growth';
 import { prisma } from '@/lib/db';
 import { OperationError } from '@/lib/operation-error';
-import { getDriverMap } from '@/lib/data/drivers';
-import { normalizeSchedule,storeOpenState } from '@/lib/schedule';
 export type GrowthActionState={ok:boolean;message:string};
 export async function growthAction(_previous:GrowthActionState,form:FormData):Promise<GrowthActionState>{
  try{
@@ -21,14 +19,8 @@ export async function growthAction(_previous:GrowthActionState,form:FormData):Pr
    const validDate=(v:string)=>/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(new Date(v).getTime())&&new Date(v).toISOString().slice(0,10)===v;
    if(!validDate(starts)||!validDate(ends))throw new OperationError('Informe datas válidas para a campanha.');
    const data=campaignSchema.parse({id:get('id')||undefined,name:get('name'),type:get('type'),status:get('status'),startsAt:new Date(`${starts}T00:00:00-03:00`).toISOString(),endsAt:new Date(`${ends}T23:59:59-03:00`).toISOString(),inactiveDays:Number(get('inactiveDays')),minimumOrder:Number(get('minimumOrder')),discountPercent:Number(get('discountPercent')),fixedDiscount:Number(get('fixedDiscount')),coupon:get('coupon'),conditions:get('conditions'),perCustomerLimit:Number(get('perCustomerLimit')),frequencyHours:Number(get('frequencyHours')),audienceLimit:Number(get('audienceLimit'))});
+   if(data.type==='TURBO')throw new OperationError('Configure Entrega Turbo na aba própria, sem descontos ou pontos.');
    await updateGrowth(organizationId,async state=>{
-    if(data.type==='TURBO'&&data.status==='ACTIVE'){
-      if(form.get('capacityConfirmed')!=='on')throw new OperationError('Confirme a capacidade operacional antes de ativar Entrega Turbo.');
-      const org=await prisma.organization.findUnique({where:{id:organizationId},select:{storeStatus:true,settings:true}});
-      if(!org||storeOpenState(org.storeStatus,normalizeSchedule((org.settings as any)?.openingHours))!=='OPEN')throw new OperationError('A loja precisa estar aberta para ativar Entrega Turbo.');
-      const drivers=await getDriverMap(organizationId);
-      if(!drivers.some(d=>d.status==='ONLINE'&&d.onShift&&d.activeOrders.length===0))throw new OperationError('Não há entregador livre e em horário de trabalho para oferecer Entrega Turbo.');
-    }
     if(data.coupon&&state.campaigns.some(c=>c.id!==data.id&&c.coupon===data.coupon))throw new OperationError('Este código de cupom já está cadastrado.');
     const previous=state.campaigns.find(c=>c.id===data.id);
     if(data.id&&!previous)throw new OperationError('Campanha não encontrada.');
@@ -44,7 +36,7 @@ export async function growthAction(_previous:GrowthActionState,form:FormData):Pr
   }else if(action==='consent'){
    const customerId=z.string().min(1).parse(get('customerId'));
    if(!await prisma.customer.findFirst({where:{id:customerId,organizationId},select:{id:true}}))throw new OperationError('Cliente não encontrado.');
-   await updateGrowth(organizationId,state=>{state.consents[customerId]={optOut:get('optOut')==='on',updatedAt:new Date().toISOString(),actorId:user.id};});
+   await updateGrowth(organizationId,state=>{state.consents[customerId]={optOut:get('optOut')==='on',turboConsent:get('optOut')==='on'?false:state.consents[customerId]?.turboConsent??false,updatedAt:new Date().toISOString(),actorId:user.id};});
   }else if(action==='redeem'){
    await redeemLoyalty(organizationId,user.id,z.string().min(1).parse(get('customerId')),z.string().uuid().parse(get('requestKey')));
   }else throw new OperationError('Ação inválida.');

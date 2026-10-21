@@ -29,19 +29,20 @@ function siteOrigin(): string {
 export const metadata: Metadata = {
   metadataBase: new URL(siteOrigin()),
   title: {
-    default: 'Delivery Platform',
-    template: '%s · Delivery Platform',
+    default: 'Del Flash',
+    template: '%s · Del Flash',
   },
   description:
     'Plataforma de gestão de pedidos, catálogo, entregas e caixa para estabelecimentos de delivery.',
-  applicationName: 'Delivery Platform',
+  applicationName: 'Del Flash',
+  icons: { icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }, { url: '/favicon-32.png', sizes: '32x32', type: 'image/png' }], apple: '/pwa/panel-192.png' },
   robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#F15A24',
+  themeColor: '#087EA4',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

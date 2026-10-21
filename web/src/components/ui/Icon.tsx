@@ -17,6 +17,9 @@ const ICONS: Record<string, LucideIcon> = {
   '🏆': Trophy, '🎭': ShieldCheck, '📚': BookOpen, '⚠️': TriangleAlert,
   '⏱️': Clock3, '⏳': Clock3, '🔵': Activity,
   chat: Inbox, campaign: Target, points: Trophy,
+  dashboard: LayoutDashboard, orders: ShoppingBag, users: Users, catalog: Tags,
+  cash: Receipt, sales: CircleDollarSign, stock: Package, reports: BarChart3,
+  combos: Gift, dispatch: Map, drivers: Truck, banners: Image, settings: Settings,
 };
 
 /** Compatibilidade com os ícones legados sem manter emojis na operação. */

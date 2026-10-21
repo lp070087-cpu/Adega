@@ -1,3 +1,4 @@
+import * as assistantPreferences from '../src/lib/assistant/preferences';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
@@ -119,7 +120,7 @@ test('clarification and no-match decisions cannot turn supplied IDs into invente
 test('disabled assistant service performs no database or external requests', async () => {
   const previous = process.env.WHATSAPP_ASSISTANT_ENABLED; process.env.WHATSAPP_ASSISTANT_ENABLED = 'false';
   try {
-    const service = load('src/lib/assistant/service.ts', { 'server-only': {}, '@/lib/db': { prisma: new Proxy({}, { get() { throw new Error('Unexpected DB access'); } }) }, '@/lib/crypto': { decrypt() { throw new Error('Unexpected decrypt'); } }, '@/lib/data/transaction': { withOrganizationTransaction() { throw new Error('Unexpected transaction'); } }, './catalog': { catalogReply }, zod: { z } });
+    const service = load('src/lib/assistant/service.ts', { 'server-only': {}, '@/lib/db': { prisma: new Proxy({}, { get() { throw new Error('Unexpected DB access'); } }) }, '@/lib/crypto': { decrypt() { throw new Error('Unexpected decrypt'); } }, '@/lib/data/transaction': { withOrganizationTransaction() { throw new Error('Unexpected transaction'); } }, './catalog': { catalogReply }, './preferences': assistantPreferences, zod: { z } });
     assert.equal(await service.assistantReady(), false); assert.deepEqual(await service.processAssistantInbox('org-a'), { processed: 0 });
   } finally { if (previous === undefined) delete process.env.WHATSAPP_ASSISTANT_ENABLED; else process.env.WHATSAPP_ASSISTANT_ENABLED = previous; }
 });
@@ -139,7 +140,7 @@ test('assistant catalog query is tenant scoped and the AI can only select IDs al
     process.env.OPENAI_API_KEY = 'mock-key'; process.env.ASSISTANT_AI_MODEL = 'mock-model'; process.env.APP_PUBLIC_URL = 'https://example.test';
     globalThis.fetch = async (url: any, options: any) => { assert.equal(url, 'https://api.openai.com/v1/responses'); requests.push(JSON.parse(options.body)); return Response.json({ output: [{ content: [{ type: 'output_text', text: JSON.stringify(aiOutput) }] }] }); };
     const service = load('src/lib/assistant/service.ts', {
-      'server-only': {}, zod: { z }, './catalog': { catalogReply }, '@/lib/crypto': { decrypt() {} }, '@/lib/data/transaction': { withOrganizationTransaction() { throw new Error('Unexpected mutation'); } },
+      'server-only': {}, zod: { z }, './catalog': { catalogReply }, './preferences': assistantPreferences, '@/lib/crypto': { decrypt() {} }, '@/lib/data/transaction': { withOrganizationTransaction() { throw new Error('Unexpected mutation'); } },
       '@/lib/db': { prisma: { product: { findMany: async (query: any) => { assert.equal(query.where.organizationId, 'org-a'); assert.equal(query.where.active, true); assert.equal(query.where.available, true); assert.deepEqual(query.where.OR, [{ trackStock: false }, { stock: { gt: 0 } }]); return [{ ...catalog[0], price: '8.00', promotionalPrice: '7.50', globalProduct: { packSize: 1, volume: 350, unit: 'ml' } }]; } } } },
     });
     const ownCatalog = await service.assistantCatalog('org-a');
