@@ -28,6 +28,7 @@ import {
   Field,
   Input,
   Modal,
+  Select,
   Textarea,
 } from '@/components/ui';
 import type { StoreBannerView } from '@/lib/data/store-ops';
@@ -71,6 +72,7 @@ import type { StoreBannerView } from '@/lib/data/store-ops';
  */
 
 type Draft = {
+  placement: string;
   id: string | null;
   title: string;
   subtitle: string;
@@ -79,7 +81,7 @@ type Draft = {
   active: boolean;
 };
 
-const EMPTY: Draft = { id: null, title: '', subtitle: '', imagePath: '', linkUrl: '', active: true };
+const EMPTY: Draft = { placement:'hero', id: null, title: '', subtitle: '', imagePath: '', linkUrl: '', active: true };
 
 /** Proporção das artes do acervo aprovado; outras proporções continuam aceitas. */
 const RECOMMENDED_WIDTH = 1200;
@@ -116,12 +118,14 @@ export function BannerManager({
   defaultBannerCount,
   canManage,
   uploadConfigured,
+  categories,
 }: {
   banners: StoreBannerView[];
   /** Quantos banners padrão da plataforma existem para este segmento. */
   defaultBannerCount: number;
   canManage: boolean;
   uploadConfigured: boolean;
+  categories: Array<{id:string;name:string}>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -159,6 +163,7 @@ export function BannerManager({
   function beginEdit(banner: StoreBannerView) {
     resetFile();
     setDraft({
+      placement: banner.placement,
       id: banner.id,
       title: banner.title ?? '',
       subtitle: banner.subtitle ?? '',
@@ -274,6 +279,7 @@ export function BannerManager({
       }
 
       const payload = {
+        placement: draft.placement,
         title: draft.title,
         subtitle: draft.subtitle,
         imagePath,
@@ -323,8 +329,8 @@ export function BannerManager({
 
       <Card>
         <CardHeader
-          title="Banners do topo da vitrine"
-          subtitle="As imagens que aparecem girando no alto da sua loja."
+          title="Banners da vitrine"
+          subtitle="Topo desktop, topo mobile e transições entre categorias."
           action={
             canManage ? (
               <Button size="sm" onClick={beginNew} disabled={pending}>
@@ -377,6 +383,7 @@ export function BannerManager({
                       {banner.active ? 'No ar' : 'Pausado'}
                     </Badge>
                     <Badge tone="neutral">#{index + 1}</Badge>
+                    <Badge tone="neutral">{banner.placement==='hero'?'Desktop':banner.placement==='hero-mobile'?'Mobile':`Antes de ${categories.find(c=>banner.placement===`transition:${c.id}`)?.name??'categoria'}`}</Badge>
                   </div>
                   {banner.subtitle && (
                     <p className="mt-0.5 truncate text-[0.76rem] text-ink-500">{banner.subtitle}</p>
@@ -480,6 +487,14 @@ export function BannerManager({
       >
         {draft && (
           <>
+            <Field label="Posição do banner">
+              <Select value={draft.placement} onChange={event=>setDraft({...draft,placement:event.target.value})}>
+                <option value="hero">Banner principal desktop</option>
+                <option value="hero-mobile">Banner principal mobile</option>
+                {categories.map(category=><option key={category.id} value={`transition:${category.id}`}>Antes de {category.name} · mobile</option>)}
+              </Select>
+              <p className="mt-2 text-xs text-ink-500">Topo mobile: prefira arte em retrato. Entre categorias: formato horizontal próximo de 800 × 520. Revise o enquadramento antes de ativar.</p>
+            </Field>
             <Field
               label="Título"
               required

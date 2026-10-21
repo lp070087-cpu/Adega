@@ -18,7 +18,7 @@ Implementados: Minha Loja dentro de Configurações com redirecionamento; estoqu
 
 Documentos específicos: OPERACAO-COMERCIAL-2026-10-20.md, ESTOQUE-UPLOAD-2026-10-20.md e ENTREGADORES-ESCALAS-PWA.md.
 
-123 testes com mocks passaram. TypeScript passou. Schema Prisma validado e cliente gerado localmente. Build em validação; registrar resultado antes de publicar.
+123 testes com mocks passaram. TypeScript passou. Schema Prisma validado e cliente gerado localmente. Build aprovado. Commit 6ba8987 publicado em main; Vercel confirmou Deployment has completed.
 
 ## Dependências de ativação
 
@@ -32,3 +32,9 @@ Documentos específicos: OPERACAO-COMERCIAL-2026-10-20.md, ESTOQUE-UPLOAD-2026-1
 ## Próximos complementos ainda pendentes
 
 Mobile em todas as larguras pedidas, screenshots, cards sem borda, expansões por categoria, banners mobile administráveis e onboarding oficial Meta. Depois, ativação individual de entregador com token temporário de uso único, envio real por serviço configurado, login e recuperação sem modificar senhas de contas existentes.
+
+## Complemento mobile em andamento
+
+Cards sem borda e expansão de 12 produtos por categoria implementados; posições hero-mobile e transition:categoria reutilizam StoreBanner sem migração. Gerenciamento e escopo por loja implementados. Três artes SVG editáveis com fotografias exatas do acervo disponíveis para escolha, sem associação automática. Ajustes de largura, texto, controles e hero mobile preparados. Aba WhatsApp em Configurações mostra estado real; Embedded Signup permanece indisponível e ainda depende de implementação/homologação oficial, além da configuração Meta.
+
+126 testes passaram; TypeScript passou. Build aprovado. Navegador local não conecta, navegador de produção funciona. Consulta somente de leitura confirmou a conta proprietária existente/ativa e a loja atual `/loja/loja-0102`; o slug anterior não existe. Nenhum privilégio foi concedido. Revisão visual pós-publicação e screenshots por largura ainda pendentes. Primeiro acesso individual dos entregadores ainda não iniciado para respeitar a sequência solicitada.

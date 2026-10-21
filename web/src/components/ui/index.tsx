@@ -397,7 +397,7 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          'my-auto flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-xl bg-white p-4 shadow-xl sm:p-6',
+          'my-auto flex min-w-0 max-h-[calc(100dvh-2rem)] w-full flex-col rounded-xl bg-white p-4 shadow-xl sm:p-6',
           widths[size],
         )}
         style={{ borderRadius: 'var(--radius-xl)' }}
@@ -417,7 +417,7 @@ export function Modal({
           </button>
         </div>
 
-        <div className="min-h-0 overflow-y-auto">{children}</div>
+        <div className="min-h-0 min-w-0 overflow-y-auto">{children}</div>
 
         {footer && (
           <div className="mt-5 flex shrink-0 flex-wrap justify-end gap-2.5 border-t border-ink-100 pt-4">{footer}</div>

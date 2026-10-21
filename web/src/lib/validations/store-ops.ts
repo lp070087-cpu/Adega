@@ -87,6 +87,7 @@ export const saveVisualIdentitySchema = z.object({
 });
 
 export const storeBannerInputSchema = z.object({
+  placement: z.string().regex(/^(hero|hero-mobile|transition:[a-zA-Z0-9_-]{1,100})$/, 'Escolha uma posição válida.').default('hero'),
   title: requiredText('Título do banner', 2, 80),
   subtitle: optionalText(160),
   // A imagem de um banner tem DUAS origens possíveis:
@@ -104,7 +105,7 @@ export const storeBannerInputSchema = z.object({
   // `validateImageUrl()` NÃO foi afrouxada: ela segue valendo para logo e
   // demais imagens do sistema, exigindo http(s).
   imagePath: z.string().trim().min(1, 'Informe a imagem do banner.').max(500),
-  linkUrl: z.string().trim().url('Link inválido').max(500).optional().or(z.literal('')),
+  linkUrl: z.string().trim().url('Link inválido').regex(/^https?:\/\//i,'Use um link http(s).').max(500).optional().or(z.literal('')),
   active: z.boolean().default(true),
 });
 

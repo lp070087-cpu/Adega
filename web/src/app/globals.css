@@ -210,6 +210,9 @@ textarea {
 .panel-sidebar > div:first-child { min-height: 81px; }
 .panel-shell > div > header { min-height: 81px; background: rgba(255,255,255,.97); }
 .panel-content { max-width: 1800px; width: 100%; margin: 0 auto; }
+.panel-content > *, .panel-content form, .panel-content label, .panel-content fieldset { min-width:0; }
+.panel-shell .field-input { min-width:0; max-width:100%; }
+[role='dialog'] { overflow-wrap:anywhere; }
 .panel-content h2, .panel-content h3 { letter-spacing: -.025em; }
 .panel-shell .ui-card, .panel-shell .ui-stat { border-color: #e3e6eb; border-radius: 12px; box-shadow: 0 1px 2px #17202e03; }
 .panel-shell .ui-stat > div:first-child > span:first-child { width: 34px; height: 34px; border-radius: 8px; background: #f6f7f9; color: #667184; }
@@ -230,4 +233,8 @@ textarea {
   .panel-content { padding: 18px 14px; }
   .panel-shell .ui-card { padding: 16px; }
   .panel-shell .ui-stat { padding: 16px; }
+  .panel-content h1, .panel-content h2, .panel-content h3 { overflow-wrap:anywhere; }
+  .panel-shell .field-input { font-size:16px; min-height:44px; }
+  .panel-shell .ui-card { min-width:0; }
+  .panel-shell button, [role='dialog'] button { min-height:44px; min-width:44px; }
 }

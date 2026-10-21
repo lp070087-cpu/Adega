@@ -209,6 +209,7 @@ export async function createBannerAction(input: unknown): Promise<OpsActionResul
     }
 
     await storeOps.createStoreBanner(organizationId, {
+      placement: parsed.data.placement,
       title: parsed.data.title,
       subtitle: parsed.data.subtitle ?? null,
       imagePath: image,
@@ -251,6 +252,7 @@ export async function updateBannerAction(
     }
 
     await storeOps.updateStoreBanner(organizationId, id.data.bannerId, {
+      placement: parsed.data.placement,
       title: parsed.data.title,
       subtitle: parsed.data.subtitle ?? null,
       imagePath: image,

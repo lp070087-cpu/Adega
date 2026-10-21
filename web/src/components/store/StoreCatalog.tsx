@@ -173,6 +173,7 @@ export function StoreCatalog({
   products,
   sections,
   hero,
+  transitionBanners=[],
 }: {
   store: StoreInfo;
   categories: Array<{ id: string; name: string; slug: string; emoji: string | null }>;
@@ -180,6 +181,7 @@ export function StoreCatalog({
   /** Seções que existem de fato nesta loja — o menu não mostra âncora vazia. */
   sections: Array<{ id: string; label: string }>;
   hero?: React.ReactNode;
+  transitionBanners?: Array<{id:string;placement:string;imagePath:string;title:string|null;subtitle:string|null;linkUrl:string|null}>;
 }) {
   const [search, setSearch] = React.useState('');
   const [activeCategory, setActiveCategory] = React.useState('all');
@@ -595,22 +597,12 @@ export function StoreCatalog({
           <div className="space-y-7">
             {grouped.map((group) => (
               <section key={group.category.id} id={`cat-${group.category.slug}`}>
+                {transitionBanners.filter(b=>b.placement===`transition:${group.category.id}`).map(banner=><CategoryBanner key={banner.id} banner={banner} />)}
                 <h2 className="mb-3 text-[1.05rem] font-extrabold text-ink-900">
                   {group.category.name}
                 </h2>
 
-                <ul className="store-product-grid">
-                  {group.items.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      categoryName={group.category.name}
-                      brandColor={store.brandColor}
-                      closed={closed}
-                      onAdd={() => quickAdd(product)}
-                    />
-                  ))}
-                </ul>
+                <CategoryProducts products={group.items} categoryName={group.category.name} brandColor={store.brandColor} closed={closed} onAdd={quickAdd} />
               </section>
             ))}
           </div>
@@ -1134,6 +1126,34 @@ function ChoiceButton({
  * com ele faria o cliente procurar por algo que a loja vende e concluir que
  * a loja não tem — pior do que dizer "indisponível agora".
  */
+function CategoryBanner({banner}:{banner:{imagePath:string;title:string|null;subtitle:string|null;linkUrl:string|null}}){
+  const [failed,setFailed]=React.useState(false);
+  if(failed)return null;
+  return <aside className="store-category-banner">
+    <img src={banner.imagePath} alt="" loading="lazy" decoding="async" onError={()=>setFailed(true)} />
+    <div><p>{banner.title}</p>{banner.subtitle&&<span>{banner.subtitle}</span>}{banner.linkUrl&&<a href={banner.linkUrl} rel="noreferrer">Saiba mais</a>}</div>
+  </aside>;
+}
+
+function CategoryProducts({products,categoryName,brandColor,closed,onAdd}:{products:StoreProduct[];categoryName:string;brandColor:string;closed:boolean;onAdd:(product:StoreProduct)=>void}) {
+  const [expanded,setExpanded]=React.useState(false);
+  const id=React.useId();
+  const button=React.useRef<HTMLButtonElement>(null);
+  const render=(product:StoreProduct)=><ProductCard key={product.id} product={product} categoryName={categoryName} brandColor={brandColor} closed={closed} onAdd={()=>onAdd(product)} />;
+  return <>
+    <ul className="store-product-grid">{products.slice(0,12).map(render)}</ul>
+    {products.length>12&&<>
+      <div className={`store-category-extra ${expanded?'is-expanded':''}`} id={id}>
+        <ul className="store-product-grid">{products.slice(12).map(render)}</ul>
+      </div>
+      <button ref={button} type="button" className="store-category-more" aria-expanded={expanded} aria-controls={id} onClick={()=>{
+        if(expanded&&button.current){const section=button.current.closest('section');if(section&&section.getBoundingClientRect().top<0)section.scrollIntoView({block:'start',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});}
+        setExpanded(value=>!value);
+      }}>{expanded?'Ver menos':`Ver mais ${categoryName.toLocaleLowerCase('pt-BR')}`}</button>
+    </>}
+  </>;
+}
+
 function ProductCard({
   product,
   categoryName,

@@ -17,6 +17,7 @@ import type { BusinessType } from '@prisma/client';
 import { getCommercialAccess } from '@/lib/platform/access';
 import { selectHeroProducts } from '@/lib/store-hero-products';
 import { growthState } from '@/lib/growth';
+import { getPublicMobileBanners } from '@/lib/data/store-ops';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -103,10 +104,11 @@ export default async function PublicStorePage({ params }: PageProps) {
   // próprio lojista.
   if (!store || store.status === 'CANCELLED') notFound();
 
-  const [catalog, featured, banners] = await Promise.all([
+  const [catalog, featured, banners, mobileBanners] = await Promise.all([
     getPublicCatalog(store.id),
     getFeaturedProducts(store.id, 6),
     getBannersForStore(store.id, store.businessType as BusinessType | null, 'hero'),
+    getPublicMobileBanners(store.id),
   ]);
 
   const settings = (store.settings as Record<string, unknown> | null) ?? {};
@@ -224,6 +226,7 @@ export default async function PublicStorePage({ params }: PageProps) {
           openState,
         }}
         businessType={store.businessType}
+        mobileBanners={mobileBanners.filter(b=>b.placement==='hero-mobile')}
         featuredProducts={heroProducts}
         banners={banners.map((banner) => ({
           id: banner.id,
@@ -238,6 +241,7 @@ export default async function PublicStorePage({ params }: PageProps) {
   return (
     <main className="storefront min-h-screen bg-white" style={{ "--store-brand": store.brandColor } as React.CSSProperties}>
       <StoreCatalog
+        transitionBanners={mobileBanners.filter(b=>b.placement.startsWith('transition:'))}
         hero={hero}
           store={{
             id: store.id,

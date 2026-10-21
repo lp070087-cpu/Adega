@@ -89,6 +89,7 @@ export type DynamicStoreHeroProps = {
    * Sem banner, o hero usa só a cor da marca — nunca arte de outra loja.
    */
   banners?: HeroBanner[];
+  mobileBanners?: HeroBanner[];
   /** Chamada principal — "Ver cardápio", "Pedir agora"... */
   ctaLabel?: string;
   ctaHref?: string;
@@ -104,6 +105,7 @@ export function DynamicStoreHero({
   businessType,
   featuredProducts,
   banners = [],
+  mobileBanners = [],
   ctaLabel = 'Ver cardápio',
   ctaHref = '#cardapio',
 }: DynamicStoreHeroProps) {
@@ -131,7 +133,10 @@ export function DynamicStoreHero({
   // organização, `placement = hero`, ordenado por `position`). Este
   // componente não conhece arquivo de banner nenhum.
   const [failedImages, setFailedImages] = React.useState<string[]>([]);
-  const slides = renderableBanners(banners, failedImages);
+  const [mobile,setMobile]=React.useState(false);
+  React.useEffect(()=>{const media=window.matchMedia('(max-width:760px)');const update=()=>setMobile(media.matches);update();media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
+  const mobileSlides=renderableBanners(mobileBanners,failedImages);
+  const slides = mobile&&mobileSlides.length ? mobileSlides : renderableBanners(banners, failedImages);
   const hasSlideshow = slides.length > 1;
 
   const [active, setActive] = React.useState(0);
@@ -227,7 +232,7 @@ export function DynamicStoreHero({
 
       <section
         id="inicio"
-        className={cn('store-hero relative overflow-hidden', slides.length > 0 ? 'has-banners' : 'has-catalog')}
+        className={cn('store-hero relative overflow-hidden', slides.length > 0 ? 'has-banners' : 'has-catalog',mobile&&mobileSlides.length>0&&'has-mobile-banners')}
         // A cor da marca vem do tenant, não de um tema fixo. É o que faz a
         // mesma tela parecer "a cara" de cada estabelecimento.
         style={{ '--hero-brand': organization.brandColor } as React.CSSProperties}
@@ -566,10 +571,24 @@ const HERO_CSS = `
   .has-banners .store-hero-bg { bottom: auto; height: 50vw; }
   .has-banners .store-hero-bg::after { background: linear-gradient(0deg,#181818 0%,transparent 30%); }
   .has-banners .store-hero-slide { object-fit: contain; object-position: center; }
+  .store-hero.has-mobile-banners { padding-top:30px; min-height:480px; display:flex; align-items:flex-end; }
+  .has-mobile-banners .store-hero-bg { inset:0; height:100%; }
+  .has-mobile-banners .store-hero-slide { object-fit:cover; }
+  .has-mobile-banners .store-hero-bg::after { background:linear-gradient(0deg,#080808e0, #08080828 85%); }
   .has-banners .store-hero-stage { display:none; }
   .has-catalog .store-hero-stage { height:auto; display:flex; gap:12px; overflow:hidden; padding:8px 0; }
   .has-catalog .store-hero-card { position:relative; inset:auto; width: min(42vw,210px); flex-shrink:0; }
   .has-catalog .store-hero-card:nth-child(3) { display:none; }
+  .store-hero { padding-inline:18px; padding-bottom:48px; }
+  .store-hero-inner { padding-bottom:0; min-width:0; }
+  .store-hero-logo { width:36px; height:36px; border-radius:10px; font-size:14px; }
+  .store-hero-brandbar { gap:10px; margin-bottom:12px; }
+  .store-hero-title { font-size:clamp(28px,7vw,42px); line-height:1.12; margin-bottom:12px; overflow-wrap:anywhere; }
+  .store-hero-tagline { font-size:14px; line-height:1.45; }
+  .store-hero-facts { margin-block:12px; gap:6px; }
+  .store-hero-fact { font-size:11px; padding:6px 9px; }
+  .store-hero-buttons { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+  .store-hero-cta { flex:1; min-width:0; min-height:44px; padding:12px 10px; font-size:12px; text-align:center; justify-content:center; }
 }
 
 /* Acessibilidade: sem movimento — nada flutua, nada troca sozinho. O

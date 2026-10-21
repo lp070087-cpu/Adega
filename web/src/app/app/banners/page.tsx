@@ -3,6 +3,7 @@ import { can } from '@/lib/permissions';
 import { countDefaultBanners, getStoreBanners } from '@/lib/data/store-ops';
 import { BannerManager } from '@/components/store/BannerManager';
 import { storageStatus } from '@/lib/storage';
+import { getCategories } from '@/lib/data/catalog';
 
 export const metadata = { title: 'Banners' };
 export const dynamic = 'force-dynamic';
@@ -17,9 +18,10 @@ export const dynamic = 'force-dynamic';
 export default async function BannersPage() {
   const ctx = await requireOrgPage('MANAGE_SETTINGS');
 
-  const [banners, defaultBannerCount] = await Promise.all([
+  const [banners, defaultBannerCount, categories] = await Promise.all([
     getStoreBanners(ctx.organizationId),
     countDefaultBanners(),
+    getCategories(ctx.organizationId,true),
   ]);
 
   return (
@@ -33,6 +35,7 @@ export default async function BannersPage() {
 
       <BannerManager
         banners={banners}
+        categories={categories.map(c=>({id:c.id,name:c.name}))}
         defaultBannerCount={defaultBannerCount}
         canManage={can(ctx.role, 'MANAGE_SETTINGS')}
         uploadConfigured={storageStatus().configured}

@@ -115,6 +115,9 @@ export type BannerLibraryItem = {
  * muito — mas isso é build-time e não vale a complexidade hoje.
  */
 export const BANNER_LIBRARY_FILES: readonly string[] = [
+  'mobile-cervejas.svg',
+  'mobile-whisky.svg',
+  'mobile-refrigerantes.svg',
   'banner-01.png',
   'banner-02.png',
   'banner-03.png',
@@ -190,6 +193,8 @@ export function validateBannerImagePath(value: string | null | undefined): strin
 
   if (isBannerLibraryPath(trimmed)) {
     const file = trimmed.slice(BANNER_LIBRARY_PREFIX.length + 1);
+    // Somente as três artes SVG locais revisadas; uploads SVG continuam proibidos.
+    if (['mobile-cervejas.svg','mobile-whisky.svg','mobile-refrigerantes.svg'].includes(file)) return `${BANNER_LIBRARY_PREFIX}/${file}`;
     // A forma do arquivo é a barreira: sem barra, sem `..`, sem `%`, sem
     // pasta — um nome simples com extensão conhecida, e nada mais.
     if (!BANNER_LIBRARY_FILE_RE.test(file)) {

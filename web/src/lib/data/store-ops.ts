@@ -338,7 +338,7 @@ export async function saveVisualIdentity(
 
 export async function getStoreBanners(organizationId: string) {
   const banners = await prisma.storeBanner.findMany({
-    where: { organizationId, placement: 'hero' },
+    where: { organizationId },
     orderBy: { position: 'asc' },
   });
   return banners.map((banner) => ({
@@ -349,6 +349,7 @@ export async function getStoreBanners(organizationId: string) {
     linkUrl: banner.linkUrl,
     position: banner.position,
     active: banner.active,
+    placement: banner.placement,
   }));
 }
 
@@ -362,6 +363,7 @@ export async function countDefaultBanners() {
 export async function createStoreBanner(
   organizationId: string,
   input: {
+    placement?: string;
     title: string;
     subtitle?: string | null;
     imagePath: string;
@@ -369,10 +371,11 @@ export async function createStoreBanner(
     active: boolean;
   },
 ) {
+  await assertBannerCategory(organizationId,input.placement);
   // Entra no fim da fila: o lojista já escolheu uma ordem, e enfiar o
   // novo na frente dela seria desfazer a escolha sem avisar.
   const last = await prisma.storeBanner.findFirst({
-    where: { organizationId, placement: 'hero' },
+    where: { organizationId },
     orderBy: { position: 'desc' },
     select: { position: true },
   });
@@ -384,7 +387,7 @@ export async function createStoreBanner(
       subtitle: input.subtitle || null,
       imagePath: input.imagePath,
       linkUrl: input.linkUrl || null,
-      placement: 'hero',
+      placement: input.placement ?? 'hero',
       position: (last?.position ?? -1) + 1,
       active: input.active,
     },
@@ -397,6 +400,7 @@ export async function updateStoreBanner(
   organizationId: string,
   bannerId: string,
   input: {
+    placement?: string;
     title: string;
     subtitle?: string | null;
     imagePath: string;
@@ -404,9 +408,11 @@ export async function updateStoreBanner(
     active: boolean;
   },
 ) {
+  await assertBannerCategory(organizationId,input.placement);
   const result = await prisma.storeBanner.updateMany({
     where: { id: bannerId, organizationId },
     data: {
+      placement: input.placement ?? 'hero',
       title: input.title,
       subtitle: input.subtitle || null,
       imagePath: input.imagePath,
@@ -422,6 +428,15 @@ export async function deleteStoreBanner(organizationId: string, bannerId: string
   const result = await prisma.storeBanner.deleteMany({ where: { id: bannerId, organizationId } });
   if (result.count === 0) throw new Error('Banner não encontrado neste estabelecimento.');
   return { ok: true as const };
+}
+
+async function assertBannerCategory(organizationId:string,placement='hero') {
+  if(!/^(hero|hero-mobile|transition:[a-zA-Z0-9_-]{1,100})$/.test(placement))throw new Error('Posição inválida.');
+  if(placement.startsWith('transition:')&&!await prisma.category.findFirst({where:{id:placement.slice(11),organizationId},select:{id:true}}))throw new Error('Categoria não encontrada neste estabelecimento.');
+}
+
+export async function getPublicMobileBanners(organizationId:string){
+  return prisma.storeBanner.findMany({where:{organizationId,active:true,OR:[{placement:'hero-mobile'},{placement:{startsWith:'transition:'}}]},orderBy:[{position:'asc'},{id:'asc'}],select:{id:true,title:true,subtitle:true,imagePath:true,linkUrl:true,placement:true}});
 }
 
 export async function toggleStoreBanner(
