@@ -69,7 +69,9 @@ Consulta atual somente de leitura confirmou a conta proprietária ativa e a aus�
 
 Foi corrigida uma lacuna do atendimento: o catálogo fornecido à IA agora inclui variantes ativas, com seus próprios IDs de seleção, preço vigente mais ajuste e link para o produto/variante reais. Embalagem, volume e quantidade por caixa não são herdados indevidamente do produto pai. Combos indisponíveis pelos componentes deixam de ser oferecidos. Nenhum produto, variante ou preço foi criado ou alterado no banco.
 
-Validação nova limitada ao recurso alterado: **15 testes direcionados aprovados, incluindo quatro novos**, e TypeScript aprovado. Os 183 testes da etapa anterior permanecem como evidência anterior, sem alegação de nova execução integral ou E2E real. Build de produção do ajuste aprovado. Nenhum schema Prisma foi alterado; a validação anterior foi preservada. Publicação do ajuste será registrada após confirmação.
+Validação nova limitada ao recurso alterado: **15 testes direcionados aprovados, incluindo quatro novos**, e TypeScript aprovado. Os 183 testes da etapa anterior permanecem como evidência anterior, sem alegação de nova execução integral ou E2E real. Build de produção do ajuste aprovado. Nenhum schema Prisma foi alterado; a validação anterior foi preservada.
+
+Código publicado em `origin/main`: `232b57d9597cec3396a3baf51bda0ef4e7caaaac`. O status do commit no GitHub confirmou Vercel **success / Deployment has completed**, com deploy em https://vercel.com/lp070087-5894s-projects/adega/4Lb9qXi4tqYPJohgKBBgVH4Q6Uuf . Conferência HTTP após o deploy: `/login`, `/entregador/` e `/loja/loja-0102/` retornaram 200; `/admin` redirecionou para `/admin/login` e `/app/dashboard` para `/login`, preservando a autenticação. Esta confirmação documental não modifica o código validado nem substitui testes operacionais reais.
 
 ### Situação dos itens solicitados
 
