@@ -42,7 +42,7 @@ SQL aditivo e procedimento idempotente de concessão continuam preparados em `we
 
 - Suíte completa: **198 testes aprovados**, com mocks e dados isolados. Cobriu autenticação, isolamento, checkout, balcão/caixa, baixa única, cancelamento, catálogo, convites, horários, PWA, campanhas e integrações preparadas.
 - Após os últimos ajustes, mais 25 testes direcionados de estoque, catálogo e operação passaram. Os sete testes de `stock-inline.test.ts` também passaram, incluindo três adicionados depois da suíte completa para contagem concorrente, inclusão de produtos sem controle e disputa com edição do catálogo. Não é uma segunda execução integral de 201 testes.
-- TypeScript, Prisma validate e build final de produção aprovados, incluindo a comparação atômica e o histórico por ID. Publicação será registrada após confirmação.
+- TypeScript, Prisma validate e build final de produção aprovados, incluindo a comparação atômica e o histórico por ID.
 - Primeira tentativa de build falhou por EPERM ao criar saída temporária em `.next`; repetida com permissão para a saída gerada. Nenhuma configuração foi alterada para esconder verificações.
 - Medição inicial da loja publicada: HTTP 200, primeiro byte aproximadamente 1,44 s, transferência aproximadamente 4,90 s. É uma amostra de rede, não benchmark de navegação autenticada nem garantia de melhora.
 - Navegador expirou em duas tentativas nesta sessão. **Não houve aprovação visual nova das oito larguras, das telas internas nem captura nova de screenshots.** Evidência anterior não foi apresentada como teste das alterações novas.
@@ -60,3 +60,11 @@ SQL aditivo e procedimento idempotente de concessão continuam preparados em `we
 7. Revisar desktop e 320/360/375/390/414/768/1024/1440 px: hero, cards, sacola, tabela/edição de estoque, modais e menu.
 
 Rotas: `/app/estoque`, `/app/catalogo`, `/loja/loja-0102/`, `/entregador/`, `/admin` (aguarda ativação).
+
+## Publicação confirmada
+
+Código publicado em `origin/main`: `a857839907936c571fa4ad39e81c84c055d31645` — `Corrige estoque vitrine horarios e acesso dos entregadores`.
+
+Vercel confirmou **success / Deployment has completed**, com deploy https://vercel.com/lp070087-5894s-projects/adega/6VdcDAtoMmQGjQB8vHKQTf32mKWk . Após a confirmação, a loja retornou HTTP 200 com os marcadores novos de categoria e hero e a cor `#fa7500`. `/app/estoque` e `/app/catalogo` redirecionaram ao login; `/admin` ao login central; `/entregador/` retornou 200. Manifests do painel e da loja retornaram 200. O manifest do entregador, na rota histórica `/manifest.webmanifest`, retornou 200 com nome Del Flash Entregador, id `/entregador` e scope `/entregador/`.
+
+Essas verificações HTTP confirmam publicação e proteção das rotas, sem equivaler a renderização visual ou operação autenticada. A documentação posterior não altera o código validado. Nenhuma operação protegida foi aplicada.
