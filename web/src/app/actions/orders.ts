@@ -1,4 +1,5 @@
 'use server';
+import {parseMoneyInput} from '@/lib/money-input';
 
 import { revalidatePath } from 'next/cache';
 import { OperationError } from '@/lib/operation-error';
@@ -105,7 +106,7 @@ export async function createManualOrderAction(formData: FormData): Promise<Order
     const parsed = manualOrderSchema.safeParse({
       idempotencyKey: formData.get('idempotencyKey') || undefined,
       deliveryType: formData.get('deliveryType') || 'PICKUP',
-      changeFor: formData.get('changeFor') ? Number(formData.get('changeFor')) : undefined,
+      changeFor: formData.get('changeFor') ? parseMoneyInput(String(formData.get('changeFor')))??NaN : undefined,
       customerName: formData.get('customerName') || undefined,
       customerPhone: formData.get('customerPhone') || undefined,
       deliveryAddress: formData.get('deliveryAddress') || undefined,

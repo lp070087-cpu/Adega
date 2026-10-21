@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import {paymentCountsSchema,paymentNotesSchema} from '@/lib/cash-reconciliation';
 
 /**
  * Validação do caixa.
@@ -23,6 +24,8 @@ export const openShiftSchema = z.object({
 export const closeShiftSchema = z.object({
   cashShiftId: z.string().min(1, 'Turno inválido.'),
   closingAmount: money,
+  paymentCounts: paymentCountsSchema,
+  paymentNotes: paymentNotesSchema.optional(),
   notes: z.string().trim().max(500, 'Observação muito longa.').optional(),
 });
 

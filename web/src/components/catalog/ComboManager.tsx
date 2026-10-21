@@ -1,4 +1,5 @@
 'use client';
+import {parseMoneyInput} from '@/lib/money-input';
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -639,8 +640,4 @@ export function ComboManager({
  * converter aqui evita que um "1.234,56" chegue como texto e vire 123456
  * por engano de interpretação — e o lojista veria o preço 1000× maior.
  */
-function parseMoney(value: string): number {
-  const normalized = value.includes(',') ? value.replace(/\./g, '').replace(',', '.') : value;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed * 100) / 100) : 0;
-}
+function parseMoney(value: string): number {return parseMoneyInput(value)??Number.NaN;}

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
+import {paymentNotesSchema,type PaymentNotes,paymentCountsSchema,type PaymentCounts} from '@/lib/cash-reconciliation';
 import { requirePermission, toActionError } from '@/lib/auth/guards';
 import * as cash from '@/lib/data/cash';
 import { proposeCashHandoff, resolveCashHandoff } from '@/lib/data/cash-handoff';
@@ -49,6 +50,8 @@ export async function openShiftAction(input: {
 export async function closeShiftAction(input: {
   cashShiftId: string;
   closingAmount: number;
+  paymentCounts: PaymentCounts;
+  paymentNotes?:PaymentNotes;
   notes?: string;
 }): Promise<CashActionResult<{ difference: number; expected: number }>> {
   try {
@@ -109,9 +112,9 @@ function revalidateCash() {
   revalidatePath('/app/dashboard');
 }
 
-export async function proposeCashHandoffAction(input:{shiftId:string;toUserId:string;amount:number;notes:string;confirmed:boolean}):Promise<CashActionResult>{
+export async function proposeCashHandoffAction(input:{shiftId:string;toUserId:string;amount:number;notes:string;paymentCounts:PaymentCounts;paymentNotes?:PaymentNotes;confirmed:boolean}):Promise<CashActionResult>{
  try{const {organizationId,user}=await requirePermission('MANAGE_CASH');
-  const data=z.object({shiftId:z.string().min(1),toUserId:z.string().min(1),amount:z.number().finite().min(0).max(1000000),notes:z.string().trim().min(5,'Descreva a conferência.').max(400),confirmed:z.literal(true)}).parse(input);
+  const data=z.object({shiftId:z.string().min(1),toUserId:z.string().min(1),amount:z.number().finite().min(0).max(1000000),paymentCounts:paymentCountsSchema,paymentNotes:paymentNotesSchema.optional(),notes:z.string().trim().min(5,'Descreva a conferência.').max(400),confirmed:z.literal(true)}).parse(input);
   await proposeCashHandoff(organizationId,user.id,data);revalidateCash();return {ok:true};
  }catch(error){return {ok:false,...(error instanceof z.ZodError?firstIssue(error):toActionError(error))};}
 }

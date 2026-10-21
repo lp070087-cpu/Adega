@@ -3,7 +3,7 @@ import { can } from '@/lib/permissions';
 import { prisma } from '@/lib/db';
 import { getCashHandoffs } from '@/lib/data/cash-handoff';
 import { CashHandoffs } from '@/components/cash/CashHandoffs';
-import { getCashRegisters, getCashSummary, getCashHistory } from '@/lib/data/cash';
+import { getCashReconciliations,getCashRegisters, getCashSummary, getCashHistory } from '@/lib/data/cash';
 import { CashManager } from '@/components/cash/CashManager';
 import type {
   CashHistoryView,
@@ -34,7 +34,7 @@ export default async function CashPage() {
     getCashSummary(ctx.organizationId),
     getCashHistory(ctx.organizationId, { limit: 50 }),
   ]);
-  const [handoffs,members]=await Promise.all([getCashHandoffs(ctx.organizationId),prisma.organizationUser.findMany({where:{organizationId:ctx.organizationId,active:true,user:{active:true}},select:{userId:true,role:true,user:{select:{name:true}}}})]);
+  const [checks,handoffs,members]=await Promise.all([getCashReconciliations(ctx.organizationId),getCashHandoffs(ctx.organizationId),prisma.organizationUser.findMany({where:{organizationId:ctx.organizationId,active:true,user:{active:true}},select:{userId:true,role:true,user:{select:{name:true}}}})]);
 
   const registers: CashRegisterView[] = registersRaw.map((register) => ({
     id: register.id,
@@ -89,6 +89,7 @@ export default async function CashPage() {
       </div>
 
       <CashManager
+        reconciliations={checks}
         registers={registers}
         openShift={openShift}
         history={history}
@@ -99,7 +100,7 @@ export default async function CashPage() {
         }}
         canManage={can(ctx.role, 'MANAGE_CASH')}
       />
-      <CashHandoffs userId={ctx.user.id} handoffs={handoffs} operators={members.filter(m=>can(m.role,'MANAGE_CASH')).map(m=>({id:m.userId,name:m.user.name}))} shift={summary.openShift?{id:summary.openShift.id,openedByUserId:summary.openShift.openedByUserId,expected:summary.openShift.totals.expectedCash}:null}/>
+      <CashHandoffs userId={ctx.user.id} handoffs={handoffs} operators={members.filter(m=>can(m.role,'MANAGE_CASH')).map(m=>({id:m.userId,name:m.user.name}))} shift={summary.openShift?{id:summary.openShift.id,openedByUserId:summary.openShift.openedByUserId,expected:summary.openShift.totals.expectedCash,opening:summary.openShift.openingAmount,transactions:summary.openShift.transactions}:null}/>
     </div>
   );
 }

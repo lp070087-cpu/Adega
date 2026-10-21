@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as reconciliation from '../src/lib/cash-reconciliation';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import ts from 'typescript';
@@ -8,7 +9,7 @@ import * as rules from '../src/lib/growth';
 import * as handoffRules from '../src/lib/cash-handoff-state';
 import { parseMoneyInput,formatMoneyInput } from '../src/lib/money-input';
 class OperationError extends Error{}
-function isolated(file:string,imports:Record<string,unknown>){const module={exports:{} as Record<string,any>};const output=ts.transpileModule(readFileSync(resolve(file),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;new Function('require','module','exports',output)((name:string)=>{if(name in imports)return imports[name];throw Error(`Unexpected dependency ${name}`);},module,module.exports);return module.exports;}
+function isolated(file:string,imports:Record<string,unknown>){const module={exports:{} as Record<string,any>};const output=ts.transpileModule(readFileSync(resolve(file),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;new Function('require','module','exports',output)((name:string)=>{if(name==='@/lib/cash-reconciliation')return reconciliation;if(name in imports)return imports[name];throw Error(`Unexpected dependency ${name}`);},module,module.exports);return module.exports;}
 const campaign={id:'dc75ef2b-272d-4c10-b3a1-117817d4d770',name:'Clientes de volta',type:'COUPON',status:'ACTIVE',startsAt:'2020-01-01T00:00:00.000Z',endsAt:'2099-01-01T00:00:00.000Z',inactiveDays:30,minimumOrder:50,discountPercent:10,fixedDiscount:5,coupon:'VOLTE',conditions:'Válido nas condições informadas.',perCustomerLimit:1,frequencyHours:24,audienceLimit:100,createdBy:'actor',createdAt:'2026-01-01T00:00:00.000Z'} as rules.Campaign;
 test('campaign validity, opt-out, inactivity, frequency and per-customer usage are enforced',()=>{
  const state=rules.growthState({});const customer={id:'c',createdAt:new Date('2020-01-01'),lastOrderAt:new Date('2026-09-01')};const now=new Date('2026-10-20');
@@ -46,8 +47,8 @@ test('cash drawer excludes card and Pix sales and noncash refunds',()=>{const da
 test('cash handoff can only be accepted by recipient after exact independent counting',async()=>{
  const entry:handoffRules.CashHandoff={id:'handoff',registerId:'register',registerName:'Caixa',shiftId:'old',fromUserId:'old-user',fromName:'Anterior',toUserId:'new-user',toName:'Novo',amount:150,expected:150,difference:0,notes:'Conferido',status:'PENDING',createdAt:'2026-10-20T10:00:00Z'};
  let settings:any={cashHandoffs:[entry],untouched:true};let opened=0;
- const tx:any={organization:{findUniqueOrThrow:async()=>({settings}),update:async(q:any)=>{settings=q.data.settings;}},cashRegister:{findFirst:async()=>({id:'register'})},cashShift:{findFirst:async()=>null,create:async(q:any)=>{opened++;assert.equal(q.data.openedByUserId,'new-user');assert.equal(q.data.openingAmount,150);return {id:'new-shift'};}}};
- const data=isolated('src/lib/data/cash-handoff.ts',{'server-only':{},'node:crypto':{randomUUID:()=>crypto.randomUUID()},'@prisma/client':{Prisma},'@/lib/db':{prisma:{},toNumber:Number},'./transaction':{withOrganizationTransaction:async(_id:string,work:any)=>work(tx)},'./cash':{},'@/lib/cash-handoff-state':handoffRules,'@/lib/permissions':{},'@/lib/operation-error':{OperationError}});
+ const tx:any={organization:{findUniqueOrThrow:async()=>({settings}),update:async(q:any)=>{settings=q.data.settings;}},organizationUser:{findUnique:async()=>({active:true,role:'CASHIER',user:{active:true}})},cashRegister:{findFirst:async()=>({id:'register'})},cashShift:{findFirst:async()=>null,create:async(q:any)=>{opened++;assert.equal(q.data.openedByUserId,'new-user');assert.equal(q.data.openingAmount,150);return {id:'new-shift'};}}};
+ const data=isolated('src/lib/data/cash-handoff.ts',{'server-only':{},'node:crypto':{randomUUID:()=>crypto.randomUUID()},'@prisma/client':{Prisma},'@/lib/db':{prisma:{},toNumber:Number},'./transaction':{withOrganizationTransaction:async(_id:string,work:any)=>work(tx)},'./cash':{},'@/lib/cash-handoff-state':handoffRules,'@/lib/permissions':{can:()=>true},'@/lib/operation-error':{OperationError}});
  await assert.rejects(data.resolveCashHandoff('org','intruder',{id:'handoff',accept:true,amount:150,notes:'Conferido'}),/encontrada/);
  await assert.rejects(data.resolveCashHandoff('org','new-user',{id:'handoff',accept:true,amount:149,notes:'Conferido'}),/difere/);
  await data.resolveCashHandoff('org','new-user',{id:'handoff',accept:true,amount:150,notes:'Conferido'});assert.equal(opened,1);assert.equal(settings.cashHandoffs[0].newShiftId,'new-shift');assert.equal(settings.untouched,true);await assert.rejects(data.resolveCashHandoff('org','new-user',{id:'handoff',accept:true,amount:150,notes:'Conferido'}),/já/);

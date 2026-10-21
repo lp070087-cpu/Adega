@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import {PaymentConference} from './PaymentConference';
+import {cashMethodLabels,type CashReconciliation,type PaymentCounts,type PaymentNotes} from '@/lib/cash-reconciliation';
 import { useRouter } from 'next/navigation';
 import { cn, formatBRL, formatDateTime, formatTime } from '@/lib/utils';
 import {
@@ -97,12 +99,14 @@ function parseMoney(value: string): number {
 }
 
 export function CashManager({
+  reconciliations=[],
   registers,
   openShift,
   history,
   closedToday,
   canManage,
 }: {
+  reconciliations?:CashReconciliation[];
   registers: CashRegisterView[];
   openShift: OpenShiftView;
   history: CashHistoryView[];
@@ -130,6 +134,8 @@ export function CashManager({
   // Fechar turno
   const [closeModal, setCloseModal] = useState(false);
   const [closingAmount, setClosingAmount] = useState('');
+  const [paymentCounts,setPaymentCounts]=useState<PaymentCounts>({});
+  const [paymentNotes,setPaymentNotes]=useState<PaymentNotes>({});
   const [closingNote, setClosingNote] = useState('');
 
   function run(action: () => Promise<{ ok: true } | { ok: false; error: string }>, onOk?: () => void) {
@@ -542,12 +548,14 @@ export function CashManager({
         </Field>
       </Modal>
 
+      <Card><CardHeader title="Conferências por forma de pagamento" subtitle="Valores conferidos pelo operador; não representam liquidação bancária."/>{reconciliations.length?reconciliations.map(check=><details key={check.shiftId} className="border-t border-ink-100 py-3"><summary className="cursor-pointer text-sm">{formatDateTime(check.createdAt)} · divergência {formatBRL(check.difference)}</summary><div className="mt-2 space-y-1 text-sm">{check.rows.map(row=><p key={row.method}>{cashMethodLabels[row.method]}: esperado {formatBRL(row.expected)} · conferido {formatBRL(row.reported)} · diferença {formatBRL(row.difference)}{row.notes?` · ${row.notes}`:''}</p>)}<p>Total: {formatBRL(check.expected)} esperado / {formatBRL(check.reported)} conferido</p><p>{check.notes}</p></div></details>):<p className="text-sm text-ink-500">Nenhuma conferência detalhada registrada. Turnos antigos foram preservados.</p>}</Card>
+
       {/* ── Fechar turno ──────────────────────────────────────────── */}
       <Modal
         open={closeModal}
         onClose={() => setCloseModal(false)}
         title="Fechar caixa"
-        subtitle="Conte o dinheiro da gaveta e informe o valor."
+        subtitle="Confira cada forma de pagamento e justifique divergências."
         size="sm"
         footer={
           <>
@@ -562,6 +570,7 @@ export function CashManager({
                     closeShiftAction({
                       cashShiftId: openShift!.id,
                       closingAmount: parseMoney(closingAmount),
+                      paymentCounts,paymentNotes,
                       notes: closingNote.trim() || undefined,
                     }),
                   () => setCloseModal(false),
@@ -573,45 +582,9 @@ export function CashManager({
           </>
         }
       >
-        <Field label="Valor contado" required hint="Total em dinheiro na gaveta neste momento.">
-          <MoneyInput
-            value={closingAmount}
-            onChange={(e) => setClosingAmount(e.target.value)}
-            onBlur={(e)=>setClosingAmount(formatMoneyInput(e.target.value))}
-            placeholder="0,00"
-            autoFocus
-          />
-        </Field>
+        {openShift&&<PaymentConference key={openShift.id} opening={openShift.openingAmount} transactions={openShift.transactions} cashValue={closingAmount} onCashChange={setClosingAmount} onChange={setPaymentCounts} onNotesChange={setPaymentNotes}/>}
 
-        <div className="mb-3.5 rounded border border-ink-100 bg-ink-50 px-3.5 py-3 text-[0.82rem]">
-          <Line label="Esperado" value={formatBRL(expected)} />
-          <Line label="Contado" value={formatBRL(counted)} />
-          <div className="mt-1.5 flex justify-between border-t border-ink-200 pt-1.5 font-bold">
-            <span className="text-ink-700">Diferença</span>
-            <span
-              className={cn(
-                Math.abs(difference) < 0.01
-                  ? 'text-success'
-                  : difference > 0
-                    ? 'text-info'
-                    : 'text-danger',
-              )}
-            >
-              {difference > 0 ? '+' : ''}
-              {formatBRL(difference)}
-            </span>
-          </div>
-        </div>
-
-        {Math.abs(difference) >= 0.01 && (
-          <Alert tone={difference < 0 ? 'warn' : 'info'} className="mb-3.5">
-            {difference < 0
-              ? 'O valor contado é menor que o esperado. A diferença fica registrada no fechamento.'
-              : 'O valor contado é maior que o esperado. A diferença fica registrada no fechamento.'}
-          </Alert>
-        )}
-
-        <Field label="Observação" hint="Opcional — útil quando a diferença precisa de explicação.">
+        <Field label="Observação" hint="Obrigatória quando houver divergência em qualquer forma de pagamento.">
           <Textarea
             value={closingNote}
             onChange={(e) => setClosingNote(e.target.value)}

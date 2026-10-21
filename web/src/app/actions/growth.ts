@@ -1,4 +1,5 @@
 'use server';
+import {parseMoneyInput} from '@/lib/money-input';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
@@ -18,7 +19,7 @@ export async function growthAction(_previous:GrowthActionState,form:FormData):Pr
    const starts=get('startsAt'),ends=get('endsAt');
    const validDate=(v:string)=>/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(new Date(v).getTime())&&new Date(v).toISOString().slice(0,10)===v;
    if(!validDate(starts)||!validDate(ends))throw new OperationError('Informe datas válidas para a campanha.');
-   const data=campaignSchema.parse({id:get('id')||undefined,name:get('name'),type:get('type'),status:get('status'),startsAt:new Date(`${starts}T00:00:00-03:00`).toISOString(),endsAt:new Date(`${ends}T23:59:59-03:00`).toISOString(),inactiveDays:Number(get('inactiveDays')),minimumOrder:Number(get('minimumOrder')),discountPercent:Number(get('discountPercent')),fixedDiscount:Number(get('fixedDiscount')),coupon:get('coupon'),conditions:get('conditions'),perCustomerLimit:Number(get('perCustomerLimit')),frequencyHours:Number(get('frequencyHours')),audienceLimit:Number(get('audienceLimit'))});
+   const data=campaignSchema.parse({id:get('id')||undefined,name:get('name'),type:get('type'),status:get('status'),startsAt:new Date(`${starts}T00:00:00-03:00`).toISOString(),endsAt:new Date(`${ends}T23:59:59-03:00`).toISOString(),inactiveDays:Number(get('inactiveDays')),minimumOrder:parseMoneyInput(get('minimumOrder'))??NaN,discountPercent:Number(get('discountPercent')),fixedDiscount:parseMoneyInput(get('fixedDiscount'))??NaN,coupon:get('coupon'),conditions:get('conditions'),perCustomerLimit:Number(get('perCustomerLimit')),frequencyHours:Number(get('frequencyHours')),audienceLimit:Number(get('audienceLimit'))});
    if(data.type==='TURBO')throw new OperationError('Configure Entrega Turbo na aba própria, sem descontos ou pontos.');
    await updateGrowth(organizationId,async state=>{
     if(data.coupon&&state.campaigns.some(c=>c.id!==data.id&&c.coupon===data.coupon))throw new OperationError('Este código de cupom já está cadastrado.');

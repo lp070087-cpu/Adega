@@ -1,4 +1,5 @@
 'use client';
+import {parseMoneyInput} from '@/lib/money-input';
 import { announceStoreAvailability } from './StoreAvailabilitySync';
 import { setStoreOpeningModeAction } from '@/app/actions/store-opening';
 
@@ -969,11 +970,7 @@ function tierSuggestion(tiers: Array<{ upToKm: number }>): number {
   return last ? Math.round((last.upToKm + 2) * 10) / 10 : 3;
 }
 
-function parseMoney(value: string): number {
-  const normalized = value.includes(',') ? value.replace(/\./g, '').replace(',', '.') : value;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
-}
+function parseMoney(value: string): number {return parseMoneyInput(value)??Number.NaN;}
 
 /**
  * Bairros com taxa de entrega.

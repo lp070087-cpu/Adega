@@ -1,0 +1,16 @@
+import Link from 'next/link';
+import {requirePlatformRole} from '@/lib/platform/auth';
+import {prisma} from '@/lib/db';
+import {AdminHeader,Panel} from '@/components/admin/Display';
+import {closeSupportAccess,openSupportAccess} from './actions';
+export const dynamic='force-dynamic';
+export default async function SupportAccessPage({searchParams}:{searchParams:Promise<{organizationId?:string}>}){
+ const ctx=await requirePlatformRole(['OWNER','ADMIN','SUPPORT']);
+ const records=await prisma.platformSetting.findMany({where:{key:{startsWith:'support-access:'}},orderBy:{updatedAt:'desc'},take:100});
+ const grants=records.map(record=>record.value as unknown as import('@/lib/platform/support-access').SupportGrant).filter(grant=>grant&&typeof grant.id==='string'&&(grant.operatorId===ctx.operatorId||ctx.role==='OWNER'));
+ const {organizationId}=await searchParams;
+ const organizations=await prisma.organization.findMany({take:100,orderBy:{name:'asc'},select:{id:true,name:true}});
+ const selected=organizations.find(org=>org.id===organizationId);
+ const drivers=selected?await prisma.driver.findMany({where:{organizationId:selected.id},take:100,select:{id:true,name:true,active:true}}):[];
+ return <><AdminHeader title="Acesso de suporte" description="Consulta temporária e auditada, sem trocar a identidade do usuário."/><Panel title="Selecionar estabelecimento"><form className="platform-form"><label>Estabelecimento<select name="organizationId" defaultValue={selected?.id??''} required><option value="">Selecione</option>{organizations.map(org=><option key={org.id} value={org.id}>{org.name}</option>)}</select></label><button>Continuar</button></form></Panel>{selected&&<Panel title={selected.name}><p>O acesso dura 15 minutos, é exclusivo deste operador e permite somente leitura. Não autoriza pedidos, movimentações financeiras ou alterações de entregas.</p><form action={openSupportAccess} className="platform-form"><input type="hidden" name="organizationId" value={selected.id}/><label>Área<select name="driverId"><option value="">Painel operacional do estabelecimento</option>{drivers.map(driver=><option value={driver.id} key={driver.id}>Entregador: {driver.name}{driver.active?'':' · inativo'}</option>)}</select></label><label>Justificativa<input required minLength={5} maxLength={500} name="reason"/></label><label className="platform-check"><input type="checkbox" name="confirm" required/>Confirmo a consulta de suporte e seu registro na auditoria.</label><button>Abrir consulta auditada</button></form></Panel>}<Panel title="Acessos recentes">{grants.length?grants.map(grant=><div key={grant.id} className="mb-4"><p>Organização: {grant.organizationId} · {grant.revokedAt?'Revogado':Date.parse(grant.expiresAt)<=Date.now()?'Expirado':'Ativo'}</p><p>{grant.reason}</p>{!grant.revokedAt&&Date.parse(grant.expiresAt)>Date.now()&&<form action={closeSupportAccess} className="platform-form"><input name="id" type="hidden" value={grant.id}/><label className="platform-check"><input type="checkbox" name="confirm" required/>Confirmo a revogação</label><button>Revogar acesso</button>{grant.operatorId===ctx.operatorId&&<Link href={`/admin/suporte/acessos/${grant.id}`}>Abrir consulta</Link>}</form>}</div>):<p>Nenhum acesso recente.</p>}</Panel><Link href="/admin/suporte">Voltar ao suporte</Link></>;
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import {formatMoneyInput} from '@/lib/money-input';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
 import { Icon } from './Icon';
@@ -141,24 +142,15 @@ export function Checkbox({
 }
 
 /** Campo de dinheiro com prefixo R$. */
-export function MoneyInput({
-  className,
-  style,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <div className="relative min-w-0 w-full">
-      <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[0.82rem] font-semibold text-ink-500">
-        R$
-      </span>
-      <input
-        {...props}
-        inputMode="decimal"
-        style={{...style,paddingInlineStart:'2.65rem',minWidth:0}}
-        className={cn('field-input pl-10', className)}
-      />
-    </div>
-  );
+export function MoneyInput({className,style,value,defaultValue,onChange,onBlur,onFocus,...props}: React.InputHTMLAttributes<HTMLInputElement>) {
+  const [draft,setDraft]=React.useState(()=>formatMoneyInput(String(value??defaultValue??'')));
+  const focused=React.useRef(false);
+  React.useEffect(()=>{if(!focused.current&&value!==undefined)setDraft(formatMoneyInput(String(value??'')));},[value]);
+  return <div className="relative min-w-0 w-full"><span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[0.82rem] font-semibold text-ink-500">R$</span><input {...props} type="text" inputMode="decimal" value={draft}
+    onFocus={event=>{focused.current=true;onFocus?.(event);}}
+    onChange={event=>{setDraft(event.target.value);onChange?.(event);}}
+    onBlur={event=>{const raw=event.currentTarget.value;focused.current=false;onBlur?.(event);setDraft(formatMoneyInput(raw));}}
+    style={{...style,paddingInlineStart:'2.65rem',minWidth:0}} className={cn('field-input pl-10',className)}/></div>;
 }
 
 // ── CARTÕES ────────────────────────────────────────────────────────────

@@ -1,6 +1,8 @@
+import type {CashReconciliation} from './cash-reconciliation';
 export type CashHandoff = {
   id:string; registerId:string; registerName:string; shiftId:string; fromUserId:string; fromName:string;
   toUserId:string; toName:string; amount:number; expected:number; difference:number; notes:string;
+  reconciliation?:CashReconciliation;
   status:'PENDING'|'ACCEPTED'|'REJECTED'; createdAt:string; acceptedAt?:string; newShiftId?:string; resolution?:string;receivedAmount?:number;
 };
 export function cashHandoffs(settings:unknown):CashHandoff[]{

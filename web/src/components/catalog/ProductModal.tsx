@@ -1,4 +1,5 @@
 'use client';
+import {parseMoneyInput} from '@/lib/money-input';
 
 import { useEffect, useState, useTransition } from 'react';
 import { uploadProductImageAction } from '@/app/actions/product-image';
@@ -101,7 +102,7 @@ export function ProductModal({
       setError({ message: 'Informe o nome do produto.', field: 'name' });
       return;
     }
-    const priceNumber = Number(price.replace(/\./g, '').replace(',', '.'));
+    const priceNumber = parseMoneyInput(price)??NaN;
     if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
       setError({ message: 'Informe um preço de venda válido.', field: 'price' });
       return;
@@ -330,7 +331,7 @@ export function ProductModal({
                         const next = [...variations];
                         next[index] = {
                           ...variation,
-                          priceAdjustment: Number(e.target.value.replace(',', '.')) || 0,
+                          priceAdjustment: parseMoneyInput(e.target.value) ?? Number.NaN,
                         };
                         setVariations(next);
                       }}
@@ -392,7 +393,7 @@ export function ProductModal({
                       value={String(addon.price)}
                       onChange={(e) => {
                         const next = [...addons];
-                        next[index] = { ...addon, price: Number(e.target.value.replace(',', '.')) || 0 };
+                        next[index] = { ...addon, price: parseMoneyInput(e.target.value) ?? Number.NaN };
                         setAddons(next);
                       }}
                       placeholder="0,00"

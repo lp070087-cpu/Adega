@@ -1,4 +1,5 @@
 'use client';
+import {CurrencyField} from '@/components/ui/CurrencyField';
 
 import { useRef, useState } from 'react';
 import { createManualOrderAction } from '@/app/actions/orders';
@@ -91,7 +92,7 @@ export function ManualOrderModal({ products, onCreated }: { products: ManualProd
           <label>Pagamento<select name="paymentMethod" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className={field}>
             <option value="CASH">Dinheiro</option><option value="PIX">PIX na entrega/retirada</option><option value="CREDIT_CARD">Cartão de crédito</option><option value="DEBIT_CARD">Cartão de débito</option>
           </select></label>
-          {paymentMethod === 'CASH' && <label>Troco para (opcional)<input type="number" step="0.01" min={0} name="changeFor" className={field} /></label>}
+          {paymentMethod === 'CASH' && <label>Troco para (opcional)<CurrencyField min={0} name="changeFor" className={field} /></label>}
         </div>
         <label className="block">Observações<textarea name="notes" maxLength={300} className={field} /></label>
         <p className="text-sm text-ink-500">O pedido ficará em Novo para confirmação. O frete segue as regras cadastradas na loja.</p>

@@ -1,9 +1,10 @@
 'use client';
+import {parseMoneyInput} from '@/lib/money-input';
 
 import * as React from 'react';
 import { cn, formatBRL } from '@/lib/utils';
 import { checkoutAction } from '@/app/actions/orders';
-import { Alert, Button, Field, Input, Modal, Select, Textarea } from '@/components/ui';
+import { Alert, Button, Field, Input, MoneyInput, Modal, Select, Textarea } from '@/components/ui';
 import { ProductThumb } from '@/components/catalog/ProductThumb';
 import { CustomerCheckoutAccess } from '@/components/customer/CustomerStoreAccess';
 import { StoreHeader } from '@/components/store/StoreHeader';
@@ -417,8 +418,9 @@ export function StoreCatalog({
       return;
     }
 
-    const changeRaw = String(formData.get('changeFor') ?? '').replace(',', '.');
-    const changeFor = changeRaw.trim() ? Number(changeRaw) : undefined;
+    const changeRaw = String(formData.get('changeFor') ?? '');
+    const changeFor = changeRaw.trim() ? parseMoneyInput(changeRaw)??NaN : undefined;
+    if(changeFor!==undefined&&!Number.isFinite(changeFor)){setError('Informe um valor de troco válido.');setSending(false);return;}
 
     // Enviado ao servidor: produto, quantidade, variação e adicionais.
     // Nenhum preço. O total é recalculado lá.
@@ -916,7 +918,7 @@ export function StoreCatalog({
               hint="Deixe em branco se não precisar de troco."
               className="mb-0"
             >
-              <Input
+              <MoneyInput
                 name="changeFor"
                 inputMode="decimal"
                 placeholder="Ex.: 100,00"

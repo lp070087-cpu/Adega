@@ -1,4 +1,5 @@
 import 'server-only';
+import {expectedPayments,reconcilePayments,type PaymentCounts,type PaymentNotes} from '@/lib/cash-reconciliation';
 import { OperationError } from '@/lib/operation-error';
 import type { PaymentMethod, Prisma, TransactionType } from '@prisma/client';
 import { prisma, toNumber } from '@/lib/db';
@@ -208,7 +209,7 @@ export async function openCashShift(
  */
 export async function closeCashShift(
   organizationId: string,
-  input: { cashShiftId: string; closingAmount: number; notes?: string },
+  input: { cashShiftId: string; closingAmount: number; notes?: string; paymentCounts?: PaymentCounts;paymentNotes?:PaymentNotes },
   userId: string,
   supervisor = false,
 ) {
@@ -230,6 +231,15 @@ export async function closeCashShift(
     })),
   );
 
+  if(input.paymentCounts){
+    if(input.paymentCounts.CASH!==input.closingAmount)throw new OperationError('O dinheiro contado deve coincidir com a conferência.');
+    let report;try{report=reconcilePayments(expectedPayments(toNumber(shift.openingAmount),shift.transactions.map(t=>({...t,amount:toNumber(t.amount)}))),input.paymentCounts,shift.id,userId,input.notes,input.paymentNotes);}catch(error){throw new OperationError(error instanceof Error?error.message:'Conferência inválida.');}
+    const org=await tx.organization.findUniqueOrThrow({where:{id:organizationId},select:{settings:true}});
+    const settings=org.settings&&typeof org.settings==='object'&&!Array.isArray(org.settings)?org.settings as Prisma.JsonObject:{};
+    const previous=settings.cashReconciliations&&typeof settings.cashReconciliations==='object'&&!Array.isArray(settings.cashReconciliations)?settings.cashReconciliations as Prisma.JsonObject:{};
+    if(Object.keys(previous).length>=10000)throw new OperationError('Histórico de conferências atingiu o limite. Solicite suporte.');
+    await tx.organization.update({where:{id:organizationId},data:{settings:{...settings,cashReconciliations:{...previous,[shift.id]:report as unknown as Prisma.InputJsonValue}}}});
+  }
   const difference = round2(input.closingAmount - totals.expectedCash);
 
   const closed = await tx.cashShift.update({
@@ -420,4 +430,11 @@ export async function getCashSummary(organizationId: string) {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+export async function getCashReconciliations(organizationId:string){
+ const org=await prisma.organization.findUniqueOrThrow({where:{id:organizationId},select:{settings:true}});
+ const settings=org.settings as Record<string,unknown>|null;
+ const checks=settings?.cashReconciliations;
+ return checks&&typeof checks==='object'&&!Array.isArray(checks)?Object.values(checks).filter((value):value is import('@/lib/cash-reconciliation').CashReconciliation=>Boolean(value&&typeof value==='object'&&(value as any).version===1&&Array.isArray((value as any).rows))).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,100):[];
 }

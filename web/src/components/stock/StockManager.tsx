@@ -1,4 +1,5 @@
 'use client';
+import {parseMoneyInput} from '@/lib/money-input';
 
 import { updateStockInlineAction } from '@/app/actions/stock-inline';
 import { ProductThumb } from '@/components/catalog/ProductThumb';
@@ -16,6 +17,7 @@ import {
   EmptyState,
   Field,
   Input,
+  MoneyInput,
   Modal,
   Select,
   Tabs,
@@ -337,7 +339,7 @@ export function StockManager({
                           )}
                         </td>
                       </tr>
-{editing?.product.id===product.id && <tr><td colSpan={6} className="bg-ink-50 p-3"><div className="flex flex-wrap items-end gap-2"><Field label={{stock:'Quantidade total',minimumStock:'Estoque mínimo',cost:'Custo unitário',price:'Preço de venda'}[editing.field]}><Input autoFocus aria-label="Novo valor" inputMode="decimal" value={editing.value} onChange={e=>setEditing({...editing,value:e.target.value})}/></Field><Field label="Motivo obrigatório"><Input value={editing.reason} maxLength={200} onChange={e=>setEditing({...editing,reason:e.target.value})}/></Field><Button disabled={pending} onClick={()=>{const d=editing,raw=d.value.trim(),value=Number(raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw);if(!raw||!Number.isFinite(value)){setError('Informe um valor válido.');return;}startTransition(async()=>{const r=await updateStockInlineAction({productId:product.id,field:d.field,value,previousValue:product[d.field],reason:d.reason});if(!r.ok){setError(r.error);return;}setEditing(null);setError(null);router.refresh();});}}>Salvar</Button><Button variant="ghost" disabled={pending} onClick={()=>{setEditing(null);setError(null);}}>Cancelar</Button>{editing.field==='stock'&&<p className="w-full text-sm">Quantidade anterior: {product.stock} → proposta: {editing.value||'—'}. Define o total, não adiciona unidades.</p>}</div></td></tr>}
+{editing?.product.id===product.id && <tr><td colSpan={6} className="bg-ink-50 p-3"><div className="flex flex-wrap items-end gap-2"><Field label={{stock:'Quantidade total',minimumStock:'Estoque mínimo',cost:'Custo unitário',price:'Preço de venda'}[editing.field]}>{['cost','price'].includes(editing.field)?<MoneyInput autoFocus aria-label="Novo valor" value={editing.value} onChange={e=>setEditing({...editing,value:e.target.value})}/>:<Input autoFocus aria-label="Novo valor" inputMode="numeric" value={editing.value} onChange={e=>setEditing({...editing,value:e.target.value})}/>}</Field><Field label="Motivo obrigatório"><Input value={editing.reason} maxLength={200} onChange={e=>setEditing({...editing,reason:e.target.value})}/></Field><Button disabled={pending} onClick={()=>{const d=editing,raw=d.value.trim(),value=['cost','price'].includes(d.field)?parseMoneyInput(raw)??NaN:Number(raw);if(!raw||!Number.isFinite(value)){setError('Informe um valor válido.');return;}startTransition(async()=>{const r=await updateStockInlineAction({productId:product.id,field:d.field,value,previousValue:product[d.field],reason:d.reason});if(!r.ok){setError(r.error);return;}setEditing(null);setError(null);router.refresh();});}}>Salvar</Button><Button variant="ghost" disabled={pending} onClick={()=>{setEditing(null);setError(null);}}>Cancelar</Button>{editing.field==='stock'&&<p className="w-full text-sm">Quantidade anterior: {product.stock} → proposta: {editing.value||'—'}. Define o total, não adiciona unidades.</p>}</div></td></tr>}
 </StockRows>
                     );
                   })}

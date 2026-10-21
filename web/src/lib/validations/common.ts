@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import {parseMoneyInput} from '@/lib/money-input';
 
 /**
  * Peças de validação reutilizadas. Toda entrada vinda do cliente passa
@@ -69,14 +70,7 @@ export const moneySchema = z
 /** Aceita "29,90" ou 29.9 e devolve number. Usado nos formulários. */
 export const moneyInputSchema = z
   .union([z.number(), z.string()])
-  .transform((v) => {
-    if (typeof v === 'number') return v;
-    // Formato BR: ponto é separador de milhar, vírgula é decimal.
-    const raw = v.trim().replace(/^R\$\s*/, '');
-    const normalized = raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw;
-    if (!normalized || !/^-?\d+(?:\.\d+)?$/.test(normalized)) return Number.NaN;
-    return Number(normalized);
-  })
+  .transform(v => typeof v==='number'?v:parseMoneyInput(v)??Number.NaN)
   .pipe(moneySchema);
 
 /** Quantidade inteira positiva (estoque, itens do pedido). */

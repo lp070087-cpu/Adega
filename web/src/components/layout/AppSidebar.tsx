@@ -188,10 +188,11 @@ export function AppSidebar({
               </div>
             );
           })}
+          {centralAccess && <Link href="/admin" onClick={onCloseMobile} className="mt-1 flex min-h-11 items-center gap-2 rounded-sm px-3 text-sm font-semibold text-brand"><Icon name="settings"/>Admin Central</Link>}
         </nav>
 
         <div className="shrink-0 border-t border-ink-100 p-2.5">
-          {centralAccess && <Link href="/admin" onClick={onCloseMobile} className="mb-2 flex min-h-11 items-center gap-2 rounded-sm px-3 text-sm font-semibold text-brand"><Icon name="🎭"/>Admin Central</Link>}
+
           <Link href={`/loja/${organizationSlug}`} target="_blank" rel="noopener noreferrer" className="mb-2 flex items-center justify-between rounded-sm px-3 py-2.5 text-xs font-medium text-ink-600 hover:bg-ink-100">Abrir loja pública <ExternalLink className="h-3.5 w-3.5" /></Link>
           <div className="flex items-center gap-2.5 rounded border border-ink-200 bg-ink-50 p-[10px_12px]">
             <span className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-brand text-[0.8rem] font-bold text-white">
