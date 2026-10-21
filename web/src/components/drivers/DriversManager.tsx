@@ -50,6 +50,7 @@ export type DriverRow = {
   status: string;
   active: boolean;
   hasLogin: boolean;
+  accessPending?: boolean;
   email: string | null;
   username: string | null;
   activeOrders: number;
@@ -97,12 +98,10 @@ export function DriversManager({
     vehicleType: 'MOTORCYCLE',
     vehiclePlate: '',
     active: true,
-    createLogin: false,
+    createLogin: true,
     email: '',
-    username: '',
-    password: '',
   });
-  const [showPassword, setShowPassword] = useState(false);
+
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -125,12 +124,10 @@ export function DriversManager({
       vehicleType: 'MOTORCYCLE',
       vehiclePlate: '',
       active: true,
-      createLogin: false,
+      createLogin: true,
       email: '',
-      username: '',
-      password: '',
-    });
-    setShowPassword(false);
+        });
+
     setCreating(true);
   }
 
@@ -142,12 +139,10 @@ export function DriversManager({
       vehicleType: driver.vehicleType,
       vehiclePlate: driver.vehiclePlate ?? '',
       active: driver.active,
-      createLogin: false,
-      email: '',
-      username: '',
-      password: '',
-    });
-    setShowPassword(false);
+      createLogin: true,
+      email: driver.email ?? '',
+        });
+
     setEditing(driver);
   }
 
@@ -163,11 +158,10 @@ export function DriversManager({
     data.set('vehicleType', form.vehicleType);
     data.set('vehiclePlate', form.vehiclePlate);
     data.set('active', form.active ? 'on' : 'off');
+    data.set('email', form.email);
     if (form.createLogin) {
       data.set('createLogin', 'on');
       data.set('email', form.email);
-      data.set('username', form.username);
-      data.set('password', form.password);
     }
     return data;
   }
@@ -362,9 +356,8 @@ export function DriversManager({
                     <td className="py-2.5 pr-4">
                       {driver.hasLogin ? (
                         <span className="text-[0.74rem] text-ink-500">
-                          {driver.username
-                            ? `@${driver.username}`
-                            : driver.email ?? 'Com login'}
+                          {driver.email ?? (driver.username ? `@${driver.username}`:'Com login')}
+                          {driver.accessPending&&<span className="mt-1 block font-semibold text-amber-700">Ativação pendente</span>}
                         </span>
                       ) : (
                         <Badge tone="neutral">Sem login</Badge>
@@ -433,7 +426,7 @@ export function DriversManager({
         )}
 
         <div className="grid gap-x-4 sm:grid-cols-2">
-          <Field label="Nome" required>
+          <Field label="Nome completo" required>
             <Input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -474,77 +467,12 @@ export function DriversManager({
           </Field>
         </div>
 
-        {!editing && (
-          <div className="mt-1 border-t border-ink-100 pt-4">
-            <Checkbox
-              label="Criar acesso ao app do entregador"
-              checked={form.createLogin}
-              onChange={(e) => setForm({ ...form, createLogin: e.target.checked })}
-            />
-
-            {form.createLogin && (
-              <div className="mt-3.5 space-y-3">
-                <div className="grid gap-x-4 sm:grid-cols-2">
-                  <Field
-                    label="E-mail de acesso"
-                    hint="Opção A. O entregador entra pelo e-mail."
-                    error={!form.email && !form.username ? 'Informe e-mail ou nome de usuário' : undefined}
-                  >
-                    <Input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      autoComplete="off"
-                    />
-                  </Field>
-                  <Field
-                    label="Ou nome de usuário"
-                    hint="Opção B. Sem e-mail — o login fica assim."
-                  >
-                    <Input
-                      value={form.username}
-                      onChange={(e) => setForm({ ...form, username: e.target.value })}
-                      autoComplete="off"
-                      placeholder="joao.silva"
-                    />
-                  </Field>
-                </div>
-                <Field
-                  label="Senha"
-                  required
-                  hint="Mínimo 8 caracteres. Guardada como hash, nunca em texto puro."
-                >
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      value={form.password}
-                      onChange={(e) => setForm({ ...form, password: e.target.value })}
-                      autoComplete="new-password"
-                      className="pr-11"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((v) => !v)}
-                      aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                      className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[0.9rem] text-ink-400 hover:text-ink-600"
-                    >
-                      {showPassword ? '🙈' : '👁'}
-                    </button>
-                  </div>
-                </Field>
-              </div>
-            )}
-
-            {form.createLogin && (
-              <Alert tone="neutral" className="mt-1">
-                O entregador entra pela área do entregador (não pelo painel da loja) e só enxerga
-                os pedidos atribuídos a ele. Nada de catálogo, financeiro ou clientes.
-              </Alert>
-            )}
-          </div>
-        )}
-
-        {editing && (
+        <Field label="E-mail de acesso" required hint="O entregador define sua senha após verificar este endereço. Ao alterar o e-mail, o acesso precisará ser ativado novamente.">
+          <Input type="email" value={form.email} onChange={event=>setForm({...form,email:event.target.value})} required maxLength={254} autoComplete="off" />
+        </Field>
+        <p className="mb-4 text-sm text-ink-500">Compartilhe o link do aplicativo. O titular usa “Primeiro acesso” para receber a ativação; nenhuma senha é exibida ao estabelecimento.</p>
+        <section className="mb-4 rounded-lg bg-ink-50 p-3"><h3 className="text-sm font-semibold">Horários de trabalho</h3><p className="mt-1 text-sm text-ink-500">Após salvar, configure os dias, turnos e intervalos na seção de horários desta página. A escala pode atravessar a meia-noite.</p></section>
+        {(
           <Checkbox
             label="Entregador ativo (pode receber pedidos)"
             checked={form.active}

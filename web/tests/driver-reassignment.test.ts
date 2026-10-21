@@ -4,9 +4,10 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { OperationError } from '../src/lib/operation-error';
 import * as crypto from 'node:crypto';
-function harness({ nextAvailable = true, pickedUp = false, foreign = false } = {}) {
+function harness({ nextAvailable = true, pickedUp = false, foreign = false, pendingAccess=false } = {}) {
   let state: any = { order: { id: 'order', displayId: 8, status: 'WAITING_DRIVER', driverId: 'old', deliveryType: 'DELIVERY', total: 40, paymentStatus: 'PENDING', stockDeducted: true }, delivery: { driverId: 'old', status: pickedUp ? 'PICKED_UP' : 'ASSIGNED', notes: 'Observação anterior' }, drivers: { old: { id: 'old', name: 'Antigo', status: 'BUSY', userId: 'old-user' }, next: { id: 'next', name: 'Novo', status: nextAvailable ? 'ONLINE' : 'OFFLINE', userId: 'next-user' } }, notifications: [] };
   let outerTransactions = 0; let nested = 0;
+  if(pendingAccess)state.drivers.next.user={active:true,mustChangePassword:true,organizations:[{id:'own-membership'}]};
   const tx: any = { order: {
     findFirst: async (q: any) => { assert.equal(q.where.organizationId, 'org'); return foreign ? null : { ...state.order, delivery: { ...state.delivery } }; },
     update: async (q: any) => { Object.assign(state.order, q.data); },
@@ -28,7 +29,7 @@ test('driver reassignment composes remove/assign in one transaction and preserve
   assert.match(h.state().delivery.notes, /Observação anterior/); assert.match(h.state().delivery.notes, /operator-user.*old.*next.*Troca de turno/);
 });
 test('reassignment rejects foreign/picked-up orders and invalid reason; unavailable replacement rolls back old assignment', async () => {
-  for (const options of [{ nextAvailable: false }, { pickedUp: true }, { foreign: true }]) {
+  for (const options of [{ nextAvailable: false }, { pickedUp: true }, { foreign: true },{pendingAccess:true}]) {
     const h = harness(options); const initial = structuredClone(h.state()); await assert.rejects(h.api.reassignDriver('org', 'order', 'next', 'operator-user', 'Troca de turno')); assert.deepEqual(h.state(), initial);
   }
   const h = harness(); await assert.rejects(h.api.reassignDriver('org', 'order', 'next', 'operator-user', 'x')); assert.equal(h.transactions().outerTransactions, 0);

@@ -1,0 +1,87 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import * as crypto from 'node:crypto';
+import ts from 'typescript';
+import {authConfig} from '../src/lib/auth/config';
+class OperationError extends Error{}
+function isolated(file:string,imports:Record<string,unknown>){const module={exports:{} as any};const output=ts.transpileModule(readFileSync(file,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;new Function('require','module','exports',output)((key:string)=>{if(key in imports)return imports[key];if(key==='@/lib/platform/identity')return {isPlatformIdentity:async()=>false};throw Error(`Unexpected ${key}`);},module,module.exports);return module.exports;}
+function harness(platformIdentity=false){
+ let user:any={id:'user',email:'driver@example.com',active:true,mustChangePassword:true,passwordHash:null,organizations:[{organizationId:'own-org',role:'DRIVER',active:true}]};let active=true,writes=0,revoked=0;let tokens:any[]=[];
+ const matches=(row:any,q:any)=>{const w=q.where;return (!w.token||row.token===w.token)&&(!w.identifier||typeof w.identifier==='string'?(!w.identifier||row.identifier===w.identifier):row.identifier.startsWith(w.identifier.startsWith))&&(!w.expires||row.expires>w.expires.gt);};
+ const tx:any={user:{findUnique:async(q:any)=>(q.where.id===user.id||q.where.email===user.email)?user:null,update:async(q:any)=>{assert.equal(q.where.id,user.id);writes++;user={...user,...q.data};return user;}},driver:{findFirst:async(q:any)=>{const org=q.where.organizationId;assert.ok(org==='own-org'||org?.in?.includes('own-org'));return active?{id:'driver',organizationId:'own-org'}:null;}},verificationToken:{findFirst:async(q:any)=>tokens.find(row=>matches(row,q))??null,create:async(q:any)=>{tokens.push(q.data);return q.data;},deleteMany:async(q:any)=>{const old=tokens.length;tokens=tokens.filter(row=>!matches(row,q));return {count:old-tokens.length};}},notification:{create:async(q:any)=>{assert.equal(q.data.organizationId,'own-org');return q.data;}}};
+ const data=isolated('src/lib/auth/driver-access.ts',{'server-only':{},'@/lib/platform/identity':{isPlatformIdentity:async()=>platformIdentity},'node:crypto':crypto,'@/lib/db':{prisma:tx},'@/lib/data/transaction':{withOrganizationTransaction:async(org:string,work:any)=>{assert.equal(org,'own-org');return work(tx);}},'./password':{hashPassword:async(value:string)=>`hashed:${value}`},'@/lib/data/drivers':{revokeDriverSessions:async(_tx:any,org:string,id:string)=>{assert.equal(org,'own-org');assert.equal(id,user.id);revoked++;}},'@/lib/operation-error':{OperationError}});
+ return {data,user:()=>user,patch:(value:any)=>{user={...user,...value};},promote:()=>{platformIdentity=true;},inactive:()=>{active=false;},tokens:()=>tokens,writes:()=>writes,revoked:()=>revoked};
+}
+function mailEnvironment(t:any){const previous={RESEND_API_KEY:process.env.RESEND_API_KEY,MAIL_FROM:process.env.MAIL_FROM,APP_PUBLIC_URL:process.env.APP_PUBLIC_URL};Object.assign(process.env,{RESEND_API_KEY:'isolated-test-key',MAIL_FROM:'Test <test@example.com>',APP_PUBLIC_URL:'https://shop.example.com'});const oldFetch=globalThis.fetch;t.after(()=>{globalThis.fetch=oldFetch;for(const [key,value]of Object.entries(previous)){if(value===undefined)delete process.env[key];else process.env[key]=value;}});const sent:any[]=[];globalThis.fetch=async(url,options)=>{assert.equal(url,'https://api.resend.com/emails');sent.push(JSON.parse(String(options?.body)));return new Response(JSON.stringify({id:'message'}),{status:200});};return sent;}
+function tokenFrom(sent:any){const url=new URL(sent.text.match(/https:\/\/\S+/)[0]);return new URLSearchParams(url.hash.slice(1)).get('token')!;}
+
+test('first access sends only to the registered driver and stores a hash with expiration and duplicate suppression',async t=>{const sent=mailEnvironment(t);const h=harness();await h.data.requestDriverAccess('DRIVER@example.com','activate');assert.equal(sent.length,1);assert.deepEqual(sent[0].to,['driver@example.com']);const raw=tokenFrom(sent[0]);assert.match(raw,/^[a-f0-9]{64}$/);assert.equal(h.tokens()[0].token,h.data.driverTokenHash(raw));assert.notEqual(h.tokens()[0].token,raw);assert.ok(h.tokens()[0].expires>Date.now()+29*60*1000);assert.equal(h.writes(),0);await h.data.requestDriverAccess('driver@example.com','activate');assert.equal(sent.length,1);});
+test('activation requires its exact token, updates password once and revokes previous sessions',async t=>{const sent=mailEnvironment(t);const h=harness();await h.data.requestDriverAccess('driver@example.com','activate');const token=tokenFrom(sent[0]);await assert.rejects(h.data.consumeDriverAccess('other-user',token,'activate','SafePass123'),/inválido/);await assert.rejects(h.data.consumeDriverAccess('user','0'.repeat(64),'activate','SafePass123'),/inválido/);await assert.rejects(h.data.consumeDriverAccess('user',token,'reset','SafePass123'),/inválido/);assert.equal(h.writes(),0);await h.data.consumeDriverAccess('user',token,'activate','SafePass123');assert.equal(h.user().passwordHash,'hashed:SafePass123');assert.equal(h.user().mustChangePassword,false);assert.ok(h.user().emailVerified);assert.equal(h.revoked(),1);await assert.rejects(h.data.consumeDriverAccess('user',token,'activate','OtherPass123'),/inválido/);assert.equal(h.writes(),1);});
+test('expired, inactive and owner accounts cannot be activated or have passwords reset through driver recovery',async t=>{const sent=mailEnvironment(t);const h=harness();await h.data.requestDriverAccess('driver@example.com','activate');const raw=tokenFrom(sent[0]);h.tokens()[0].expires=new Date(0);await assert.rejects(h.data.consumeDriverAccess('user',raw,'activate','SafePass123'),/inválido/);h.inactive();await h.data.requestDriverAccess('driver@example.com','activate');assert.equal(sent.length,1);assert.equal(h.writes(),0);const owner=harness();owner.patch({organizations:[{organizationId:'own-org',role:'OWNER',active:true}]});await owner.data.requestDriverAccess('driver@example.com','reset');assert.equal(sent.length,1);assert.equal(owner.writes(),0);});
+test('recovery changes an existing driver password only after proof and provider failure never reports sent mail',async t=>{const sent=mailEnvironment(t);const h=harness();h.patch({mustChangePassword:false,passwordHash:'old-existing-hash'});await h.data.requestDriverAccess('driver@example.com','reset');assert.equal(h.user().passwordHash,'old-existing-hash');await h.data.consumeDriverAccess('user',tokenFrom(sent[0]),'reset','NewPass123');assert.equal(h.writes(),1);const failed=harness();globalThis.fetch=async()=>new Response('{}',{status:503});await assert.rejects(failed.data.requestDriverAccess('driver@example.com','activate'),/enviar/);assert.equal(failed.tokens().length,0);assert.equal(failed.writes(),0);});
+test('missing e-mail configuration makes no database request or external send',async t=>{mailEnvironment(t);delete process.env.RESEND_API_KEY;const h=harness();assert.equal(h.data.driverMailReady(),false);await assert.rejects(h.data.requestDriverAccess('driver@example.com','activate'),/configuração/);assert.equal(h.tokens().length,0);assert.equal(h.writes(),0);});
+
+test('central operator identities cannot request or consume driver recovery, including promotion after link issuance',async t=>{const sent=mailEnvironment(t);const central=harness(true);await central.data.requestDriverAccess('driver@example.com','reset');assert.equal(sent.length,0);assert.equal(central.writes(),0);const later=harness();await later.data.requestDriverAccess('driver@example.com','activate');const token=tokenFrom(sent[0]);later.promote();await assert.rejects(later.data.consumeDriverAccess('user',token,'activate','NewPass123'),/inválido/);assert.equal(later.writes(),0);});
+
+test('two concurrent activation attempts consume the token only once',async t=>{const sent=mailEnvironment(t);const h=harness();await h.data.requestDriverAccess('driver@example.com','activate');const token=tokenFrom(sent[0]);const result=await Promise.allSettled([h.data.consumeDriverAccess('user',token,'activate','FirstPass123'),h.data.consumeDriverAccess('user',token,'activate','SecondPass123')]);assert.equal(result.filter(r=>r.status==='fulfilled').length,1);assert.equal(h.writes(),1);assert.equal(h.revoked(),1);});
+
+test('new individual driver account has no administrator-selected password and belongs only to its organization',async()=>{
+ const created:any[]=[];const memberships:any[]=[];
+ const tx:any={user:{create:async(q:any)=>{created.push(q.data);return {id:'new-user'};}},organizationUser:{create:async(q:any)=>{memberships.push(q.data);}},driver:{create:async(q:any)=>q.data}};
+ const data=isolated('src/lib/data/drivers.ts',{'server-only':{},'@/lib/db':{prisma:{user:{findUnique:async()=>null}}},'@/lib/auth/password':{hashPassword:async()=>{throw Error('Administrator password must not be hashed');}},'@/lib/data/transaction':{withOrganizationTransaction:async(org:string,work:any)=>{assert.equal(org,'own-org');return work(tx);}},'@/lib/platform/quotas':{assertPlatformQuota:async()=>{}},'@/lib/data/driver-schedules':{},'@/lib/driver-schedule':{}});
+ const result=await data.createDriver('own-org',{name:'Driver Example',phone:'11999999999',vehicleType:'MOTORCYCLE',active:true,createLogin:true,email:'DRIVER@example.com',password:'IgnoredAdminPassword123',activationOnly:true});
+ assert.equal(created[0].email,'driver@example.com');assert.equal(created[0].passwordHash,null);assert.equal(created[0].mustChangePassword,true);assert.equal(memberships[0].organizationId,'own-org');assert.equal(memberships[0].role,'DRIVER');assert.equal(result.organizationId,'own-org');assert.equal(result.userId,'new-user');
+});
+
+test('driver session deadline is signed and cannot be extended by client session updates; owner session is preserved',()=>{
+ const token=authConfig.callbacks.jwt({token:{},user:{id:'driver',role:'DRIVER',driverSessionStartedAt:100,driverSessionUntil:200}} as any);
+ assert.equal(token.driverSessionUntil,200);
+ const unchanged=authConfig.callbacks.jwt({token,trigger:'update',session:{driverSessionUntil:Date.now()+9999999}} as any);assert.equal(unchanged.driverSessionUntil,200);
+ const session=authConfig.callbacks.session({session:{user:{id:'driver'},expires:''},token:{userId:'driver',role:'DRIVER',driverSessionUntil:200}} as any);assert.equal(session.user.id,'');
+ const owner=authConfig.callbacks.session({session:{user:{id:'owner'},expires:''},token:{userId:'owner',role:'OWNER',driverSessionUntil:200}} as any);assert.equal(owner.user.id,'owner');
+});
+
+function authorization(user:any,driverActive=true,platformIdentity=false){let config:any;let updates=0;const queries:any[]=[];isolated('src/lib/auth/index.ts',{'@/lib/platform/identity':{isPlatformIdentity:async()=>platformIdentity},'next-auth':{default:(options:any)=>{config=options;return {}; }},'next-auth/providers/credentials':{default:(options:any)=>options},'@/lib/db':{prisma:{user:{findUnique:async()=>user,update:async()=>{updates++;}},driver:{findFirst:async(q:any)=>{queries.push(q);return driverActive?{id:'driver'}:null;}}}},'./password':{verifyPassword:async(password:string)=>password==='correct',fakeVerify:async()=>false},'./config':{authConfig:{}}});return {login:(raw:any)=>config.providers[0].authorize(raw),queries,updates:()=>updates};}
+test('driver login rejects owner, inactive, pending activation and wrong passwords without changing owner login',async()=>{
+ const base={id:'user',name:'Driver',email:'driver@example.com',passwordHash:'hash',active:true,mustChangePassword:false,organizations:[{organizationId:'own-org',role:'DRIVER',organization:{name:'Shop',slug:'shop'}}]};
+ const active=authorization(base);const normal=await active.login({login:base.email,password:'correct',driverOnly:'true'});assert.ok(normal);assert.ok(Math.abs(normal.driverSessionUntil-normal.driverSessionStartedAt-8*3600000)<1000);assert.deepEqual(active.queries[0].where,{userId:'user',organizationId:'own-org',active:true});
+ const persistent=await active.login({login:base.email,password:'correct',driverOnly:'true',remember:'true'});assert.ok(Math.abs(persistent.driverSessionUntil-persistent.driverSessionStartedAt-7*86400000)<1000);
+ assert.equal(await active.login({login:base.email,password:'wrong',driverOnly:'true'}),null);
+ assert.equal(await authorization({...base,active:false}).login({login:base.email,password:'correct',driverOnly:'true'}),null);
+ assert.equal(await authorization({...base,mustChangePassword:true}).login({login:base.email,password:'correct',driverOnly:'true'}),null);
+ assert.equal(await authorization(base,false).login({login:base.email,password:'correct',driverOnly:'true'}),null);
+ const owner=authorization({...base,mustChangePassword:true,organizations:[{...base.organizations[0],role:'OWNER'}]});assert.equal(await owner.login({login:base.email,password:'correct',driverOnly:'true'}),null);assert.ok(await owner.login({login:base.email,password:'correct'}));
+ const central=authorization(base,true,true);assert.equal(await central.login({login:base.email,password:'correct',driverOnly:'true'}),null);const admin=await central.login({login:base.email,password:'correct'});assert.ok(admin);assert.equal(admin.driverSessionUntil,undefined);const adminToken=authConfig.callbacks.jwt({token:{},user:admin} as any);assert.equal(adminToken.driverSessionUntil,undefined);
+});
+
+test('platform identity guard coexists with unapplied migration, protects any operator record and fails closed on database errors',async()=>{
+ const data=isolated('src/lib/platform/identity.ts',{'server-only':{}});
+ assert.equal(await data.isPlatformIdentity({$queryRaw:async()=>[{ready:false}]},'user'),false);
+ const client={$queryRaw:async()=>[{ready:true}],platformOperator:{findUnique:async(q:any)=>{assert.deepEqual(q,{where:{userId:'user'},select:{id:true}});return {id:'operator'};}}};
+ assert.equal(await data.isPlatformIdentity(client,'user'),true);
+ await assert.rejects(data.isPlatformIdentity({$queryRaw:async()=>{throw Error('offline');}},'user'),/offline/);
+});
+
+test('tenant cannot change credentials of a central operator or an account linked to another organization',async()=>{
+ for(const central of [true,false]){
+  let writes=0;const account={id:'user',email:'old@example.com',organizations:[{organizationId:central?'own-org':'foreign-org',role:'DRIVER'}]};
+  const tx={driver:{findFirst:async(q:any)=>{assert.equal(q.where.organizationId,'own-org');return {id:'driver',userId:'user'};},update:async()=>{writes++;}},user:{findUnique:async(q:any)=>q.where.id==='user'?account:null,update:async()=>{writes++;}}};
+  const data=isolated('src/lib/data/drivers.ts',{'server-only':{},'@/lib/platform/identity':{isPlatformIdentity:async()=>central},'@/lib/db':{},'@/lib/auth/password':{},'@/lib/data/transaction':{withOrganizationTransaction:async(org:string,work:any)=>{assert.equal(org,'own-org');return work(tx);}},'@/lib/platform/quotas':{},'@/lib/data/driver-schedules':{},'@/lib/driver-schedule':{}});
+  await assert.rejects(data.setDriverEmail('own-org','driver','new@example.com','actor'),/plataforma|outros vínculos/);assert.equal(writes,0);
+ }
+});
+
+test('revoked driver sessions remain blocked after reactivation and a new authenticated session is accepted',async()=>{
+ let issued=1000;const imports:any={'next/navigation':{},'./index':{auth:async()=>({user:{id:'user',organizationId:'own-org',driverSessionStartedAt:issued,driverSessionUntil:Date.now()+10000}})},'@/lib/db':{prisma:{user:{findUnique:async()=>({active:true})},organizationUser:{findUnique:async()=>({organizationId:'own-org',role:'DRIVER',active:true})},driver:{findFirst:async(q:any)=>{assert.deepEqual(q.where,{organizationId:'own-org',userId:'user',active:true});return {id:'driver'};}},organization:{findUnique:async()=>({settings:{driverSessionsRevokedAt:{user:new Date(2000).toISOString()}}})}}},'@/lib/permissions':{can:()=>false},'@/lib/operation-error':{OperationError}};
+ imports['server-only']={};const data=isolated('src/lib/auth/guards.ts',imports);await assert.rejects(data.requireDriver(),/sessão foi encerrada/);issued=3000;assert.equal((await data.requireDriver()).driver.id,'driver');
+});
+
+test('onboarding transaction refuses driver membership even after deactivation, while new accounts remain eligible',async()=>{
+ for(const member of [null,{id:'inactive-driver'}]){
+  let locks=0;
+  const tx:any={$queryRaw:async(_sql:any,userId:string)=>{assert.equal(userId,'user');locks++;},user:{findUnique:async()=>({active:true})},organizationUser:{findFirst:async(q:any)=>{assert.deepEqual(q.where,{userId:'user',OR:[{active:true},{role:'DRIVER'}]});return member;}}};
+  const data=isolated('src/lib/data/onboarding-guard.ts',{'server-only':{},'@/lib/operation-error':{OperationError}});
+  if(member)await assert.rejects(data.lockOnboardingAccount(tx,'user'),/já possui/);else await data.lockOnboardingAccount(tx,'user');assert.equal(locks,1);
+ }
+});

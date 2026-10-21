@@ -19,7 +19,7 @@ export const identifierSchema = z
   .trim()
   .toLowerCase()
   .min(3, 'E-mail ou nome de usuário muito curto')
-  .max(160, 'E-mail ou nome de usuário muito longo');
+  .max(254, 'E-mail ou nome de usuário muito longo');
 
 /** Login da Área do Entregador: um identificador (e-mail ou username) + senha. */
 export const driverLoginSchema = z.object({

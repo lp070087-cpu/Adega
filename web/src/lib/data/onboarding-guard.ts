@@ -8,7 +8,7 @@ export async function lockOnboardingAccount(tx: Prisma.TransactionClient, userId
   const user = await tx.user.findUnique({ where: { id: userId }, select: { active: true } });
   if (!user?.active) throw new OperationError('Conta indisponível. Entre novamente.');
   const membership = await tx.organizationUser.findFirst({
-    where: { userId, active: true },
+    where: { userId, OR:[{active:true},{role:'DRIVER'}] },
     select: { id: true },
   });
   if (membership) throw new OperationError('Sua conta já possui um estabelecimento. Acesse o painel.');

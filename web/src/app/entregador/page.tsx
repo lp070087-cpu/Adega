@@ -40,15 +40,14 @@ export default async function DriverPage() {
   if (!session?.user?.id) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-ink-50 p-4">
-        <div className="w-full max-w-[460px] rounded-xl bg-white p-10 text-center shadow-xl">
+        <div className="w-full min-w-0 max-w-[460px] rounded-xl bg-white p-5 text-center shadow-xl sm:p-10">
           <span className="mx-auto mb-4 flex h-[46px] w-[46px] items-center justify-center rounded bg-brand-light text-[1.3rem]">
             <Truck size={25} aria-hidden="true" />
           </span>
 
           <h1 className="text-[1.35rem] font-extrabold text-ink-900">Área do Entregador</h1>
           <p className="mt-1.5 text-[0.84rem] text-ink-500">
-            Entre para ver as entregas atribuídas a você. E-mail ou nome de usuário — o que a loja
-            cadastrou para o seu acesso.
+            Entre com o e-mail cadastrado pelo estabelecimento para ver suas entregas. Acessos antigos por usuário continuam aceitos.
           </p>
 
           <DriverLoginForm />

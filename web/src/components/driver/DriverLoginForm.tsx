@@ -3,6 +3,8 @@
 import { useActionState, useState } from 'react';
 import { driverLoginAction, type AuthActionState } from '@/app/actions/auth';
 import { Button, Field, Input } from '@/components/ui';
+import Link from 'next/link';
+import {Eye,EyeOff} from 'lucide-react';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -39,15 +41,19 @@ export function DriverLoginForm() {
       )}
 
       <Field
-        label="E-mail ou nome de usuário"
+        label="E-mail"
         required
         error={state?.field === 'login' ? state.error : undefined}
       >
         <Input
           name="login"
+          aria-label="E-mail"
           type="text"
+          inputMode="email"
+          autoCapitalize="none"
+          autoCorrect="off"
           autoComplete="username"
-          placeholder="seu.nome ou voce@email.com"
+          placeholder="voce@email.com"
           required
           autoFocus
           aria-invalid={state?.field === 'login'}
@@ -58,6 +64,7 @@ export function DriverLoginForm() {
         <div className="relative">
           <Input
             name="password"
+            aria-label="Senha"
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             placeholder="••••••••"
@@ -70,14 +77,16 @@ export function DriverLoginForm() {
             aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
             className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-[0.9rem] text-ink-400 hover:text-ink-600"
           >
-            {showPassword ? '🙈' : '👁'}
+            {showPassword ? <EyeOff size={18}/>:<Eye size={18}/>}
           </button>
         </div>
       </Field>
 
+      <label className="mb-4 flex min-h-11 items-center gap-2 text-sm"><input name="remember" type="checkbox"/>Manter conectado</label>
       <Button type="submit" size="lg" fullWidth loading={pending} className="mt-2">
         {pending ? 'Entrando...' : 'Entrar'}
       </Button>
+      <div className="mt-4 flex flex-wrap justify-between gap-2 text-sm font-semibold text-brand"><Link className="inline-flex min-h-11 items-center" href="/entregador/acesso">Primeiro acesso</Link><Link className="inline-flex min-h-11 items-center" href="/entregador/acesso?modo=reset">Esqueci minha senha</Link></div>
     </form>
   );
 }

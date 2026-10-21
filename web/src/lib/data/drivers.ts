@@ -1,11 +1,12 @@
 import 'server-only';
-import type { DriverStatus, VehicleType } from '@prisma/client';
+import type { DriverStatus, VehicleType, Prisma } from '@prisma/client';
 import { prisma, toNumber } from '@/lib/db';
 import { hashPassword } from '@/lib/auth/password';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
 import { assertPlatformQuota } from '@/lib/platform/quotas';
 import { assertDriverOnShift, getDriverSchedules } from '@/lib/data/driver-schedules';
 import { readDriverSchedule, driverShiftAvailability } from '@/lib/driver-schedule';
+import {isPlatformIdentity} from '@/lib/platform/identity';
 
 /**
  * Entregadores e despacho.
@@ -36,7 +37,7 @@ export async function getDrivers(
     },
     orderBy: [{ status: 'asc' }, { name: 'asc' }],
     include: {
-      user: { select: { id: true, email: true, username: true, active: true } },
+      user: { select: { id: true, email: true, username: true, active: true,mustChangePassword:true } },
       // Última posição conhecida: pega só a mais recente.
       locations: { orderBy: { createdAt: 'desc' }, take: 1 },
       _count: {
@@ -85,11 +86,12 @@ export async function getDrivers(
     status: d.status,
     active: d.active,
     hasLogin: Boolean(d.userId),
+    accessPending:Boolean(d.user?.mustChangePassword),
     email: d.user?.email ?? null,
     username: d.user?.username ?? null,
     activeOrders: d._count.orders,
-    onShift: driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).allowed,
-    shiftLabel: driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).label,
+    onShift: (!d.user||d.user.active&&!d.user.mustChangePassword)&&driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).allowed,
+    shiftLabel: d.user?.mustChangePassword?'Ativação pendente':driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).label,
     deliveredTotal: deliveredMap.get(d.id) ?? 0,
     deliveredToday: todayMap.get(d.id) ?? 0,
     lastLocation: d.locations[0]
@@ -156,11 +158,12 @@ export async function createDriver(
     /** OPÇÃO B: login por nome de usuário (sem e-mail). */
     username?: string;
     password?: string;
+    activationOnly?: boolean;
   },
 ) {
   // Login opcional: só cria se pedido E com credencial/senha válidas.
   if (input.createLogin) {
-    if (!input.password) {
+    if (!input.password && !input.activationOnly) {
       throw new Error('Para criar o acesso do entregador, informe uma senha.');
     }
 
@@ -169,6 +172,7 @@ export async function createDriver(
     // "e-mail falso visível ao usuário", que era mentira no cadastro.
     const email = input.email?.toLowerCase().trim() || null;
     const username = input.username?.toLowerCase().trim() || null;
+    if(input.activationOnly&&!email)throw new Error('Informe um e-mail válido para ativação.');
 
     if (!email && !username) {
       throw new Error('Informe um e-mail de acesso ou um nome de usuário.');
@@ -183,12 +187,12 @@ export async function createDriver(
       if (existing) throw new Error('Este nome de usuário já está em uso.');
     }
 
-    const passwordHash = await hashPassword(input.password);
+    const passwordHash = input.activationOnly ? null : await hashPassword(input.password!);
 
     return withOrganizationTransaction(organizationId, async (tx) => {
       if (input.active) await assertPlatformQuota(tx, organizationId, 'drivers');
       const user = await tx.user.create({
-        data: { name: input.name, email, username, passwordHash, phone: input.phone },
+        data: { name: input.name, email, username, passwordHash, phone: input.phone, mustChangePassword:Boolean(input.activationOnly) },
       });
 
       // Vínculo com a organização no papel DRIVER: é o que dá acesso
@@ -235,6 +239,8 @@ export async function updateDriver(
     vehicleType?: VehicleType;
     vehiclePlate?: string;
     active?: boolean;
+    email?: string;
+    actorId?: string;
   },
 ) {
   return withOrganizationTransaction(organizationId, async (tx) => {
@@ -261,6 +267,8 @@ export async function updateDriver(
   if (input.active !== undefined && current.userId) {
     await tx.organizationUser.updateMany({ where: { organizationId, userId: current.userId, role: 'DRIVER' }, data: { active: input.active } });
   }
+  if(input.active===false&&current.userId)await revokeDriverSessions(tx,organizationId,current.userId);
+  if(input.email)await setDriverEmail(organizationId,driverId,input.email,input.actorId,tx);
   return { ok: true };
   });
 }
@@ -271,8 +279,9 @@ export async function setDriverStatus(
   status: DriverStatus,
 ) {
   return withOrganizationTransaction(organizationId, async tx => {
-    const driver = await tx.driver.findFirst({ where: { id: driverId, organizationId, active: true }, select: { id: true } });
+    const driver = await tx.driver.findFirst({ where: { id: driverId, organizationId, active: true }, select: { id: true,user:{select:{active:true,mustChangePassword:true,organizations:{where:{organizationId,active:true},select:{id:true}}}} } });
     if (!driver) throw new Error('Entregador não encontrado ou desativado.');
+    if(status==='ONLINE'&&driver.user&&(!driver.user.active||driver.user.mustChangePassword||!driver.user.organizations.length))throw new Error('Ative o acesso do entregador antes de disponibilizá-lo.');
     const active = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
     if (active) throw new Error('Conclua ou remova as atribuições antes de alterar a disponibilidade.');
     if (status === 'BUSY') throw new Error('Em entrega é definido somente pela atribuição de pedidos.');
@@ -302,12 +311,41 @@ export async function deactivateDriver(organizationId: string, driverId: string)
     if (driver.userId) {
       // Bloqueia o login do app do entregador.
       await tx.organizationUser.updateMany({
-        where: { organizationId, userId: driver.userId },
+        where: { organizationId, userId: driver.userId, role:'DRIVER' },
         data: { active: false },
       });
+      await revokeDriverSessions(tx,organizationId,driver.userId);
     }
   return { ok: true };
   });
+}
+
+/** A revogação permanece após reativação; JWT antigo nunca recupera acesso. */
+export async function revokeDriverSessions(tx:Prisma.TransactionClient,organizationId:string,userId:string){
+ const org=await tx.organization.findUniqueOrThrow({where:{id:organizationId},select:{settings:true}});
+ const settings=(org.settings&&typeof org.settings==='object'&&!Array.isArray(org.settings)?org.settings:{}) as Prisma.JsonObject;
+ const current=settings.driverSessionsRevokedAt;
+ await tx.organization.update({where:{id:organizationId},data:{settings:{...settings,driverSessionsRevokedAt:{...(current&&typeof current==='object'&&!Array.isArray(current)?current:{}),[userId]:new Date().toISOString()}}}});
+}
+
+export async function setDriverEmail(organizationId:string,driverId:string,email:string,actorId?:string,transaction?:Prisma.TransactionClient){
+ return withOrganizationTransaction(organizationId,async tx=>{
+  const driver=await tx.driver.findFirst({where:{id:driverId,organizationId},select:{id:true,name:true,phone:true,userId:true,active:true}});
+  if(!driver)throw new Error('Entregador não encontrado.');
+  const normalized=email.trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)||normalized.length>254)throw new Error('E-mail inválido.');
+  const account=driver.userId?await tx.user.findUnique({where:{id:driver.userId},include:{organizations:true}}):null;
+  if(account?.email===normalized)return;
+  if(account&&(account.organizations.some(m=>m.role!=='DRIVER'||m.organizationId!==organizationId)||!account.organizations.some(m=>m.organizationId===organizationId&&m.role==='DRIVER')))throw new Error('Esta conta possui outros vínculos. Não é possível alterar seu acesso por aqui.');
+  if(account&&await isPlatformIdentity(tx,account.id))throw new Error('Este acesso deve ser administrado pela plataforma.');
+  if(await tx.user.findUnique({where:{email:normalized},select:{id:true}}))throw new Error('Este e-mail já está em uso.');
+  if(await tx.order.count({where:{organizationId,driverId,status:{in:['WAITING_DRIVER','DISPATCHED']}}}))throw new Error('Conclua ou remova as atribuições antes de alterar o e-mail.');
+  const user=account?await tx.user.update({where:{id:account.id},data:{email:normalized,emailVerified:null,mustChangePassword:true}}):await tx.user.create({data:{name:driver.name,email:normalized,phone:driver.phone,mustChangePassword:true}});
+  if(!account)await tx.organizationUser.create({data:{organizationId,userId:user.id,role:'DRIVER',active:driver.active,acceptedAt:new Date()}});
+  await tx.driver.update({where:{id:driver.id},data:{...(!account?{userId:user.id}:{}),status:'OFFLINE'}});
+  await revokeDriverSessions(tx,organizationId,user.id);
+  await tx.notification.create({data:{organizationId,userId:actorId,type:'SYSTEM',title:'E-mail de entregador atualizado',message:'Acesso individual aguarda verificação do novo e-mail.'}});
+ },transaction);
 }
 
 /** Registra posição enviada pelo app. Mantém histórico, não sobrescreve. */
@@ -343,6 +381,7 @@ export async function getDriverMap(organizationId: string) {
       name: true,
       status: true,
       vehiclePlate: true,
+      user:{select:{active:true,mustChangePassword:true}},
       locations: { orderBy: { createdAt: 'desc' }, take: 1 },
       orders: {
         where: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } },
@@ -365,8 +404,8 @@ export async function getDriverMap(organizationId: string) {
         }
       : null,
     activeOrders: d.orders,
-    onShift: driverShiftAvailability(readDriverSchedule(settings, d.id)).allowed,
-    shiftLabel: driverShiftAvailability(readDriverSchedule(settings, d.id)).label,
+    onShift: (!d.user||d.user.active&&!d.user.mustChangePassword)&&driverShiftAvailability(readDriverSchedule(settings, d.id)).allowed,
+    shiftLabel: d.user?.mustChangePassword?'Ativação pendente':driverShiftAvailability(readDriverSchedule(settings, d.id)).label,
   }));
 }
 

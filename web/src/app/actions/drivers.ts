@@ -27,10 +27,8 @@ function driverFromForm(formData: FormData) {
     vehicleType: formData.get('vehicleType') || 'MOTORCYCLE',
     vehiclePlate: formData.get('vehiclePlate') || undefined,
     active: formData.get('active') !== 'off',
-    createLogin: formData.get('createLogin') === 'on',
+    createLogin: true,
     email: formData.get('email') || undefined,
-    username: formData.get('username') || undefined,
-    password: formData.get('password') || undefined,
   };
 }
 
@@ -44,7 +42,9 @@ export async function createDriverAction(formData: FormData): Promise<DriverActi
       return { ok: false, error: issue?.message ?? 'Dados inválidos.', field: issue?.path[0] as string };
     }
 
+    if(!parsed.data.email)return {ok:false,error:'Informe o e-mail individual do entregador.',field:'email'};
     await drivers.createDriver(organizationId, {
+      activationOnly:true,
       name: parsed.data.name,
       phone: parsed.data.phone,
       vehicleType: parsed.data.vehicleType,
@@ -52,8 +52,6 @@ export async function createDriverAction(formData: FormData): Promise<DriverActi
       active: parsed.data.active,
       createLogin: parsed.data.createLogin,
       email: parsed.data.email || undefined,
-      username: parsed.data.username || undefined,
-      password: parsed.data.password || undefined,
     });
 
     revalidateDrivers();
@@ -68,15 +66,16 @@ export async function updateDriverAction(
   formData: FormData,
 ): Promise<DriverActionResult> {
   try {
-    const { organizationId } = await requirePermission('MANAGE_DRIVERS');
+    const { organizationId,user } = await requirePermission('MANAGE_DRIVERS');
 
-    // Edição não mexe em login/senha: isso é fluxo separado.
+    // A senha é definida somente pelo titular após verificação do e-mail.
     const parsed = createDriverWithLoginSchema.partial().safeParse({
       name: formData.get('name') || undefined,
       phone: formData.get('phone') || undefined,
       vehicleType: formData.get('vehicleType') || undefined,
       vehiclePlate: formData.get('vehiclePlate') || undefined,
       active: formData.get('active') === null ? undefined : formData.get('active') !== 'off',
+      email: formData.get('email') || undefined,
     });
     if (!parsed.success) {
       const issue = parsed.error.errors[0];
@@ -84,6 +83,8 @@ export async function updateDriverAction(
     }
 
     await drivers.updateDriver(organizationId, driverId, {
+      email:parsed.data.email||undefined,
+      actorId:user.id,
       name: parsed.data.name,
       phone: parsed.data.phone,
       vehicleType: parsed.data.vehicleType,

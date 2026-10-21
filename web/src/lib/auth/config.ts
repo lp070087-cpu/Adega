@@ -37,6 +37,10 @@ export const authConfig = {
         token.role = (user as { role?: Role }).role;
         token.organizationName = (user as { organizationName?: string }).organizationName;
         token.organizationSlug = (user as { organizationSlug?: string }).organizationSlug;
+        if(user.role==='DRIVER'&&typeof user.driverSessionStartedAt==='number'&&typeof user.driverSessionUntil==='number'){
+          token.driverSessionStartedAt=user.driverSessionStartedAt??Date.now();
+          token.driverSessionUntil=user.driverSessionUntil??Date.now()+8*60*60*1000;
+        }
       }
       /**
        * NÃO aceitar organizationId/role vindos de `trigger === 'update'`.
@@ -67,6 +71,11 @@ export const authConfig = {
         session.user.role = (token.role as Role | null) ?? null;
         session.user.organizationName = (token.organizationName as string | null) ?? null;
         session.user.organizationSlug = (token.organizationSlug as string | null) ?? null;
+        const driverStarted=typeof token.driverSessionStartedAt==='number'?token.driverSessionStartedAt:undefined;
+        const driverUntil=typeof token.driverSessionUntil==='number'?token.driverSessionUntil:undefined;
+        session.user.driverSessionStartedAt=driverStarted;
+        session.user.driverSessionUntil=driverUntil;
+        if(token.role==='DRIVER'&&driverUntil&&Date.now()>=driverUntil)session.user.id='';
       }
       return session;
     },

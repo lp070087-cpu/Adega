@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --conditions=react-server --import tsx --test scripts/*.test.ts tests/*.test.ts",
+    "test": "node --test-concurrency=2 --conditions=react-server --import tsx --test scripts/*.test.ts tests/*.test.ts",
     "db:format": "prisma format",
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",

@@ -32,6 +32,7 @@ export function DriverInstall({ compact = false }: { compact?: boolean }) {
       <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-ink-700">
         <li><strong>Android (Chrome):</strong> abra este endereço no Chrome. Use “Instalar app” quando disponível ou o menu ⋮ → Adicionar à tela inicial / Instalar aplicativo.</li>
         <li><strong>iPhone (Safari):</strong> abra este endereço no Safari, toque em Compartilhar → Adicionar à Tela de Início → Adicionar.</li>
+        <li><strong>Desktop (Chrome ou Edge):</strong> use o ícone de instalação na barra de endereço ou a opção “Instalar aplicativo” do navegador, quando disponível.</li>
         <li>Abra o ícone e entre com o acesso de entregador fornecido pelo estabelecimento. A instalação não concede acesso nem salva sua senha automaticamente.</li>
       </ol>
       <p className="mt-4 text-sm text-ink-500">É necessária conexão para consultar ou atualizar entregas. Não há envio de operações offline, notificações push ou rastreamento automático em segundo plano.</p>

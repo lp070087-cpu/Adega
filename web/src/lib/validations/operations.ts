@@ -7,7 +7,7 @@ import { moneyInputSchema, optionalText, phoneSchema, requiredText, usernameSche
 export const customerSchema = z.object({
   name: requiredText('Nome', 2, 120),
   phone: phoneSchema,
-  email: z.string().email('E-mail inválido').optional().or(z.literal('')),
+  email: z.string().trim().email('E-mail inválido').max(254).optional().or(z.literal('')),
   notes: optionalText(500),
 });
 

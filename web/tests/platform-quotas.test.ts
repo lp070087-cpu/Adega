@@ -13,7 +13,7 @@ function isolated(file: string, imports: Record<string, unknown>) {
   }, module, module.exports);
   return module.exports;
 }
-const { assertPlatformQuota } = isolated('src/lib/platform/quotas.ts', { 'server-only': {}, '@/lib/operation-error': { OperationError } });
+const { assertPlatformQuota } = isolated('src/lib/platform/quotas.ts', { 'server-only': {}, '@/lib/platform/identity': {isPlatformIdentity:async()=>false}, '@/lib/operation-error': { OperationError } });
 async function enabled(run: () => Promise<void>, value = 'true') {
   const previous = process.env.PLATFORM_ADMIN_ENABLED;
   process.env.PLATFORM_ADMIN_ENABLED = value;
@@ -46,9 +46,10 @@ test('available plan slot permits creation', async () => {
 
 function driverHarness(active: boolean, deny = false) {
   let checks = 0; let writes = 0; let locks = 0;
-  const tx = { order: { count: async () => 0 }, driver: { findFirst: async () => ({ active, userId: 'driver-user' }), create: async () => { writes++; return {}; }, updateMany: async () => { writes++; return { count: 1 }; } }, organizationUser: { updateMany: async () => ({ count: 1 }) } };
-  const api = isolated('src/lib/data/drivers.ts', { 'server-only': {}, '@/lib/data/driver-schedules': {}, '@/lib/driver-schedule': {}, '@/lib/db': { prisma: {}, toNumber: Number }, '@/lib/auth/password': { hashPassword: async () => 'hash' }, '@/lib/data/transaction': { withOrganizationTransaction: async (org: string, run: any) => { assert.equal(org, 'org'); locks++; return run(tx); } }, '@/lib/platform/quotas': { assertPlatformQuota: async (passed: unknown, org: string, kind: string) => { assert.equal(passed, tx); assert.equal(kind, 'drivers'); checks++; if (deny) throw new OperationError('quota'); } } });
-  return { api, stats: () => ({ checks, writes, locks }) };
+  let settings:any={preserve:true};
+  const tx = { organization:{findUniqueOrThrow:async(q:any)=>{assert.equal(q.where.id,'org');return {settings};},update:async(q:any)=>{assert.equal(q.where.id,'org');settings=q.data.settings;return {settings};}},order: { count: async () => 0 }, driver: { findFirst: async () => ({ active, userId: 'driver-user' }), create: async () => { writes++; return {}; }, updateMany: async () => { writes++; return { count: 1 }; } }, organizationUser: { updateMany: async () => ({ count: 1 }) } };
+  const api = isolated('src/lib/data/drivers.ts', { 'server-only': {}, '@/lib/platform/identity': {isPlatformIdentity:async()=>false}, '@/lib/data/driver-schedules': {}, '@/lib/driver-schedule': {}, '@/lib/db': { prisma: {}, toNumber: Number }, '@/lib/auth/password': { hashPassword: async () => 'hash' }, '@/lib/data/transaction': { withOrganizationTransaction: async (org: string, run: any) => { assert.equal(org, 'org'); locks++; return run(tx); } }, '@/lib/platform/quotas': { assertPlatformQuota: async (passed: unknown, org: string, kind: string) => { assert.equal(passed, tx); assert.equal(kind, 'drivers'); checks++; if (deny) throw new OperationError('quota'); } } });
+  return { api, stats: () => ({ checks, writes, locks }),settings:()=>settings };
 }
 test('driver create and reactivation fail before writes when quota is exhausted', async () => {
   for (const create of [true, false]) {
@@ -61,6 +62,8 @@ test('editing existing active driver or deactivating never consumes a new slot',
   for (const input of [{ name: 'Nome atualizado' }, { active: true }, { active: false }]) {
     const h = driverHarness(true, true); await h.api.updateDriver('org', 'id', input);
     assert.deepEqual(h.stats(), { checks: 0, writes: 1, locks: 1 });
+    assert.equal(h.settings().preserve,true);
+    if('active' in input&&input.active===false)assert.ok(h.settings().driverSessionsRevokedAt['driver-user']);
   }
 });
 

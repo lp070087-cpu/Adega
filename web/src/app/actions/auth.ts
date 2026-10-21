@@ -76,6 +76,8 @@ export async function driverLoginAction(
     await signIn('credentials', {
       login: parsed.data.login,
       password: parsed.data.password,
+      driverOnly:'true',
+      remember:formData.get('remember')==='on'?'true':'false',
       redirectTo: '/entregador',
     });
     return undefined;

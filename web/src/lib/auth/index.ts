@@ -3,6 +3,7 @@ import Credentials from 'next-auth/providers/credentials';
 import { prisma } from '@/lib/db';
 import { verifyPassword, fakeVerify } from './password';
 import { authConfig } from './config';
+import {isPlatformIdentity} from '@/lib/platform/identity';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -25,6 +26,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // pelo username. Quem decide qual consulta usar é o conteúdo.
         login: { label: 'E-mail ou nome de usuário', type: 'text' },
         password: { label: 'Senha', type: 'password' },
+        driverOnly: {label:'Área do entregador',type:'text'},
+        remember: {label:'Manter conectado',type:'text'},
       },
 
       async authorize(raw) {
@@ -55,6 +58,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        if(raw?.driverOnly==='true'&&(!user.passwordHash||user.mustChangePassword)){await fakeVerify(password);return null;}
         const ok = await verifyPassword(password, user.passwordHash);
         if (!ok) return null;
 
@@ -62,8 +66,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // Usuário sem organização ainda é válido: ele vai para o onboarding
         // e cria a loja dele. Sem vínculo, organizationId fica null.
-        const membership =
+        const driverOnly=raw?.driverOnly==='true';
+        const membership = driverOnly ? user.organizations.find(m=>m.role==='DRIVER') :
           user.organizations.find((m) => m.role === 'OWNER') ?? user.organizations[0];
+        if(driverOnly&&(user.organizations.some(m=>m.role!=='DRIVER')||!membership||!await prisma.driver.findFirst({where:{userId:user.id,organizationId:membership.organizationId,active:true},select:{id:true}})))return null;
+        const platformIdentity=membership?.role==='DRIVER'?await isPlatformIdentity(prisma,user.id):false;
+        if(driverOnly&&platformIdentity)return null;
+        if(membership?.role==='DRIVER'&&!platformIdentity&&user.mustChangePassword)return null;
 
         await prisma.user.update({
           where: { id: user.id },
@@ -79,6 +88,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: membership?.role ?? null,
           organizationName: membership?.organization.name ?? null,
           organizationSlug: membership?.organization.slug ?? null,
+          ...(membership?.role==='DRIVER'&&!platformIdentity?{driverSessionStartedAt:Date.now(),driverSessionUntil:Date.now()+(raw?.remember==='true'?7*24:8)*60*60*1000}:{}),
         };
       },
     }),

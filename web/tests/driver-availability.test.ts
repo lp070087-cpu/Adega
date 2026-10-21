@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-function harness(ongoing = 0, onShift = true) {
+function harness(ongoing = 0, onShift = true,pendingAccess=false) {
   let writes = 0; let checks = 0;
-  const tx = { driver: { findFirst: async () => ({ id: 'driver', active: true, userId: 'driver-user' }), update: async () => { writes++; }, updateMany: async () => { writes++; return { count: 1 }; } }, order: { count: async (q: any) => { assert.equal(q.where.organizationId, 'org'); assert.equal(q.where.driverId, 'driver'); return ongoing; } }, organizationUser: { updateMany: async () => { writes++; } } };
-  const imports: Record<string, unknown> = { 'server-only': {}, '@/lib/db': {}, '@/lib/auth/password': {}, '@/lib/data/transaction': { withOrganizationTransaction: async (org: string, fn: any) => { assert.equal(org, 'org'); return fn(tx); } }, '@/lib/platform/quotas': {}, '@/lib/driver-schedule': {}, '@/lib/data/driver-schedules': { assertDriverOnShift: async () => { checks++; if (!onShift) throw Error('Fora da escala'); } } };
+  const tx = { driver: { findFirst: async () => ({ id: 'driver', active: true, userId: 'driver-user',user:pendingAccess?{active:true,mustChangePassword:true,organizations:[{id:'membership'}]}:null }), update: async () => { writes++; }, updateMany: async () => { writes++; return { count: 1 }; } }, order: { count: async (q: any) => { assert.equal(q.where.organizationId, 'org'); assert.equal(q.where.driverId, 'driver'); return ongoing; } }, organizationUser: { updateMany: async () => { writes++; } } };
+  const imports: Record<string, unknown> = { 'server-only': {}, '@/lib/platform/identity': {isPlatformIdentity:async()=>false}, '@/lib/db': {}, '@/lib/auth/password': {}, '@/lib/data/transaction': { withOrganizationTransaction: async (org: string, fn: any) => { assert.equal(org, 'org'); return fn(tx); } }, '@/lib/platform/quotas': {}, '@/lib/driver-schedule': {}, '@/lib/data/driver-schedules': { assertDriverOnShift: async () => { checks++; if (!onShift) throw Error('Fora da escala'); } } };
   const module = { exports: {} as any }; const source = ts.transpileModule(readFileSync('src/lib/data/drivers.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   new Function('require', 'module', 'exports', source)((name: string) => { if (!(name in imports)) throw Error(name); return imports[name]; }, module, module.exports);
   return { api: module.exports, writes: () => writes, checks: () => checks };
@@ -17,6 +17,7 @@ test('driver with ongoing orders cannot be manually made available or deactivate
     assert.equal(h.writes(), 0);
   }
 });
+test('pending individual account cannot become available before activation',async()=>{const h=harness(0,true,true);await assert.rejects(h.api.setDriverStatus('org','driver','ONLINE'),/Ative/);assert.equal(h.writes(),0);await h.api.setDriverStatus('org','driver','OFFLINE');assert.equal(h.writes(),1);});
 test('busy is derived from assignment; becoming available requires on-shift; going offline remains allowed', async () => {
   const busy = harness(); await assert.rejects(busy.api.setDriverStatus('org', 'driver', 'BUSY'), /atribuição/); assert.equal(busy.writes(), 0);
   const off = harness(0, false); await assert.rejects(off.api.setDriverStatus('org', 'driver', 'ONLINE'), /Fora da escala/); assert.equal(off.writes(), 0);

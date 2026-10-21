@@ -813,9 +813,10 @@ export async function assignDriver(
   return withOrganizationTransaction(organizationId, async (tx) => {
   const driver = await tx.driver.findFirst({
     where: { id: driverId, organizationId, active: true },
-    select: { id: true, name: true, status: true },
+    select: { id: true, name: true, status: true,user:{select:{active:true,mustChangePassword:true,organizations:{where:{organizationId,active:true},select:{id:true}}}} },
   });
   if (!driver) throw new OperationError('Entregador não encontrado.');
+  if(driver.user&&(!driver.user.active||driver.user.mustChangePassword||!driver.user.organizations.length))throw new OperationError('O acesso deste entregador está inativo ou aguarda ativação.');
   await assertDriverOnShift(tx, organizationId, driverId);
 
   const order = await tx.order.findFirst({

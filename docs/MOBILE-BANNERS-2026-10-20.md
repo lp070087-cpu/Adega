@@ -23,3 +23,11 @@ Referência oficial consultada: https://www.postman.com/meta/whatsapp-business-p
 126 testes isolados aprovados; TypeScript aprovado. Build aprovado. A loja vinculada à conta proprietária existente e ativa usa `/loja/loja-0102`, conforme consulta somente de leitura; o slug anterior retornou 404. A consulta não concedeu privilégio central nem alterou dados.
 
 Navegador local recusou conexão mesmo com servidor pronto. A loja publicada está acessível; revisão posterior ao deploy deve registrar separadamente as larguras 320,360,375,390,414,768,1024 e desktop. Telas autenticadas não podem ser consideradas visualmente aprovadas sem sessão autorizada. Não declarar responsividade total ou E2E apenas pelos testes com mocks.
+
+## Resultado publicado
+
+Commit 78bbb36 publicado em main; Vercel confirmou Deployment has completed. Revisão real da loja publicada: larguras efetivamente medidas 320,360,375,390,414,768,1024,1440; scrollWidth respectivamente 312,352,367,382,406,760,1016,1432 (espaço da barra vertical), zero cards ultrapassando a largura. Capturas `adega-mobile-LARGURA.jpg` salvas em `C:/Users/55819/.codex/visualizations/2026/10/19/01a15263-4834-7f30-bd9b-64b1d7d8d4bf/`.
+
+Em 390px: borda do card medida 0px; 12 cervejas inicialmente, 45 após expansão e 12 após recolher; Vinhos manteve 5. Inclusão temporária de Amstel, sacola e abertura do formulário testadas por interface. Modal medido de x16 a374, altura868 dentro de viewport390x900. Sacola esvaziada depois; nenhum pedido enviado. Capturas adicionais `adega-cards-390.jpg`, `adega-sacola-390.jpg`, `adega-checkout-390.jpg`, `adega-320-antes.jpg` e `adega-320-depois.jpg`. Instalação em320 registrada em `entregador-instalar-320.jpg`.
+
+Esses resultados são da vitrine e dos fluxos descritos. Não equivalem a validação visual de todas as áreas autenticadas, de todos os modais em todas as larguras, ou de banners novos associados a uma organização. Não foram criados registros de banner na produção para testar as artes. Embedded Signup permanece pendente de implementação e homologação, sem simular conexão.

@@ -14,10 +14,14 @@ declare module 'next-auth' {
       role: Role | null;
       organizationName: string | null;
       organizationSlug: string | null;
+      driverSessionStartedAt?: number;
+      driverSessionUntil?: number;
     } & DefaultSession['user'];
   }
 
   interface User {
+    driverSessionStartedAt?: number;
+    driverSessionUntil?: number;
     organizationId?: string | null;
     role?: Role | null;
     organizationName?: string | null;
@@ -27,6 +31,8 @@ declare module 'next-auth' {
 
 declare module 'next-auth/jwt' {
   interface JWT {
+    driverSessionStartedAt?: number;
+    driverSessionUntil?: number;
     userId?: string;
     organizationId?: string | null;
     role?: Role | null;

@@ -245,7 +245,8 @@ export async function requireOnboardingUser() {
   // confiar nele mandaria o lojista recomeçar o cadastro — ou pior, criar
   // uma segunda loja.
   const membership = await resolveMembership(session.user.id, session.user.organizationId);
-  if (membership.organizationId) redirect('/app');
+  if (membership.organizationId) redirect(membership.role==='DRIVER'?'/entregador':'/app');
+  if(membership.revoked)redirect(session.user.role==='DRIVER'?'/entregador':'/login?acessoRemovido=1');
 
   return {
     id: session.user.id,
@@ -275,6 +276,16 @@ export async function requireDriver() {
       'Seu usuário não está vinculado a um cadastro de entregador.',
       'FORBIDDEN',
     );
+  }
+
+  if(ctx.role==='DRIVER'){
+    const session=await auth();
+    const org=await prisma.organization.findUnique({where:{id:ctx.organizationId},select:{settings:true}});
+    const revoked=(org?.settings as any)?.driverSessionsRevokedAt?.[ctx.user.id];
+    const revokedAt=revoked?new Date(revoked).getTime():null;
+    const issued=session?.user?.driverSessionStartedAt;
+    const expires=session?.user?.driverSessionUntil;
+    if((expires&&Date.now()>=expires)||(revoked&&(!issued||!Number.isFinite(revokedAt)||issued<=revokedAt!)))throw new AuthError('Sua sessão foi encerrada. Entre novamente.','UNAUTHENTICATED');
   }
 
   return { ...ctx, driver };

@@ -8,6 +8,7 @@ import { DriverInstallShare } from '@/components/driver/DriverInstallShare';
 import { DriverScheduleManager } from '@/components/drivers/DriverScheduleManager';
 import { getDriverSchedules } from '@/lib/data/driver-schedules';
 import { readDriverSchedule } from '@/lib/driver-schedule';
+import {driverMailReady} from '@/lib/auth/driver-access';
 
 export const metadata = { title: 'Entregadores' };
 export const dynamic = 'force-dynamic';
@@ -39,6 +40,7 @@ export default async function DriversPage() {
     status: driver.status,
     active: driver.active,
     hasLogin: driver.hasLogin,
+    accessPending:driver.accessPending,
     email: driver.email,
     username: driver.username,
     activeOrders: driver.activeOrders,
@@ -57,6 +59,7 @@ export default async function DriversPage() {
 
   return (
     <div className="space-y-4">
+      {!driverMailReady()&&<p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Novos acessos ficam pendentes até a plataforma configurar o envio de e-mail de ativação. Acessos existentes continuam disponíveis.</p>}
       <div>
         <h2 className="text-[1.05rem] font-extrabold text-ink-900">Entregadores</h2>
         <p className="text-[0.8rem] text-ink-500">
