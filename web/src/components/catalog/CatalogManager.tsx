@@ -397,16 +397,14 @@ export function CatalogManager({
   }
 
   /**
-   * A regra da vitrine (REGRA 5) resumida numa linha: só aparece em
-   * público o produto que está cadastrado, ativo, disponível e — quando o
-   * estoque é controlado — com saldo maior que zero. A leitura é feita
-   * pelas MESMAS colunas que já existem no banco; nada novo foi criado.
+   * Publicação é independente do saldo. Produtos ativos ficam visíveis;
+   * disponibilidade e estoque determinam se a compra pode ser realizada.
    */
   function publicState(product: CatalogProduct): { tone: 'green' | 'red' | 'yellow'; label: string } {
     const out = product.trackStock && product.stock === 0;
     if (!product.active) return { tone: 'red', label: 'Fora da vitrine (inativo)' };
-    if (!product.available) return { tone: 'red', label: 'Fora da vitrine (indisponível)' };
-    if (out) return { tone: 'red', label: 'Fora da vitrine (sem estoque)' };
+    if (!product.available) return { tone: 'yellow', label: 'Na vitrine · compra pausada' };
+    if (out) return { tone: 'yellow', label: 'Na vitrine · aguardando reposição' };
     if (product.featured) return { tone: 'yellow', label: 'Na vitrine · em destaque' };
     return { tone: 'green', label: 'Na vitrine' };
   }
@@ -686,6 +684,7 @@ export function CatalogManager({
                 <div className="flex items-start gap-3">
                   <ProductThumb
                     customImageUrl={product.customImageUrl}
+                    imageUrl={product.imageUrl}
                     globalImageUrl={product.globalImageUrl}
                     emoji={product.emoji}
                     alt={product.name}
@@ -744,6 +743,7 @@ export function CatalogManager({
                         <div className="flex items-center gap-3">
                           <ProductThumb
                             customImageUrl={product.customImageUrl}
+                            imageUrl={product.imageUrl}
                             globalImageUrl={product.globalImageUrl}
                             emoji={product.emoji}
                             alt={product.name}

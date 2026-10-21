@@ -10,6 +10,7 @@ import { getCommercialAccess } from '@/lib/platform/access';
 import type { Metadata } from 'next';
 import { InstallApp } from '@/components/pwa/InstallApp';
 import { requirePlatformOperator } from '@/lib/platform/auth';
+import { normalizeSchedule } from '@/lib/schedule';
 
 export const metadata: Metadata = {
   manifest: '/pwa/panel.webmanifest',
@@ -56,6 +57,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         brandColor: true,
         logoUrl: true,
         storeStatus: true,
+        settings: true,
       },
     }),
     getOrderCounters(ctx.organizationId),
@@ -90,6 +92,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         aguardandoEntregador: counters.aguardandoEntregador,
       }}
       storeStatus={organization.storeStatus}
+      openingSchedule={normalizeSchedule((organization.settings as Record<string, unknown> | null)?.openingHours)}
+      statusObservedAt={new Date().toISOString()}
       notifications={notifications.map((n) => ({
         id: n.id,
         title: n.title,

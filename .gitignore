@@ -3,3 +3,6 @@
 .DS_Store
 Thumbs.db
 *.bak*
+
+# Read-only operational inventory preview; keep local for owner approval.
+/docs/DEL-FLASH-ESTOQUE-0102-PREVIA.*

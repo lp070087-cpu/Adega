@@ -130,6 +130,8 @@ export async function setStoreStatusAction(storeStatus: StoreStatus): Promise<Or
 
     await orgData.setStoreStatus(organizationId, storeStatus);
     revalidatePath('/app', 'layout');
+    const organization = await orgData.getOrganizationById(organizationId);
+    if (organization?.slug) revalidatePath(`/loja/${organization.slug}`, 'layout');
     return { ok: true };
   } catch (error) {
     return { ok: false, ...toActionError(error) };

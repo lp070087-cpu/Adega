@@ -6,17 +6,12 @@ import { cn } from '@/lib/utils';
 import { Bell, ChevronDown, Menu } from 'lucide-react';
 import { logoutAction } from '@/app/actions/auth';
 import { setStoreStatusAction } from '@/app/actions/organization';
+import { STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
 
 /**
  * Header do painel — título da página, estado da loja, notificações e
  * menu do usuário. Mesmo desenho do topbar de plataforma.html.
  */
-
-const STATUS_LABEL = {
-  OPEN: 'Aberta',
-  PAUSED: 'Pausada',
-  CLOSED: 'Fechada',
-} as const;
 
 const STATUS_CLASS = {
   OPEN: 'bg-success-bg text-success',
@@ -28,6 +23,7 @@ export function AppHeader({
   title,
   subtitle,
   storeStatus,
+  effectiveStoreState = storeStatus,
   canChangeStatus,
   userName,
   roleLabel,
@@ -37,6 +33,7 @@ export function AppHeader({
   title: string;
   subtitle?: string;
   storeStatus: 'OPEN' | 'PAUSED' | 'CLOSED';
+  effectiveStoreState?: StoreOpenState;
   canChangeStatus: boolean;
   userName: string;
   roleLabel: string;
@@ -78,21 +75,28 @@ export function AppHeader({
         {subtitle && <p className="truncate text-[0.74rem] text-ink-500">{subtitle}</p>}
       </div>
 
-      <div className="flex items-center gap-2">
+      {effectiveStoreState === 'CLOSED_BY_SCHEDULE' && (
+        <p role="status" className="order-last w-full text-xs text-ink-600">
+          Novos pedidos estão fechados pelo horário configurado. A opção seguir horários não força a abertura.{' '}
+          <a href="/app/configuracoes/minha-loja" className="font-semibold text-brand underline">Consultar horários</a>
+        </p>
+      )}
+
+      <div className="flex max-w-full flex-wrap items-center gap-2">
         {/* Estado da loja: abrir/pausar/fechar sem sair da tela. */}
         {canChangeStatus ? (
-          <div className="relative">
+          <div className="relative" title="Pausar ou fechar bloqueia novos pedidos. Quando habilitada, a loja segue os horários configurados, no fuso de Brasília/Recife.">
             <select
               value={storeStatus}
               disabled={pending}
               onChange={(e) => changeStatus(e.target.value as 'OPEN' | 'PAUSED' | 'CLOSED')}
               aria-label="Status da loja"
               className={cn(
-                'cursor-pointer appearance-none rounded-full border-0 py-1.5 pl-3.5 pr-7 text-[0.74rem] font-bold outline-none transition-all disabled:opacity-60',
-                STATUS_CLASS[storeStatus],
+                'max-w-[180px] cursor-pointer appearance-none truncate rounded-full border-0 py-1.5 pl-3.5 pr-7 text-[0.74rem] font-bold outline-none transition-all disabled:opacity-60 sm:max-w-none',
+                effectiveStoreState === 'CLOSED_BY_SCHEDULE' ? STATUS_CLASS.CLOSED : STATUS_CLASS[storeStatus],
               )}
             >
-              <option value="OPEN">Loja aberta</option>
+              <option value="OPEN">{effectiveStoreState === 'CLOSED_BY_SCHEDULE' ? 'Fechada pelo horário' : storeStatus === 'OPEN' ? 'Aberta agora' : 'Habilitar loja'} · seguir horários</option>
               <option value="PAUSED">Loja pausada</option>
               <option value="CLOSED">Loja fechada</option>
             </select>
@@ -104,10 +108,10 @@ export function AppHeader({
           <span
             className={cn(
               'rounded-full px-3.5 py-1.5 text-[0.74rem] font-bold',
-              STATUS_CLASS[storeStatus],
+              effectiveStoreState === 'CLOSED_BY_SCHEDULE' ? STATUS_CLASS.CLOSED : STATUS_CLASS[storeStatus],
             )}
           >
-            {STATUS_LABEL[storeStatus]}
+            {STORE_OPEN_STATE_LABEL[effectiveStoreState]}
           </span>
         )}
 

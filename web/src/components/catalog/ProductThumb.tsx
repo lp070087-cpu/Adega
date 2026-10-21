@@ -40,6 +40,8 @@ import { productImageCandidates } from '@/lib/catalog-images';
 export type ProductThumbProps = {
   /** Foto própria do estabelecimento. Tem prioridade sobre a global. */
   customImageUrl?: string | null;
+  /** Foto própria legada; preservada atrás da personalizada e da biblioteca global. */
+  imageUrl?: string | null;
   /** Imagem da biblioteca global (guardada no banco SEM extensão). */
   globalImageUrl?: string | null;
   /**
@@ -63,6 +65,7 @@ export type ProductThumbProps = {
 
 export function ProductThumb({
   customImageUrl,
+  imageUrl,
   globalImageUrl,
   basePath,
   preferBasePath = false,
@@ -73,8 +76,8 @@ export function ProductThumb({
 }: ProductThumbProps) {
   // Lista de URLs a tentar, na ordem de precedência.
   const candidates = React.useMemo(
-    () => productImageCandidates({ customImageUrl, globalImageUrl, basePath, preferBasePath, productName: alt }),
-    [customImageUrl, globalImageUrl, basePath, preferBasePath, alt],
+    () => productImageCandidates({ customImageUrl, globalImageUrl, imageUrl, basePath, preferBasePath, productName: alt }),
+    [customImageUrl, globalImageUrl, imageUrl, basePath, preferBasePath, alt],
   );
 
   const [index, setIndex] = React.useState(0);

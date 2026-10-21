@@ -1,5 +1,7 @@
 # Del Flash — entrega e ativações pendentes
 
+> Atualização operacional posterior: consulte `DEL-FLASH-CORRECOES-OPERACIONAIS-2026-10-21.md`. A nova consulta encontrou **62 unidades atuais**, substituindo a prévia histórica de 12 descrita abaixo. Nenhuma inicialização foi aplicada; a proposta de 25 por produto exige confirmação da prévia atualizada.
+
 Continuidade sobre `7de4c0a`, preservando banco, usuários, organizações, produtos, pedidos e identificadores técnicos. Nenhuma migração, privilégio, saldo, pedido, cobrança ou disparo real executado nesta etapa.
 
 ## Identidade e navegação

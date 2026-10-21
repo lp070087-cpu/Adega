@@ -6,6 +6,8 @@ import { getOrganizationById } from '@/lib/data/organization';
 import { DriverApp, type DriverOrder } from '@/components/driver/DriverApp';
 import { DriverLoginForm } from '@/components/driver/DriverLoginForm';
 import { InstallLink } from '@/components/pwa/InstallLink';
+import { redirect } from 'next/navigation';
+import { getPendingDriverInvitation } from '@/lib/auth/driver-invitation';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -65,6 +67,9 @@ export default async function DriverPage() {
     );
   }
 
+  const pendingInvitation = await getPendingDriverInvitation(session.user.id);
+  if (pendingInvitation) redirect(`/entregador/convite/${encodeURIComponent(pendingInvitation)}`);
+
   // Anotação explícita de propósito: sem ela o `ctx` fica como any
   // evolutivo e o TypeScript perde a garantia de que ele está atribuído
   // depois do try/catch (o catch só sai por redirect ou throw).
@@ -79,8 +84,11 @@ export default async function DriverPage() {
       return (
         <main className="flex min-h-screen items-center justify-center bg-ink-50 p-4">
           <div role="alert" className="w-full max-w-[460px] rounded-xl bg-white p-6 text-center shadow-xl sm:p-10">
-            <h1 className="text-xl font-extrabold text-ink-900">Acesso ao entregador indisponível</h1>
-            <p className="mt-3 text-sm text-ink-500">{error.message} Peça ao estabelecimento para conferir seu cadastro.</p>
+            <h1 className="text-xl font-extrabold text-ink-900">{session.user.role !== 'DRIVER' ? 'Entre com a conta do entregador' : 'Confira seu acesso de entregador'}</h1>
+            <p className="mt-3 text-sm text-ink-500">{session.user.role !== 'DRIVER'
+              ? 'Este aplicativo está usando sua sessão do estabelecimento. O acesso do proprietário não cria um cadastro de entregador. Saia e entre com o e-mail individual cadastrado pela loja.'
+              : `${error.message} Solicite à loja a conferência do vínculo e do estado ativo do cadastro. Se recebeu um convite, conclua o primeiro acesso pelo link da loja.`}</p>
+            <a href="/entregador/acesso" className="mt-4 inline-flex min-h-11 items-center font-semibold text-brand hover:underline">Primeiro acesso ou recuperação de senha</a>
             <form action={logoutAction} className="mt-6">
               <button type="submit" className="min-h-11 rounded-xl bg-brand px-5 py-3 font-semibold text-white">Sair e entrar com outra conta</button>
             </form>

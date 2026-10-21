@@ -1,7 +1,8 @@
 'use client';
 
+import { updateStockInlineAction } from '@/app/actions/stock-inline';
 import { ProductThumb } from '@/components/catalog/ProductThumb';
-import { useMemo, useState, useTransition } from 'react';
+import { Fragment as StockRows, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn, formatBRL, formatDateTime } from '@/lib/utils';
 import { adjustStockAction, setStockAction } from '@/app/actions/catalog';
@@ -21,25 +22,7 @@ import {
   Textarea,
 } from '@/components/ui';
 
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * ESTOQUE
- * -----------------------------------------------------------------------
- * Duas abas, porque são duas perguntas diferentes:
- *
- *   Saldo      → "como está o estoque agora?"
- *   Movimentos → "por que o estoque está assim?"
- *
- * A segunda é o livro-razão. Nenhum saldo muda sem um movimento que o
- * explique — nem venda, nem cancelamento, nem ajuste manual. É isso que
- * permite responder "por que tem 3 e não 8?" sem chutar.
- *
- * Ajuste relativo (+10 / −3) e inventário (contagem absoluta) são ações
- * separadas de propósito: quem conta a prateleira não quer calcular
- * diferença de cabeça, e quem repõe não quer recontar tudo.
- * ═══════════════════════════════════════════════════════════════════════
- */
-
+/** Operational inventory: totals, replenishment, movements and valuation. */
 export type StockProduct = {
   id: string;
   name: string;
@@ -58,6 +41,7 @@ export type StockProduct = {
 
 export type StockMovement = {
   id: string;
+  productId: string;
   type: string;
   quantity: number;
   previousStock: number;
@@ -85,25 +69,28 @@ export function StockManager({
   movements,
   summary,
   canManage,
+  canManageProducts,
 }: {
   products: StockProduct[];
   movements: StockMovement[];
   summary: StockSummary;
   canManage: boolean;
+  canManageProducts: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'balance' | 'movements'>('balance');
+  const [tab, setTab] = useState<'total' | 'low' | 'movements' | 'balance'>('total');
 
+  const [editing, setEditing] = useState<{product: StockProduct; field: 'stock' | 'minimumStock' | 'cost' | 'price'; value: string; reason: string} | null>(null);
+  const [historyProduct,setHistoryProduct] = useState('');
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [onlyLow, setOnlyLow] = useState(false);
 
   const [adjustment, setAdjustment] = useState<Adjustment | null>(null);
   const [amount, setAmount] = useState('');
-  const [direction, setDirection] = useState<'IN' | 'OUT'>('IN');
-  const [reason, setReason] = useState('');
+    const [reason, setReason] = useState('');
   const [movementType, setMovementType] = useState('');
 
   const categories = useMemo(() => {
@@ -117,7 +104,7 @@ export function StockManager({
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return products.filter((product) => {
-      if (onlyLow && product.stock > product.minimumStock) return false;
+      if ((onlyLow || tab === 'low') && (!product.trackStock || product.stock > product.minimumStock)) return false;
       if (categoryFilter && product.categoryName !== categoryFilter) return false;
       if (!term) return true;
       return (
@@ -125,12 +112,11 @@ export function StockManager({
         (product.sku ?? '').toLowerCase().includes(term)
       );
     });
-  }, [products, search, categoryFilter, onlyLow]);
+  }, [products, search, categoryFilter, onlyLow, tab]);
 
   const filteredMovements = useMemo(() => {
-    if (!movementType) return movements;
-    return movements.filter((movement) => movement.type === movementType);
-  }, [movements, movementType]);
+    return movements.filter(m => (!movementType || m.type === movementType) && (!historyProduct || m.productId === historyProduct));
+  }, [movements, movementType, historyProduct]);
 
   function parseQuantity(value: string): number {
     const normalized = value.includes(',') ? value.replace(/\./g, '').replace(',', '.') : value;
@@ -142,8 +128,10 @@ export function StockManager({
     if (!adjustment) return;
     setError(null);
 
+    if (!amount.trim() || !Number.isFinite(Number(amount.replace(',', '.')))) { setError('Informe uma quantidade válida.'); return; }
     const parsedAmount = parseQuantity(amount);
-    const quantity = adjustment.mode === 'ADJUST' ? (direction === 'OUT' ? -Math.abs(parsedAmount) : Math.abs(parsedAmount)) : parsedAmount;
+    if (adjustment.mode === 'ADJUST' && parsedAmount <= 0) { setError('A reposição exige quantidade positiva.'); return; }
+    const quantity = adjustment.mode === 'ADJUST' ? parsedAmount : parsedAmount;
     if (!Number.isSafeInteger(quantity) || (adjustment.mode === 'ADJUST' && quantity === 0)) {
       setError('Informe uma quantidade inteira válida (ajuste deve ser diferente de zero).');
       return;
@@ -167,6 +155,7 @@ export function StockManager({
           : await setStockAction({
               productId: adjustment.product.id,
               newStock: quantity,
+              expectedStock: adjustment.product.stock,
               reason: reason.trim() || undefined,
             });
 
@@ -189,21 +178,21 @@ export function StockManager({
         </Alert>
       )}
 
-      <MetricStrip
+      {tab === 'balance' && <MetricStrip
         items={[
           { label: 'Itens controlados', value: String(summary.productCount) },
           { label: 'Unidades em estoque', value: String(summary.units) },
           { label: 'Valor de custo', value: formatBRL(summary.costValue), hint: 'capital parado' },
           { label: 'Valor de venda', value: formatBRL(summary.saleValue), hint: 'se tudo vender' },
         ]}
-      />
+      />}
 
       {(summary.outOfStock > 0 || summary.lowStock > 0) && (
         <Alert
           tone={summary.outOfStock > 0 ? 'warn' : 'info'}
           title={`${summary.outOfStock} sem estoque · ${summary.lowStock} no mínimo`}
         >
-          Use o filtro “Só o que precisa repor” na aba Saldo para ver a lista.
+          Consulte a aba Estoque baixo para organizar a reposição.
         </Alert>
       )}
 
@@ -211,16 +200,18 @@ export function StockManager({
         value={tab}
         onChange={setTab}
         tabs={[
-          { value: 'balance', label: 'Saldo', count: products.length },
+          { value: 'total', label: 'Total', count: products.length },
+          { value: 'low', label: 'Estoque baixo', count: summary.lowStock + summary.outOfStock },
           { value: 'movements', label: 'Movimentos', count: movements.length },
+          { value: 'balance', label: 'Saldo' },
         ]}
       />
 
-      {tab === 'balance' ? (
+      {(tab === 'total' || tab === 'low') ? (
         <Card>
           <CardHeader
-            title="Saldo por produto"
-            subtitle="Clique em Ajustar para dar entrada, saída ou contar o inventário."
+            title="Quantidade por produto"
+            subtitle="Clique em um valor para editar. Reposição adiciona unidades; correção e inventário definem o total."
           />
 
           <div className="mb-4 flex flex-wrap items-center gap-2.5">
@@ -271,20 +262,20 @@ export function StockManager({
                 <thead>
                   <tr className="border-b border-ink-100 text-left">
                     <Th>Produto</Th>
-                    <Th className="text-right">Saldo</Th>
+                    <Th className="text-right">Quantidade</Th>
                     <Th className="text-right">Mínimo</Th>
                     <Th className="text-right">Custo</Th>
-                    <Th className="text-right">Venda</Th>
-                    <Th className="text-right">Ação</Th>
+                    <Th className="text-right">Preço de venda</Th>
+                    <Th className="text-right">Ações</Th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((product) => {
-                    const out = product.stock === 0;
-                    const low = !out && product.stock <= product.minimumStock;
+                    const out = product.trackStock && product.stock === 0;
+                    const low = product.trackStock && !out && product.stock <= product.minimumStock;
 
                     return (
-                      <tr key={product.id} className="border-b border-ink-100 last:border-b-0">
+                      <StockRows key={product.id}><tr className="border-b border-ink-100 last:border-b-0">
                         <td className="py-2.5 pr-4">
                           <div className="flex items-center gap-2.5">
                             <ProductThumb customImageUrl={product.customImageUrl} globalImageUrl={product.globalImageUrl} alt={product.name} className="h-10 w-10 shrink-0" />
@@ -296,26 +287,26 @@ export function StockManager({
                                 {[product.categoryName, product.sku ? `SKU ${product.sku}` : null]
                                   .filter(Boolean)
                                   .join(' · ') || '—'}
-                                {!product.active ? ' · inativo' : ''}
+                                {!product.active ? ' · inativo' : ''}{!product.trackStock ? ' · sem controle de estoque' : ''}
                               </p>
                             </div>
                           </div>
                         </td>
                         <td className="py-2.5 pr-4 text-right">
-                          <Badge tone={out ? 'red' : low ? 'yellow' : 'green'}>{product.stock}</Badge>
+                          <button type="button" disabled={!canManage || pending} className="rounded px-2 py-1 hover:bg-ink-50" aria-label={`Editar quantidade de ${product.name}`} onClick={() => { setError(null); setEditing({product,field:'stock',value:product.stock === null ? '' : String(product.stock).replace('.',','),reason:''}); }}><Badge tone={out ? 'red' : low ? 'yellow' : 'green'}>{product.stock}</Badge></button>
                         </td>
                         <td className="py-2.5 pr-4 text-right text-[0.8rem] text-ink-500">
-                          {product.minimumStock}
+                          <button type="button" disabled={!canManage || pending} className="rounded px-2 py-1 hover:bg-ink-50" aria-label={`Editar mínimo de ${product.name}`} onClick={() => { setError(null); setEditing({product,field:'minimumStock',value:product.minimumStock === null ? '' : String(product.minimumStock).replace('.',','),reason:''}); }}>{product.minimumStock}</button>
                         </td>
                         <td className="py-2.5 pr-4 text-right text-[0.8rem] text-ink-600">
-                          {product.cost === null ? '—' : formatBRL(product.cost)}
+                          <button type="button" disabled={!canManageProducts || pending} className="rounded px-2 py-1 hover:bg-ink-50" aria-label={`Editar custo de ${product.name}`} onClick={() => { setError(null); setEditing({product,field:'cost',value:product.cost === null ? '' : String(product.cost).replace('.',','),reason:''}); }}>{product.cost === null ? '—' : formatBRL(product.cost)}</button>
                         </td>
                         <td className="py-2.5 pr-4 text-right text-[0.8rem] font-semibold text-ink-800">
-                          {formatBRL(product.price)}
+                          <button type="button" disabled={!canManageProducts || pending} className="rounded px-2 py-1 hover:bg-ink-50" aria-label={`Editar preço de ${product.name}`} onClick={() => { setError(null); setEditing({product,field:'price',value:product.price === null ? '' : String(product.price).replace('.',','),reason:''}); }}>{formatBRL(product.price)}</button>
                         </td>
                         <td className="py-2.5 text-right">
                           {canManage ? (
-                            <div className="flex justify-end gap-1.5">
+                            <div className="flex flex-wrap justify-end gap-1.5">
                               <Button
                                 size="sm"
                                 variant="secondary"
@@ -326,7 +317,7 @@ export function StockManager({
                                   setReason('');
                                 }}
                               >
-                                Ajustar
+                                Repor estoque
                               </Button>
                               <Button
                                 size="sm"
@@ -338,14 +329,16 @@ export function StockManager({
                                   setReason('');
                                 }}
                               >
-                                Contar
-                              </Button>
+                                Contar inventário
+                              </Button><Button size="sm" variant="ghost" onClick={()=>{setEditing({product,field:'stock',value:String(product.stock),reason:''});setError(null);}}>Corrigir quantidade</Button><Button size="sm" variant="ghost" onClick={()=>{setHistoryProduct(product.id);setTab('movements');}}>Histórico</Button>
                             </div>
                           ) : (
                             <span className="text-[0.76rem] text-ink-400">—</span>
                           )}
                         </td>
                       </tr>
+{editing?.product.id===product.id && <tr><td colSpan={6} className="bg-ink-50 p-3"><div className="flex flex-wrap items-end gap-2"><Field label={{stock:'Quantidade total',minimumStock:'Estoque mínimo',cost:'Custo unitário',price:'Preço de venda'}[editing.field]}><Input autoFocus aria-label="Novo valor" inputMode="decimal" value={editing.value} onChange={e=>setEditing({...editing,value:e.target.value})}/></Field><Field label="Motivo obrigatório"><Input value={editing.reason} maxLength={200} onChange={e=>setEditing({...editing,reason:e.target.value})}/></Field><Button disabled={pending} onClick={()=>{const d=editing,raw=d.value.trim(),value=Number(raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw);if(!raw||!Number.isFinite(value)){setError('Informe um valor válido.');return;}startTransition(async()=>{const r=await updateStockInlineAction({productId:product.id,field:d.field,value,previousValue:product[d.field],reason:d.reason});if(!r.ok){setError(r.error);return;}setEditing(null);setError(null);router.refresh();});}}>Salvar</Button><Button variant="ghost" disabled={pending} onClick={()=>{setEditing(null);setError(null);}}>Cancelar</Button>{editing.field==='stock'&&<p className="w-full text-sm">Quantidade anterior: {product.stock} → proposta: {editing.value||'—'}. Define o total, não adiciona unidades.</p>}</div></td></tr>}
+</StockRows>
                     );
                   })}
                 </tbody>
@@ -353,14 +346,14 @@ export function StockManager({
             </div>
           )}
         </Card>
-      ) : (
+      ) : tab === 'balance' ? <Card><CardHeader title="Saldo consolidado" subtitle="Quantidade física e valor potencial dos produtos controlados. Não representa receita recebida." /></Card> : (
         <Card>
           <CardHeader
             title="Movimentos de estoque"
             subtitle="Cada linha é um saldo que mudou e o motivo. Últimos 100 movimentos."
           />
 
-          <div className="mb-4 max-w-[240px]">
+          <div className="mb-4 max-w-[240px]">{historyProduct && <Button variant="ghost" onClick={()=>setHistoryProduct('')}>Limpar filtro: {products.find(product => product.id === historyProduct)?.name ?? 'produto'}</Button>}
             <Select
               value={movementType}
               onChange={(e) => setMovementType(e.target.value)}
@@ -396,7 +389,7 @@ export function StockManager({
                 </thead>
                 <tbody>
                   {filteredMovements.map((movement) => {
-                    const negative = ['OUT', 'SALE'].includes(movement.type);
+                    const negative = movement.newStock < movement.previousStock;
                     return (
                       <tr key={movement.id} className="border-b border-ink-100 last:border-b-0">
                         <td className="py-2.5 pr-4 text-[0.76rem] text-ink-500">
@@ -460,7 +453,7 @@ export function StockManager({
       <Modal
         open={adjustment !== null}
         onClose={() => setAdjustment(null)}
-        title={adjustment?.mode === 'SET' ? 'Contar inventário' : 'Ajustar estoque'}
+        title={adjustment?.mode === 'SET' ? 'Contar inventário' : 'Repor estoque'}
         subtitle={adjustment?.product.name}
         size="sm"
         footer={
@@ -485,8 +478,8 @@ export function StockManager({
             <ProductThumb customImageUrl={adjustment.product.customImageUrl} globalImageUrl={adjustment.product.globalImageUrl} alt={adjustment.product.name} className="mb-3 h-20 w-20" />
             <Alert tone="neutral" className="mb-3.5">
               {adjustment.mode === 'SET'
-                ? `Saldo atual: ${adjustment.product.stock} un. Informe o total contado — a diferença vira um movimento de ajuste.`
-                : `Saldo atual: ${adjustment.product.stock} un. Use positivo para entrada e negativo para saída.`}
+                ? `Quantidade atual: ${adjustment.product.stock} un. Informe o total contado — a diferença vira um movimento de ajuste.`
+                : `Quantidade atual: ${adjustment.product.stock} un. Informe somente a quantidade positiva recebida. Ela será adicionada ao total atual.`}
             </Alert>
 
             <Field
@@ -495,10 +488,10 @@ export function StockManager({
               hint={
                 adjustment.mode === 'SET'
                   ? 'Contagem absoluta, não diferença.'
-                  : 'Ex.: 12 para dar entrada, -3 para dar baixa.'
+                  : 'Ex.: 12 adiciona doze unidades. Saídas de vendas são automáticas.'
               }
             >
-              {adjustment.mode === 'ADJUST' && <Select value={direction} onChange={e => setDirection(e.target.value as 'IN' | 'OUT')} className="mb-2"><option value="IN">Entrada</option><option value="OUT">Saída</option></Select>}
+
               <Input
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -525,9 +518,9 @@ export function StockManager({
 
             {(
               <p className="text-[0.74rem] text-ink-500">
-                Novo saldo:{' '}
+                Nova quantidade:{' '}
                 <strong className="text-ink-800">
-                  {adjustment.mode === 'SET' ? parseQuantity(amount) : adjustment.product.stock + (direction === 'OUT' ? -Math.abs(parseQuantity(amount)) : Math.abs(parseQuantity(amount)))} un.
+                  {adjustment.mode === 'SET' ? parseQuantity(amount) : adjustment.product.stock + parseQuantity(amount)} un.
                 </strong>
               </p>
             )}

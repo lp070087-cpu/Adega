@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { initialsFromName } from '@/data/business-copy';
 import type { Permission } from '@/lib/permissions';
 import { BrandMark } from '@/components/ui/BrandMark';
+import { STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
 
 /**
  * Sidebar do painel — mesmas seções, ícones e badges de plataforma.html.
@@ -64,6 +65,7 @@ export type SidebarProps = {
   permissions: Permission[];
   counters?: { novos?: number; emAndamento?: number; aguardandoEntregador?: number };
   storeStatus: 'OPEN' | 'PAUSED' | 'CLOSED';
+  effectiveStoreState?: StoreOpenState;
   /** No mobile a sidebar é uma gaveta: este estado vem do AppShell. */
   mobileOpen: boolean;
   onCloseMobile: () => void;
@@ -79,6 +81,7 @@ export function AppSidebar({
   permissions,
   counters,
   storeStatus,
+  effectiveStoreState,
   mobileOpen,
   onCloseMobile,
   centralAccess = false,
@@ -87,8 +90,9 @@ export function AppSidebar({
 
   const allowed = (item: NavItem) => !item.permission || permissions.includes(item.permission);
 
-  const storeLabel =
-    storeStatus === 'OPEN' ? 'Loja aberta' : storeStatus === 'PAUSED' ? 'Loja pausada' : 'Loja fechada';
+  const storeLabel = effectiveStoreState === 'CLOSED_BY_SCHEDULE'
+    ? 'Fechada pelo horário'
+    : STORE_OPEN_STATE_LABEL[effectiveStoreState ?? storeStatus];
 
   return (
     <>

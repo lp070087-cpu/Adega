@@ -1,5 +1,8 @@
 import { PrismaClient, type Prisma } from '@prisma/client';
 import { pathToFileURL } from 'node:url';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { productImageCandidates } from '../src/lib/catalog-images';
 
 const OWNER_EMAIL = 'lp070087@gmail.com';
 export class StockPreviewError extends Error {}
@@ -13,7 +16,7 @@ export async function previewStockPublication(db: Prisma.TransactionClient, orga
   if(!organizationId && memberships.length!==1) throw new StockPreviewError('Há mais de uma organização própria. Informe --organization-id com o ID conferido; nenhuma loja foi selecionada automaticamente.');
   const organization = organizationId ? memberships.find(member=>member.organization.id===organizationId)?.organization : memberships[0].organization;
   if(!organization) throw new StockPreviewError('A organização solicitada não pertence à conta indicada como proprietária ativa.');
-  const products = await db.product.findMany({where:{organizationId:organization.id},select:{id:true,stock:true,minimumStock:true,active:true,available:true,trackStock:true,combo:{select:{id:true}}}});
+  const products = await db.product.findMany({where:{organizationId:organization.id},select:{id:true,name:true,customImageUrl:true,imageUrl:true,globalProduct:{select:{defaultImageUrl:true}},stock:true,minimumStock:true,active:true,available:true,trackStock:true,combo:{select:{id:true}}}});
   const ids=products.map(product=>product.id);
   const pending = ids.length ? await db.orderItem.findMany({where:{productId:{in:ids},order:{organizationId:organization.id,status:{notIn:['DELIVERED','CANCELLED']}}},select:{productId:true},distinct:['productId']}) : [];
   const reserved=new Set(pending.map(item=>item.productId));
@@ -30,6 +33,12 @@ export async function previewStockPublication(db: Prisma.TransactionClient, orga
     excluded:{combos:products.filter(p=>Boolean(p.combo)).length,ongoingOrders:products.filter(p=>!p.combo&&reserved.has(p.id)).length},
     previous:{units:eligible.reduce((sum,p)=>sum+p.stock,0),stockDistribution:distribution('stock'),minimumDistribution:distribution('minimumStock')},
     proposed:{stockPerProduct:25,minimumPerProduct:5,totalUnits:eligible.length*25,toActivate:eligible.filter(p=>!p.active).length,toMakeAvailable:eligible.filter(p=>!p.available).length,toEnableStockControl:eligible.filter(p=>!p.trackStock).length},
+    rows:products.map(product=>({id:product.id,name:product.name,previousStock:product.stock,proposedStock:25,difference:25-product.stock,previousMinimum:product.minimumStock,proposedMinimum:5,excluded:product.combo?'Combo':reserved.has(product.id)?'Pedido em andamento':null,
+      photo: (() => {
+        const candidates=productImageCandidates({customImageUrl:product.customImageUrl,imageUrl:product.imageUrl,globalImageUrl:product.globalProduct?.defaultImageUrl,productName:product.name});
+        const local=candidates.find(url=>url.startsWith('/catalog/') && existsSync(resolve('public',decodeURIComponent(url.slice(1)))));
+        return {localPhoto:local??null,remoteConfigured:candidates.some(url=>/^https:\/\//.test(url)),status:local?'LOCAL_EXACT_AVAILABLE':candidates.some(url=>/^https:\/\//.test(url))?'REMOTE_NOT_VERIFIED':'NO_EXACT_PHOTO'};
+      })()})),
     confirmationRequired:true,writeExecuted:false,
     note:'Prévia informativa, sem nomes de clientes ou dados pessoais. A aplicação exige nova prévia e confirmação explícita; pedidos/saldos podem mudar após esta consulta. Lotes de até 100 produtos.',
   };

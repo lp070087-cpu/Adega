@@ -9,6 +9,20 @@ import { revokeDriverSessions } from '@/lib/data/drivers';
 import { OperationError } from '@/lib/operation-error';
 
 const slugValid = (slug: string) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && slug.length <= 160;
+/** Only the authenticated identity's approved pending profile can select its store. */
+export async function getPendingDriverInvitation(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { organizations: true } });
+  if (!user?.active || !user.email || !user.mustChangePassword || !user.organizations.length) return null;
+  const organizationId = user.organizations[0].organizationId;
+  if (user.organizations.some(member => member.organizationId !== organizationId || member.role !== 'DRIVER' || !member.active)) return null;
+  if (await isPlatformIdentity(prisma, user.id)) return null;
+  const [driver, store] = await Promise.all([
+    prisma.driver.findFirst({ where: { userId: user.id, organizationId, active: true }, select: { id: true } }),
+    prisma.organization.findUnique({ where: { id: organizationId }, select: { slug: true, status: true } }),
+  ]);
+  return driver && store?.slug && !['SUSPENDED', 'CANCELLED'].includes(store.status) ? store.slug : null;
+}
+
 export async function getDriverInvitationStore(slug: string) {
   if (!slugValid(slug)) return null;
   const store = await prisma.organization.findUnique({ where: { slug }, select: { id: true, name: true, status: true } });

@@ -552,8 +552,25 @@ const HERO_CSS = `
 }
 
 @media (min-width: 860px) {
-  .store-hero-inner { grid-template-columns: 1.05fr 0.95fr; }
-  .store-hero-stage { justify-content: flex-end; }
+  .store-hero { min-height: clamp(560px, 44vw, 680px); padding:72px 40px; }
+  .store-hero-inner { grid-template-columns: 1.15fr 0.85fr; max-width:1200px; gap:4rem; }
+  .store-hero-copy { max-width:660px; }
+  .store-hero-title { font-size:clamp(3.5rem,6.2vw,5.75rem); letter-spacing:-.055em; line-height:1.02; text-wrap:balance; margin-bottom:24px; overflow-wrap:anywhere; }
+  .store-hero-tagline { font-size:1.08rem; line-height:1.7; max-width:44ch; }
+  .store-hero-tagline-segment { font-size:.9rem; }
+  .store-hero-identity { margin-bottom:28px; }
+  .store-hero-logo { width:48px; height:48px; }
+  .store-hero-status { padding:8px 13px; letter-spacing:.015em; }
+  .store-hero-facts { margin-top:24px; gap:10px; }
+  .store-hero-fact { padding:9px 14px; background:#ffffff12; }
+  .store-hero-buttons { margin-top:32px; gap:12px; }
+  .store-hero-cta { min-height:52px; padding:15px 28px; border-radius:14px; font-size:.92rem; }
+  .store-hero-cta-secondary { background:#ffffff08; backdrop-filter:blur(8px); }
+  .store-hero-stage { justify-content:flex-end; height:400px; }
+  .store-hero-card { width:225px; border-radius:20px; padding:18px; background:#ffffff12; box-shadow:0 20px 60px #0002; }
+  .store-hero-card-name { text-align:left; font-size:.78rem; }
+  .store-hero-card-price { font-size:.86rem; }
+  .store-hero-dots { bottom:28px; }
 }
 
 /* Mobile: o texto precisa de um véu sobre o banner. Sem ele, um banner
@@ -602,5 +619,7 @@ const HERO_CSS = `
     transform: none;
   }
   .store-hero-slide { transition: none; }
+  .store-hero-cta { transition:none; }
+  .store-hero-cta:hover { transform:none; }
 }
 `;

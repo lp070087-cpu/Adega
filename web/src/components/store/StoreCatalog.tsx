@@ -584,11 +584,12 @@ export function StoreCatalog({
         ) : (
           <div className="space-y-7">
             {grouped.map((group) => (
-              <section key={group.category.id} id={`cat-${group.category.slug}`}>
+              <section className="store-category-section" key={group.category.id} id={`cat-${group.category.slug}`}>
                 {transitionBanners.filter(b=>b.placement===`transition:${group.category.id}`).map(banner=><CategoryBanner key={banner.id} banner={banner} />)}
-                <h2 className="mb-3 text-[1.05rem] font-extrabold text-ink-900">
-                  {group.category.name}
-                </h2>
+                <div className="store-category-heading">
+                  <h2>{group.category.name}</h2>
+                  <span>{group.items.length} {group.items.length === 1 ? 'produto' : 'produtos'}</span>
+                </div>
 
                 <CategoryProducts products={group.items} categoryName={group.category.name} brandColor={store.brandColor} closed={closed} onAdd={quickAdd} />
               </section>
@@ -650,7 +651,7 @@ export function StoreCatalog({
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            className="flex w-full items-center justify-between gap-3 rounded-full px-5 py-3.5 text-white shadow-lg transition-transform hover:-translate-y-0.5"
+            className="store-cart-bar flex w-full items-center justify-between gap-3 rounded-full px-5 py-3.5 text-white shadow-lg transition-transform hover:-translate-y-0.5"
             style={{ backgroundColor: store.brandColor }}
           >
             <span className="text-[0.86rem] font-bold">
@@ -1062,7 +1063,7 @@ function CategoryChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'flex-shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[0.78rem] font-semibold transition-all',
+        'store-category-chip flex-shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[0.78rem] font-semibold transition-all',
         active ? 'border-transparent text-white' : 'border-ink-200 bg-white text-ink-600',
       )}
       style={active ? { backgroundColor: brandColor } : undefined}

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { AppSidebar, NAV_SECTIONS } from './AppSidebar';
 import { AppHeader } from './AppHeader';
 import type { Permission } from '@/lib/permissions';
+import { storeOpenState, type WeekdaySchedule } from '@/lib/schedule';
 
 /**
  * Casca do painel: sidebar + header + conteúdo.
@@ -24,6 +25,8 @@ export type AppShellProps = {
   permissions: Permission[];
   counters: { novos: number; emAndamento: number; aguardandoEntregador: number };
   storeStatus: 'OPEN' | 'PAUSED' | 'CLOSED';
+  openingSchedule?: WeekdaySchedule[];
+  statusObservedAt?: string;
   notifications: Array<{
     id: string;
     title: string;
@@ -46,6 +49,8 @@ export function AppShell({
   permissions,
   counters,
   storeStatus,
+  openingSchedule = [],
+  statusObservedAt,
   notifications,
   user,
   children,
@@ -53,6 +58,13 @@ export function AppShell({
 }: AppShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [now, setNow] = useState<Date | undefined>(() => statusObservedAt ? new Date(statusObservedAt) : undefined);
+  useEffect(() => {
+    setNow(new Date());
+    const timer = window.setInterval(() => setNow(new Date()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const effectiveStoreState = storeOpenState(storeStatus, openingSchedule, now);
 
   // Trocar de página fecha a gaveta: no mobile ela cobriria o conteúdo.
   useEffect(() => {
@@ -78,6 +90,7 @@ export function AppShell({
         permissions={permissions}
         counters={counters}
         storeStatus={storeStatus}
+        effectiveStoreState={effectiveStoreState}
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
       />
@@ -87,6 +100,7 @@ export function AppShell({
           title={current?.label ?? 'Painel'}
           subtitle={organizationName}
           storeStatus={storeStatus}
+          effectiveStoreState={effectiveStoreState}
           canChangeStatus={canChangeStatus}
           userName={user.name}
           roleLabel={roleLabel}

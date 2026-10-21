@@ -312,6 +312,7 @@ export async function adjustStockAction(input: {
 export async function setStockAction(input: {
   productId: string;
   newStock: number;
+  expectedStock?: number;
   reason?: string;
 }): Promise<ActionResult<Awaited<ReturnType<typeof setStock>>>> {
   try {
@@ -319,12 +320,14 @@ export async function setStockAction(input: {
     const parsed = stockSetSchema.safeParse(input);
     if (!parsed.success) return { ok: false, ...firstIssue(parsed.error) };
 
+    if (input.expectedStock !== undefined && (!Number.isSafeInteger(input.expectedStock) || input.expectedStock < 0)) return { ok: false, error: 'Quantidade anterior inválida.' };
     const result = await setStock(
       organizationId,
       parsed.data.productId,
       parsed.data.newStock,
       parsed.data.reason,
       user.id,
+      input.expectedStock,
     );
 
     revalidateCatalog();

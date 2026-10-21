@@ -70,9 +70,9 @@ export async function getInventoryMovements(
  * para mostrar nem ajuste para fazer, e listá-lo aqui só criaria a
  * ilusão de que o número significa alguma coisa.
  */
-export async function getStockProducts(organizationId: string, limit?: number) {
+export async function getStockProducts(organizationId: string, limit?: number, includeUncontrolled = false) {
   return prisma.product.findMany({
-    where: { organizationId, trackStock: true },
+    where: { organizationId, ...(includeUncontrolled ? {} : { trackStock: true }) },
     orderBy: [{ stock: 'asc' }, { name: 'asc' }],
     ...(limit === undefined ? {} : { take: limit }),
     select: {
@@ -89,6 +89,7 @@ export async function getStockProducts(organizationId: string, limit?: number) {
       price: true,
       trackStock: true,
       active: true,
+      available: true,
       category: { select: { name: true } },
     },
   });
@@ -177,6 +178,7 @@ export async function setStock(
   newStock: number,
   reason: string | undefined,
   userId?: string,
+  expectedStock?: number,
 ) {
   if (!Number.isSafeInteger(newStock) || newStock < 0) throw new OperationError('Informe um saldo inteiro não negativo.');
   return withOrganizationTransaction(organizationId, async (tx) => {
@@ -187,6 +189,7 @@ export async function setStock(
     if (!product) throw new OperationError('Produto não encontrado.');
     if ('trackStock' in product && !product.trackStock) throw new OperationError('Ative o controle de estoque antes de ajustar este produto.');
 
+    if (expectedStock !== undefined && product.stock !== expectedStock) throw new OperationError('A quantidade mudou desde a abertura da contagem. Atualize e confira novamente.');
     const previousStock = product.stock;
     const diff = newStock - previousStock;
 

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Download, Smartphone } from 'lucide-react';
+import { observeInstalledContext } from '@/lib/pwa-install-state';
 
 type InstallEvent = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
 export function DriverInstall({ compact = false }: { compact?: boolean }) {
@@ -12,11 +13,9 @@ export function DriverInstall({ compact = false }: { compact?: boolean }) {
     // The establishment may share the driver install link, but its own
     // browser install prompt belongs to the management app, not the driver.
     if (!/^\/entregador(?:\/|$)/.test(window.location.pathname)) return;
-    const standalone = window.matchMedia('(display-mode: standalone)');
-    const update = () => setInstalled(standalone.matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
+    const stopObserving = observeInstalledContext(window, navigator, setInstalled);
     const before = (event: Event) => { event.preventDefault(); setPrompt(event as InstallEvent); };
     const complete = () => { setInstalled(true); setPrompt(null); };
-    update(); standalone.addEventListener('change', update);
     window.addEventListener('beforeinstallprompt', before); window.addEventListener('appinstalled', complete);
     if ('serviceWorker' in navigator && window.isSecureContext) {
       void (async () => {
@@ -29,7 +28,7 @@ export function DriverInstall({ compact = false }: { compact?: boolean }) {
         await navigator.serviceWorker.register('/driver-sw.js', { scope: '/entregador/', updateViaCache: 'none' });
       })().catch(() => setStatus('Use o menu do navegador para adicionar à tela inicial.'));
     }
-    return () => { standalone.removeEventListener('change', update); window.removeEventListener('beforeinstallprompt', before); window.removeEventListener('appinstalled', complete); };
+    return () => { stopObserving(); window.removeEventListener('beforeinstallprompt', before); window.removeEventListener('appinstalled', complete); };
   }, []);
   async function install() {
     if (!prompt) return;

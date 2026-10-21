@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
+import { observeInstalledContext } from '@/lib/pwa-install-state';
 
 type InstallEvent = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
 
@@ -16,18 +17,16 @@ export function InstallApp({ worker, scope, name, alwaysShow = false }: { worker
     setInstallEvent(null);
     setInstructions(false);
     setStatus('');
-    const standalone = window.matchMedia('(display-mode: standalone)');
-    const update = () => setInstalled(standalone.matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
+    const stopObserving = observeInstalledContext(window, navigator, setInstalled);
     const before = (event: Event) => { event.preventDefault(); setInstallEvent(event as InstallEvent); };
     const complete = () => { setInstalled(true); setInstallEvent(null); };
-    update(); standalone.addEventListener('change', update);
     window.addEventListener('beforeinstallprompt', before); window.addEventListener('appinstalled', complete);
     if ('serviceWorker' in navigator && window.isSecureContext) {
       navigator.serviceWorker.register(worker, { scope, updateViaCache: 'none' })
         .then(registration => registration.update()).catch(() => setStatus('Use o menu do navegador para adicionar à tela inicial.'));
     }
     return () => {
-      standalone.removeEventListener('change', update);
+      stopObserving();
       window.removeEventListener('beforeinstallprompt', before); window.removeEventListener('appinstalled', complete);
     };
   }, [worker, scope]);

@@ -6,7 +6,6 @@ import { requireOrgPage } from '@/lib/auth/guards';
 import { can } from '@/lib/permissions';
 import {
   getInventoryMovements,
-  getInventoryValue,
   getStockProducts,
 } from '@/lib/data/inventory';
 import { StockManager } from '@/components/stock/StockManager';
@@ -15,27 +14,14 @@ import type { StockMovement, StockProduct } from '@/components/stock/StockManage
 export const metadata = { title: 'Estoque' };
 export const dynamic = 'force-dynamic';
 
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * ESTOQUE
- * -----------------------------------------------------------------------
- * Saldo e livro-razão vêm do servidor. A tela não calcula valor de
- * estoque nem soma quantidade: `getInventoryValue` faz isso no banco.
- *
- * O ajuste nunca chega como saldo final calculado pelo navegador — o
- * servidor relê o saldo atual dentro da transação, recusa saída maior
- * que o estoque e grava o movimento correspondente.
- * ═══════════════════════════════════════════════════════════════════════
- */
+/** One product snapshot feeds the list, publication preview and controlled inventory totals. */
 export default async function StockPage() {
   const ctx = await requireOrgPage('MANAGE_STOCK');
 
-  const org = await prisma.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { settings: true } });
-  const [productsRaw, movementsPage, summary, catalogProducts] = await Promise.all([
-    getStockProducts(ctx.organizationId),
+  const [org, productsRaw, movementsPage] = await Promise.all([
+    prisma.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { settings: true } }),
+    getStockProducts(ctx.organizationId, undefined, true),
     getInventoryMovements(ctx.organizationId, { perPage: 100 }),
-    getInventoryValue(ctx.organizationId),
-    prisma.product.findMany({ where: { organizationId: ctx.organizationId }, select: { id:true, name:true, stock:true, minimumStock:true, active:true, available:true, trackStock:true }, orderBy: { name:'asc' } }),
   ]);
 
   const products: StockProduct[] = productsRaw.map((product) => ({
@@ -56,6 +42,7 @@ export default async function StockPage() {
 
   const movements: StockMovement[] = movementsPage.items.map((movement) => ({
     id: movement.id,
+    productId: movement.product.id,
     type: movement.type,
     quantity: movement.quantity,
     previousStock: movement.previousStock,
@@ -67,20 +54,22 @@ export default async function StockPage() {
     userName: movement.user?.name ?? null,
   }));
 
-  const lowStock = products.filter((p) => p.stock > 0 && p.stock <= p.minimumStock).length;
-  const outOfStock = products.filter((p) => p.stock === 0).length;
+  const controlledProducts = products.filter(product => product.trackStock);
+  const summary = controlledProducts.reduce((sum, p) => ({ productCount: sum.productCount + 1, units: sum.units + p.stock, costValue: sum.costValue + p.stock * (p.cost ?? 0), saleValue: sum.saleValue + p.stock * p.price }), { productCount: 0, units: 0, costValue: 0, saleValue: 0 });
+  const lowStock = controlledProducts.filter((p) => p.stock > 0 && p.stock <= p.minimumStock).length;
+  const outOfStock = controlledProducts.filter((p) => p.stock === 0).length;
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-[1.05rem] font-extrabold text-ink-900">Estoque</h2>
         <p className="text-[0.8rem] text-ink-500">
-          Saldo por produto e o histórico de tudo que mudou o saldo.
+          Quantidades, reposições e histórico de movimentações.
         </p>
       </div>
 
-      <StockInitialization products={products} defaults={stockDefaults(org.settings)} canConfigure={can(ctx.role, 'MANAGE_SETTINGS')} />
-      {can(ctx.role, 'MANAGE_PRODUCTS') && <StockPublication products={catalogProducts} canInitialize={can(ctx.role, 'MANAGE_SETTINGS')} />}
+      <details className="rounded-xl border border-ink-100 bg-white p-3"><summary className="cursor-pointer text-sm font-semibold">Padrões e inicialização conferida</summary><StockInitialization products={products} defaults={stockDefaults(org.settings)} canConfigure={can(ctx.role, 'MANAGE_SETTINGS')} /></details>
+      {can(ctx.role, 'MANAGE_PRODUCTS') && <StockPublication products={productsRaw.map(product => ({id:product.id,name:product.name,stock:product.stock,minimumStock:product.minimumStock,active:product.active,available:product.available,trackStock:product.trackStock}))} canInitialize={can(ctx.role, 'MANAGE_SETTINGS')} />}
       <StockManager
         products={products}
         movements={movements}
@@ -93,6 +82,7 @@ export default async function StockPage() {
           outOfStock,
         }}
         canManage={can(ctx.role, 'MANAGE_STOCK')}
+        canManageProducts={can(ctx.role, 'MANAGE_PRODUCTS')}
       />
     </div>
   );

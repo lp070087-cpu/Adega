@@ -12,7 +12,7 @@ function harness() {
   let tokens: any[] = [];
   const matches = (row: any, where: any) => (!where.token || where.token === row.token) && (!where.identifier || (typeof where.identifier === 'string' ? row.identifier === where.identifier : row.identifier.startsWith(where.identifier.startsWith))) && (!where.expires || row.expires > where.expires.gt);
   const db: any = {
-    organization: { findUnique: async (q: any) => q.where.slug === 'other' ? { id: 'other', name: 'Other store', status: 'ACTIVE' } : { id: 'own', name: 'Own store', status: suspended ? 'SUSPENDED' : 'ACTIVE' } },
+    organization: { findUnique: async (q: any) => q.where.slug === 'other' ? { id: 'other', slug: 'other', name: 'Other store', status: 'ACTIVE' } : { id: 'own', slug: 'own-store', name: 'Own store', status: suspended ? 'SUSPENDED' : 'ACTIVE' } },
     user: { findUnique: async (q: any) => q.where.id === user.id || q.where.email === user.email ? user : null, update: async (q: any) => { assert.equal(q.where.id, user.id); user = { ...user, ...q.data }; writes++; } },
     driver: { findFirst: async (q: any) => driverActive && q.where.organizationId === 'own' && q.where.userId === user.id ? { id: 'driver' } : null },
     verificationToken: { findFirst: async (q: any) => tokens.find(row => matches(row, q.where)) ?? null, create: async (q: any) => { tokens.push(q.data); return q.data; }, deleteMany: async (q: any) => { const count = tokens.length; tokens = tokens.filter(row => !matches(row, q.where)); return { count: count - tokens.length }; } },
@@ -32,6 +32,24 @@ function harness() {
   new Function('require', 'module', 'exports', output)((key: string) => { if (!(key in imports)) throw new Error(key); return imports[key]; }, module, module.exports);
   return { data: module.exports, tokens: () => tokens, user: () => user, patch: (value: any) => { user = { ...user, ...value }; }, inactive: () => { driverActive = false; }, central: () => { central = true; }, suspend: () => { suspended = true; }, writes: () => writes, revoked: () => revoked };
 }
+test('pending session selects only its own approved invitation; owners, inactive and conflicting identities receive no link', async () => {
+  const valid = harness();
+  assert.equal(await valid.data.getPendingDriverInvitation('user'), 'own-store');
+  assert.equal(valid.writes(), 0);
+  const active = harness(); active.patch({ mustChangePassword: false });
+  assert.equal(await active.data.getPendingDriverInvitation('user'), null);
+  const owner = harness(); owner.patch({ organizations: [{ organizationId: 'own', role: 'OWNER', active: true }] });
+  assert.equal(await owner.data.getPendingDriverInvitation('user'), null);
+  const foreign = harness(); foreign.patch({ organizations: [{ organizationId: 'own', role: 'DRIVER', active: true }, { organizationId: 'other', role: 'DRIVER', active: true }] });
+  assert.equal(await foreign.data.getPendingDriverInvitation('user'), null);
+  const inactive = harness(); inactive.inactive();
+  assert.equal(await inactive.data.getPendingDriverInvitation('user'), null);
+  const suspended = harness(); suspended.suspend();
+  assert.equal(await suspended.data.getPendingDriverInvitation('user'), null);
+  const central = harness(); central.central();
+  assert.equal(await central.data.getPendingDriverInvitation('user'), null);
+});
+
 function mail(t: any) {
   const old = { RESEND_API_KEY: process.env.RESEND_API_KEY, MAIL_FROM: process.env.MAIL_FROM, APP_PUBLIC_URL: process.env.APP_PUBLIC_URL };
   const previousFetch = globalThis.fetch;

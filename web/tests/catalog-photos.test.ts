@@ -24,6 +24,12 @@ test('exact name photo is used after store and global image preferences', () => 
   assert.equal(productImageCandidates({ productName: 'Heineken Lata 350ml' })[0], '/catalog/bebidas/cervejas/heineken-lata-350ml.jpeg');
 });
 
+test('legacy product photo survives missing custom and global images without a guessed package', () => {
+  assert.deepEqual(productImageCandidates({ imageUrl: '/uploads/real-store-photo.webp', productName: 'Produto sem foto no acervo 350ml' }), ['/uploads/real-store-photo.webp']);
+  const candidates = productImageCandidates({ customImageUrl: '/uploads/custom.webp', globalImageUrl: '/catalog/exact.webp', imageUrl: '/uploads/legacy.webp' });
+  assert.deepEqual(candidates, ['/uploads/custom.webp', '/catalog/exact.webp', '/uploads/legacy.webp']);
+});
+
 test('no fuzzy brand or volume matching and no known wrong-volume legacy photos', () => {
   assert.deepEqual(productImageCandidates({ productName: 'Heineken Lata 473ml' }), []);
   assert.equal(productImageCandidates({ productName: 'Brahma Litrão 1L' })[0], '/catalog/bebidas/cervejas/brahma-litrao-1l.jpg');
