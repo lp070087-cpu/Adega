@@ -13,6 +13,8 @@ import {
 import { logoutAction } from '@/app/actions/auth';
 import { reportFailedDeliveryAction } from '@/app/actions/drivers';
 import { Alert, Badge, Button, Card, EmptyState, Input } from '@/components/ui';
+import { DriverInstall } from '@/components/driver/DriverInstall';
+import { DriverScheduleNotice } from '@/components/driver/DriverScheduleNotice';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -376,6 +378,7 @@ export function DriverApp({
       </div>
 
       <main className="flex-1 space-y-3 p-4 pb-24">
+        <DriverScheduleNotice />
         {!online && <Alert tone="warn">Sem conexão. As entregas exibidas podem estar desatualizadas. Reconecte para registrar alterações.</Alert>}
         {error && (
           <Alert tone="danger" title="Não foi possível concluir">
@@ -534,11 +537,10 @@ export function DriverApp({
               </p>
             </Card>
 
+            <DriverInstall compact />
             <Alert tone="neutral" title="Sobre este app">
-              Instale na tela inicial para abrir em tela cheia. A posição só é enviada quando você
-              toca em &quot;Enviar minha localização&quot; (ou ao iniciar a rota): o navegador não
-              entrega GPS com a aba fechada, então não há rastreamento contínuo. Foto e assinatura
-              da prova de entrega dependem de um provedor de armazenamento ainda não configurado.
+              A posição é compartilhada apenas quando você solicita o envio ou inicia a rota.
+              Mantenha a conexão para registrar alterações. Use o aplicativo de mapas para navegar.
             </Alert>
 
             <button

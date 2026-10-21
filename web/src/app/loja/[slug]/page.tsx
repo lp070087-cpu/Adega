@@ -16,6 +16,7 @@ import { formatBRL } from '@/lib/utils';
 import type { BusinessType } from '@prisma/client';
 import { getCommercialAccess } from '@/lib/platform/access';
 import { selectHeroProducts } from '@/lib/store-hero-products';
+import { growthState } from '@/lib/growth';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -257,6 +258,7 @@ export default async function PublicStorePage({ params }: PageProps) {
             allowOwnDelivery: store.allowOwnDelivery,
             openState,
             allowNewOrders: commercial.allowNewOrders,
+            benefitsAvailable: growthState(settings).loyalty.enabled || growthState(settings).campaigns.some(c=>c.status==='ACTIVE'),
             commercialMessage: commercial.allowNewOrders ? null : commercial.message,
             address: addressLine,
             district: store.district,

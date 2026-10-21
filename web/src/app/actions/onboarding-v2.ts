@@ -10,6 +10,7 @@ import { slugify } from '@/lib/utils';
 import { onboardingNumber as numberOr } from '@/lib/onboarding-number';
 import { lockOnboardingAccount } from '@/lib/data/onboarding-guard';
 import { slugExists } from '@/lib/data/organization';
+import { stockDefaults } from '@/lib/stock-policy';
 import { copyGlobalProductsTx } from '@/lib/data/global-catalog';
 import {
   suggestedCategoriesFor,
@@ -198,6 +199,7 @@ export async function completeOnboardingV2Action(
         // globalProductId e customImageUrl nulo.
         const copy = await copyGlobalProductsTx(tx, org.id, data.globalProductIds, {
           prices: data.prices,
+          userId,
           skipExisting: true,
         });
 
@@ -221,7 +223,7 @@ export async function completeOnboardingV2Action(
             });
           }
 
-          await tx.product.create({
+          const ownProduct = await tx.product.create({
             data: {
               organizationId: org.id,
               categoryId: category.id,
@@ -230,8 +232,8 @@ export async function completeOnboardingV2Action(
               description: own.description ?? null,
               emoji: own.emoji ?? null,
               price: own.price,
-              stock: 0,
-              minimumStock: 0,
+              stock: stockDefaults(null).initialStock,
+              minimumStock: stockDefaults(null).minimumStock,
               trackStock: true,
               active: true,
               available: true,
@@ -239,6 +241,7 @@ export async function completeOnboardingV2Action(
               position: position++,
             },
           });
+          if (ownProduct.stock > 0) await tx.inventoryMovement.create({ data: { organizationId: org.id, productId: ownProduct.id, type: 'IN', quantity: ownProduct.stock, previousStock: 0, newStock: ownProduct.stock, reason: 'Estoque inicial do onboarding', userId } });
         }
 
         // Caixa padrão: sem ele o lojista não consegue abrir turno.

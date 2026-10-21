@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 
 export const metadata: Metadata = {
+  manifest: '/manifest.webmanifest',
+  icons: { apple: '/driver-icon-192.png', icon: '/driver-icon-192.png' },
   title: 'Entregas',
   description: 'Pedidos atribuídos, rota e confirmação de entrega.',
   appleWebApp: { capable: true, title: 'Entregador', statusBarStyle: 'default' },

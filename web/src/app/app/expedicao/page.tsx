@@ -68,6 +68,8 @@ export default async function DispatchPage() {
         }
       : null,
     activeOrders: driver.activeOrders.length,
+    onShift: driver.onShift,
+    shiftLabel: driver.shiftLabel,
   }));
 
   const storePosition =

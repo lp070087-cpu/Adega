@@ -2,6 +2,7 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import { normalizeSchedule, type WeekdaySchedule } from '@/lib/schedule';
 import { normalizeTiers } from '@/lib/data/delivery-fee';
+import { withOrganizationTransaction } from '@/lib/data/transaction';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -45,12 +46,15 @@ async function readSettings(organizationId: string): Promise<Settings> {
 
 /** Mescla uma chave em settings sem tocar nas outras. */
 async function mergeSettings(organizationId: string, patch: Settings): Promise<void> {
-  const current = await readSettings(organizationId);
-  const result = await prisma.organization.updateMany({
+  await withOrganizationTransaction(organizationId, async tx => {
+  const org = await tx.organization.findUnique({where:{id:organizationId},select:{settings:true}});
+  const current = org?.settings && typeof org.settings==='object' && !Array.isArray(org.settings) ? org.settings as Settings : {};
+  const result = await tx.organization.updateMany({
     where: { id: organizationId },
     data: { settings: { ...current, ...patch } as never },
   });
   if (result.count === 0) throw new Error('Estabelecimento não encontrado.');
+  });
 }
 
 /** Operação completa da loja, para a tela de horários e entrega. */

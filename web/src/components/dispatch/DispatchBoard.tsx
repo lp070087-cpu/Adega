@@ -8,6 +8,7 @@ import { DRIVER_STATUS_LABEL } from '@/data/business-copy';
 import {
   assignDriverAction,
   unassignDriverAction,
+  reassignDriverAction,
   updateOrderStatusAction,
 } from '@/app/actions/orders';
 import {
@@ -62,6 +63,8 @@ export type DispatchDriver = {
   vehiclePlate: string | null;
   position: { latitude: number; longitude: number; at: string } | null;
   activeOrders: number;
+  onShift?: boolean;
+  shiftLabel?: string;
 };
 
 const URGENT_MINUTES = 20;
@@ -107,7 +110,7 @@ export function DispatchBoard({
     [orders],
   );
 
-  const freeDrivers = drivers.filter((d) => d.status === 'ONLINE' && d.activeOrders === 0);
+  const freeDrivers = drivers.filter((d) => d.status === 'ONLINE' && d.activeOrders === 0 && d.onShift !== false);
   const busyDrivers = drivers.filter((d) => d.activeOrders > 0);
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>, onSuccess?: () => void) {
@@ -217,7 +220,7 @@ export function DispatchBoard({
 
                       {canDispatch && (
                         <Button size="sm" onClick={() => setAssignTarget(order)} disabled={pending}>
-                          Despachar
+                          {order.driverId ? 'Trocar entregador' : 'Atribuir entregador'}
                         </Button>
                       )}
                     </div>
@@ -243,9 +246,8 @@ export function DispatchBoard({
             />
 
             <Alert tone="neutral">
-              Este é um radar de posições relativas, não um mapa de ruas. Um mapa real depende de uma
-              chave do Google Maps configurada — enquanto ela não existe, mostramos a posição
-              relativa em vez de uma imagem que não corresponderia à realidade.
+              Posições compartilhadas pelos entregadores. Confira o horário da última atualização;
+              o deslocamento não é acompanhado automaticamente.
             </Alert>
 
             <div className="mt-4">
@@ -294,9 +296,9 @@ export function DispatchBoard({
           drivers={drivers}
           pending={pending}
           onClose={() => setAssignTarget(null)}
-          onAssign={(driverId) =>
+          onAssign={(driverId, reason) =>
             run(
-              () => assignDriverAction({ orderId: assignTarget.id, driverId }),
+              () => assignTarget.driverId ? reassignDriverAction({ orderId: assignTarget.id, driverId, reason }) : assignDriverAction({ orderId: assignTarget.id, driverId }),
               () => setAssignTarget(null),
             )
           }
@@ -443,6 +445,7 @@ function DriverList({ drivers, now }: { drivers: DispatchDriver[]; now: number }
                 : 'Sem sinal de posição'}
               {driver.activeOrders > 0 &&
                 ` · ${driver.activeOrders} pedido${driver.activeOrders === 1 ? '' : 's'}`}
+              {driver.shiftLabel && ` · ${driver.shiftLabel}`}
             </p>
           </div>
           <Badge
@@ -472,7 +475,7 @@ function AssignModal({
   drivers: DispatchDriver[];
   pending: boolean;
   onClose: () => void;
-  onAssign: (driverId: string) => void;
+  onAssign: (driverId: string, reason: string) => void;
   onMarkReady: () => void;
 }) {
   // Sugere quem está livre primeiro: despachar para quem já tem pedido
@@ -482,13 +485,15 @@ function AssignModal({
     return score(a) - score(b);
   });
 
-  const [driverId, setDriverId] = useState(ordered[0]?.id ?? '');
+  const eligible = (driver: DispatchDriver) => driver.status === 'ONLINE' && driver.activeOrders === 0 && driver.onShift !== false;
+  const [driverId, setDriverId] = useState(ordered.find(eligible)?.id ?? '');
+  const [reason, setReason] = useState('');
 
   return (
     <Modal
       open
       onClose={onClose}
-      title={`Despachar pedido #${order.displayId}`}
+      title={`${order.driverId ? 'Trocar entregador' : 'Atribuir entregador'} · #${order.displayId}`}
       subtitle={`${order.customerName} · ${formatBRL(order.total)}`}
       footer={
         <>
@@ -497,10 +502,10 @@ function AssignModal({
           </Button>
           <Button
             loading={pending}
-            disabled={!driverId}
-            onClick={() => onAssign(driverId)}
+            disabled={!driverId || !ordered.some(driver => driver.id === driverId && eligible(driver)) || Boolean(order.driverId && reason.trim().length < 5)}
+            onClick={() => onAssign(driverId, reason.trim())}
           >
-            Atribuir entregador
+            {order.driverId ? 'Confirmar troca' : 'Atribuir entregador'}
           </Button>
         </>
       }
@@ -515,19 +520,23 @@ function AssignModal({
           Nenhum entregador ativo. Cadastre a frota antes de despachar.
         </Alert>
       ) : (
-        <Field label="Entregador" hint="Os livres aparecem primeiro.">
+        <Field label="Entregador" hint="Disponibilidade, escala e pedidos em andamento são conferidos novamente ao atribuir.">
           <Select value={driverId} onChange={(e) => setDriverId(e.target.value)}>
+            <option value="">Selecione um entregador disponível</option>
             {ordered.map((driver) => (
-              <option key={driver.id} value={driver.id}>
+              <option key={driver.id} value={driver.id} disabled={!eligible(driver)}>
                 {driver.name} — {DRIVER_STATUS_LABEL[driver.status] ?? driver.status}
                 {driver.activeOrders > 0 ? ` (${driver.activeOrders} em rota)` : ' (livre)'}
+                {driver.shiftLabel ? ` · ${driver.shiftLabel}` : ''}
               </option>
             ))}
           </Select>
         </Field>
       )}
 
-      {order.status !== 'READY' && (
+      {order.driverId && <Field label="Motivo da troca" hint="A troca só é permitida antes da retirada e será registrada no histórico."><textarea className="field-input min-h-20" value={reason} onChange={e => setReason(e.target.value)} minLength={5} maxLength={300} placeholder="Informe o motivo com pelo menos 5 caracteres" /></Field>}
+
+      {!order.driverId && order.status !== 'READY' && (
         <div className="mt-2">
           <Alert tone="neutral">
             Este pedido ainda não foi marcado como pronto. Dá para despachar assim mesmo — mas o

@@ -1,4 +1,5 @@
-﻿import 'server-only';
+import { stockDefaults } from '@/lib/stock-policy';
+import 'server-only';
 import type { BusinessType, Prisma } from '@prisma/client';
 import { prisma, toNumber } from '@/lib/db';
 import { slugify } from '@/lib/utils';
@@ -271,6 +272,7 @@ export async function getGlobalCatalogSummary() {
 // ── CÓPIA PARA O CATÁLOGO DA LOJA ──────────────────────────────────────
 
 export type AddToCatalogOptions = {
+  userId?: string;
   /** Preço informado na tela para cada global. Ausente = preço sugerido. */
   prices?: Record<string, number>;
   /** Só cria o que ainda não existe. Padrão: true. */
@@ -340,6 +342,9 @@ export async function copyGlobalProductsTx(
   // Serializa importações da mesma loja antes de consultar vínculos existentes.
   // A segunda requisição verá os produtos gravados pela primeira.
   await tx.$queryRaw`SELECT "id" FROM "Organization" WHERE "id" = ${organizationId} FOR UPDATE`;
+
+  const orgSettings = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+  const defaults = stockDefaults(orgSettings?.settings);
 
   const globals = await tx.globalProduct.findMany({
     where: { id: { in: unique }, active: true },
@@ -541,9 +546,9 @@ export async function copyGlobalProductsTx(
     promotionalPrice: null,
     cost: null,
 
-    // Entra zerado: estoque é saldo real, não se presume no cadastro.
-    stock: 0,
-    minimumStock: 0,
+    // Padrão definido pelo responsável da loja, com movimento inicial.
+    stock: defaults.initialStock,
+    minimumStock: defaults.minimumStock,
     trackStock: true,
 
     active: true,
@@ -565,6 +570,8 @@ export async function copyGlobalProductsTx(
           select: { id: true, globalProductId: true },
         })
       : [];
+
+  if (created.length) await tx.inventoryMovement.createMany({ data: created.map(product => ({ organizationId, productId: product.id, type: 'IN' as const, quantity: defaults.initialStock, previousStock: 0, newStock: defaults.initialStock, reason: 'Estoque inicial da importação', userId: options.userId ?? null })) });
 
   // Ordem normalizada pelo `globalProductId` — a mesma sequência de
   // `toCreate`, sem depender de o banco devolver as linhas na ordem em que

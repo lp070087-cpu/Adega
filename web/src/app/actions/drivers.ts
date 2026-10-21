@@ -7,6 +7,8 @@ import { requirePermission, requireDriver, toActionError } from '@/lib/auth/guar
 import { withOrganizationTransaction } from '@/lib/data/transaction';
 import * as drivers from '@/lib/data/drivers';
 import { createDriverWithLoginSchema, driverStatusSchema } from '@/lib/validations/operations';
+import { saveDriverSchedule, generateTomorrowDriverReminders } from '@/lib/data/driver-schedules';
+import { driverShiftAvailability, readDriverSchedule, tomorrowDriverShifts } from '@/lib/driver-schedule';
 
 /**
  * Central de Entregadores. Criar entregador com login cria também o
@@ -176,4 +178,33 @@ export async function reportFailedDeliveryAction(input: { orderId: string; reaso
   } catch (error) {
     return { ok: false, ...toActionError(error) };
   }
+}
+
+export async function saveDriverScheduleAction(driverId: string, input: unknown): Promise<DriverActionResult> {
+  try {
+    const ctx = await requirePermission('MANAGE_DRIVERS');
+    await saveDriverSchedule(ctx.organizationId, ctx.user.id, driverId, input);
+    revalidateDrivers();
+    return { ok: true };
+  } catch (error) { return { ok: false, ...toActionError(error) }; }
+}
+
+export async function refreshDriverRemindersAction() {
+  try {
+    const ctx = await requirePermission('MANAGE_DRIVERS');
+    const count = await generateTomorrowDriverReminders(ctx.organizationId);
+    return { ok: true as const, count };
+  } catch (error) { return { ok: false as const, ...toActionError(error) }; }
+}
+
+export async function getMyDriverScheduleAction() {
+  try {
+    const ctx = await requireDriver();
+    const { prisma } = await import('@/lib/db');
+    const organization = await prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } });
+    const schedule = readDriverSchedule(organization?.settings, ctx.driver.id);
+    // Only the authenticated driver's notification can be generated from this action.
+    await generateTomorrowDriverReminders(ctx.organizationId, new Date(), ctx.driver.id);
+    return { ok: true as const, schedule, availability: driverShiftAvailability(schedule), tomorrow: tomorrowDriverShifts(schedule) };
+  } catch (error) { return { ok: false as const, ...toActionError(error) }; }
 }

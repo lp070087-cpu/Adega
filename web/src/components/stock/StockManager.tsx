@@ -1,5 +1,6 @@
 'use client';
 
+import { ProductThumb } from '@/components/catalog/ProductThumb';
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn, formatBRL, formatDateTime } from '@/lib/utils';
@@ -44,6 +45,8 @@ export type StockProduct = {
   name: string;
   emoji: string | null;
   sku: string | null;
+  customImageUrl?: string | null;
+  globalImageUrl?: string | null;
   categoryName: string | null;
   stock: number;
   minimumStock: number;
@@ -99,6 +102,7 @@ export function StockManager({
 
   const [adjustment, setAdjustment] = useState<Adjustment | null>(null);
   const [amount, setAmount] = useState('');
+  const [direction, setDirection] = useState<'IN' | 'OUT'>('IN');
   const [reason, setReason] = useState('');
   const [movementType, setMovementType] = useState('');
 
@@ -138,9 +142,10 @@ export function StockManager({
     if (!adjustment) return;
     setError(null);
 
-    const quantity = parseQuantity(amount);
-    if (quantity === 0) {
-      setError('Informe uma quantidade diferente de zero.');
+    const parsedAmount = parseQuantity(amount);
+    const quantity = adjustment.mode === 'ADJUST' ? (direction === 'OUT' ? -Math.abs(parsedAmount) : Math.abs(parsedAmount)) : parsedAmount;
+    if (!Number.isSafeInteger(quantity) || (adjustment.mode === 'ADJUST' && quantity === 0)) {
+      setError('Informe uma quantidade inteira válida (ajuste deve ser diferente de zero).');
       return;
     }
     if (adjustment.mode === 'SET' && quantity < 0) {
@@ -282,9 +287,7 @@ export function StockManager({
                       <tr key={product.id} className="border-b border-ink-100 last:border-b-0">
                         <td className="py-2.5 pr-4">
                           <div className="flex items-center gap-2.5">
-                            <span aria-hidden className="text-[1.1rem]">
-                              {product.emoji ?? '📦'}
-                            </span>
+                            <ProductThumb customImageUrl={product.customImageUrl} globalImageUrl={product.globalImageUrl} alt={product.name} className="h-10 w-10 shrink-0" />
                             <div className="min-w-0">
                               <p className="truncate text-[0.84rem] font-semibold text-ink-800">
                                 {product.name}
@@ -479,6 +482,7 @@ export function StockManager({
 
         {adjustment && (
           <>
+            <ProductThumb customImageUrl={adjustment.product.customImageUrl} globalImageUrl={adjustment.product.globalImageUrl} alt={adjustment.product.name} className="mb-3 h-20 w-20" />
             <Alert tone="neutral" className="mb-3.5">
               {adjustment.mode === 'SET'
                 ? `Saldo atual: ${adjustment.product.stock} un. Informe o total contado — a diferença vira um movimento de ajuste.`
@@ -494,6 +498,7 @@ export function StockManager({
                   : 'Ex.: 12 para dar entrada, -3 para dar baixa.'
               }
             >
+              {adjustment.mode === 'ADJUST' && <Select value={direction} onChange={e => setDirection(e.target.value as 'IN' | 'OUT')} className="mb-2"><option value="IN">Entrada</option><option value="OUT">Saída</option></Select>}
               <Input
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -518,11 +523,11 @@ export function StockManager({
               />
             </Field>
 
-            {adjustment.mode === 'SET' && (
+            {(
               <p className="text-[0.74rem] text-ink-500">
                 Novo saldo:{' '}
                 <strong className="text-ink-800">
-                  {Math.max(0, Math.round(parseQuantity(amount) || 0))} un.
+                  {adjustment.mode === 'SET' ? parseQuantity(amount) : adjustment.product.stock + (direction === 'OUT' ? -Math.abs(parseQuantity(amount)) : Math.abs(parseQuantity(amount)))} un.
                 </strong>
               </p>
             )}

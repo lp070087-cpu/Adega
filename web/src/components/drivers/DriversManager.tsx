@@ -53,6 +53,8 @@ export type DriverRow = {
   email: string | null;
   username: string | null;
   activeOrders: number;
+  onShift?: boolean;
+  shiftLabel?: string;
   deliveredTotal: number;
   deliveredToday: number;
   lastLocation: { latitude: number; longitude: number; createdAt: string } | null;
@@ -318,7 +320,7 @@ export function DriversManager({
                       )}
                     </td>
                     <td className="py-2.5 pr-4">
-                      {canManage && driver.active ? (
+                      {canManage && driver.active && driver.activeOrders === 0 ? (
                         <select
                           value={driver.status}
                           onChange={(e) =>
@@ -329,7 +331,7 @@ export function DriversManager({
                           aria-label={`Status de ${driver.name}`}
                         >
                           {STATUS_OPTIONS.map((status) => (
-                            <option key={status} value={status}>
+                            <option key={status} value={status} disabled={status === 'BUSY' || (status === 'ONLINE' && driver.onShift === false)}>
                               {DRIVER_STATUS_LABEL[status]}
                             </option>
                           ))}
@@ -342,6 +344,7 @@ export function DriversManager({
                           GPS {timeAgo(driver.lastLocation.createdAt)}
                         </p>
                       )}
+                      <p className="mt-1 text-[0.7rem] text-ink-500">{driver.shiftLabel}</p>
                     </td>
                     <td className="py-2.5 pr-4 text-right">
                       {driver.activeOrders > 0 ? (

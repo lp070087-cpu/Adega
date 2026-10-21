@@ -102,6 +102,9 @@ export default async function OrdersPage() {
           id: driver.id,
           name: driver.name,
           status: driver.status,
+          activeOrders: driver.activeOrders,
+          onShift: driver.onShift,
+          shiftLabel: driver.shiftLabel,
         }))}
         canManageOrders={can(ctx.role, 'MANAGE_ORDERS')}
         canManageDrivers={can(ctx.role, 'MANAGE_DRIVERS')}

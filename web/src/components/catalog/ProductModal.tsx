@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
+import { uploadProductImageAction } from '@/app/actions/product-image';
+import { ProductThumb } from '@/components/catalog/ProductThumb';
 import { useRouter } from 'next/navigation';
 import { formatBRL } from '@/lib/utils';
 import { createProductAction, updateProductAction } from '@/app/actions/catalog';
@@ -69,6 +71,8 @@ export function ProductModal({
   const [categoryId, setCategoryId] = useState(product?.categoryId ?? '');
   const [description, setDescription] = useState(product?.description ?? '');
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? '');
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
+  useEffect(() => () => { if (localPreview) URL.revokeObjectURL(localPreview); }, [localPreview]);
   const [emoji, setEmoji] = useState(product?.emoji ?? '');
   const [sku, setSku] = useState(product?.sku ?? '');
   const [price, setPrice] = useState(product ? String(product.price) : '');
@@ -76,7 +80,7 @@ export function ProductModal({
     product?.promotionalPrice != null ? String(product.promotionalPrice) : '',
   );
   const [cost, setCost] = useState(product?.cost != null ? String(product.cost) : '');
-  const [minimumStock, setMinimumStock] = useState(String(product?.minimumStock ?? 0));
+  const [minimumStock, setMinimumStock] = useState(product ? String(product.minimumStock) : '');
   const [trackStock, setTrackStock] = useState(product?.trackStock ?? true);
   const [active, setActive] = useState(product?.active ?? true);
   const [available, setAvailable] = useState(product?.available ?? true);
@@ -121,10 +125,10 @@ export function ProductModal({
     formData.set('price', price);
     formData.set('promotionalPrice', promotionalPrice);
     formData.set('cost', cost);
-    // Produto novo começa com estoque 0: entrada de estoque é feita no
-    // módulo Estoque, que registra o movimento.
-    formData.set('stock', product ? String(product.stock) : '0');
-    formData.set('minimumStock', minimumStock);
+    // Novos produtos usam o padrão da loja quando nenhum saldo é informado.
+    // O servidor registra o movimento inicial; edição preserva o saldo.
+    if (product) formData.set('stock', String(product.stock));
+    if (product || minimumStock !== '') formData.set('minimumStock', minimumStock);
     formData.set('trackStock', trackStock ? 'on' : 'off');
     formData.set('active', active ? 'on' : 'off');
     formData.set('available', available ? 'on' : 'off');
@@ -425,6 +429,9 @@ export function ProductModal({
           />
         </Field>
         <Field label="Imagem" hint="URL pública da foto.">
+          {localPreview ? <img src={localPreview} alt="Prévia da fotografia selecionada" className="mb-2 h-24 w-24 object-contain" /> : <ProductThumb customImageUrl={imageUrl} alt={name} className="mb-2 h-24 w-24" />}
+          <input aria-label="Enviar fotografia do produto" type="file" accept="image/jpeg,image/png,image/webp" disabled={pending} className="mb-2 w-full text-xs" onChange={e => { const file = e.target.files?.[0]; if (!file) return; if (file.size > 3 * 1024 * 1024) { setError({ message: 'A imagem deve ter até 3 MB.' }); return; } setLocalPreview(URL.createObjectURL(file)); const form = new FormData(); form.set('file', file); startTransition(async () => { const result = await uploadProductImageAction(form); setLocalPreview(null); if (result.ok) { setImageUrl(result.url); setError(null); } else setError({ message: result.error }); }); e.target.value = ''; }} />
+          {imageUrl && <Button variant="ghost" size="sm" disabled={pending} onClick={() => setImageUrl('')}>Remover foto personalizada</Button>}
           <Input
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}

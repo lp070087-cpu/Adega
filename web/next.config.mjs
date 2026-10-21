@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: { serverActions: { bodySizeLimit: '6mb' } },
   // O app do entregador e a loja pública renderizam imagens vindas de
   // storage externo (Vercel Blob / Cloudinary / S3). Os domínios reais
   // entram aqui quando o Storage for plugado (ver src/lib/storage.ts).

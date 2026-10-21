@@ -29,6 +29,7 @@ test('período financeiro respeita a virada do dia em São Paulo', () => {
 function transaction(order: Record<string, unknown> | null, stock = 2) {
   const writes: string[] = [];
   const tx = {
+    organization:{findUniqueOrThrow:async()=>({settings:null})},
     $queryRaw: async () => [{ id: 'tenant-a' }],
     order: { findFirst: async (args: any) => { assert.equal(args.where.organizationId, 'tenant-a'); return order; }, update: async () => { writes.push('order'); } },
     product: { findFirst: async (args: any) => { assert.equal(args.where.organizationId, 'tenant-a'); return { id: 'p', name: 'Produto', stock, trackStock: true }; }, update: async () => { writes.push('stock'); } },
@@ -95,6 +96,7 @@ test('pedido confirmado baixa estoque uma vez e cancelamento restaura movimentos
   const stock = new Map([['component', 10]]);
   const ledger: any[] = [];
   const tx: any = {
+    organization:{findUniqueOrThrow:async()=>({settings:null})},
     $queryRaw: async () => [{ id: 'tenant-a' }],
     order: { findFirst: async () => order, update: async ({ data }: any) => Object.assign(order, data) },
     combo: { findFirst: async () => ({ items: [{ productId: 'component', quantity: 3 }] }) },
@@ -123,6 +125,7 @@ test('retirada percorre preparo e conclusão com venda no mesmo contexto transac
   const order = { id: 'o', status: 'CONFIRMED', stockDeducted: true, deliveryType: 'PICKUP', driverId: null, paymentMethod: 'PIX', total: 29.90 };
   const sales: any[] = [];
   const tx: any = {
+    organization:{findUniqueOrThrow:async()=>({settings:null})},
     $queryRaw: async () => [{ id: 'tenant-a' }],
     order: { findFirst: async () => order, update: async ({ data }: any) => Object.assign(order, data) },
     delivery: { updateMany: async () => ({ count: 0 }) },

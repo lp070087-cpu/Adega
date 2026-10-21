@@ -31,7 +31,7 @@ export function OrdersBoard({
 }: {
   products: ManualProduct[];
   orders: DrawerOrder[];
-  drivers: Array<{ id: string; name: string; status: string }>;
+  drivers: Array<{ id: string; name: string; status: string; activeOrders?: number; onShift?: boolean; shiftLabel?: string }>;
   canManageOrders: boolean;
   canManageDrivers: boolean;
 }) {

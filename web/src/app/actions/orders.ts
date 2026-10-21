@@ -41,7 +41,7 @@ export type OrderActionResult<T = undefined> =
  * e produtos de outra loja nem aparecem na consulta.
  */
 export async function checkoutAction(input: unknown): Promise<
-  OrderActionResult<{ orderId: string; displayId: number; total: number }>
+  OrderActionResult<{ orderId: string; displayId: number; total: number; discount:number;deliveryFee:number }>
 > {
   try {
     const parsed = checkoutSchema.safeParse(input);
@@ -58,6 +58,7 @@ export async function checkoutAction(input: unknown): Promise<
       store.id,
       {
         idempotencyKey: parsed.data.idempotencyKey,
+        couponCode: parsed.data.couponCode,
         customerName: parsed.data.customerName,
         customerPhone: parsed.data.customerPhone,
         deliveryType: parsed.data.deliveryType,
@@ -228,6 +229,12 @@ export async function unassignDriverAction(orderId: string): Promise<OrderAction
   }
 }
 
+export async function reassignDriverAction(input:{orderId:string;driverId:string;reason:string}):Promise<OrderActionResult>{
+  try{const ctx=await requirePermission('MANAGE_DRIVERS');const parsed=assignDriverSchema.safeParse(input);if(!parsed.success)return {ok:false,error:'Selecione pedido e entregador válidos.'};
+    await orders.reassignDriver(ctx.organizationId,parsed.data.orderId,parsed.data.driverId,ctx.user.id,typeof input.reason==='string'?input.reason:'');revalidateOrders();return {ok:true};
+  }catch(error){return {ok:false,...toActionError(error)};}
+}
+
 export async function updatePaymentStatusAction(input: {
   orderId: string;
   paymentStatus: 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
@@ -389,6 +396,7 @@ export async function setMyDriverStatusAction(
         organizationId: ctx.organizationId, userId: ctx.user.id, active: true,
       } });
       if (!driver) throw new OperationError('Entregador não encontrado.');
+      if(status==='ONLINE') await (await import('@/lib/data/driver-schedules')).assertDriverOnShift(tx,ctx.organizationId,driver.id);
       const active = await tx.order.count({ where: {
         organizationId: ctx.organizationId, driverId: driver.id,
         status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },

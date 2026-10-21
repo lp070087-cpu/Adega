@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { formatBRL, formatDateTime, onlyDigits } from '@/lib/utils';
 import { ORDER_STATUS_LABEL } from '@/data/business-copy';
 import {
   assignDriverAction,
   unassignDriverAction,
+  reassignDriverAction,
   updateOrderStatusAction,
 } from '@/app/actions/orders';
 import { nextStatuses } from '@/lib/validations/order';
@@ -56,7 +57,7 @@ export function OrderDrawer({
   order: DrawerOrder | null;
   open: boolean;
   onClose: () => void;
-  drivers: Array<{ id: string; name: string; status: string }>;
+  drivers: Array<{ id: string; name: string; status: string; activeOrders?: number; onShift?: boolean; shiftLabel?: string }>;
   canManageOrders: boolean;
   canManageDrivers: boolean;
   onChanged: () => void;
@@ -66,6 +67,9 @@ export function OrderDrawer({
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [selectedDriver, setSelectedDriver] = useState('');
+  const [showReassign, setShowReassign] = useState(false);
+  const [reassignReason, setReassignReason] = useState('');
+  useEffect(() => { setSelectedDriver(''); setShowReassign(false); setReassignReason(''); setError(null); }, [order?.id]);
 
   if (!order) return null;
 
@@ -108,7 +112,9 @@ export function OrderDrawer({
     }
     setError(null);
     startTransition(async () => {
-      const result = await assignDriverAction({ orderId: order!.id, driverId: selectedDriver });
+      const result = showReassign && order!.driver
+        ? await reassignDriverAction({ orderId: order!.id, driverId: selectedDriver, reason: reassignReason.trim() })
+        : await assignDriverAction({ orderId: order!.id, driverId: selectedDriver });
       if (!result.ok) setError(result.error);
       else {
         onChanged();
@@ -291,7 +297,7 @@ export function OrderDrawer({
       </section>
 
       {/* ── Entregador ────────────────────────────────────────────── */}
-      {canManageDrivers && isOpen && (
+      {canManageDrivers && isOpen && order.deliveryType !== 'PICKUP' && ['READY', 'WAITING_DRIVER', 'DISPATCHED'].includes(order.status) && (
         <section className="mb-5">
           <h3 className="mb-2 text-[0.7rem] font-bold uppercase tracking-wide text-ink-400">
             Entregador
@@ -303,9 +309,7 @@ export function OrderDrawer({
                 <p className="text-[0.84rem] font-semibold text-ink-800">{order.driver.name}</p>
                 <p className="text-[0.72rem] text-ink-500">{order.driver.status}</p>
               </div>
-              <Button size="sm" variant="ghost" onClick={unassign} disabled={pending}>
-                Remover
-              </Button>
+              {order.status === 'WAITING_DRIVER' && <div className="flex flex-wrap gap-2"><Button size="sm" variant="ghost" onClick={() => { setShowReassign(!showReassign); setSelectedDriver(''); setReassignReason(''); }} disabled={pending}>Trocar</Button><Button size="sm" variant="ghost" onClick={unassign} disabled={pending}>Remover</Button></div>}
             </div>
           ) : (
             <div className="flex gap-2">
@@ -316,16 +320,22 @@ export function OrderDrawer({
               >
                 <option value="">Selecione um entregador...</option>
                 {drivers.map((driver) => (
-                  <option key={driver.id} value={driver.id}>
-                    {driver.name} — {driver.status}
+                  <option key={driver.id} value={driver.id} disabled={driver.status !== 'ONLINE' || Boolean(driver.activeOrders) || driver.onShift === false}>
+                    {driver.name} — {driver.status} · {driver.activeOrders ?? 0} em andamento {driver.shiftLabel ? `· ${driver.shiftLabel}` : ''}
                   </option>
                 ))}
               </Select>
-              <Button onClick={assign} loading={pending}>
+              <Button onClick={assign} loading={pending} disabled={!selectedDriver || order.status !== 'READY'}>
                 Atribuir
               </Button>
             </div>
           )}
+          {showReassign && order.driver && order.status === 'WAITING_DRIVER' && <div className="mt-3 space-y-3">
+            <Select aria-label="Novo entregador" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}><option value="">Selecione outro entregador</option>{drivers.map(driver => <option key={driver.id} value={driver.id} disabled={driver.status !== 'ONLINE' || Boolean(driver.activeOrders) || driver.onShift === false}>{driver.name} — {driver.status} · {driver.activeOrders ?? 0} em andamento · {driver.shiftLabel ?? 'Sem restrição de escala'}</option>)}</Select>
+            <label className="block text-sm text-ink-600">Motivo da troca<Textarea value={reassignReason} onChange={e => setReassignReason(e.target.value)} minLength={5} maxLength={300} placeholder="Informe o motivo com pelo menos 5 caracteres" /></label>
+            <Button loading={pending} disabled={!selectedDriver || reassignReason.trim().length < 5} onClick={assign}>Confirmar troca de entregador</Button>
+            <p className="text-xs text-ink-500">Permitido somente antes da retirada. Motivo e operador ficam registrados.</p>
+          </div>}
         </section>
       )}
 

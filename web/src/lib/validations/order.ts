@@ -34,6 +34,7 @@ const orderBaseSchema = z.object({
    */
   slug: slugSchema,
   idempotencyKey: z.string().uuid().optional(),
+  couponCode: z.string().trim().max(40).optional(),
   customerName: requiredText('Nome', 2, 120),
   customerPhone: phoneSchema,
   /**

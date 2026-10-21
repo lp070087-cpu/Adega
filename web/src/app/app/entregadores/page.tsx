@@ -3,6 +3,11 @@ import { can } from '@/lib/permissions';
 import { getDrivers, getDriverSummary } from '@/lib/data/drivers';
 import { DriversManager } from '@/components/drivers/DriversManager';
 import type { DriverRow } from '@/components/drivers/DriversManager';
+import { DriverInstall } from '@/components/driver/DriverInstall';
+import { DriverInstallShare } from '@/components/driver/DriverInstallShare';
+import { DriverScheduleManager } from '@/components/drivers/DriverScheduleManager';
+import { getDriverSchedules } from '@/lib/data/driver-schedules';
+import { readDriverSchedule } from '@/lib/driver-schedule';
 
 export const metadata = { title: 'Entregadores' };
 export const dynamic = 'force-dynamic';
@@ -19,9 +24,10 @@ export const dynamic = 'force-dynamic';
 export default async function DriversPage() {
   const ctx = await requireOrgPage('MANAGE_DRIVERS');
 
-  const [driversRaw, summary] = await Promise.all([
+  const [driversRaw, summary, settings] = await Promise.all([
     getDrivers(ctx.organizationId),
     getDriverSummary(ctx.organizationId),
+    getDriverSchedules(ctx.organizationId),
   ]);
 
   const drivers: DriverRow[] = driversRaw.map((driver) => ({
@@ -36,6 +42,8 @@ export default async function DriversPage() {
     email: driver.email,
     username: driver.username,
     activeOrders: driver.activeOrders,
+    onShift: driver.onShift,
+    shiftLabel: driver.shiftLabel,
     deliveredTotal: driver.deliveredTotal,
     deliveredToday: driver.deliveredToday,
     lastLocation: driver.lastLocation
@@ -52,7 +60,7 @@ export default async function DriversPage() {
       <div>
         <h2 className="text-[1.05rem] font-extrabold text-ink-900">Entregadores</h2>
         <p className="text-[0.8rem] text-ink-500">
-          Frota, status em tempo real e o acesso de cada um ao app.
+          Frota, disponibilidade e acesso ao app do entregador.
         </p>
       </div>
 
@@ -67,6 +75,9 @@ export default async function DriversPage() {
         }}
         canManage={can(ctx.role, 'MANAGE_DRIVERS')}
       />
+      <DriverScheduleManager drivers={drivers} schedules={Object.fromEntries(drivers.map(driver => [driver.id, readDriverSchedule(settings, driver.id)]))} />
+      <DriverInstall compact />
+      <DriverInstallShare />
     </div>
   );
 }

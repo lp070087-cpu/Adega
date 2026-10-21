@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requirePermission, toActionError } from '@/lib/auth/guards';
 import * as cash from '@/lib/data/cash';
+import { proposeCashHandoff, resolveCashHandoff } from '@/lib/data/cash-handoff';
 import {
   cashRegisterSchema,
   cashTransactionSchema,
@@ -51,11 +52,11 @@ export async function closeShiftAction(input: {
   notes?: string;
 }): Promise<CashActionResult<{ difference: number; expected: number }>> {
   try {
-    const { organizationId, user } = await requirePermission('MANAGE_CASH');
+    const { organizationId, user, role } = await requirePermission('MANAGE_CASH');
     const parsed = closeShiftSchema.safeParse(input);
     if (!parsed.success) return { ok: false, ...firstIssue(parsed.error) };
 
-    const closed = await cash.closeCashShift(organizationId, parsed.data, user.id);
+    const closed = await cash.closeCashShift(organizationId, parsed.data, user.id, ['OWNER','ADMIN','MANAGER'].includes(role));
     revalidateCash();
 
     return {
@@ -106,4 +107,17 @@ export async function createCashRegisterAction(input: {
 function revalidateCash() {
   revalidatePath('/app/caixa');
   revalidatePath('/app/dashboard');
+}
+
+export async function proposeCashHandoffAction(input:{shiftId:string;toUserId:string;amount:number;notes:string;confirmed:boolean}):Promise<CashActionResult>{
+ try{const {organizationId,user}=await requirePermission('MANAGE_CASH');
+  const data=z.object({shiftId:z.string().min(1),toUserId:z.string().min(1),amount:z.number().finite().min(0).max(1000000),notes:z.string().trim().min(5,'Descreva a conferência.').max(400),confirmed:z.literal(true)}).parse(input);
+  await proposeCashHandoff(organizationId,user.id,data);revalidateCash();return {ok:true};
+ }catch(error){return {ok:false,...(error instanceof z.ZodError?firstIssue(error):toActionError(error))};}
+}
+export async function resolveCashHandoffAction(input:{id:string;accept:boolean;amount:number;notes:string;confirmed:boolean}):Promise<CashActionResult>{
+ try{const {organizationId,user}=await requirePermission('MANAGE_CASH');
+  const data=z.object({id:z.string().uuid(),accept:z.boolean(),amount:z.number().finite().min(0).max(1000000),notes:z.string().trim().min(5,'Descreva a conferência ou divergência.').max(400),confirmed:z.literal(true)}).parse(input);
+  await resolveCashHandoff(organizationId,user.id,data);revalidateCash();return {ok:true};
+ }catch(error){return {ok:false,...(error instanceof z.ZodError?firstIssue(error):toActionError(error))};}
 }

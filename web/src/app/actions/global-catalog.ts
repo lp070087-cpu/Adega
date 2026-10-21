@@ -85,7 +85,7 @@ export async function addFromLibraryAction(formData: FormData): Promise<
   }>
 > {
   try {
-    const { organizationId } = await requirePermission('MANAGE_PRODUCTS');
+    const { organizationId, user } = await requirePermission('MANAGE_PRODUCTS');
 
     const parsed = addFromLibrarySchema.safeParse({
       productIds: jsonValue(formData, 'productIds') ?? [],
@@ -101,6 +101,7 @@ export async function addFromLibraryAction(formData: FormData): Promise<
       parsed.data.productIds,
       {
         prices: parsed.data.prices,
+        userId: user.id,
         categoryId: parsed.data.categoryId,
         featured: parsed.data.featured,
         skipExisting: parsed.data.skipExisting,
@@ -137,7 +138,7 @@ export async function setProductCustomImageAction(input: {
   customImageUrl: string | null;
 }): Promise<GlobalActionResult> {
   try {
-    const { organizationId } = await requirePermission('MANAGE_PRODUCTS');
+    const { organizationId, user } = await requirePermission('MANAGE_PRODUCTS');
 
     const schema = z.object({
       productId: z.string().trim().min(1).max(64),
@@ -190,7 +191,7 @@ export async function toggleFeaturedAction(input: {
   position?: number;
 }): Promise<GlobalActionResult> {
   try {
-    const { organizationId } = await requirePermission('MANAGE_PRODUCTS');
+    const { organizationId, user } = await requirePermission('MANAGE_PRODUCTS');
     const parsed = z
       .object({
         productId: z.string().trim().min(1).max(64),

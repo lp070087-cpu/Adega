@@ -9,6 +9,7 @@ import {
   openShiftAction,
 } from '@/app/actions/cash';
 import { PAYMENT_METHOD_LABEL, TRANSACTION_TYPE_LABEL } from '@/data/business-copy';
+import { parseMoneyInput,formatMoneyInput } from '@/lib/money-input';
 import {
   Alert,
   Badge,
@@ -92,9 +93,7 @@ export type CashHistoryView = {
 };
 
 function parseMoney(value: string): number {
-  const normalized = value.includes(',') ? value.replace(/\./g, '').replace(',', '.') : value;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return parseMoneyInput(value)??Number.NaN;
 }
 
 export function CashManager({
@@ -147,7 +146,7 @@ export function CashManager({
   }
 
   const expected = openShift?.totals.expectedCash ?? 0;
-  const counted = parseMoney(closingAmount);
+  const counted = parseMoneyInput(closingAmount)??0;
   const difference = counted - expected;
 
   return (
@@ -476,6 +475,7 @@ export function CashManager({
           <MoneyInput
             value={openingAmount}
             onChange={(e) => setOpeningAmount(e.target.value)}
+            onBlur={(e)=>setOpeningAmount(formatMoneyInput(e.target.value))}
             placeholder="0,00"
             autoFocus
           />
@@ -527,6 +527,7 @@ export function CashManager({
           <MoneyInput
             value={movementAmount}
             onChange={(e) => setMovementAmount(e.target.value)}
+            onBlur={(e)=>setMovementAmount(formatMoneyInput(e.target.value))}
             placeholder="0,00"
             autoFocus
           />
@@ -576,6 +577,7 @@ export function CashManager({
           <MoneyInput
             value={closingAmount}
             onChange={(e) => setClosingAmount(e.target.value)}
+            onBlur={(e)=>setClosingAmount(formatMoneyInput(e.target.value))}
             placeholder="0,00"
             autoFocus
           />

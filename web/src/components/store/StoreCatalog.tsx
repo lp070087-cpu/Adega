@@ -91,6 +91,7 @@ export type StoreInfo = {
   allowOwnDelivery: boolean;
   openState: StoreOpenState;
   allowNewOrders?: boolean;
+  benefitsAvailable?: boolean;
   commercialMessage?: string | null;
   address: string | null;
   district: string | null;
@@ -184,6 +185,18 @@ export function StoreCatalog({
   const [activeCategory, setActiveCategory] = React.useState('all');
   const [cart, setCart] = React.useState<CartLine[]>([]);
   const [customizing, setCustomizing] = React.useState<StoreProduct | null>(null);
+  const [linkedVariation,setLinkedVariation] = React.useState<{productId:string;variationId:string}|null>(null);
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const productId = params.get('produto');
+    if (!productId) return;
+    const product = products.find(item => item.id === productId);
+    if (product) {
+      const variationId=params.get('variacao');
+      if(variationId&&product.variations.some(v=>v.id===variationId))setLinkedVariation({productId:product.id,variationId});
+      setCustomizing(product);
+    }
+  }, [store.slug, products]);
   const [cartOpen, setCartOpen] = React.useState(false);
   const [checkoutOpen, setCheckoutOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -209,6 +222,8 @@ export function StoreCatalog({
     orderId: string;
     displayId: number;
     total: number;
+    discount?: number;
+    deliveryFee?: number;
     deliveryType: 'DELIVERY' | 'PICKUP';
     paymentMethod: string;
     changeFor?: number;
@@ -431,6 +446,7 @@ export function StoreCatalog({
       paymentMethod,
       changeFor: changeFor !== undefined && Number.isFinite(changeFor) ? changeFor : undefined,
       notes: String(formData.get('notes') ?? '').trim() || undefined,
+      couponCode: String(formData.get('couponCode') ?? '').trim() || undefined,
       items: cart.map((line) => ({
         productId: line.productId,
         quantity: line.quantity,
@@ -463,6 +479,8 @@ export function StoreCatalog({
       orderId: result.data?.orderId ?? '',
       displayId: result.data?.displayId ?? 0,
       total: result.data?.total ?? 0,
+      discount: result.data?.discount ?? 0,
+      deliveryFee: result.data?.deliveryFee ?? 0,
       deliveryType,
       paymentMethod,
       changeFor: paymentMethod === 'CASH' ? changeFor : undefined,
@@ -667,6 +685,7 @@ export function StoreCatalog({
       {customizing && (
         <CustomizeModal
           product={customizing}
+          initialVariationId={linkedVariation?.productId===customizing.id?linkedVariation.variationId:undefined}
           onClose={() => setCustomizing(null)}
           onAdd={(line) => {
             addLine(line);
@@ -923,6 +942,7 @@ export function StoreCatalog({
             </Field>
           )}
 
+          <Field label="Cupom (opcional)"><Input name="couponCode" maxLength={40} placeholder="Código da campanha"/><p className="mt-1 text-xs text-ink-500">Benefícios e condições serão conferidos pela loja na confirmação. O total final é calculado no servidor.</p></Field>
           <Field label="Observações" className="mb-0">
             <Textarea
               name="notes"
@@ -977,6 +997,7 @@ export function StoreCatalog({
             <a className="block rounded border-2 border-brand px-4 py-3 text-center font-semibold text-brand" href={`/loja/${store.slug}/pedido/${order.orderId}`}>
               Acompanhar pedido
             </a>
+            {store.benefitsAvailable&&<a className="block text-center font-semibold text-brand" href={`/loja/${store.slug}/beneficios?pedido=${encodeURIComponent(order.orderId)}`}>Benefícios da loja</a>}
             <dl className="space-y-1.5 text-[0.82rem]">
               <div className="flex justify-between gap-4">
                 <dt className="text-ink-500">Número do pedido</dt>
@@ -986,6 +1007,8 @@ export function StoreCatalog({
                 <dt className="text-ink-500">Total</dt>
                 <dd className="font-bold text-ink-800">{formatBRL(order.total)}</dd>
               </div>
+              {(order.discount??0)>0&&<div className="flex justify-between gap-4"><dt>Desconto da campanha</dt><dd>{formatBRL(order.discount??0)}</dd></div>}
+              <div className="flex justify-between gap-4"><dt>Frete aplicado</dt><dd>{formatBRL(order.deliveryFee??0)}</dd></div>
               <div className="flex justify-between gap-4">
                 <dt className="text-ink-500">Pagamento</dt>
                 <dd className="font-bold text-ink-800">
@@ -1134,7 +1157,7 @@ function ProductCard({
    */
   const soldOut =
     !product.available || (product.trackStock && product.stock <= 0);
-  const blocked = soldOut || closed;
+  const blocked = soldOut;
   const separate = product.comboItems.length > 0 ? comboSeparateTotal(product.comboItems) : 0;
   const savings = separate > 0 ? Math.round((separate - price) * 100) / 100 : 0;
   const isCombo = product.comboItems.length > 0;
@@ -1203,7 +1226,7 @@ function ProductCard({
           onClick={onAdd}
           style={!blocked ? { backgroundColor: brandColor } : undefined}
         >
-          {soldOut ? 'Indisponível' : closed ? 'Loja fechada' : 'Adicionar'}
+          {soldOut ? (!product.available ? 'Produto pausado' : 'Sem estoque') : closed ? 'Adicionar para depois' : 'Adicionar'}
         </Button>
       </div>
     </li>
@@ -1219,14 +1242,16 @@ function ProductCard({
  */
 function CustomizeModal({
   product,
+  initialVariationId,
   onClose,
   onAdd,
 }: {
   product: StoreProduct;
+  initialVariationId?: string;
   onClose: () => void;
   onAdd: (line: CartLine) => void;
 }) {
-  const [variationId, setVariationId] = React.useState(product.variations[0]?.id ?? '');
+  const [variationId, setVariationId] = React.useState(initialVariationId ?? product.variations[0]?.id ?? '');
   const [addonIds, setAddonIds] = React.useState<Set<string>>(new Set());
   const [notes, setNotes] = React.useState('');
   const [quantity, setQuantity] = React.useState(1);

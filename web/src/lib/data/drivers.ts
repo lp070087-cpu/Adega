@@ -4,6 +4,8 @@ import { prisma, toNumber } from '@/lib/db';
 import { hashPassword } from '@/lib/auth/password';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
 import { assertPlatformQuota } from '@/lib/platform/quotas';
+import { assertDriverOnShift, getDriverSchedules } from '@/lib/data/driver-schedules';
+import { readDriverSchedule, driverShiftAvailability } from '@/lib/driver-schedule';
 
 /**
  * Entregadores e despacho.
@@ -16,6 +18,7 @@ export async function getDrivers(
   organizationId: string,
   filters: { active?: boolean; status?: DriverStatus; search?: string } = {},
 ) {
+  const scheduleSettings = await getDriverSchedules(organizationId);
   const drivers = await prisma.driver.findMany({
     where: {
       organizationId,
@@ -85,6 +88,8 @@ export async function getDrivers(
     email: d.user?.email ?? null,
     username: d.user?.username ?? null,
     activeOrders: d._count.orders,
+    onShift: driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).allowed,
+    shiftLabel: driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).label,
     deliveredTotal: deliveredMap.get(d.id) ?? 0,
     deliveredToday: todayMap.get(d.id) ?? 0,
     lastLocation: d.locations[0]
@@ -235,6 +240,10 @@ export async function updateDriver(
   return withOrganizationTransaction(organizationId, async (tx) => {
   const current = await tx.driver.findFirst({ where: { id: driverId, organizationId }, select: { active: true, userId: true } });
   if (!current) throw new Error('Entregador não encontrado.');
+  if (input.active === false) {
+    const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
+    if (ongoing) throw new Error('Conclua ou remova as atribuições antes de desativar o entregador.');
+  }
   if (input.active === true && !current.active) await assertPlatformQuota(tx, organizationId, 'drivers');
   const result = await tx.driver.updateMany({
     where: { id: driverId, organizationId },
@@ -261,12 +270,16 @@ export async function setDriverStatus(
   driverId: string,
   status: DriverStatus,
 ) {
-  const result = await prisma.driver.updateMany({
-    where: { id: driverId, organizationId },
-    data: { status },
+  return withOrganizationTransaction(organizationId, async tx => {
+    const driver = await tx.driver.findFirst({ where: { id: driverId, organizationId, active: true }, select: { id: true } });
+    if (!driver) throw new Error('Entregador não encontrado ou desativado.');
+    const active = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
+    if (active) throw new Error('Conclua ou remova as atribuições antes de alterar a disponibilidade.');
+    if (status === 'BUSY') throw new Error('Em entrega é definido somente pela atribuição de pedidos.');
+    if (status === 'ONLINE') await assertDriverOnShift(tx, organizationId, driverId);
+    await tx.driver.update({ where: { id: driver.id }, data: { status } });
+    return { ok: true };
   });
-  if (result.count === 0) throw new Error('Entregador não encontrado.');
-  return { ok: true };
 }
 
 /**
@@ -274,13 +287,14 @@ export async function setDriverStatus(
  * o login é bloqueado na mesma transação.
  */
 export async function deactivateDriver(organizationId: string, driverId: string) {
-  const driver = await prisma.driver.findFirst({
+  return withOrganizationTransaction(organizationId, async tx => {
+  const driver = await tx.driver.findFirst({
     where: { id: driverId, organizationId },
     select: { id: true, userId: true },
   });
   if (!driver) throw new Error('Entregador não encontrado.');
-
-  await prisma.$transaction(async (tx) => {
+  const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
+  if (ongoing) throw new Error('Conclua ou remova as atribuições antes de desativar o entregador.');
     await tx.driver.update({
       where: { id: driverId },
       data: { active: false, status: 'OFFLINE' },
@@ -292,9 +306,8 @@ export async function deactivateDriver(organizationId: string, driverId: string)
         data: { active: false },
       });
     }
-  });
-
   return { ok: true };
+  });
 }
 
 /** Registra posição enviada pelo app. Mantém histórico, não sobrescreve. */
@@ -322,6 +335,7 @@ export async function recordDriverLocation(
 
 /** Última posição de cada entregador ativo (mapa de expedição). */
 export async function getDriverMap(organizationId: string) {
+  const settings = await getDriverSchedules(organizationId);
   const drivers = await prisma.driver.findMany({
     where: { organizationId, active: true },
     select: {
@@ -351,14 +365,16 @@ export async function getDriverMap(organizationId: string) {
         }
       : null,
     activeOrders: d.orders,
+    onShift: driverShiftAvailability(readDriverSchedule(settings, d.id)).allowed,
+    shiftLabel: driverShiftAvailability(readDriverSchedule(settings, d.id)).label,
   }));
 }
 
 export async function getDriverSummary(organizationId: string) {
-  const [total, active, online, busy, dispatchesToday] = await Promise.all([
+  const [total, active, onlineDrivers, busy, dispatchesToday, settings] = await Promise.all([
     prisma.driver.count({ where: { organizationId } }),
     prisma.driver.count({ where: { organizationId, active: true } }),
-    prisma.driver.count({ where: { organizationId, active: true, status: 'ONLINE' } }),
+    prisma.driver.findMany({ where: { organizationId, active: true, status: 'ONLINE', orders: { none: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } } }, select: { id: true } }),
     prisma.driver.count({ where: { organizationId, active: true, status: 'BUSY' } }),
     prisma.order.count({
       where: {
@@ -368,7 +384,8 @@ export async function getDriverSummary(organizationId: string) {
         driverId: { not: null },
       },
     }),
+    getDriverSchedules(organizationId),
   ]);
-
+  const online = onlineDrivers.filter(driver => driverShiftAvailability(readDriverSchedule(settings, driver.id)).allowed).length;
   return { total, active, online, busy, dispatchesToday };
 }

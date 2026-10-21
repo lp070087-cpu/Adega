@@ -80,6 +80,9 @@ export async function getStockProducts(organizationId: string, limit = 500) {
       name: true,
       emoji: true,
       sku: true,
+      customImageUrl: true,
+      imageUrl: true,
+      globalProduct: { select: { defaultImageUrl: true } },
       stock: true,
       minimumStock: true,
       cost: true,
@@ -135,6 +138,7 @@ export async function adjustStock(
       select: { id: true, name: true, stock: true, trackStock: true },
     });
     if (!product) throw new OperationError('Produto não encontrado.');
+    if ('trackStock' in product && !product.trackStock) throw new OperationError('Ative o controle de estoque antes de ajustar este produto.');
 
     const previousStock = product.stock;
     const newStock = previousStock + quantity;
@@ -178,9 +182,10 @@ export async function setStock(
   return withOrganizationTransaction(organizationId, async (tx) => {
     const product = await tx.product.findFirst({
       where: { id: productId, organizationId },
-      select: { id: true, name: true, stock: true },
+      select: { id: true, name: true, stock: true, trackStock: true },
     });
     if (!product) throw new OperationError('Produto não encontrado.');
+    if ('trackStock' in product && !product.trackStock) throw new OperationError('Ative o controle de estoque antes de ajustar este produto.');
 
     const previousStock = product.stock;
     const diff = newStock - previousStock;

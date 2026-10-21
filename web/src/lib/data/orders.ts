@@ -1,4 +1,5 @@
 import 'server-only';
+import { randomUUID } from 'node:crypto';
 import { OperationError } from '@/lib/operation-error';
 import type { OrderSource, OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { prisma, toNumber } from '@/lib/db';
@@ -9,6 +10,8 @@ import { withOrganizationTransaction } from '@/lib/data/transaction';
 import { registerOrderInCash } from '@/lib/data/cash';
 import { canTransition } from '@/lib/validations/order';
 import { getCommercialAccess } from '@/lib/platform/access';
+import { assertDriverOnShift } from '@/lib/data/driver-schedules';
+import { syncOrderLoyalty, applyCampaignBenefit } from '@/lib/data/growth';
 import {
   calculateDeliveryFee,
   isOutsideDeliveryArea,
@@ -44,6 +47,7 @@ export type CheckoutItemInput = {
 
 export type CheckoutCustomerInput = {
   idempotencyKey?: string;
+  couponCode?: string;
   source?: 'OWN_STORE' | 'COUNTER' | 'WHATSAPP' | 'MANUAL';
   customerName: string;
   customerPhone: string;
@@ -345,13 +349,13 @@ export async function createOrderFromCheckout(
   organizationId: string,
   customer: CheckoutCustomerInput,
   items: CheckoutItemInput[],
-): Promise<{ orderId: string; displayId: number; total: number }> {
+): Promise<{ orderId: string; displayId: number; total: number; discount:number; deliveryFee:number }> {
   if (customer.idempotencyKey) {
     const existing = await prisma.order.findFirst({
       where: { organizationId, source: customer.source ?? 'OWN_STORE', externalId: customer.idempotencyKey },
-      select: { id: true, displayId: true, total: true },
+      select: { id: true, displayId: true, total: true, discount: true, deliveryFee: true },
     });
-    if (existing) return { orderId: existing.id, displayId: existing.displayId, total: toNumber(existing.total) };
+    if (existing) return { orderId: existing.id, displayId: existing.displayId, total: toNumber(existing.total), discount:toNumber(existing.discount),deliveryFee:toNumber(existing.deliveryFee) };
   }
   const commercial = await getCommercialAccess(organizationId);
   if (!commercial.allowNewOrders) throw new CheckoutError(commercial.message ?? 'Novos pedidos indisponíveis.');
@@ -478,16 +482,6 @@ export async function createOrderFromCheckout(
   // Troco menor que o total não é troco — é o cliente informando um valor
   // que não cobre o pedido. Barra aqui em vez de gravar um número que a
   // operação leria como "leve R$ 20 de troco para uma conta de R$ 80".
-  if (
-    customer.changeFor !== undefined &&
-    customer.changeFor > 0 &&
-    customer.changeFor < total
-  ) {
-    throw new CheckoutError(
-      `O troco pedido (R$ ${customer.changeFor.toFixed(2).replace('.', ',')}) é menor que o total do pedido.`,
-      'changeFor',
-    );
-  }
 
   const order = await prisma.$transaction(async (tx) => {
     // Tenant lock serializes numbering and duplicate checkout requests.
@@ -495,7 +489,7 @@ export async function createOrderFromCheckout(
     if (customer.idempotencyKey) {
       const existing = await tx.order.findFirst({
         where: { organizationId, source: customer.source ?? 'OWN_STORE', externalId: customer.idempotencyKey },
-        select: { id: true, displayId: true, total: true },
+        select: { id: true, displayId: true, total: true, discount: true, deliveryFee: true },
       });
       if (existing) return existing;
     }
@@ -508,6 +502,14 @@ export async function createOrderFromCheckout(
 
     const displayId = await nextDisplayId(tx, organizationId);
 
+    const benefit = !customer.source || customer.source === 'OWN_STORE'
+      ? await applyCampaignBenefit(tx, organizationId, customerRecord.id, subtotal, deliveryFee, customer.couponCode, customer.idempotencyKey ?? randomUUID())
+      : {discount:0,deliveryFee,campaignId:null};
+    const finalTotal = Math.round(Math.max(0, subtotal - benefit.discount + benefit.deliveryFee) * 100) / 100;
+    if (customer.changeFor !== undefined && customer.changeFor > 0 && customer.changeFor < finalTotal) {
+      throw new CheckoutError('O valor informado para troco é menor que o total do pedido.', 'changeFor');
+    }
+
     return tx.order.create({
       data: {
         organizationId,
@@ -519,9 +521,9 @@ export async function createOrderFromCheckout(
         customerPhone: onlyDigits(customer.customerPhone),
         status: 'NEW',
         subtotal,
-        deliveryFee,
-        discount: 0,
-        total,
+        deliveryFee: benefit.deliveryFee,
+        discount: benefit.discount,
+        total: finalTotal,
         paymentMethod: customer.paymentMethod,
         paymentStatus: 'PENDING',
         changeFor: customer.changeFor && customer.changeFor > 0 ? customer.changeFor : null,
@@ -558,7 +560,7 @@ export async function createOrderFromCheckout(
           })),
         },
       },
-      select: { id: true, displayId: true, total: true },
+      select: { id: true, displayId: true, total: true, discount: true, deliveryFee: true },
     });
   });
 
@@ -569,7 +571,7 @@ export async function createOrderFromCheckout(
         organizationId,
         type: 'ORDER',
         title: `Novo pedido #${order.displayId}`,
-        message: `${customer.customerName} — R$ ${total.toFixed(2).replace('.', ',')}`,
+        message: `${customer.customerName} — R$ ${Number(order.total).toFixed(2).replace('.', ',')}`,
         href: `/app/pedidos?pedido=${order.id}`,
       },
     })
@@ -579,6 +581,8 @@ export async function createOrderFromCheckout(
     orderId: order.id,
     displayId: order.displayId,
     total: toNumber(order.total),
+    discount: toNumber(order.discount),
+    deliveryFee: toNumber(order.deliveryFee),
   };
 }
 
@@ -770,6 +774,7 @@ export async function updateOrderStatus(
   };
 
   await tx.order.update({ where: { id: orderId }, data: stamp });
+  if (status === 'DELIVERED' || status === 'CANCELLED') await syncOrderLoyalty(tx, organizationId, orderId);
 
   // Efeitos colaterais de estoque, fora do update para não misturar.
   if (status === 'CONFIRMED') {
@@ -803,6 +808,7 @@ export async function assignDriver(
   organizationId: string,
   orderId: string,
   driverId: string,
+  transaction?: Prisma.TransactionClient,
 ) {
   return withOrganizationTransaction(organizationId, async (tx) => {
   const driver = await tx.driver.findFirst({
@@ -810,6 +816,7 @@ export async function assignDriver(
     select: { id: true, name: true, status: true },
   });
   if (!driver) throw new OperationError('Entregador não encontrado.');
+  await assertDriverOnShift(tx, organizationId, driverId);
 
   const order = await tx.order.findFirst({
     where: { id: orderId, organizationId },
@@ -859,10 +866,10 @@ export async function assignDriver(
       },
     });
   return { ok: true, driverName: driver.name };
-  });
+  }, transaction);
 }
 
-export async function unassignDriver(organizationId: string, orderId: string) {
+export async function unassignDriver(organizationId: string, orderId: string, transaction?: Prisma.TransactionClient) {
   return withOrganizationTransaction(organizationId, async (tx) => {
   const order = await tx.order.findFirst({
     where: { id: orderId, organizationId },
@@ -896,6 +903,22 @@ export async function unassignDriver(organizationId: string, orderId: string) {
       });
     }
   return { ok: true };
+  }, transaction);
+}
+
+export async function reassignDriver(organizationId:string,orderId:string,driverId:string,userId:string,reason:string){
+  if(reason.trim().length<5||reason.length>300)throw new OperationError('Informe o motivo da troca com 5 a 300 caracteres.');
+  return withOrganizationTransaction(organizationId,async tx=>{
+    const current=await tx.order.findFirst({where:{id:orderId,organizationId},select:{driverId:true,displayId:true}});
+    if(!current?.driverId||current.driverId===driverId)throw new OperationError('Selecione outro entregador para um pedido já atribuído.');
+    const previous=current.driverId;
+    await unassignDriver(organizationId,orderId,tx);
+    const result=await assignDriver(organizationId,orderId,driverId,tx);
+    const delivery=await tx.delivery.findUnique({where:{orderId},select:{notes:true}});
+    const audit=`Troca por ${userId}: ${previous} → ${driverId}. Motivo: ${reason.trim()}`;
+    await tx.delivery.update({where:{orderId},data:{notes:[delivery?.notes,audit].filter(Boolean).join('\n')}});
+    await tx.notification.create({data:{organizationId,userId,type:'DELIVERY',title:`Troca de entregador · #${current.displayId}`,message:audit,href:`/app/pedidos?pedido=${orderId}`}});
+    return result;
   });
 }
 

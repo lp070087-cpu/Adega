@@ -1,4 +1,5 @@
-﻿'use server';
+'use server';
+import { stockDefaults } from '@/lib/stock-policy';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -113,7 +114,10 @@ export async function createProductAction(formData: FormData): Promise<ActionRes
   try {
     const { organizationId, user } = await requirePermission('MANAGE_PRODUCTS');
 
-    const parsed = productSchema.safeParse(productFromForm(formData));
+    const raw = productFromForm(formData);
+    const org = await getOrganizationById(organizationId);
+    const defaults = stockDefaults(org?.settings);
+    const parsed = productSchema.safeParse({ ...raw, ...(formData.get('stock') === null && raw.trackStock ? { stock: defaults.initialStock } : {}), ...(formData.get('minimumStock') === null && raw.trackStock ? { minimumStock: defaults.minimumStock } : {}) });
     if (!parsed.success) return { ok: false, ...firstIssue(parsed.error) };
 
     await catalog.createProduct(
@@ -285,7 +289,7 @@ export async function adjustStockAction(input: {
   reason?: string;
 }): Promise<ActionResult<Awaited<ReturnType<typeof adjustStockData>>>> {
   try {
-    const { organizationId, user } = await requirePermission('MANAGE_PRODUCTS');
+    const { organizationId, user } = await requirePermission('MANAGE_STOCK');
     const parsed = stockAdjustmentSchema.safeParse(input);
     if (!parsed.success) return { ok: false, ...firstIssue(parsed.error) };
 
@@ -311,7 +315,7 @@ export async function setStockAction(input: {
   reason?: string;
 }): Promise<ActionResult<Awaited<ReturnType<typeof setStock>>>> {
   try {
-    const { organizationId, user } = await requirePermission('MANAGE_PRODUCTS');
+    const { organizationId, user } = await requirePermission('MANAGE_STOCK');
     const parsed = stockSetSchema.safeParse(input);
     if (!parsed.success) return { ok: false, ...firstIssue(parsed.error) };
 

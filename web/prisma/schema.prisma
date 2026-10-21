@@ -19,6 +19,47 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// Ativação opcional, somente após migração aprovada. Sem consultas enquanto flag desativada.
+model AssistantChannel {
+  id String @id @default(cuid())
+  organizationId String @unique
+  phoneNumberId String @unique
+  encryptedToken String
+  enabled Boolean @default(false)
+  dailyLimit Int @default(100)
+  verifiedAt DateTime?
+  webhookVerifiedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AssistantThread {
+  id String @id @default(cuid())
+  organizationId String
+  contact String
+  status String @default("BOT")
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  @@unique([organizationId, contact])
+  @@unique([id, organizationId])
+  @@index([organizationId, updatedAt])
+}
+
+model AssistantMessage {
+  id String @id @default(cuid())
+  organizationId String
+  threadId String
+  externalId String @unique
+  providerMessageId String? @unique
+  direction String
+  body String
+  status String @default("RECEIVED")
+  attempts Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([organizationId, threadId, createdAt])
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // ENUMS
 // ─────────────────────────────────────────────────────────────────────

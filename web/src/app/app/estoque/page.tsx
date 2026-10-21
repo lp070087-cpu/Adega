@@ -1,3 +1,6 @@
+import { prisma } from '@/lib/db';
+import { stockDefaults } from '@/lib/stock-policy';
+import { StockInitialization } from '@/components/stock/StockInitialization';
 import { requireOrgPage } from '@/lib/auth/guards';
 import { can } from '@/lib/permissions';
 import {
@@ -26,6 +29,7 @@ export const dynamic = 'force-dynamic';
 export default async function StockPage() {
   const ctx = await requireOrgPage('MANAGE_STOCK');
 
+  const org = await prisma.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { settings: true } });
   const [productsRaw, movementsPage, summary] = await Promise.all([
     getStockProducts(ctx.organizationId),
     getInventoryMovements(ctx.organizationId, { perPage: 100 }),
@@ -37,6 +41,8 @@ export default async function StockPage() {
     name: product.name,
     emoji: product.emoji,
     sku: product.sku,
+    customImageUrl: product.customImageUrl ?? product.imageUrl,
+    globalImageUrl: product.globalProduct?.defaultImageUrl ?? null,
     categoryName: product.category?.name ?? null,
     stock: product.stock,
     minimumStock: product.minimumStock,
@@ -71,6 +77,7 @@ export default async function StockPage() {
         </p>
       </div>
 
+      <StockInitialization products={products} defaults={stockDefaults(org.settings)} canConfigure={can(ctx.role, 'MANAGE_SETTINGS')} />
       <StockManager
         products={products}
         movements={movements}

@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/db';
 import { requirePlatformRole, PlatformAccessError, type PlatformContext } from '@/lib/platform/auth';
 import { planSchema, contractSchema, commercialPlanData, requiredDate } from '@/lib/platform/rules';
+import { ADEGA_COMMERCIAL_PLAN } from '@/lib/commercial-plan';
 
 export type PlatformActionState = { ok:boolean; message:string };
 const reasonSchema=z.string().trim().min(5,'Informe um motivo com pelo menos 5 caracteres.').max(500);
@@ -21,8 +22,17 @@ export async function platformAction(_previous:PlatformActionState,form:FormData
   if(!checked(form,'confirm')) return {ok:false,message:'Confirme a alteração antes de continuar.'};
   const reason=reasonSchema.parse(value(form,'reason'));
   await prisma.$transaction(async tx=>{
-   if(action==='plan'){
+   if(action==='publishPlan'){
+    await lock(tx,'platform:commercial-plan');
+    const current=await tx.plan.findUnique({where:{slug:ADEGA_COMMERCIAL_PLAN.slug}});
+    const previous=current?.features&&typeof current.features==='object'&&!Array.isArray(current.features)?current.features as Prisma.JsonObject:{};
+    const saved={name:ADEGA_COMMERCIAL_PLAN.name,price:new Prisma.Decimal(ADEGA_COMMERCIAL_PLAN.monthlyPrice),active:true,features:{...previous,features:[...ADEGA_COMMERCIAL_PLAN.features],commercial:{description:ADEGA_COMMERCIAL_PLAN.description,annualPrice:null}}};
+    const plan=await tx.plan.upsert({where:{slug:ADEGA_COMMERCIAL_PLAN.slug},create:{slug:ADEGA_COMMERCIAL_PLAN.slug,...saved},update:saved});
+    await tx.plan.updateMany({where:{id:{not:plan.id},active:true},data:{active:false}});
+    await audit(tx,ctx,'COMMERCIAL_PLAN_PUBLISHED','Plan',plan.id,reason,undefined,{price:'119.00',preservedContracts:true});
+   }else if(action==='plan'){
     const data=planSchema.parse({id:value(form,'id')||undefined,name:value(form,'name'),slug:value(form,'slug'),description:value(form,'description'),price:value(form,'price'),annualPrice:value(form,'annualPrice'),maxUsers:value(form,'maxUsers'),maxDrivers:value(form,'maxDrivers'),active:checked(form,'active'),features:value(form,'features')});
+    if(data.active&&(data.name!==ADEGA_COMMERCIAL_PLAN.name||data.slug!==ADEGA_COMMERCIAL_PLAN.slug||data.price!==ADEGA_COMMERCIAL_PLAN.monthlyPrice||data.annualPrice!==''))throw new PlatformAccessError('A oferta atual é Adega Completo por R$ 119,00 mensais, sem modalidade anual.');
     const previous=data.id?await tx.plan.findUniqueOrThrow({where:{id:data.id}}):null;
     const existing=previous?.features && typeof previous.features==='object' && !Array.isArray(previous.features)?previous.features as Prisma.JsonObject:{};
     const saved={name:data.name,slug:data.slug,price:new Prisma.Decimal(data.price.toFixed(2)),maxUsers:data.maxUsers,maxDrivers:data.maxDrivers,active:data.active,features:{...existing,features:data.features.split('\n').map(s=>s.trim()).filter(Boolean),commercial:{description:data.description,annualPrice:data.annualPrice===''?null:data.annualPrice.toFixed(2)}}};
@@ -34,6 +44,7 @@ export async function platformAction(_previous:PlatformActionState,form:FormData
     await tx.organization.findUniqueOrThrow({where:{id:data.organizationId},select:{id:true}});
     const plan=await tx.plan.findUniqueOrThrow({where:{id:data.planId}});
     const previous=await tx.platformContract.findUnique({where:{organizationId:data.organizationId}});
+    if((!previous||previous.planId!==plan.id)&&plan.slug!==ADEGA_COMMERCIAL_PLAN.slug)throw new PlatformAccessError('Novas contratações devem utilizar o plano Adega Completo.');
     if(!plan.active && (!previous || previous.planId!==plan.id)) throw new PlatformAccessError('Plano desativado não pode receber novas assinaturas.');
     const reprice=checked(form,'reprice');
     const preserveAmount=previous&&previous.planId===plan.id&&previous.period===data.period&&!reprice;

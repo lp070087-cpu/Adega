@@ -4,6 +4,7 @@ import type { PaymentMethod, Prisma, TransactionType } from '@prisma/client';
 import { prisma, toNumber } from '@/lib/db';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
 import { startOfDay } from '@/lib/utils';
+import { cashHandoffs } from '@/lib/cash-handoff-state';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -110,6 +111,7 @@ export function summarizeShift(
   let supplies = 0;
   let withdrawals = 0;
   let refunds = 0;
+  let nonCashRefunds = 0;
   let adjustments = 0;
 
   for (const t of transactions) {
@@ -128,7 +130,8 @@ export function summarizeShift(
         withdrawals += t.amount;
         break;
       case 'REFUND':
-        refunds += t.amount;
+        if(t.paymentMethod === 'CASH' || t.paymentMethod === null) refunds += t.amount;
+        else nonCashRefunds += t.amount;
         break;
       case 'ADJUSTMENT':
         adjustments += t.amount;
@@ -151,6 +154,7 @@ export function summarizeShift(
     supplies: round2(supplies),
     withdrawals: round2(withdrawals),
     refunds: round2(refunds),
+    nonCashRefunds: round2(nonCashRefunds),
     adjustments: round2(adjustments),
     expectedCash: round2(expectedCash),
     transactionCount: transactions.length,
@@ -172,6 +176,11 @@ export async function openCashShift(
     select: { id: true, name: true },
   });
   if (!register) throw new OperationError('Caixa não encontrado ou inativo.');
+
+  const org = await tx.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { settings: true } });
+  if (cashHandoffs(org.settings).some(h => h.registerId === register.id && h.status === 'PENDING')) {
+    throw new OperationError('Este caixa aguarda aceite da transferência pelo próximo operador.');
+  }
 
   const alreadyOpen = await tx.cashShift.findFirst({
     where: { cashRegisterId: register.id, closedAt: null },
@@ -201,6 +210,7 @@ export async function closeCashShift(
   organizationId: string,
   input: { cashShiftId: string; closingAmount: number; notes?: string },
   userId: string,
+  supervisor = false,
 ) {
   return withOrganizationTransaction(organizationId, async (tx) => {
   const shift = await tx.cashShift.findFirst({
@@ -209,6 +219,7 @@ export async function closeCashShift(
   });
   if (!shift) throw new OperationError('Turno não encontrado.');
   if (shift.closedAt) throw new OperationError('Este turno já foi fechado.');
+  if(shift.openedByUserId!==userId && (!supervisor || !input.notes || input.notes.trim().length<5))throw new OperationError('Outro operador é responsável por este turno. Peça a passagem do caixa ou registre a justificativa de supervisão.');
 
   const totals = summarizeShift(
     shift.openingAmount,
@@ -228,7 +239,7 @@ export async function closeCashShift(
       closedByUserId: userId,
       closingAmount: input.closingAmount,
       differenceAmount: difference,
-      notes: input.notes ?? null,
+      notes: shift.openedByUserId!==userId?`Encerramento por supervisão. ${input.notes}`:input.notes ?? null,
     },
   });
 

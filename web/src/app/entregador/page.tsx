@@ -52,6 +52,7 @@ export default async function DriverPage() {
           </p>
 
           <DriverLoginForm />
+          <a href="/entregador/instalar" className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-brand">Instalar app no celular</a>
 
           <p className="mt-6 text-[0.8rem] text-ink-500">
             É dono ou atendente da loja?{' '}

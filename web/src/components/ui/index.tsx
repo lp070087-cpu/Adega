@@ -143,16 +143,18 @@ export function Checkbox({
 /** Campo de dinheiro com prefixo R$. */
 export function MoneyInput({
   className,
+  style,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div className="relative">
+    <div className="relative min-w-0 w-full">
       <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[0.82rem] font-semibold text-ink-500">
         R$
       </span>
       <input
         {...props}
         inputMode="decimal"
+        style={{...style,paddingInlineStart:'2.65rem',minWidth:0}}
         className={cn('field-input pl-10', className)}
       />
     </div>

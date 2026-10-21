@@ -46,8 +46,8 @@ test('available plan slot permits creation', async () => {
 
 function driverHarness(active: boolean, deny = false) {
   let checks = 0; let writes = 0; let locks = 0;
-  const tx = { driver: { findFirst: async () => ({ active, userId: 'driver-user' }), create: async () => { writes++; return {}; }, updateMany: async () => { writes++; return { count: 1 }; } }, organizationUser: { updateMany: async () => ({ count: 1 }) } };
-  const api = isolated('src/lib/data/drivers.ts', { 'server-only': {}, '@/lib/db': { prisma: {}, toNumber: Number }, '@/lib/auth/password': { hashPassword: async () => 'hash' }, '@/lib/data/transaction': { withOrganizationTransaction: async (org: string, run: any) => { assert.equal(org, 'org'); locks++; return run(tx); } }, '@/lib/platform/quotas': { assertPlatformQuota: async (passed: unknown, org: string, kind: string) => { assert.equal(passed, tx); assert.equal(kind, 'drivers'); checks++; if (deny) throw new OperationError('quota'); } } });
+  const tx = { order: { count: async () => 0 }, driver: { findFirst: async () => ({ active, userId: 'driver-user' }), create: async () => { writes++; return {}; }, updateMany: async () => { writes++; return { count: 1 }; } }, organizationUser: { updateMany: async () => ({ count: 1 }) } };
+  const api = isolated('src/lib/data/drivers.ts', { 'server-only': {}, '@/lib/data/driver-schedules': {}, '@/lib/driver-schedule': {}, '@/lib/db': { prisma: {}, toNumber: Number }, '@/lib/auth/password': { hashPassword: async () => 'hash' }, '@/lib/data/transaction': { withOrganizationTransaction: async (org: string, run: any) => { assert.equal(org, 'org'); locks++; return run(tx); } }, '@/lib/platform/quotas': { assertPlatformQuota: async (passed: unknown, org: string, kind: string) => { assert.equal(passed, tx); assert.equal(kind, 'drivers'); checks++; if (deny) throw new OperationError('quota'); } } });
   return { api, stats: () => ({ checks, writes, locks }) };
 }
 test('driver create and reactivation fail before writes when quota is exhausted', async () => {

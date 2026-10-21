@@ -1,3 +1,4 @@
+import * as commercialPlan from '../src/lib/commercial-plan';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -42,7 +43,7 @@ class AccessError extends Error {}
 function actionHarness(role='OWNER',tx:Record<string,any>={}){
  let transactions=0;const audits:any[]=[];
  const realTx={...tx,platformAudit:{create:async(q:any)=>{audits.push(q.data);return q.data;}}};
- const actions=isolated('src/app/actions/platform.ts',{'zod':{z},'@prisma/client':{Prisma},'next/cache':{revalidatePath:()=>{}},'@/lib/db':{prisma:{$transaction:async(run:any)=>{transactions++;return run(realTx);}}},'@/lib/platform/auth':{requirePlatformRole:async(roles:string[])=>{if(!roles.includes(role))throw new AccessError('Acesso restrito.');return {userId:'user',operatorId:'op',role};},PlatformAccessError:AccessError},'@/lib/platform/rules':rules});
+ const actions=isolated('src/app/actions/platform.ts',{'zod':{z},'@prisma/client':{Prisma},'next/cache':{revalidatePath:()=>{}},'@/lib/db':{prisma:{$transaction:async(run:any)=>{transactions++;return run(realTx);}}},'@/lib/platform/auth':{requirePlatformRole:async(roles:string[])=>{if(!roles.includes(role))throw new AccessError('Acesso restrito.');return {userId:'user',operatorId:'op',role};},PlatformAccessError:AccessError},'@/lib/platform/rules':rules,'@/lib/commercial-plan':commercialPlan});
  return {run:actions.platformAction,transactions:()=>transactions,audits};
 }
 import { z } from 'zod';
@@ -58,7 +59,7 @@ test('manual payment cannot be registered twice',async()=>{
  assert.equal((await h.run({},form('payment',{id:'charge',paymentMethod:'PIX',paidAt:'2026-01-01'}))).ok,false);assert.equal(updates,0);assert.equal(h.audits.length,0);
 });
 test('contract amount comes from selected real plan and change is audited',async()=>{
- let saved:any;const h=actionHarness('ADMIN',{$queryRaw:async()=>[],organization:{findUniqueOrThrow:async()=>({id:'org'})},plan:{findUniqueOrThrow:async()=>({id:'plan',active:true,price:new Prisma.Decimal('99'),features:{commercial:{annualPrice:'1000.00'}}})},platformContract:{findUnique:async()=>null,upsert:async(q:any)=>{saved=q.create;return {id:'contract',...q.create};}}});
+ let saved:any;const h=actionHarness('ADMIN',{$queryRaw:async()=>[],organization:{findUniqueOrThrow:async()=>({id:'org'})},plan:{findUniqueOrThrow:async()=>({id:'plan',slug:'adega-completo',active:true,price:new Prisma.Decimal('99'),features:{commercial:{annualPrice:'1000.00'}}})},platformContract:{findUnique:async()=>null,upsert:async(q:any)=>{saved=q.create;return {id:'contract',...q.create};}}});
  const result=await h.run({},form('contract',{organizationId:'org',planId:'plan',status:'ACTIVE',period:'ANNUAL',startedAt:'2026-01-01',dueAt:'2027-01-01',trialEndsAt:'',graceDays:'7',amount:'0.01'}));assert.equal(result.ok,true);assert.equal(String(saved.amount),'1000');assert.equal(saved.enforceAccess,false);assert.equal(h.audits[0].action,'CONTRACT_CREATED');
 });
 
@@ -69,7 +70,7 @@ test('operator section permissions keep support away from financial and account 
 });
 test('editing only contract status preserves agreed snapshot after plan price changes',async()=>{
  for(const reprice of [false,true]){
-  let saved:any;const h=actionHarness('OWNER',{$queryRaw:async()=>[],organization:{findUniqueOrThrow:async()=>({id:'org'})},plan:{findUniqueOrThrow:async()=>({id:'plan',active:true,price:new Prisma.Decimal('150'),features:null})},platformContract:{findUnique:async()=>({id:'c',organizationId:'org',planId:'plan',period:'MONTHLY',amount:new Prisma.Decimal('99'),status:'ACTIVE'}),upsert:async(q:any)=>{saved=q.update;return {id:'c',...q.update};}}});
+  let saved:any;const h=actionHarness('OWNER',{$queryRaw:async()=>[],organization:{findUniqueOrThrow:async()=>({id:'org'})},plan:{findUniqueOrThrow:async()=>({id:'plan',slug:'adega-completo',active:true,price:new Prisma.Decimal('150'),features:null})},platformContract:{findUnique:async()=>({id:'c',organizationId:'org',planId:'plan',period:'MONTHLY',amount:new Prisma.Decimal('99'),status:'ACTIVE'}),upsert:async(q:any)=>{saved=q.update;return {id:'c',...q.update};}}});
   const f=form('contract',{organizationId:'org',planId:'plan',status:'SUSPENDED',period:'MONTHLY',startedAt:'2026-01-01',dueAt:'2027-01-01',trialEndsAt:'',graceDays:'7',...(reprice?{reprice:'on'}:{})});
   assert.equal((await h.run({},f)).ok,true);assert.equal(String(saved.amount),reprice?'150':'99');assert.equal(h.audits[0].details.previousAmount,'99');
  }
@@ -94,5 +95,10 @@ test('last usable global owner cannot be demoted or disabled',async()=>{
 });
 test('plan edit keeps unrelated feature settings and records monetary change',async()=>{
  let updated:any;const h=actionHarness('ADMIN',{plan:{findUniqueOrThrow:async()=>({id:'plan',price:new Prisma.Decimal('50'),active:true,features:{delivery:true,features:['old'],commercial:{annualPrice:null}}}),update:async(q:any)=>{updated=q.data;return {id:'plan',...q.data};}}});
- const result=await h.run({},form('plan',{id:'plan',name:'Plano Profissional',slug:'profissional',description:'Operação completa',price:'79.90',annualPrice:'790',maxUsers:'10',maxDrivers:'5',active:'on',features:'Pedidos\nEntregas'}));assert.equal(result.ok,true);assert.equal(updated.features.delivery,true);assert.deepEqual(updated.features.features,['Pedidos','Entregas']);assert.equal(updated.features.commercial.annualPrice,'790.00');assert.equal(h.audits[0].details.previousPrice,'50');
+ const result=await h.run({},form('plan',{id:'plan',name:'Adega Completo',slug:'adega-completo',description:'Operação completa',price:'119.00',annualPrice:'',maxUsers:'10',maxDrivers:'5',active:'on',features:'Pedidos\nEntregas'}));assert.equal(result.ok,true);assert.equal(updated.features.delivery,true);assert.deepEqual(updated.features.features,['Pedidos','Entregas']);assert.equal(updated.features.commercial.annualPrice,null);assert.equal(h.audits[0].details.previousPrice,'50');
 });
+test('commercial publication uses only Adega Completo119 without creating contracts or charges',async()=>{
+ const writes:any[]=[];const h=actionHarness('OWNER',{$queryRaw:async()=>[],plan:{findUnique:async()=>null,upsert:async(q:any)=>{writes.push(q);return {id:'complete',...q.create};},updateMany:async(q:any)=>{writes.push(q);return {count:2};}}});
+ const result=await h.run({},form('publishPlan'));assert.equal(result.ok,true);assert.equal(writes[0].create.slug,'adega-completo');assert.equal(String(writes[0].create.price),'119');assert.deepEqual(writes[1].where,{id:{not:'complete'},active:true});assert.deepEqual(writes[1].data,{active:false});assert.equal(h.audits[0].action,'COMMERCIAL_PLAN_PUBLISHED');
+});
+test('an active alternative price is refused server-side',async()=>{const h=actionHarness('ADMIN');const result=await h.run({},form('plan',{name:'Adega Completo',slug:'adega-completo',description:'Descrição',price:'118',annualPrice:'',maxUsers:'5',maxDrivers:'3',active:'on',features:''}));assert.equal(result.ok,false);assert.match(result.message,/119/);});

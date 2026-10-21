@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { z } from 'zod';
 import { OperationError } from '../src/lib/operation-error';
+import * as commercialPlan from '../src/lib/commercial-plan';
 function load(file: string, imports: Record<string, unknown>) {
   const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const module = { exports: {} as Record<string, any> };
@@ -73,7 +74,7 @@ test('missing encryption configuration prevents credential writes', async () => 
 test('store banners read only the requested tenant, with explicit platform fallback', async () => {
   const calls: any[] = [];
   const banners = load('src/lib/data/global-catalog.ts', {
-    'server-only': {}, '@/lib/utils': { slugify: (value: string) => value },
+    'server-only': {}, '@/lib/stock-policy': { stockDefaults: () => ({ initialStock: 25, minimumStock: 5 }) }, '@/lib/utils': { slugify: (value: string) => value },
     '@/lib/db': { toNumber: Number, prisma: { storeBanner: { findMany: async (query: any) => { calls.push(query); return []; } } } },
   });
   await banners.getBannersForStore('tenant-a', 'BEVERAGE', 'hero');
@@ -87,7 +88,7 @@ test('own banners take precedence and never query another tenant or platform def
   const calls: any[] = [];
   const own = [{ id: 'banner-a', organizationId: 'tenant-a', imagePath: '/catalog/banners/banner-01.png' }];
   const data = load('src/lib/data/global-catalog.ts', {
-    'server-only': {}, '@/lib/utils': { slugify: (value: string) => value },
+    'server-only': {}, '@/lib/stock-policy': { stockDefaults: () => ({ initialStock: 25, minimumStock: 5 }) }, '@/lib/utils': { slugify: (value: string) => value },
     '@/lib/db': { toNumber: Number, prisma: { storeBanner: { findMany: async (query: any) => { calls.push(query); return own; } } } },
   });
   assert.deepEqual(await data.getBannersForStore('tenant-a', 'BEVERAGE'), own);
@@ -104,6 +105,7 @@ test('plan requests always use session tenant and never create contracts or char
     create: async (args: any) => writes.push(args),
   } };
   const actions = load('src/app/actions/subscription-request.ts', {
+    '@/lib/commercial-plan':commercialPlan,
     zod: { z }, 'next/cache': { revalidatePath() {} }, '@/lib/db': { prisma: {} },
     '@/lib/operation-error': { OperationError },
     '@/lib/auth/guards': { requirePermission: async () => ({ organizationId: 'tenant-a', user: { id: 'user' } }), toActionError: () => ({ error: 'Indisponível' }) },
