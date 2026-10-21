@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { AppSidebar, NAV_SECTIONS } from './AppSidebar';
 import { AppHeader } from './AppHeader';
 import type { Permission } from '@/lib/permissions';
-import { storeOpenState, type WeekdaySchedule } from '@/lib/schedule';
+import { storeOpenState, type StoreOpeningMode, type WeekdaySchedule } from '@/lib/schedule';
 
 /**
  * Casca do painel: sidebar + header + conteúdo.
@@ -25,6 +25,8 @@ export type AppShellProps = {
   permissions: Permission[];
   counters: { novos: number; emAndamento: number; aguardandoEntregador: number };
   storeStatus: 'OPEN' | 'PAUSED' | 'CLOSED';
+  openingMode?: StoreOpeningMode;
+  openingTimeZone?: string;
   openingSchedule?: WeekdaySchedule[];
   statusObservedAt?: string;
   notifications: Array<{
@@ -50,6 +52,8 @@ export function AppShell({
   counters,
   storeStatus,
   openingSchedule = [],
+  openingMode = 'AUTO',
+  openingTimeZone = 'America/Sao_Paulo',
   statusObservedAt,
   notifications,
   user,
@@ -64,7 +68,7 @@ export function AppShell({
     const timer = window.setInterval(() => setNow(new Date()), 30000);
     return () => window.clearInterval(timer);
   }, []);
-  const effectiveStoreState = storeOpenState(storeStatus, openingSchedule, now);
+  const effectiveStoreState = storeOpenState(storeStatus, openingSchedule, now, openingMode, openingTimeZone);
 
   // Trocar de página fecha a gaveta: no mobile ela cobriria o conteúdo.
   useEffect(() => {
@@ -100,6 +104,7 @@ export function AppShell({
           title={current?.label ?? 'Painel'}
           subtitle={organizationName}
           storeStatus={storeStatus}
+          openingMode={openingMode}
           effectiveStoreState={effectiveStoreState}
           canChangeStatus={canChangeStatus}
           userName={user.name}

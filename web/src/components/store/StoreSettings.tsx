@@ -1,6 +1,8 @@
 'use client';
+import { announceStoreAvailability } from './StoreAvailabilitySync';
+import { setStoreOpeningModeAction } from '@/app/actions/store-opening';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn, formatBRL } from '@/lib/utils';
@@ -16,7 +18,7 @@ import {
   deleteDeliveryZoneAction,
 } from '@/app/actions/store-ops';
 import { BUSINESS_COPY, STORE_STATUS_LABEL } from '@/data/business-copy';
-import { summarizeSchedule, type WeekdaySchedule } from '@/lib/schedule';
+import { STORE_OPENING_MODE_LABEL, type StoreOpeningMode, summarizeSchedule, type WeekdaySchedule } from '@/lib/schedule';
 import { ScheduleEditor } from './ScheduleEditor';
 import { DeliveryAreaMap } from './DeliveryAreaMap';
 import {
@@ -84,6 +86,7 @@ export type StoreFormData = {
   extraKmFee: number;
   averageDeliveryTime: number;
   storeStatus: string;
+  openingMode: StoreOpeningMode;
   /**
    * Agenda estruturada (settings.openingHours) e faixas de frete
    * (settings.deliveryTiers). Chegam separadas de `openingHours` porque
@@ -108,23 +111,23 @@ export type StoreFormData = {
   allowMarketplace: boolean;
 };
 
-const STORE_STATUSES: Array<{ value: StoreStatus; label: string; hint: string; tone: string }> = [
+const STORE_STATUSES: Array<{ value: StoreOpeningMode; label: string; hint: string; tone: string }> = [
   {
-    value: 'OPEN',
-    label: 'Aberta',
-    hint: 'A vitrine aceita pedidos agora.',
+    value: 'MANUAL_OPEN',
+    label: 'Aberta manualmente',
+    hint: 'Recebe pedidos mesmo fora dos horários configurados.',
     tone: 'border-success/40 bg-success-bg text-success',
   },
   {
-    value: 'PAUSED',
-    label: 'Pausada',
-    hint: 'A vitrine continua no ar, mas sem receber pedidos por um tempo.',
+    value: 'AUTO',
+    label: 'Automático',
+    hint: 'Segue os horários configurados e o fuso da loja.',
     tone: 'border-warn/40 bg-warn-bg text-warn',
   },
   {
-    value: 'CLOSED',
-    label: 'Fechada',
-    hint: 'Fora do horário. A vitrine aparece como fechada.',
+    value: 'MANUAL_CLOSED',
+    label: 'Fechada manualmente',
+    hint: 'Impede novos pedidos até você reabrir.',
     tone: 'border-danger/40 bg-danger-bg text-danger',
   },
 ];
@@ -159,7 +162,8 @@ export function StoreSettings({
 
   const [tab, setTab] = useState<'identity' | 'address' | 'hours' | 'delivery'>('identity');
   const [form, setForm] = useState<StoreFormData>(store);
-  const [status, setStatus] = useState(store.storeStatus);
+  const [status, setStatus] = useState<StoreOpeningMode>(store.openingMode);
+  useEffect(() => setStatus(store.openingMode), [store.openingMode]);
   const [copied, setCopied] = useState(false);
 
   /**
@@ -307,20 +311,13 @@ export function StoreSettings({
     });
   }
 
-  function changeStatus(next: StoreStatus) {
+  function changeStatus(next: StoreOpeningMode) {
     setError(null);
-    const previous = status;
-    // Otimista: a troca de status é reversível e o servidor confirma
-    // logo em seguida. Se falhar, o valor volta ao anterior.
-    setStatus(next);
-
     startTransition(async () => {
-      const result = await setStoreStatusAction(next);
-      if (!result.ok) {
-        setStatus(previous);
-        setError(result.error);
-        return;
-      }
+      const result = await setStoreOpeningModeAction(next);
+      if (!result.ok) {setError(result.error);return;}
+      setStatus(next);
+      announceStoreAvailability(result.slug);
       router.refresh();
     });
   }
@@ -345,7 +342,7 @@ export function StoreSettings({
         <CardHeader
           title="Status da loja"
           subtitle="Controla se a vitrine aceita pedidos agora."
-          action={<Badge tone="neutral">{STORE_STATUS_LABEL[status as StoreStatus] ?? status}</Badge>}
+          action={<Badge tone="neutral">{STORE_OPENING_MODE_LABEL[status]}</Badge>}
         />
 
         <div className="grid gap-2.5 sm:grid-cols-3">

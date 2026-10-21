@@ -14,6 +14,21 @@
 export type OpeningPeriod = { open: string; close: string };
 export type WeekdaySchedule = { weekday: number; closed: boolean; periods: OpeningPeriod[] };
 
+export type StoreOpeningMode = 'AUTO' | 'MANUAL_OPEN' | 'MANUAL_CLOSED';
+export const STORE_OPENING_MODE_LABEL: Record<StoreOpeningMode, string> = {
+  AUTO: 'Automático', MANUAL_OPEN: 'Aberta manualmente', MANUAL_CLOSED: 'Fechada manualmente',
+};
+export function storeOpeningMode(settings: unknown, legacyStatus = 'OPEN'): StoreOpeningMode {
+  const value = settings && typeof settings === 'object' && !Array.isArray(settings) ? (settings as Record<string, unknown>).storeOpeningMode : undefined;
+  if (value === 'AUTO' || value === 'MANUAL_OPEN' || value === 'MANUAL_CLOSED') return value;
+  return legacyStatus === 'OPEN' ? 'AUTO' : 'MANUAL_CLOSED';
+}
+export function storeTimeZone(settings: unknown): string {
+  const value=settings&&typeof settings==='object'&&!Array.isArray(settings)?(settings as Record<string,unknown>).timeZone:undefined;
+  if(typeof value==='string'){try{new Intl.DateTimeFormat('pt-BR',{timeZone:value}).format();return value;}catch{}}
+  return 'America/Sao_Paulo';
+}
+
 /** 0 = domingo … 6 = sábado, como Date.getDay(). */
 export const WEEKDAY_LABELS = [
   'Domingo',
@@ -140,6 +155,7 @@ function toHour(value: string): string {
 export function isOpenNow(
   schedule: WeekdaySchedule[],
   now: Date = new Date(),
+  timeZone = 'America/Sao_Paulo',
 ): boolean | null {
   const days = Array.isArray(schedule) ? schedule : [];
   if (days.length === 0) return null;
@@ -149,7 +165,7 @@ export function isOpenNow(
 
   // Use the store's Brazilian operating timezone on both browser and server.
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Sao_Paulo', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    timeZone, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
   }).formatToParts(now);
   const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
   const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(part('weekday'));
@@ -199,10 +215,14 @@ export function storeOpenState(
   storeStatus: string,
   schedule: WeekdaySchedule[],
   now: Date = new Date(),
+  mode: StoreOpeningMode = 'AUTO',
+  timeZone = 'America/Sao_Paulo',
 ): StoreOpenState {
+  if (mode === 'MANUAL_OPEN') return 'OPEN';
+  if (mode === 'MANUAL_CLOSED') return 'CLOSED';
   if (storeStatus === 'PAUSED') return 'PAUSED';
   if (storeStatus === 'CLOSED') return 'CLOSED';
-  const bySchedule = isOpenNow(schedule, now);
+  const bySchedule = isOpenNow(schedule, now, timeZone);
   if (bySchedule === false) return 'CLOSED_BY_SCHEDULE';
   return 'OPEN';
 }

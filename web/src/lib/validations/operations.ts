@@ -27,8 +27,8 @@ export const customerAddressSchema = z.object({
 // ── ENTREGADORES ───────────────────────────────────────────────────────
 
 export const driverSchema = z.object({
-  name: requiredText('Nome', 2, 120),
-  phone: phoneSchema,
+  name: requiredText('Primeiro nome', 2, 120).refine(value => /^[\p{L}][\p{L}\p{M} '\u2019-]*$/u.test(value), 'Informe um nome válido'),
+  phone: z.union([z.literal(''), phoneSchema]).optional().default(''),
   vehicleType: z.nativeEnum(VehicleType).default('MOTORCYCLE'),
   vehiclePlate: optionalText(10),
   active: z.boolean().default(true),
@@ -49,7 +49,7 @@ export const driverStatusSchema = z.object({
  */
 export const createDriverWithLoginSchema = driverSchema.extend({
   createLogin: z.boolean().default(false),
-  email: z.string().email('E-mail inválido').optional().or(z.literal('')),
+  email: z.string().trim().toLowerCase().email('E-mail inválido').max(254).optional().or(z.literal('')),
   username: usernameSchema.optional().or(z.literal('')),
   password: z.string().min(8, 'Mínimo 8 caracteres').max(72).optional().or(z.literal('')),
 });

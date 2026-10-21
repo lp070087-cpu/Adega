@@ -1,4 +1,5 @@
 import 'server-only';
+import { storeOpeningMode, storeTimeZone } from '@/lib/schedule';
 import { randomUUID } from 'node:crypto';
 import { OperationError } from '@/lib/operation-error';
 import type { OrderSource, OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
@@ -349,6 +350,7 @@ export async function createOrderFromCheckout(
   organizationId: string,
   customer: CheckoutCustomerInput,
   items: CheckoutItemInput[],
+  portalAccount?: {id:string;sessionHash:string},
 ): Promise<{ orderId: string; displayId: number; total: number; discount:number; deliveryFee:number }> {
   if (customer.idempotencyKey) {
     const existing = await prisma.order.findFirst({
@@ -383,11 +385,11 @@ export async function createOrderFromCheckout(
     throw new CheckoutError('Este estabelecimento não está disponível para pedidos.');
   }
   const openingHours = (organization.settings as Record<string, unknown> | null)?.openingHours;
-  const openState = storeOpenState(organization.storeStatus, normalizeSchedule(openingHours));
+  const openState = storeOpenState(organization.storeStatus, normalizeSchedule(openingHours), undefined, storeOpeningMode(organization.settings, organization.storeStatus), storeTimeZone(organization.settings));
   if (openState === 'CLOSED' || openState === 'CLOSED_BY_SCHEDULE') {
     throw new CheckoutError('A loja está fechada neste momento.');
   }
-  if (organization.storeStatus === 'PAUSED') {
+  if (openState === 'PAUSED') {
     throw new CheckoutError('A loja está pausada e não está aceitando pedidos agora.');
   }
 
@@ -493,6 +495,9 @@ export async function createOrderFromCheckout(
       });
       if (existing) return existing;
     }
+    const fresh = await tx.organization.findUnique({where:{id:organizationId},select:{storeStatus:true,settings:true,status:true}});
+    if(!fresh || !['ACTIVE','TRIAL'].includes(fresh.status) || storeOpenState(fresh.storeStatus,normalizeSchedule((fresh.settings as Record<string,unknown>|null)?.openingHours),undefined,storeOpeningMode(fresh.settings,fresh.storeStatus),storeTimeZone(fresh.settings))!=='OPEN') throw new CheckoutError('A loja não está recebendo novos pedidos neste momento.');
+    if(portalAccount && !await tx.customerPortalSession.findFirst({where:{tokenHash:portalAccount.sessionHash,accountId:portalAccount.id,expiresAt:{gt:new Date()},account:{organizationId,active:true,emailVerifiedAt:{not:null}}}})) throw new CheckoutError('Sua sessão mudou. Entre novamente antes de finalizar.');
     const customerRecord = await upsertCustomer(
       tx,
       organizationId,
@@ -516,6 +521,7 @@ export async function createOrderFromCheckout(
         displayId,
         source: customer.source ?? 'OWN_STORE',
         externalId: customer.idempotencyKey ?? null,
+        ...(portalAccount ? {portalLink:{create:{accountId:portalAccount.id}}} : {}),
         customerId: customerRecord.id,
         customerName: customer.customerName,
         customerPhone: onlyDigits(customer.customerPhone),

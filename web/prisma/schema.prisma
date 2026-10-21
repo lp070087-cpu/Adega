@@ -317,6 +317,7 @@ model Organization {
   users              OrganizationUser[]
   categories         Category[]
   products           Product[]
+  portalAccounts     CustomerPortalAccount[]
   customers          Customer[]
   orders             Order[]
   drivers            Driver[]
@@ -951,6 +952,7 @@ model Order {
   items            OrderItem[]
   delivery         Delivery?
   cashTransactions CashTransaction[]
+  portalLink       CustomerPortalOrder?
 
   @@unique([organizationId, displayId])
   /// Idempotência de webhook: um mesmo pedido externo não entra duas vezes.
@@ -1395,4 +1397,72 @@ model PlatformSupportCase {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   @@index([organizationId, status])
+}
+
+// Consumer identities are independent from User/OrganizationUser and never grant staff roles.
+model CustomerPortalAccount {
+  id String @id @default(cuid())
+  organizationId String
+  firstName String
+  email String
+  passwordHash String
+  phone String?
+  emailVerifiedAt DateTime?
+  active Boolean @default(true)
+  marketingOptIn Boolean @default(false)
+  noticesReadAt DateTime?
+  failedAttempts Int @default(0)
+  lockedUntil DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Cascade)
+  sessions CustomerPortalSession[]
+  tokens CustomerPortalToken[]
+  addresses CustomerPortalAddress[]
+  orders CustomerPortalOrder[]
+  @@unique([organizationId,email])
+}
+model CustomerPortalSession {
+  tokenHash String @id
+  accountId String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  account CustomerPortalAccount @relation(fields:[accountId],references:[id],onDelete:Cascade)
+  @@index([accountId,expiresAt])
+}
+model CustomerPortalToken {
+  tokenHash String @id
+  accountId String
+  purpose String
+  passwordHash String?
+  email String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  account CustomerPortalAccount @relation(fields:[accountId],references:[id],onDelete:Cascade)
+  @@index([accountId,purpose,createdAt])
+}
+model CustomerPortalAddress {
+  id String @id @default(cuid())
+  accountId String
+  label String?
+  street String
+  number String
+  complement String?
+  district String
+  city String
+  state String
+  zipCode String
+  isDefault Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  account CustomerPortalAccount @relation(fields:[accountId],references:[id],onDelete:Cascade)
+  @@index([accountId])
+}
+model CustomerPortalOrder {
+  orderId String @id
+  accountId String
+  createdAt DateTime @default(now())
+  order Order @relation(fields:[orderId],references:[id],onDelete:Cascade)
+  account CustomerPortalAccount @relation(fields:[accountId],references:[id],onDelete:Cascade)
+  @@index([accountId,createdAt])
 }

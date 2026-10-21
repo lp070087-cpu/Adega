@@ -1,12 +1,13 @@
 'use client';
+import { announceStoreAvailability } from '@/components/store/StoreAvailabilitySync';
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { cn } from '@/lib/utils';
 import { Bell, ChevronDown, Menu } from 'lucide-react';
 import { logoutAction } from '@/app/actions/auth';
-import { setStoreStatusAction } from '@/app/actions/organization';
-import { STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
+import { setStoreOpeningModeAction } from '@/app/actions/store-opening';
+import { STORE_OPENING_MODE_LABEL, type StoreOpeningMode, STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
 
 /**
  * Header do painel — título da página, estado da loja, notificações e
@@ -24,6 +25,7 @@ export function AppHeader({
   subtitle,
   storeStatus,
   effectiveStoreState = storeStatus,
+  openingMode = 'AUTO',
   canChangeStatus,
   userName,
   roleLabel,
@@ -34,6 +36,7 @@ export function AppHeader({
   subtitle?: string;
   storeStatus: 'OPEN' | 'PAUSED' | 'CLOSED';
   effectiveStoreState?: StoreOpenState;
+  openingMode?: StoreOpeningMode;
   canChangeStatus: boolean;
   userName: string;
   roleLabel: string;
@@ -45,11 +48,11 @@ export function AppHeader({
   const [showUser, setShowUser] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
 
-  function changeStatus(next: 'OPEN' | 'PAUSED' | 'CLOSED') {
+  function changeStatus(next: StoreOpeningMode) {
     startTransition(async () => {
-      const result = await setStoreStatusAction(next);
+      const result = await setStoreOpeningModeAction(next);
       if (!result.ok) window.alert(result.error);
-      else router.refresh();
+      else { announceStoreAvailability(result.slug); router.refresh(); }
     });
   }
 
@@ -77,7 +80,7 @@ export function AppHeader({
 
       {effectiveStoreState === 'CLOSED_BY_SCHEDULE' && (
         <p role="status" className="order-last w-full text-xs text-ink-600">
-          Novos pedidos estão fechados pelo horário configurado. A opção seguir horários não força a abertura.{' '}
+          Novos pedidos estão fechados pelo horário configurado. Escolha Aberta manualmente para atender fora da agenda.{' '}
           <a href="/app/configuracoes/minha-loja" className="font-semibold text-brand underline">Consultar horários</a>
         </p>
       )}
@@ -85,20 +88,20 @@ export function AppHeader({
       <div className="flex max-w-full flex-wrap items-center gap-2">
         {/* Estado da loja: abrir/pausar/fechar sem sair da tela. */}
         {canChangeStatus ? (
-          <div className="relative" title="Pausar ou fechar bloqueia novos pedidos. Quando habilitada, a loja segue os horários configurados, no fuso de Brasília/Recife.">
+          <div className="relative" title="Automático segue a agenda de Brasília/Recife. Abertura manual ignora a agenda; fechamento manual bloqueia novos pedidos.">
             <select
-              value={storeStatus}
+              value={openingMode}
               disabled={pending}
-              onChange={(e) => changeStatus(e.target.value as 'OPEN' | 'PAUSED' | 'CLOSED')}
+              onChange={(e) => changeStatus(e.target.value as StoreOpeningMode)}
               aria-label="Status da loja"
               className={cn(
                 'max-w-[180px] cursor-pointer appearance-none truncate rounded-full border-0 py-1.5 pl-3.5 pr-7 text-[0.74rem] font-bold outline-none transition-all disabled:opacity-60 sm:max-w-none',
                 effectiveStoreState === 'CLOSED_BY_SCHEDULE' ? STATUS_CLASS.CLOSED : STATUS_CLASS[storeStatus],
               )}
             >
-              <option value="OPEN">{effectiveStoreState === 'CLOSED_BY_SCHEDULE' ? 'Fechada pelo horário' : storeStatus === 'OPEN' ? 'Aberta agora' : 'Habilitar loja'} · seguir horários</option>
-              <option value="PAUSED">Loja pausada</option>
-              <option value="CLOSED">Loja fechada</option>
+              <option value="AUTO">Automático</option>
+              <option value="MANUAL_OPEN">Aberta manualmente</option>
+              <option value="MANUAL_CLOSED">Fechada manualmente</option>
             </select>
             <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[0.6rem]">
               <ChevronDown className="h-3.5 w-3.5" />
@@ -111,7 +114,7 @@ export function AppHeader({
               effectiveStoreState === 'CLOSED_BY_SCHEDULE' ? STATUS_CLASS.CLOSED : STATUS_CLASS[storeStatus],
             )}
           >
-            {STORE_OPEN_STATE_LABEL[effectiveStoreState]}
+            {STORE_OPENING_MODE_LABEL[openingMode]} · {STORE_OPEN_STATE_LABEL[effectiveStoreState]}
           </span>
         )}
 

@@ -1,0 +1,20 @@
+'use client';
+import Link from 'next/link';
+import { UserRound } from 'lucide-react';
+import { useEffect,useState } from 'react';
+import { CustomerForm } from './CustomerForm';
+type Address={id:string;label:string|null;street:string;number:string;complement:string|null;district:string;city:string;state:string;zipCode:string;isDefault:boolean};
+type CustomerInfo={account:{firstName:string;email:string;phone:string|null}|null;addresses?:Address[];pointsEnabled?:boolean};
+export function CustomerStoreAccess({slug}:{slug:string}){
+ const [info,setInfo]=useState<CustomerInfo|null>(null),base=`/loja/${slug}/conta`;
+ useEffect(()=>{const controller=new AbortController();const load=()=>fetch(`${base}/sessao`,{cache:'no-store',signal:controller.signal}).then(response=>response.ok?response.json():null).then(setInfo).catch(()=>{});void load();window.addEventListener('focus',load);window.addEventListener('customer-session-changed',load);return()=>{controller.abort();window.removeEventListener('focus',load);window.removeEventListener('customer-session-changed',load);};},[base]);
+ if(!info?.account)return <div className="flex shrink-0 items-center gap-2 text-xs font-semibold sm:text-sm"><Link href={`${base}/entrar`} className="inline-flex min-h-10 items-center gap-1 rounded-full px-2 hover:bg-ink-50"><UserRound size={18}/><span>Entrar</span></Link><Link href={`${base}/criar-conta`} className="inline-flex min-h-10 items-center rounded-full px-2 hover:bg-ink-50">Criar conta</Link></div>;
+ return <details className="relative shrink-0"><summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 rounded-full px-2 text-sm font-semibold"><UserRound size={18}/><span className="max-w-24 truncate">{info.account.firstName.split(' ')[0]}</span></summary><div className="absolute right-0 top-12 z-[80] grid w-60 gap-1 rounded-2xl bg-white p-3 text-sm shadow-xl ring-1 ring-black/5">{[['','Minha conta'],['pedidos','Meus pedidos'],['enderecos','Meus endereços'],...(info.pointsEnabled?[['pontos','Programa de pontos']]:[])].map(([path,label])=><Link key={path} className="rounded-lg p-2 hover:bg-ink-50" href={`${base}${path?`/${path}`:''}`}>{label}</Link>)}<CustomerForm slug={slug} action="logout" submit="Sair"/></div></details>;
+}
+export function CustomerCheckoutAccess({slug}:{slug:string}){
+ const [info,setInfo]=useState<CustomerInfo|null>(null),base=`/loja/${slug}/conta`;
+ useEffect(()=>{const controller=new AbortController();fetch(`${base}/sessao`,{cache:'no-store',signal:controller.signal}).then(response=>response.ok?response.json():null).then(setInfo).catch(()=>{});return()=>controller.abort();},[base]);
+ if(!info?.account)return <p className="text-sm text-ink-500">Já tem conta? <Link className="font-semibold underline" href={`${base}/entrar`}>Entrar</Link> ou <Link className="font-semibold underline" href={`${base}/criar-conta`}>criar conta</Link>. Sua sacola continua salva. Você também pode comprar sem login.</p>;
+ function fill(button:HTMLButtonElement,address?:Address){const form=button.closest('form');if(!form||!info?.account)return;const values:Record<string,string>={customerName:info.account.firstName,customerPhone:info.account.phone??'',...(address?{deliveryAddress:[address.street,address.complement].filter(Boolean).join(', '),deliveryNumber:address.number,deliveryDistrict:address.district,deliveryCity:address.city,deliveryZipCode:address.zipCode}:{})};for(const [name,value]of Object.entries(values)){const field=form.elements.namedItem(name);if(field instanceof HTMLInputElement&&(address||!field.value))field.value=value;}}
+ return <section className="space-y-2 rounded-xl bg-ink-50 p-3 text-sm"><p>Pedido na conta de <strong>{info.account.firstName}</strong>.</p><button type="button" className="min-h-10 font-semibold underline" onClick={event=>fill(event.currentTarget)}>Usar meus dados</button>{info.addresses?.map(address=><button key={address.id} type="button" className="block min-h-10 text-left underline" onClick={event=>fill(event.currentTarget,address)}>{address.isDefault?'Principal: ':''}{address.label||address.street} · {address.number}</button>)}</section>;
+}

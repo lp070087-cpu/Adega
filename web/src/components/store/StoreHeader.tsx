@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { CustomerStoreAccess } from '@/components/customer/CustomerStoreAccess';
 import { ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { copyByType } from '@/data/business-copy';
@@ -105,8 +106,8 @@ export function StoreHeader({
       )}
       style={{ ['--brand' as string]: brandColor }}
     >
-      <div className="mx-auto flex h-16 max-w-[1180px] items-center gap-3 px-4 sm:px-5">
-        <a href="#inicio" className="flex min-w-0 items-center gap-2.5">
+      <div className="mx-auto flex min-h-16 flex-wrap py-2 max-w-[1180px] items-center gap-3 px-4 sm:px-5">
+        <a href="#inicio" className="flex min-w-0 max-w-full items-center gap-2.5">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -146,7 +147,8 @@ export function StoreHeader({
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2 lg:ml-2">
+        <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1 lg:ml-2">
+          <CustomerStoreAccess slug={slug}/>
           <button
             type="button"
             onClick={onCartClick}

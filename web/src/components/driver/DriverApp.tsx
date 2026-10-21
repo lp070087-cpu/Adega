@@ -10,7 +10,7 @@ import {
   sendDriverLocationAction,
   setMyDriverStatusAction,
 } from '@/app/actions/orders';
-import { logoutAction } from '@/app/actions/auth';
+import { driverLogoutAction as logoutAction } from '@/app/actions/auth';
 import { reportFailedDeliveryAction } from '@/app/actions/drivers';
 import { Alert, Badge, Button, Card, EmptyState, Input } from '@/components/ui';
 import { DriverInstall } from '@/components/driver/DriverInstall';

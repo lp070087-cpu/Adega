@@ -1,3 +1,4 @@
+import { storeOpeningMode, storeTimeZone } from '@/lib/schedule';
 import { redirect } from 'next/navigation';
 import { requireOrg } from '@/lib/auth/guards';
 import { AuthError } from '@/lib/auth/guards';
@@ -91,6 +92,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         emAndamento: counters.emAndamento,
         aguardandoEntregador: counters.aguardandoEntregador,
       }}
+      openingTimeZone={storeTimeZone(organization.settings)}
+      openingMode={storeOpeningMode(organization.settings, organization.storeStatus)}
       storeStatus={organization.storeStatus}
       openingSchedule={normalizeSchedule((organization.settings as Record<string, unknown> | null)?.openingHours)}
       statusObservedAt={new Date().toISOString()}

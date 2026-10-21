@@ -1,5 +1,5 @@
 import { auth } from '@/lib/auth';
-import { logoutAction } from '@/app/actions/auth';
+import { driverLogoutAction as logoutAction } from '@/app/actions/auth';
 import { requireDriver, AuthError } from '@/lib/auth/guards';
 import { getDriverOrders } from '@/lib/data/orders';
 import { getOrganizationById } from '@/lib/data/organization';

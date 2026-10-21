@@ -1,3 +1,4 @@
+import { storeOpeningMode } from '@/lib/schedule';
 import { headers } from 'next/headers';
 import { requireOrgPage } from '@/lib/auth/guards';
 import { can } from '@/lib/permissions';
@@ -72,6 +73,7 @@ export default async function MyStorePage() {
     extraKmFee: Number(organization.extraKmFee),
     averageDeliveryTime: organization.averageDeliveryTime,
     storeStatus: organization.storeStatus,
+    openingMode: storeOpeningMode(organization.settings, organization.storeStatus),
     // Vêm de settings (Json). `getStoreOperations` já reconfere o formato —
     // o que estiver gravado errado ali vira lista vazia, não tela quebrada.
     schedule: operations?.schedule ?? [],

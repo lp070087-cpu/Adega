@@ -1,4 +1,5 @@
 'use server';
+import { storeOpeningMode, storeTimeZone } from '@/lib/schedule';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { requirePermission, toActionError } from '@/lib/auth/guards';
@@ -14,7 +15,7 @@ function actionMessage(error: unknown) { return error instanceof z.ZodError ? er
 async function assertCapacity(organizationId: string) {
   const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { storeStatus: true, settings: true } });
   const settings = org?.settings && typeof org.settings === 'object' && !Array.isArray(org.settings) ? org.settings as Record<string, unknown> : {};
-  if (!org || storeOpenState(org.storeStatus, normalizeSchedule(settings.openingHours)) !== 'OPEN') throw new OperationError('A loja precisa estar aberta para ativar ou publicar Entrega Turbo.');
+  if (!org || storeOpenState(org.storeStatus, normalizeSchedule(settings.openingHours), undefined, storeOpeningMode(settings, org.storeStatus), storeTimeZone(settings)) !== 'OPEN') throw new OperationError('A loja precisa estar aberta para ativar ou publicar Entrega Turbo.');
   if (!(await getDriverMap(organizationId)).some(d => d.status === 'ONLINE' && d.onShift && d.activeOrders.length === 0)) throw new OperationError('Não há entregador livre e em horário de trabalho. Revise a capacidade antes de oferecer Entrega Turbo.');
 }
 export async function saveTurboAction(_state: TurboActionState, form: FormData): Promise<TurboActionState> {

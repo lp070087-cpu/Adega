@@ -23,7 +23,7 @@ export type DriverActionResult<T = undefined> =
 function driverFromForm(formData: FormData) {
   return {
     name: formData.get('name'),
-    phone: formData.get('phone'),
+    phone: formData.get('phone') || '',
     vehicleType: formData.get('vehicleType') || 'MOTORCYCLE',
     vehiclePlate: formData.get('vehiclePlate') || undefined,
     active: formData.get('active') !== 'off',

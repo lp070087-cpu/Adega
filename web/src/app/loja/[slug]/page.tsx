@@ -1,3 +1,5 @@
+import { StoreAvailabilitySync } from '@/components/store/StoreAvailabilitySync';
+import { storeOpeningMode, storeTimeZone } from '@/lib/schedule';
 import { brandRgb } from '@/lib/brand';
 import './store.css';
 import { notFound } from 'next/navigation';
@@ -121,7 +123,7 @@ export default async function PublicStorePage({ params }: PageProps) {
    * que a agenda diz. Sem o cruzamento, uma loja que fecha às 23h apareceria
    * "aberta" às 2h da manhã só porque ninguém trocou o status.
    */
-  const openState = storeOpenState(store.storeStatus, schedule);
+  const openState = storeOpenState(store.storeStatus, schedule, undefined, storeOpeningMode(settings, store.storeStatus), storeTimeZone(settings));
   const commercial = await getCommercialAccess(store.id);
 
   // Sem destaques configurados, mostrar produtos reais do próprio catálogo.
@@ -240,6 +242,7 @@ export default async function PublicStorePage({ params }: PageProps) {
 
   return (
     <main className="storefront min-h-screen bg-white" style={{ "--store-brand": store.brandColor, "--brand": store.brandColor, "--orange": store.brandColor, "--brand-rgb": brandRgb(store.brandColor) } as React.CSSProperties}>
+      <StoreAvailabilitySync slug={slug} initialState={openState} mode={storeOpeningMode(settings,store.storeStatus)} />
       <StoreCatalog
         transitionBanners={mobileBanners.filter(b=>b.placement.startsWith('transition:'))}
         hero={hero}

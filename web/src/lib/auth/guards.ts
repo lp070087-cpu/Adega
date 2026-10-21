@@ -272,6 +272,8 @@ export async function requireDriver() {
   });
 
   if (!driver) {
+    const inactive = await prisma.driver.findFirst({where:{organizationId:ctx.organizationId,userId:ctx.user.id,active:false},select:{id:true}});
+    if(inactive)throw new AuthError('Seu cadastro de entregador está inativo. Solicite a reativação ao estabelecimento.','FORBIDDEN');
     throw new AuthError(
       'Seu usuário não está vinculado a um cadastro de entregador.',
       'FORBIDDEN',

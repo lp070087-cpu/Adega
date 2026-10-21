@@ -78,7 +78,7 @@ export async function driverLoginAction(
       password: parsed.data.password,
       driverOnly:'true',
       remember:formData.get('remember')==='on'?'true':'false',
-      redirectTo: '/entregador',
+      redirectTo: '/entregador/',
     });
     return undefined;
   } catch (error) {
@@ -185,3 +185,5 @@ export async function changePasswordAction(
 
   return { error: undefined };
 }
+
+export async function driverLogoutAction(){await signOut({redirectTo:'/entregador/'});}

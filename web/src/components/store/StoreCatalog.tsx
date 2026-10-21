@@ -5,6 +5,7 @@ import { cn, formatBRL } from '@/lib/utils';
 import { checkoutAction } from '@/app/actions/orders';
 import { Alert, Button, Field, Input, Modal, Select, Textarea } from '@/components/ui';
 import { ProductThumb } from '@/components/catalog/ProductThumb';
+import { CustomerCheckoutAccess } from '@/components/customer/CustomerStoreAccess';
 import { StoreHeader } from '@/components/store/StoreHeader';
 import { STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
 import type { BusinessType } from '@prisma/client';
@@ -807,6 +808,7 @@ export function StoreCatalog({
         }
       >
         <form id="checkout-form" action={submitOrder} className="space-y-4">
+          <CustomerCheckoutAccess slug={store.slug}/>
           {error && <Alert tone="danger">{error}</Alert>}
 
           {/* ── Modalidade ── */}

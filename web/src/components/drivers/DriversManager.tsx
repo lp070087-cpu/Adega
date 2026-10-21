@@ -405,7 +405,7 @@ export function DriversManager({
         subtitle={
           editing
             ? 'Edição não altera login nem senha — isso é fluxo separado.'
-            : 'O acesso ao app do entregador é opcional, mas é ele que permite ver os pedidos atribuídos.'
+            : 'Informe primeiro nome e e-mail. Os demais dados podem ser preenchidos depois. O titular confirma a identidade e define a própria senha.'
         }
         size="md"
         footer={
@@ -426,7 +426,7 @@ export function DriversManager({
         )}
 
         <div className="grid gap-x-4 sm:grid-cols-2">
-          <Field label="Nome completo" required>
+          <Field label="Primeiro nome" required>
             <Input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -435,7 +435,7 @@ export function DriversManager({
             />
           </Field>
 
-          <Field label="Telefone" required>
+          <Field label="Telefone (opcional)">
             <Input
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}

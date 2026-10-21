@@ -1,4 +1,5 @@
-﻿'use server';
+'use server';
+import { setStoreOpeningModeAction } from '@/app/actions/store-opening';
 
 import { revalidatePath } from 'next/cache';
 import type { StoreStatus } from '@prisma/client';
@@ -122,20 +123,8 @@ export async function updateOrganizationAction(formData: FormData): Promise<OrgA
  * cozinha: exige permissão de pedidos.
  */
 export async function setStoreStatusAction(storeStatus: StoreStatus): Promise<OrgActionResult> {
-  try {
-    const { organizationId } = await requirePermission('MANAGE_ORDERS');
-    if (!STORE_STATUSES.includes(storeStatus)) {
-      return { ok: false, error: 'Status de loja inválido.' };
-    }
-
-    await orgData.setStoreStatus(organizationId, storeStatus);
-    revalidatePath('/app', 'layout');
-    const organization = await orgData.getOrganizationById(organizationId);
-    if (organization?.slug) revalidatePath(`/loja/${organization.slug}`, 'layout');
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, ...toActionError(error) };
-  }
+  if (!STORE_STATUSES.includes(storeStatus)) return {ok:false,error:'Status de loja inválido.'};
+  return setStoreOpeningModeAction(storeStatus === 'OPEN' ? 'MANUAL_OPEN' : 'MANUAL_CLOSED');
 }
 
 const STORE_STATUSES: StoreStatus[] = ['OPEN', 'PAUSED', 'CLOSED'];
