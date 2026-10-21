@@ -20,7 +20,7 @@ export function commercialPlanData(features: unknown): {description:string; annu
 
 export function canPlatformSection(role:string,section:string){
  if(role==='OWNER'||role==='ADMIN')return true;
- if(role==='FINANCE')return ['','estabelecimentos','planos','assinaturas','financeiro'].includes(section);
+ if(role==='FINANCE')return ['','estabelecimentos','planos','assinaturas','financeiro','asaas'].includes(section);
  if(role==='SUPPORT')return ['estabelecimentos','integracoes','suporte'].includes(section);
  return false;
 }

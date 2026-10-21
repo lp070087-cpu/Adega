@@ -24,8 +24,8 @@ export const viewport: Viewport = {
  * Sem sidebar e sem menu do painel: o entregador tem uma tarefa por vez.
  * O shell é deliberadamente outra coisa — o painel é mesa, isto é rua.
  *
- * O metadata do manifest está no layout raiz (`manifest: /manifest.webmanifest`),
- * então a instalação na tela inicial vale para o app inteiro.
+ * O manifest pertence exclusivamente à área do entregador. Painel e loja
+ * possuem identidades de instalação independentes.
  * ═══════════════════════════════════════════════════════════════════════
  */
 export default function DriverLayout({ children }: { children: React.ReactNode }) {

@@ -9,13 +9,26 @@ export function DriverInstall({ compact = false }: { compact?: boolean }) {
   const [installed, setInstalled] = useState(false);
   const [status, setStatus] = useState('');
   useEffect(() => {
+    // The establishment may share the driver install link, but its own
+    // browser install prompt belongs to the management app, not the driver.
+    if (!/^\/entregador(?:\/|$)/.test(window.location.pathname)) return;
     const standalone = window.matchMedia('(display-mode: standalone)');
     const update = () => setInstalled(standalone.matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone));
     const before = (event: Event) => { event.preventDefault(); setPrompt(event as InstallEvent); };
     const complete = () => { setInstalled(true); setPrompt(null); };
     update(); standalone.addEventListener('change', update);
     window.addEventListener('beforeinstallprompt', before); window.addEventListener('appinstalled', complete);
-    if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('/driver-sw.js', { scope: '/entregador' }).catch(() => setStatus('Use o menu do navegador para adicionar à tela inicial.'));
+    if ('serviceWorker' in navigator && window.isSecureContext) {
+      void (async () => {
+        const legacyScope = new URL('/entregador', window.location.origin).href;
+        const script = new URL('/driver-sw.js', window.location.origin).href;
+        for (const registration of await navigator.serviceWorker.getRegistrations()) {
+          const registered = registration.active ?? registration.waiting ?? registration.installing;
+          if (registration.scope === legacyScope && registered?.scriptURL === script) await registration.unregister();
+        }
+        await navigator.serviceWorker.register('/driver-sw.js', { scope: '/entregador/', updateViaCache: 'none' });
+      })().catch(() => setStatus('Use o menu do navegador para adicionar à tela inicial.'));
+    }
     return () => { standalone.removeEventListener('change', update); window.removeEventListener('beforeinstallprompt', before); window.removeEventListener('appinstalled', complete); };
   }, []);
   async function install() {

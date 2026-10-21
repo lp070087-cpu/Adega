@@ -13,6 +13,6 @@ test('driver service worker leaves APIs, mutations and other tenant pages untouc
 });
 test('driver manifest icons exist and start in authenticated driver area without granting access', () => {
   const manifest = JSON.parse(readFileSync('public/manifest.webmanifest', 'utf8'));
-  assert.equal(manifest.start_url, '/entregador'); assert.equal(manifest.display, 'standalone');
+  assert.equal(manifest.id, '/entregador'); assert.equal(manifest.start_url, '/entregador/'); assert.equal(manifest.scope, '/entregador/'); assert.equal(manifest.display, 'standalone');
   for (const icon of manifest.icons) assert.ok(readFileSync(`public${icon.src}`).length > 0);
 });

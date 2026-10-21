@@ -1,5 +1,7 @@
-import NextAuth from 'next-auth';
+import NextAuth, { type NextAuthRequest } from 'next-auth';
 import { authConfig } from '@/lib/auth/config';
+import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server';
+import { canonicalAppPath, requiresSessionMiddleware } from '@/lib/pwa-paths';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -19,7 +21,21 @@ import { authConfig } from '@/lib/auth/config';
  * segurança — a fronteira está nos server actions e nas queries.
  * ═══════════════════════════════════════════════════════════════════════
  */
-export default NextAuth(authConfig).auth;
+const authenticatedMiddleware = NextAuth(authConfig).auth(
+  (_request: NextAuthRequest, _event: NextFetchEvent) => NextResponse.next(),
+);
+export default function middleware(request: NextRequest, event: NextFetchEvent) {
+  const canonical = canonicalAppPath(request.nextUrl.pathname);
+  if (canonical) {
+    // NextURL serializes using Next's trailingSlash=false setting and would
+    // remove this slash again, causing a redirect back to the same URL.
+    const url = new URL(request.url);
+    url.pathname = canonical;
+    return NextResponse.redirect(url, 308);
+  }
+  if (requiresSessionMiddleware(request.nextUrl.pathname)) return authenticatedMiddleware(request, event);
+  return NextResponse.next();
+}
 
 export const config = {
   /**
@@ -31,7 +47,8 @@ export const config = {
    * entre mostrar o formulário ou o app — a autorização fina continua no
    * servidor, via requireDriver().
    *
-   * Fora do matcher também: /loja (pública), /login, /cadastro e assets.
+   * As demais páginas recebem apenas a normalização de URL; não passam
+   * pelo Auth.js. API e arquivos internos do Next não são interceptados.
    */
-  matcher: ['/app/:path*', '/onboarding/:path*'],
+  matcher: ['/((?!api/|_next/|favicon.ico).*)'],
 };

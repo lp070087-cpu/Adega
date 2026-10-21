@@ -1,1 +1,5 @@
-export default function AdminLoading(){return <div role="status" aria-live="polite"><div className="platform-header"><small>Adega · Administração central</small><h1>Carregando…</h1></div><div className="platform-metrics">{[1,2,3,4].map(i=><div key={i} className="platform-metric" aria-hidden="true"><div style={{height:12,width:'55%',background:'#e9edf2',borderRadius:4}}/><div style={{height:28,width:'35%',background:'#edf0f4',borderRadius:4,marginTop:18}}/></div>)}</div></div>;}
+import { RouteSkeleton } from '@/components/ui/RouteSkeleton';
+
+export default function Loading() {
+  return <RouteSkeleton variant="dashboard" label="Carregando administração central…" />;
+}

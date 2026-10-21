@@ -3,7 +3,7 @@ import { LayoutDashboard, Building2, Layers3, CreditCard, Wallet, Plug, Users, L
 import { requirePlatformPage } from '@/lib/platform/auth';
 import '../platform.css';
 import { canPlatformSection } from '@/lib/platform/rules';
-const items=[['','Dashboard',LayoutDashboard],['estabelecimentos','Estabelecimentos',Building2],['planos','Planos',Layers3],['assinaturas','Assinaturas',CreditCard],['financeiro','Financeiro SaaS',Wallet],['integracoes','Integrações',Plug],['servicos','Serviços',Settings],['usuarios','Usuários',Users],['suporte','Suporte',LifeBuoy],['configuracoes','Configurações',Settings],['auditoria','Auditoria',ScrollText]] as const;
+const items=[['','Dashboard',LayoutDashboard],['estabelecimentos','Estabelecimentos',Building2],['planos','Planos',Layers3],['assinaturas','Assinaturas',CreditCard],['financeiro','Financeiro SaaS',Wallet],['asaas','Asaas',CreditCard],['integracoes','Integrações',Plug],['servicos','Serviços',Settings],['usuarios','Usuários',Users],['suporte','Suporte',LifeBuoy],['configuracoes','Configurações',Settings],['auditoria','Auditoria',ScrollText]] as const;
 export const dynamic='force-dynamic';
 export default async function AdminLayout({children}:{children:React.ReactNode}){
  const operator=await requirePlatformPage();

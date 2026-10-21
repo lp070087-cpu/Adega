@@ -1,9 +1,10 @@
 {
+  "id": "/entregador",
   "name": "Adega — Entregador",
   "short_name": "Entregador",
   "description": "App do entregador: pedidos atribuídos, rota e confirmação de entrega.",
-  "start_url": "/entregador",
-  "scope": "/entregador",
+  "start_url": "/entregador/",
+  "scope": "/entregador/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F7F7F8",

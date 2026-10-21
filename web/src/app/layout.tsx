@@ -35,7 +35,6 @@ export const metadata: Metadata = {
   description:
     'Plataforma de gestão de pedidos, catálogo, entregas e caixa para estabelecimentos de delivery.',
   applicationName: 'Delivery Platform',
-  manifest: '/manifest.webmanifest',
   robots: { index: false, follow: false },
 };
 

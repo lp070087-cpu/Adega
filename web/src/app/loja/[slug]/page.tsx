@@ -64,7 +64,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     store.description?.trim() ||
     `${store.name} — ${copy.noun} com pedidos online. ${copy.description}`;
 
-  const canonical = `/loja/${store.slug}`;
+  const canonical = `/loja/${store.slug}/`;
 
   return {
     title: store.name,

@@ -7,6 +7,15 @@ import { ROLE_LABEL } from '@/data/business-copy';
 import { getOrderCounters } from '@/lib/data/orders';
 import { AppShell } from '@/components/layout/AppShell';
 import { getCommercialAccess } from '@/lib/platform/access';
+import type { Metadata } from 'next';
+import { InstallApp } from '@/components/pwa/InstallApp';
+
+export const metadata: Metadata = {
+  manifest: '/pwa/panel.webmanifest',
+  applicationName: 'Adega Gestão',
+  icons: { apple: '/pwa/panel-192.png', icon: '/pwa/panel-192.png' },
+  appleWebApp: { capable: true, title: 'Adega Gestão', statusBarStyle: 'default' },
+};
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -89,6 +98,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       {commercial.message && <div role="status" className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">{commercial.message}</div>}
       {children}
+      <InstallApp name="Adega Gestão" worker="/pwa/panel-sw.js" scope="/app/" />
     </AppShell>
   );
 }
