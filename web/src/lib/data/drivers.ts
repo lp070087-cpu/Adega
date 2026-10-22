@@ -246,6 +246,10 @@ export async function updateDriver(
   return withOrganizationTransaction(organizationId, async (tx) => {
   const current = await tx.driver.findFirst({ where: { id: driverId, organizationId }, select: { active: true, userId: true } });
   if (!current) throw new Error('Entregador não encontrado.');
+  if(input.active!==undefined&&current.userId&&process.env.DRIVER_APPLICATIONS_ENABLED==='true'&&await (await import('./driver-applications')).driverApplicationsReady()){
+    const application=await tx.driverApplication.findUnique({where:{organizationId_userId:{organizationId,userId:current.userId}},select:{status:true}});
+    if(application&&(input.active!==current.active||input.active&&application.status!=='APPROVED'))throw new Error('Use as decisões de aprovação, suspensão ou revogação para alterar este acesso com histórico.');
+  }
   if (input.active === false) {
     const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
     if (ongoing) throw new Error('Conclua ou remova as atribuições antes de desativar o entregador.');
@@ -302,6 +306,7 @@ export async function deactivateDriver(organizationId: string, driverId: string)
     select: { id: true, userId: true },
   });
   if (!driver) throw new Error('Entregador não encontrado.');
+  if(driver.userId&&process.env.DRIVER_APPLICATIONS_ENABLED==='true'&&await (await import('./driver-applications')).driverApplicationsReady()&&await tx.driverApplication.findUnique({where:{organizationId_userId:{organizationId,userId:driver.userId}},select:{id:true}}))throw new Error('Use a suspensão ou revogação na seção de entregadores aprovados para preservar o histórico da decisão.');
   const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
   if (ongoing) throw new Error('Conclua ou remova as atribuições antes de desativar o entregador.');
     await tx.driver.update({

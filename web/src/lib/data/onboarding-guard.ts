@@ -12,4 +12,5 @@ export async function lockOnboardingAccount(tx: Prisma.TransactionClient, userId
     select: { id: true },
   });
   if (membership) throw new OperationError('Sua conta já possui um estabelecimento. Acesse o painel.');
+  if(process.env.DRIVER_APPLICATIONS_ENABLED==='true'&&await (await import('./driver-applications')).driverApplicationsReady()&&await tx.driverApplication.findFirst({where:{userId},select:{id:true}}))throw new OperationError('Esta conta é de entregador. Acompanhe sua solicitação no aplicativo.');
 }

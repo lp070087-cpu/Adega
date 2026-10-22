@@ -5,6 +5,7 @@ import { cn, formatBRL, timeAgo } from '@/lib/utils';
 import { ORDER_STATUS_LABEL } from '@/data/business-copy';
 import { SourceBadge } from '@/components/ui/StatusBadge';
 import { nextStatuses } from '@/lib/validations/order';
+import { operationalStatus } from '@/lib/order-presentation';
 import type { OrderStatus } from '@prisma/client';
 
 /**
@@ -28,19 +29,19 @@ const COLUMNS: Array<{ status: OrderStatus; accent: string; dot: string }> = [
   { status: 'CONFIRMED', accent: 'border-t-info', dot: 'bg-info' },
   { status: 'PREPARING', accent: 'border-t-warn', dot: 'bg-warn' },
   { status: 'READY', accent: 'border-t-teal', dot: 'bg-teal' },
-  { status: 'WAITING_DRIVER', accent: 'border-t-accent', dot: 'bg-accent' },
   { status: 'DISPATCHED', accent: 'border-t-info', dot: 'bg-info' },
   { status: 'DELIVERED', accent: 'border-t-success', dot: 'bg-success' },
+  { status: 'CANCELLED', accent: 'border-t-danger', dot: 'bg-danger' },
 ];
 
 /** Rótulo curto do botão que leva ao próximo status. */
 const ADVANCE_LABEL: Partial<Record<OrderStatus, string>> = {
   CONFIRMED: 'Aceitar',
-  PREPARING: 'Preparar',
-  READY: 'Pronto',
-  WAITING_DRIVER: 'Aguardar entregador',
-  DISPATCHED: 'Despachar',
-  DELIVERED: 'Entregar',
+  PREPARING: 'Separar',
+  READY: 'Concluir separação',
+  WAITING_DRIVER: 'Selecionar entregador',
+  DISPATCHED: 'Saiu para entrega',
+  DELIVERED: 'Finalizar',
 };
 
 export type KanbanOrder = {
@@ -91,7 +92,7 @@ export function OrderKanban({
     const map = new Map<string, KanbanOrder[]>();
     for (const column of COLUMNS) map.set(column.status, []);
     for (const order of orders) {
-      map.get(order.status)?.push(order);
+      map.get(operationalStatus(order.status,order.deliveryType))?.push(order);
     }
     return map;
   }, [orders]);
@@ -107,7 +108,7 @@ export function OrderKanban({
 
   return (
     <div className="kanban-scroll -mx-1 flex gap-3 overflow-x-auto px-1 pb-3">
-      {COLUMNS.map((column) => {
+      {COLUMNS.filter(column=>(column.status!=='READY'||orders.some(order=>order.deliveryType==='PICKUP'))&&(column.status!=='CANCELLED'||orders.some(order=>order.status==='CANCELLED'))).map((column) => {
         const items = grouped.get(column.status) ?? [];
         const isCollapsed = collapsed.has(column.status);
         const sum = items.reduce((acc, o) => acc + o.total, 0);
@@ -201,7 +202,7 @@ function OrderCard({
    */
   const options = order.deliveryType === 'PICKUP' && order.status === 'READY'
     ? ['DELIVERED' as OrderStatus]
-    : nextStatuses(order.status as OrderStatus).filter((s) => s !== 'CANCELLED');
+    : nextStatuses(order.status as OrderStatus).filter((s) => s !== 'CANCELLED' && s !== 'WAITING_DRIVER');
   const itemCount = order.items.reduce((acc, i) => acc + i.quantity, 0);
 
   // Pedido novo há muito tempo: sinaliza atraso sem precisar de relatório.

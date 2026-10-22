@@ -22,7 +22,7 @@ import {Eye,EyeOff} from 'lucide-react';
  * como hash — nunca em texto puro (ver src/lib/auth/password.ts).
  * ═══════════════════════════════════════════════════════════════════════
  */
-export function DriverLoginForm() {
+export function DriverLoginForm({storeNumber}:{storeNumber?:string}={}) {
   const [state, formAction, pending] = useActionState<AuthActionState, FormData>(
     driverLoginAction,
     undefined,
@@ -31,6 +31,7 @@ export function DriverLoginForm() {
 
   return (
     <form action={formAction} className="mt-6 text-left">
+      {storeNumber&&<input type="hidden" name="storeNumber" value={storeNumber}/>}
       {state?.error && (
         <p
           role="alert"

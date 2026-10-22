@@ -4,7 +4,8 @@ const nextConfig = {
   // Middleware preserves the slash only on installed app roots; other URLs
   // retain the previous canonical form without a trailing slash.
   skipTrailingSlashRedirect: true,
-  experimental: { serverActions: { bodySizeLimit: '6mb' } },
+  // Optional local mode for machines with little RAM; all checks remain enabled.
+  experimental: { ...(process.env.DEL_FLASH_LOW_MEMORY_BUILD === 'true' ? { cpus: 1 } : {}), serverActions: { bodySizeLimit: '6mb' } },
   // O app do entregador e a loja pública renderizam imagens vindas de
   // storage externo (Vercel Blob / Cloudinary / S3). Os domínios reais
   // entram aqui quando o Storage for plugado (ver src/lib/storage.ts).

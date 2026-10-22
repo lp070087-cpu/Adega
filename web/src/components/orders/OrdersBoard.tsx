@@ -13,6 +13,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { StatusBadge, SourceBadge, PaymentMethodBadge } from '@/components/ui/StatusBadge';
 import type { OrderStatus } from '@prisma/client';
 import { ManualOrderModal, type ManualProduct } from './ManualOrderModal';
+import { operationalStatus } from '@/lib/order-presentation';
 
 /**
  * Central de Pedidos: kanban para a operação, tabela para consulta.
@@ -50,7 +51,7 @@ export function OrdersBoard({
     return orders.filter((order) => {
       if (statusFilter === 'abertos' && ['DELIVERED', 'CANCELLED'].includes(order.status)) return false;
       if (statusFilter === 'fechados' && !['DELIVERED', 'CANCELLED'].includes(order.status)) return false;
-      if (statusFilter && statusFilter !== 'abertos' && statusFilter !== 'fechados' && order.status !== statusFilter)
+      if (statusFilter && statusFilter !== 'abertos' && statusFilter !== 'fechados' && operationalStatus(order.status,order.deliveryType) !== statusFilter)
         return false;
       if (sourceFilter && order.source !== sourceFilter) return false;
       if (term) {
@@ -93,7 +94,7 @@ export function OrdersBoard({
     {
       key: 'status',
       header: 'Status',
-      render: (order) => <StatusBadge status={order.status} />,
+      render: (order) => <StatusBadge status={order.status} deliveryType={order.deliveryType} />,
     },
     {
       key: 'origem',
@@ -177,7 +178,7 @@ export function OrdersBoard({
           <option value="abertos">Em andamento</option>
           <option value="fechados">Finalizados</option>
           <option value="">Todos os status</option>
-          {Object.entries(ORDER_STATUS_LABEL).map(([value, label]) => (
+          {Object.entries(ORDER_STATUS_LABEL).filter(([value])=>value!=='WAITING_DRIVER').map(([value, label]) => (
             <option key={value} value={value}>
               {label}
             </option>

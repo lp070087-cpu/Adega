@@ -620,7 +620,7 @@ function OrderCard({
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
           <Badge tone={isDelivery ? 'green' : late ? 'yellow' : 'orange'}>
             {isDelivery
-              ? 'Entregue'
+              ? 'Finalizado'
               : order.delivery
                 ? DELIVERY_STATUS_LABEL[order.delivery.status] ?? order.delivery.status
                 : 'Atribuída'}

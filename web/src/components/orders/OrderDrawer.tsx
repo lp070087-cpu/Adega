@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { formatBRL, formatDateTime, onlyDigits } from '@/lib/utils';
 import { ORDER_STATUS_LABEL } from '@/data/business-copy';
+import { operationalLabel } from '@/lib/order-presentation';
 import {
   assignDriverAction,
   unassignDriverAction,
@@ -137,7 +138,7 @@ export function OrderDrawer({
 
   const options = order.deliveryType === 'PICKUP' && order.status === 'READY'
     ? ['DELIVERED' as OrderStatus]
-    : nextStatuses(order.status as OrderStatus).filter((s) => s !== 'CANCELLED');
+    : nextStatuses(order.status as OrderStatus).filter((s) => s !== 'CANCELLED' && s !== 'WAITING_DRIVER');
   const isOpen = !['DELIVERED', 'CANCELLED'].includes(order.status);
 
   return (
@@ -154,7 +155,7 @@ export function OrderDrawer({
             </Button>
             {options.map((status) => (
               <Button key={status} onClick={() => advance(status)} loading={pending}>
-                {ORDER_STATUS_LABEL[status]}
+                {status==='READY'&&order.deliveryType!=='PICKUP'?'Concluir separação':operationalLabel(status,order.deliveryType)}
               </Button>
             ))}
           </>
@@ -194,7 +195,7 @@ export function OrderDrawer({
       )}
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
-        <StatusBadge status={order.status} />
+        <StatusBadge status={order.status} deliveryType={order.deliveryType} />
         <SourceBadge source={order.source} />
         <PaymentMethodBadge method={order.paymentMethod} />
         <PaymentStatusBadge status={order.paymentStatus} />

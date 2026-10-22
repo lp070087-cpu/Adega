@@ -1,3 +1,4 @@
+import { operationalLabel } from '@/lib/order-presentation';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
@@ -30,7 +31,7 @@ export default async function TrackOrder({ params }: {
       <p className="text-sm text-ink-500">{order.organization.name}</p>
       <h1 className="text-2xl font-bold">Pedido #{order.displayId}</h1>
       <section aria-live="polite" className="space-y-3 rounded-xl border bg-white p-5">
-        <p className="text-xl font-semibold">{ORDER_STATUS_LABEL[order.status]}</p>
+        <p className="text-xl font-semibold">{operationalLabel(order.status,order.deliveryType)}</p>
         <p>Total: {formatBRL(toNumber(order.total))}</p>
         <p>{order.deliveryType === 'PICKUP' ? 'Retirada no estabelecimento' : 'Entrega no endereço informado'}</p>
         <OrderRefresh terminal={terminal} />

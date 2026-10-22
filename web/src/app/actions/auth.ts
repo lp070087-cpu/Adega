@@ -73,12 +73,15 @@ export async function driverLoginAction(
   }
 
   try {
+    const {resolveRegistrationLink,registrationPath}=await import('@/lib/data/driver-applications');
+    const storeNumber=formData.get('storeNumber');
+    const target=typeof storeNumber==='string'?await resolveRegistrationLink(storeNumber):null;
     await signIn('credentials', {
       login: parsed.data.login,
       password: parsed.data.password,
       driverOnly:'true',
       remember:formData.get('remember')==='on'?'true':'false',
-      redirectTo: '/entregador/',
+      redirectTo: target?registrationPath(target):'/entregador/',
     });
     return undefined;
   } catch (error) {

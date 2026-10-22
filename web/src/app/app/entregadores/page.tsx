@@ -10,6 +10,8 @@ import { getDriverSchedules } from '@/lib/data/driver-schedules';
 import { readDriverSchedule } from '@/lib/driver-schedule';
 import {driverMailReady} from '@/lib/auth/driver-access';
 import { prisma } from '@/lib/db';
+import { driverApplicationsReady,getRegistrationLink,listDriverApplications,pendingDriverApplicationCount,registrationPath } from '@/lib/data/driver-applications';
+import { DriverApplicationsManager,DriverApplicationShare } from '@/components/drivers/DriverApplicationsManager';
 
 export const metadata = { title: 'Entregadores' };
 export const dynamic = 'force-dynamic';
@@ -25,6 +27,8 @@ export const dynamic = 'force-dynamic';
  */
 export default async function DriversPage() {
   const ctx = await requireOrgPage('MANAGE_DRIVERS');
+  const applicationsEnabled=await driverApplicationsReady();
+  const [registrationLink,applications,pendingCount]=await Promise.all([getRegistrationLink(ctx.organizationId),listDriverApplications(ctx.organizationId),pendingDriverApplicationCount(ctx.organizationId)]);
   const invitationStore = await prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { slug: true } });
 
   const [driversRaw, summary, settings] = await Promise.all([
@@ -69,7 +73,9 @@ export default async function DriversPage() {
         </p>
       </div>
 
-      <DriversManager
+      {applicationsEnabled&&<DriverApplicationShare path={registrationLink?registrationPath(registrationLink):null} pendingCount={pendingCount} publicUrl={process.env.APP_PUBLIC_URL??null}/>}
+      {pendingCount>200&&<p className="text-sm text-ink-500">Mostrando as 200 solicitações pendentes mais antigas de {pendingCount}. Ao decidir, as próximas serão carregadas.</p>}
+      <DriverApplicationsManager applications={applications.map(a=>({...a,createdAt:a.createdAt.toISOString(),user:{...a.user,emailVerified:a.user.emailVerified?.toISOString()??null},events:a.events.map(e=>({...e,createdAt:e.createdAt.toISOString()}))}))} approved={<DriversManager
         drivers={drivers}
         summary={{
           total: summary.total,
@@ -79,8 +85,7 @@ export default async function DriversPage() {
           dispatchesToday: summary.dispatchesToday,
         }}
         canManage={can(ctx.role, 'MANAGE_DRIVERS')}
-      />
-      <DriverScheduleManager drivers={drivers} schedules={Object.fromEntries(drivers.map(driver => [driver.id, readDriverSchedule(settings, driver.id)]))} />
+      />} scales={<DriverScheduleManager drivers={drivers} schedules={Object.fromEntries(drivers.map(driver => [driver.id, readDriverSchedule(settings, driver.id)]))} />} />
       <DriverInstall compact />
       <DriverInstallShare storeSlug={invitationStore?.slug} />
     </div>

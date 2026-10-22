@@ -69,9 +69,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const driverOnly=raw?.driverOnly==='true';
         const membership = driverOnly ? user.organizations.find(m=>m.role==='DRIVER') :
           user.organizations.find((m) => m.role === 'OWNER') ?? user.organizations[0];
-        if(driverOnly&&(user.organizations.some(m=>m.role!=='DRIVER')||!membership||!await prisma.driver.findFirst({where:{userId:user.id,organizationId:membership.organizationId,active:true},select:{id:true}})))return null;
+        const pendingApplicant=!membership&&process.env.DRIVER_APPLICATIONS_ENABLED==='true'&&await (await import('@/lib/data/driver-applications')).driverApplicationsReady()&&Boolean(await prisma.driverApplication.findFirst({where:{userId:user.id},select:{id:true}}));
+        if(driverOnly&&(user.organizations.some(m=>m.role!=='DRIVER')||(!pendingApplicant&&(!membership||!await prisma.driver.findFirst({where:{userId:user.id,organizationId:membership.organizationId,active:true},select:{id:true}})))))return null;
         const platformIdentity=membership?.role==='DRIVER'?await isPlatformIdentity(prisma,user.id):false;
-        if(driverOnly&&platformIdentity)return null;
+        if(driverOnly&&(platformIdentity||await isPlatformIdentity(prisma,user.id)))return null;
         if(membership?.role==='DRIVER'&&!platformIdentity&&user.mustChangePassword)return null;
 
         await prisma.user.update({
@@ -85,10 +86,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email ?? '',
           image: user.image,
           organizationId: membership?.organizationId ?? null,
-          role: membership?.role ?? null,
+          role: membership?.role ?? (pendingApplicant?'DRIVER':null),
           organizationName: membership?.organization.name ?? null,
           organizationSlug: membership?.organization.slug ?? null,
-          ...(membership?.role==='DRIVER'&&!platformIdentity?{driverSessionStartedAt:Date.now(),driverSessionUntil:Date.now()+(raw?.remember==='true'?7*24:8)*60*60*1000}:{}),
+          ...((membership?.role==='DRIVER'||pendingApplicant)&&!platformIdentity?{driverSessionStartedAt:Date.now(),driverSessionUntil:Date.now()+(raw?.remember==='true'?7*24:8)*60*60*1000}:{}),
         };
       },
     }),

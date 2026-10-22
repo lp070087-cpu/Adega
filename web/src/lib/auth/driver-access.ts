@@ -14,10 +14,15 @@ export function driverMailReady(){
 }
 async function eligible(email:string){
  const user=await prisma.user.findUnique({where:{email},include:{organizations:true}});
- if(!user?.active||!user.email||!user.organizations.length||user.organizations.some(m=>m.role!=='DRIVER'))return null;
+ if(!user?.active||!user.email||user.organizations.some(m=>m.role!=='DRIVER'))return null;
  if(await isPlatformIdentity(prisma,user.id))return null;
  const driver=await prisma.driver.findFirst({where:{userId:user.id,active:true,organizationId:{in:user.organizations.filter(m=>m.active).map(m=>m.organizationId)}},select:{id:true,organizationId:true}});
- return driver?{user,driver}:null;
+ if(driver)return {user,driver,applicant:false};
+ if(user.emailVerified&&process.env.DRIVER_APPLICATIONS_ENABLED==='true'&&await (await import('@/lib/data/driver-applications')).driverApplicationsReady()){
+  const application=await prisma.driverApplication.findFirst({where:{userId:user.id},select:{organizationId:true}});
+  if(application)return {user,driver:{id:'',organizationId:application.organizationId},applicant:true};
+ }
+ return null;
 }
 const identifier=(mode:DriverAccessMode,userId:string,email:string)=>`driver:${mode}:${userId}:${driverTokenHash(email)}`;
 
@@ -29,7 +34,7 @@ export async function requestDriverAccess(email:string,mode:DriverAccessMode){
  const token=randomBytes(32).toString('hex');const digest=driverTokenHash(token);
  const key=identifier(mode,account.user.id,account.user.email!);
  const created=await withOrganizationTransaction(account.driver.organizationId,async tx=>{
-   const current=await tx.driver.findFirst({where:{id:account.driver.id,organizationId:account.driver.organizationId,active:true,user:{active:true,email:account.user.email}},select:{id:true}});
+   const current=account.applicant?await tx.driverApplication.findFirst({where:{organizationId:account.driver.organizationId,userId:account.user.id,user:{active:true,email:account.user.email,emailVerified:{not:null}}},select:{id:true}}):await tx.driver.findFirst({where:{id:account.driver.id,organizationId:account.driver.organizationId,active:true,user:{active:true,email:account.user.email}},select:{id:true}});
    if(!current)return false;
    const pending=await tx.verificationToken.findFirst({where:{identifier:key,expires:{gt:new Date()}}});
    if(pending)return false;
@@ -61,14 +66,15 @@ export async function consumeDriverAccess(userId:string,token:string,mode:Driver
  const passwordHash=await hashPassword(password);
  await withOrganizationTransaction(account.driver.organizationId,async tx=>{
    const current=await tx.user.findUnique({where:{id:userId},include:{organizations:true}});
-   const driver=await tx.driver.findFirst({where:{id:account.driver.id,organizationId:account.driver.organizationId,userId,active:true},select:{id:true}});
-   if(!driver||!current?.active||current.email!==account.user.email||current.organizations.some(m=>m.role!=='DRIVER')||!current.organizations.some(m=>m.organizationId===account.driver.organizationId&&m.role==='DRIVER'&&m.active)||(mode==='activate'&&!current.mustChangePassword))throw new OperationError('Acesso indisponível. Solicite um novo link.');
+   const driver=account.applicant?await tx.driverApplication.findFirst({where:{organizationId:account.driver.organizationId,userId},select:{id:true}}):await tx.driver.findFirst({where:{id:account.driver.id,organizationId:account.driver.organizationId,userId,active:true},select:{id:true}});
+   if(!driver||!current?.active||current.email!==account.user.email||current.organizations.some(m=>m.role!=='DRIVER')||(!account.applicant&&!current.organizations.some(m=>m.organizationId===account.driver.organizationId&&m.role==='DRIVER'&&m.active))||(account.applicant&&!current.emailVerified)||(mode==='activate'&&!current.mustChangePassword))throw new OperationError('Acesso indisponível. Solicite um novo link.');
    if(await isPlatformIdentity(tx,userId))throw new OperationError('Este acesso deve ser administrado pela plataforma.');
    const used=await tx.verificationToken.deleteMany({where:{identifier:key,token:digest,expires:{gt:new Date()}}});
    if(used.count!==1)throw new OperationError('Link inválido ou expirado. Solicite outro.');
    await tx.user.update({where:{id:userId},data:{passwordHash,mustChangePassword:false,emailVerified:new Date()}});
    await tx.verificationToken.deleteMany({where:{identifier:{startsWith:`driver:${mode==='activate'?'reset':'activate'}:${userId}:`}}});
    await revokeDriverSessions(tx,account.driver.organizationId,userId);
+   for(const organizationId of [...new Set(current.organizations.map(m=>m.organizationId))].filter(id=>id!==account.driver.organizationId).sort())await revokeDriverSessions(tx,organizationId,userId);
    await tx.notification.create({data:{organizationId:account.driver.organizationId,userId,type:'SYSTEM',title:mode==='activate'?'Acesso de entregador ativado':'Senha de entregador redefinida',message:'Verificação por link de e-mail concluída pelo titular.'}});
  });
  return account.user.email!;

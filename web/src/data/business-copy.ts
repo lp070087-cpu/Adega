@@ -172,12 +172,12 @@ export const STORE_STATUS_LABEL: Record<StoreStatusValue, string> = {
 
 export const ORDER_STATUS_LABEL: Record<string, string> = {
   NEW: 'Novo',
-  CONFIRMED: 'Confirmado',
-  PREPARING: 'Em preparo',
-  READY: 'Pronto',
-  WAITING_DRIVER: 'Aguardando entregador',
-  DISPATCHED: 'Em rota',
-  DELIVERED: 'Entregue',
+  CONFIRMED: 'Aceito',
+  PREPARING: 'Separando',
+  READY: 'Pronto para retirada',
+  WAITING_DRIVER: 'Separando',
+  DISPATCHED: 'Saiu para entrega',
+  DELIVERED: 'Finalizado',
   CANCELLED: 'Cancelado',
 };
 
@@ -252,8 +252,8 @@ export const DELIVERY_STATUS_LABEL: Record<string, string> = {
   PENDING: 'Aguardando',
   ASSIGNED: 'Atribuída',
   PICKED_UP: 'Retirada',
-  IN_TRANSIT: 'Em rota',
+  IN_TRANSIT: 'Saiu para entrega',
   ARRIVED: 'No cliente',
-  DELIVERED: 'Entregue',
+  DELIVERED: 'Finalizado',
   FAILED: 'Falhou',
 };

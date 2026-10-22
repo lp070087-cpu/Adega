@@ -1,4 +1,5 @@
 import { Badge, type BadgeTone } from './index';
+import { operationalLabel,operationalStatus } from '@/lib/order-presentation';
 import {
   DRIVER_STATUS_LABEL,
   ORDER_SOURCE_LABEL,
@@ -54,8 +55,8 @@ const DELIVERY_TONES: Record<string, BadgeTone> = {
   FAILED: 'red',
 };
 
-export function StatusBadge({ status }: { status: string }) {
-  return <Badge tone={ORDER_TONES[status] ?? 'neutral'}>{ORDER_STATUS_LABEL[status] ?? status}</Badge>;
+export function StatusBadge({ status,deliveryType }: { status: string;deliveryType?:string }) {
+  return <Badge tone={ORDER_TONES[operationalStatus(status,deliveryType)] ?? 'neutral'}>{operationalLabel(status,deliveryType)}</Badge>;
 }
 
 export function DriverStatusBadge({ status }: { status: string }) {

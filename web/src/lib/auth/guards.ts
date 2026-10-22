@@ -133,7 +133,8 @@ export async function requireOrg(): Promise<OrganizationContext> {
 
   // O vínculo vem do banco (ver resolveMembership). O papel usado adiante
   // é o ATUAL, não o do token: desativar alguém tem efeito imediato.
-  const membership = await resolveMembership(user.id, user.organizationId);
+  const selectedDriverStore=user.role==='DRIVER'&&process.env.DRIVER_APPLICATIONS_ENABLED==='true'?(await (await import('next/headers')).cookies()).get('driver-store')?.value:undefined;
+  const membership = await resolveMembership(user.id, selectedDriverStore??user.organizationId);
 
   if (membership.revoked) {
     throw new AuthError(
@@ -233,6 +234,7 @@ export async function getCurrentOrganization() {
 export async function requireOnboardingUser() {
   const session = await auth();
   if (!session?.user?.id) redirect('/login');
+  if(session.user.role==='DRIVER')redirect('/entregador');
 
   const account = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -246,7 +248,7 @@ export async function requireOnboardingUser() {
   // uma segunda loja.
   const membership = await resolveMembership(session.user.id, session.user.organizationId);
   if (membership.organizationId) redirect(membership.role==='DRIVER'?'/entregador':'/app');
-  if(membership.revoked)redirect(session.user.role==='DRIVER'?'/entregador':'/login?acessoRemovido=1');
+  if(membership.revoked)redirect('/login?acessoRemovido=1');
 
   return {
     id: session.user.id,
