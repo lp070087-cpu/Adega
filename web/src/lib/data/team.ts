@@ -23,7 +23,8 @@ import { prisma } from '@/lib/db';
  */
 export async function getTeam(organizationId: string) {
   const members = await prisma.organizationUser.findMany({
-    where: { organizationId },
+    // Drivers are logistics collaborators managed in Entregadores, not internal staff.
+    where: { organizationId, role: { not: 'DRIVER' } },
     orderBy: [{ active: 'desc' }, { createdAt: 'asc' }],
     include: {
       user: {

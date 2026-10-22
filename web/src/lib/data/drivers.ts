@@ -418,8 +418,9 @@ export async function getDriverSummary(organizationId: string) {
   const [total, active, onlineDrivers, busy, dispatchesToday, settings] = await Promise.all([
     prisma.driver.count({ where: { organizationId } }),
     prisma.driver.count({ where: { organizationId, active: true } }),
-    prisma.driver.findMany({ where: { organizationId, active: true, status: 'ONLINE', orders: { none: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } } }, select: { id: true } }),
-    prisma.driver.count({ where: { organizationId, active: true, status: 'BUSY' } }),
+    // Derived availability: active, access ready, on shift, no delivery in progress.
+    prisma.driver.findMany({ where: { organizationId, active: true, OR: [{ userId: null }, { user: { active: true, mustChangePassword: false } }], orders: { none: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } } }, select: { id: true } }),
+    prisma.driver.count({ where: { organizationId, active: true, orders: { some: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } } } }),
     prisma.order.count({
       where: {
         organizationId,

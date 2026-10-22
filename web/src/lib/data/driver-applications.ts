@@ -16,6 +16,8 @@ export async function driverApplicationsReady(){
  const rows=await prisma.$queryRaw<Array<{ready:boolean}>>`SELECT to_regclass('public."DriverRegistrationLink"') IS NOT NULL AND to_regclass('public."DriverApplication"') IS NOT NULL AND to_regclass('public."DriverApplicationEvent"') IS NOT NULL AND to_regclass('public."Driver_organizationId_userId_key"') IS NOT NULL AND to_regclass('public."Driver_userId_key"') IS NULL AS ready`;
  return rows[0]?.ready===true;
 }
+/** E-mail confirmation is required while a real provider is configured; without one, the store's explicit approval is the gate. */
+const identityAccepted=(user:{emailVerified:Date|null})=>Boolean(user.emailVerified)||!driverMailReady();
 async function ready(){if(!await driverApplicationsReady())throw new OperationError('Solicitações de entregadores aguardam ativação segura pela plataforma.');}
 export async function getRegistrationLink(organizationId:string){if(!await driverApplicationsReady())return null;return prisma.driverRegistrationLink.findUnique({where:{organizationId}});}
 export async function createRegistrationLink(organizationId:string){
@@ -36,7 +38,7 @@ export async function ownDriverApplications(userId:string){if(!await driverAppli
 async function addApplication(tx:Prisma.TransactionClient,organizationId:string,userId:string){
  const store=await tx.organization.findUnique({where:{id:organizationId},select:{status:true}});
  const user=await tx.user.findUnique({where:{id:userId},include:{organizations:true}});
- if(!store||['CANCELLED','SUSPENDED'].includes(store.status)||!user?.active||!user.emailVerified||user.mustChangePassword||user.organizations.some(m=>m.role!=='DRIVER')||await isPlatformIdentity(tx,userId))throw new OperationError('Use uma conta individual de entregador com e-mail confirmado.');
+ if(!store||['CANCELLED','SUSPENDED'].includes(store.status)||!user?.active||!identityAccepted(user)||user.mustChangePassword||user.organizations.some(m=>m.role!=='DRIVER')||await isPlatformIdentity(tx,userId))throw new OperationError(driverMailReady()?'Use uma conta individual de entregador com e-mail confirmado.':'Use uma conta individual de entregador ativa.');
  const existing=await tx.driverApplication.findUnique({where:{organizationId_userId:{organizationId,userId}}});
  if(existing)return existing;
  const membership=await tx.organizationUser.findUnique({where:{organizationId_userId:{organizationId,userId}}});
@@ -44,9 +46,26 @@ async function addApplication(tx:Prisma.TransactionClient,organizationId:string,
  return tx.driverApplication.create({data:{organizationId,userId,events:{create:{actorId:userId,status:'PENDING',reason:'Solicitação pelo link exclusivo da loja.'}}}});
 }
 export async function applyToStore(organizationId:string,userId:string){await ready();return withOrganizationTransaction(organizationId,tx=>addApplication(tx,organizationId,userId));}
-export async function requestDriverRegistration(linkNumber:string,input:{name:string;email:string;password:string}){
- await ready();if(!driverMailReady())throw new OperationError('Verificação de e-mail aguardando configuração. Nenhuma solicitação foi enviada.');
+/**
+ * Self-registration through the store's single link. With a mail provider the
+ * account is only created after the e-mail link is confirmed; without one it is
+ * created immediately (unverified) together with a PENDING application, so
+ * nothing operational is granted before the store approves it.
+ */
+export async function requestDriverRegistration(linkNumber:string,input:{name:string;email:string;password:string}):Promise<'session'|'verify'>{
+ await ready();
  const link=await resolveRegistrationLink(linkNumber);if(!link)throw new OperationError('Link da loja indisponível.');
+ if(!driverMailReady()){
+  const passwordHash=await hashPassword(input.password);
+  await withOrganizationTransaction(link.organizationId,async tx=>{
+   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${input.email}, 6173))`;
+   const existing=await tx.user.findUnique({where:{email:input.email},select:{id:true,passwordHash:true,mustChangePassword:true}});
+   if(existing)throw new OperationError(existing.passwordHash&&!existing.mustChangePassword?'Este e-mail já tem conta. Use “Entrar” para solicitar o vínculo com esta loja.':'Este e-mail já tem um cadastro aguardando ativação por e-mail. A ativação será liberada quando a plataforma configurar o envio de e-mails.');
+   const user=await tx.user.create({data:{name:input.name,email:input.email,passwordHash}});
+   await addApplication(tx,link.organizationId,user.id);
+  });
+  return 'session';
+ }
  const token=randomBytes(32).toString('hex'),digest=driverTokenHash(token);
  const prefix=`driver:application:${link.organizationId}:${driverTokenHash(input.email)}:`;
  const passwordHash=await hashPassword(input.password);
@@ -62,6 +81,7 @@ export async function requestDriverRegistration(linkNumber:string,input:{name:st
   const response=await fetch('https://api.resend.com/emails',{method:'POST',signal:AbortSignal.timeout(15000),headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({from:process.env.MAIL_FROM,to:[input.email],subject:`Confirme sua solicitação · ${link.organization.name}`,text:`Confirme seu e-mail para solicitar acesso de entregador: ${url}\nVálido por 30 minutos e uso único. A aprovação será feita pela loja. Se não solicitou, ignore.`})});
   if(!response.ok)throw new Error('MAIL_FAILED');
  }catch{await prisma.verificationToken.deleteMany({where:{identifier,token:digest}});throw new OperationError('Falha no envio. Tente novamente; nenhum acesso foi liberado.');}
+ return 'verify';
 }
 export async function confirmDriverRegistration(number:string,token:string){
  await ready();if(!/^[a-f0-9]{64}$/.test(token))throw new OperationError('Link inválido ou expirado.');
@@ -87,7 +107,7 @@ export async function decideDriverApplication(organizationId:string,id:string,st
  if(status==='APPROVED'){
   const store=await tx.organization.findUnique({where:{id:organizationId},select:{status:true}});
   if(!store||['SUSPENDED','CANCELLED'].includes(store.status))throw new OperationError('O estabelecimento não pode liberar novos acessos enquanto estiver suspenso ou cancelado.');
-  if(!user.active||!user.emailVerified||user.mustChangePassword||user.organizations.some(m=>m.role!=='DRIVER')||await isPlatformIdentity(tx,user.id))throw new OperationError('Identidade não elegível para aprovação.');
+  if(!user.active||!identityAccepted(user)||user.mustChangePassword||user.organizations.some(m=>m.role!=='DRIVER')||await isPlatformIdentity(tx,user.id))throw new OperationError('Identidade não elegível para aprovação.');
   const membership=await tx.organizationUser.findUnique({where:{organizationId_userId:{organizationId,userId:user.id}}});
   if(membership&&membership.role!=='DRIVER')throw new OperationError('A conta possui outro papel nesta loja.');
   const driver=await tx.driver.findFirst({where:{organizationId,userId:user.id}});

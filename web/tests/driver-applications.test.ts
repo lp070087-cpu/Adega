@@ -9,19 +9,20 @@ import {operationalStatus,operationalLabel} from '../src/lib/order-presentation'
 import {canTransition} from '../src/lib/validations/order';
 
 function harness(){
- let state:any={applications:[],members:[],drivers:[],events:[],links:[],sequence:0};let tail=Promise.resolve();let verified=true;let storeStatus='ACTIVE';
+ let state:any={applications:[],members:[],drivers:[],events:[],links:[],sequence:0};let tail=Promise.resolve();let verified=true;let storeStatus='ACTIVE';let mail=true;let existingEmail:any=null;
  const tx:any={
   organization:{findUnique:async()=>({status:storeStatus}),findUniqueOrThrow:async()=>({name:'Adega São João',status:storeStatus})},
-  user:{findUnique:async()=>({id:'user',name:'João',emailVerified:verified?new Date():null,active:true,mustChangePassword:false,organizations:[]})},
+  $executeRaw:async()=>1,
+  user:{findUnique:async(q:any)=>q?.where?.email?existingEmail:({id:'user',name:'João',emailVerified:verified?new Date():null,active:true,mustChangePassword:false,organizations:[]}),create:async(q:any)=>{state.createdUsers=[...(state.createdUsers??[]),q.data];return {id:'user',...q.data};}},
   organizationUser:{findUnique:async(q:any)=>state.members.find((r:any)=>r.organizationId===q.where.organizationId_userId.organizationId),upsert:async(q:any)=>{const key=q.where.organizationId_userId;const old=state.members.find((m:any)=>m.organizationId===key.organizationId);if(old)Object.assign(old,q.update);else state.members.push(q.create);},updateMany:async(q:any)=>{for(const m of state.members)if(m.organizationId===q.where.organizationId)Object.assign(m,q.data);}},
   driver:{findFirst:async(q:any)=>state.drivers.find((d:any)=>d.organizationId===q.where.organizationId),create:async(q:any)=>{const d={id:`d-${q.data.organizationId}`,...q.data};state.drivers.push(d);return d;},update:async(q:any)=>Object.assign(state.drivers.find((d:any)=>d.id===q.where.id),q.data),updateMany:async(q:any)=>{for(const d of state.drivers)if(d.organizationId===q.where.organizationId)Object.assign(d,q.data);}},
   driverApplication:{findFirst:async(q:any)=>state.applications.find((a:any)=>a.id===q.where.id&&a.organizationId===q.where.organizationId)?{...state.applications.find((a:any)=>a.id===q.where.id&&a.organizationId===q.where.organizationId),user:await tx.user.findUnique()}:null,findUnique:async(q:any)=>state.applications.find((a:any)=>a.organizationId===q.where.organizationId_userId.organizationId),create:async(q:any)=>{const a={id:`a-${q.data.organizationId}`,status:'PENDING',...q.data};state.applications.push(a);return a;},updateMany:async(q:any)=>{const a=state.applications.find((a:any)=>a.id===q.where.id&&a.organizationId===q.where.organizationId&&a.status===q.where.status);if(a)Object.assign(a,q.data);return {count:a?1:0};}},
   driverRegistrationLink:{upsert:async(q:any)=>{const old=state.links.find((l:any)=>l.organizationId===q.where.organizationId);if(old)return old;const link={...q.create,number:++state.sequence};state.links.push(link);return link;}},
   driverApplicationEvent:{create:async(q:any)=>state.events.push(q.data)},order:{count:async()=>0},
  };
- const imports:any={'server-only':{},'node:crypto':crypto,'@/lib/db':{prisma:{$queryRaw:async()=>[{ready:true}]}},'./transaction':{withOrganizationTransaction:(org:string,fn:any)=>{const run=tail.then(async()=>{const backup=structuredClone(state);try{return await fn(tx);}catch(e){state=backup;throw e;}});tail=run.then(()=>{},()=>{});return run;}},'@/lib/auth/password':{},'@/lib/auth/driver-access':{},'@/lib/platform/identity':{isPlatformIdentity:async()=>false},'@/lib/platform/quotas':{assertPlatformQuota:async()=>{}},'./drivers':{revokeDriverSessions:async(_tx:any,org:string,user:string)=>{assert.equal(user,'user');state.events.push({revoked:org});}},'@/lib/operation-error':{OperationError},'@/lib/driver-applications-rules':rules};
+ const imports:any={'server-only':{},'node:crypto':crypto,'@/lib/db':{prisma:{$queryRaw:async()=>[{ready:true}],driverRegistrationLink:{findUnique:async()=>({number:1,slug:'loja',organizationId:'one',organization:{id:'one',name:'Loja',status:'ACTIVE'}})},verificationToken:{deleteMany:async()=>({count:0})}}},'./transaction':{withOrganizationTransaction:(org:string,fn:any)=>{const run=tail.then(async()=>{const backup=structuredClone(state);try{return await fn(tx);}catch(e){state=backup;throw e;}});tail=run.then(()=>{},()=>{});return run;}},'@/lib/auth/password':{hashPassword:async(v:string)=>`hash:${v}`},'@/lib/auth/driver-access':{driverMailReady:()=>mail,driverTokenHash:(v:string)=>`t:${v}`},'@/lib/platform/identity':{isPlatformIdentity:async()=>false},'@/lib/platform/quotas':{assertPlatformQuota:async()=>{}},'./drivers':{revokeDriverSessions:async(_tx:any,org:string,user:string)=>{assert.equal(user,'user');state.events.push({revoked:org});}},'@/lib/operation-error':{OperationError},'@/lib/driver-applications-rules':rules};
  const mod={exports:{} as any};new Function('require','module','exports',ts.transpileModule(readFileSync('src/lib/data/driver-applications.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)((name:string)=>{if(!(name in imports))throw Error(name);return imports[name];},mod,mod.exports);
- return {api:mod.exports,state:()=>state,setVerified:(v:boolean)=>{verified=v;},setStoreStatus:(v:string)=>{storeStatus=v;}};
+ return {api:mod.exports,state:()=>state,setVerified:(v:boolean)=>{verified=v;},setStoreStatus:(v:string)=>{storeStatus=v;},setMail:(v:boolean)=>{mail=v;},setExisting:(v:any)=>{existingEmail=v;},tx};
 }
 test('exclusive links survive retries and identical store names with distinct server numbers',async()=>{process.env.DRIVER_APPLICATIONS_ENABLED='true';const h=harness();const [a,b,c]=await Promise.all([h.api.createRegistrationLink('one'),h.api.createRegistrationLink('two'),h.api.createRegistrationLink('one')]);assert.equal(a.number,c.number);assert.notEqual(a.number,b.number);assert.equal(a.slug,b.slug);assert.notEqual(rules.registrationPath(a),rules.registrationPath(b));});
 test('registration validates first name, email, password and confirmation without optional vehicle data',()=>{assert.ok(rules.driverRegistrationSchema.safeParse({name:'João',email:'joao@example.com',password:'Senha1234',confirmPassword:'Senha1234'}).success);for(const value of [{name:'1'},{email:'wrong'},{password:'123'},{confirmPassword:'different'}])assert.equal(rules.driverRegistrationSchema.safeParse({name:'João',email:'joao@example.com',password:'Senha1234',confirmPassword:'Senha1234',...value}).success,false);});
@@ -44,4 +45,25 @@ test('driver store selection checks signed identity membership; forged selectors
  process.env.DRIVER_APPLICATIONS_ENABLED='true';let selected='two';const queried:string[]=[];
  const api=isolated('src/lib/auth/guards.ts',{'server-only':{},'next/navigation':{redirect:()=>{throw Error('redirect');}},'./index':{auth:async()=>({user:{id:'user',role:'DRIVER',organizationId:'one',driverSessionStartedAt:Date.now(),driverSessionUntil:Date.now()+10000}})},'next/headers':{cookies:async()=>({get:()=>({value:selected})})},'@/lib/db':{prisma:{user:{findUnique:async()=>({active:true})},organizationUser:{findUnique:async(q:any)=>{assert.equal(q.where.organizationId_userId.userId,'user');const org=q.where.organizationId_userId.organizationId;return ['one','two'].includes(org)?{organizationId:org,role:'DRIVER',active:true}:null;},findFirst:async()=>({organizationId:'one',role:'DRIVER'})},driver:{findFirst:async(q:any)=>{assert.equal(q.where.userId,'user');queried.push(q.where.organizationId);return {id:`driver-${q.where.organizationId}`};}},organization:{findUnique:async()=>({settings:{}})}}},'@/lib/permissions':{can:()=>false},'@/lib/operation-error':{OperationError}});
  assert.equal((await api.requireDriver()).organizationId,'two');selected='foreign';assert.equal((await api.requireDriver()).organizationId,'one');assert.deepEqual(queried,['two','one']);
+});
+
+const signup={name:'Bia',email:'bia@example.com',password:'Senha1234'};
+test('without a mail provider, the store link creates the account with a hashed password and a pending request only',async()=>{
+ process.env.DRIVER_APPLICATIONS_ENABLED='true';const h=harness();h.setMail(false);h.setVerified(false);
+ assert.equal(await h.api.requestDriverRegistration('0001',signup),'session');
+ assert.deepEqual(h.state().createdUsers.map((u:any)=>({email:u.email,passwordHash:u.passwordHash,verified:u.emailVerified})),[{email:'bia@example.com',passwordHash:'hash:Senha1234',verified:undefined}]);
+ assert.equal(h.state().applications.length,1);assert.equal(h.state().applications[0].status??'PENDING','PENDING');
+ assert.equal(h.state().members.length,0);assert.equal(h.state().drivers.length,0);
+ // The store approves an unverified identity only while no mail provider exists.
+ await h.api.decideDriverApplication('one',h.state().applications[0].id,'APPROVED','owner','Aprovado pela loja.');assert.equal(h.state().drivers.length,1);
+});
+test('an existing e-mail is never taken over from the store link',async()=>{
+ process.env.DRIVER_APPLICATIONS_ENABLED='true';const h=harness();h.setMail(false);
+ h.setExisting({id:'other',passwordHash:'x',mustChangePassword:false});await assert.rejects(h.api.requestDriverRegistration('0001',signup),/já tem conta/);
+ h.setExisting({id:'pending',passwordHash:null,mustChangePassword:true});await assert.rejects(h.api.requestDriverRegistration('0001',signup),/aguardando ativação por e-mail/);
+ assert.equal(h.state().createdUsers,undefined);
+});
+test('with a mail provider, unverified identities cannot apply or be approved',async()=>{
+ process.env.DRIVER_APPLICATIONS_ENABLED='true';const h=harness();h.setMail(true);h.setVerified(false);
+ await assert.rejects(h.api.applyToStore('one','user'),/e-mail confirmado/);
 });

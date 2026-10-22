@@ -5,13 +5,11 @@ import { getDriverOrders } from '@/lib/data/orders';
 import { getOrganizationById } from '@/lib/data/organization';
 import { DriverApp, type DriverOrder } from '@/components/driver/DriverApp';
 import { DriverLoginForm } from '@/components/driver/DriverLoginForm';
-import { InstallLink } from '@/components/pwa/InstallLink';
-import { redirect } from 'next/navigation';
-import { getPendingDriverInvitation } from '@/lib/auth/driver-invitation';
 import { prisma } from '@/lib/db';
 import { ownDriverApplications } from '@/lib/data/driver-applications';
 import { applicationLabels,type ApplicationStatus } from '@/lib/driver-applications-rules';
 import { selectDriverStoreAction } from '@/app/actions/driver-applications';
+import { driverShiftAvailability, readDriverSchedule } from '@/lib/driver-schedule';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -54,15 +52,14 @@ export default async function DriverPage() {
 
           <h1 className="text-[1.35rem] font-extrabold text-ink-900">Del Flash Entregador</h1>
           <p className="mt-1.5 text-[0.84rem] text-ink-500">
-            Entre com o e-mail da sua conta individual. Para solicitar cadastro, use o link fornecido pela loja. Acessos antigos por usuário continuam aceitos.
+            Entre com o e-mail e a senha da sua conta. Ainda não tem conta? Abra o link da área de entregadores enviado pela loja e escolha “Criar conta”.
           </p>
 
           <DriverLoginForm />
-          <InstallLink href="/entregador/instalar">Instalar app no celular</InstallLink>
 
           <p className="mt-6 text-[0.8rem] text-ink-500">
             É dono ou atendente da loja?{' '}
-            <a href="/login" className="font-semibold text-brand hover:underline">
+            <a href="/login" className="inline-flex min-h-11 items-center font-semibold text-brand hover:underline">
               Entrar no painel
             </a>
           </p>
@@ -71,8 +68,6 @@ export default async function DriverPage() {
     );
   }
 
-  const pendingInvitation = await getPendingDriverInvitation(session.user.id);
-  if (pendingInvitation) redirect(`/entregador/convite/${encodeURIComponent(pendingInvitation)}`);
   const memberships=session.user.role==='DRIVER'?await prisma.organizationUser.findMany({where:{userId:session.user.id,role:'DRIVER',active:true,organization:{drivers:{some:{userId:session.user.id,active:true}}}},select:{organizationId:true,organization:{select:{name:true}}}}):[];
   const applications=await ownDriverApplications(session.user.id);
   const storePreference=process.env.DRIVER_APPLICATIONS_ENABLED==='true'?(await (await import('next/headers')).cookies()).get('driver-store')?.value:session.user.organizationId;
@@ -99,8 +94,8 @@ export default async function DriverPage() {
             {applications.map(a=><p key={a.id} className="mt-3 rounded-lg bg-ink-50 p-3 text-sm">{a.organization.name}: {applicationLabels[a.status as ApplicationStatus]}. {a.status==='PENDING'?'Sua solicitação foi enviada e ainda não permite acesso às entregas.':''}</p>)}
             <p className="mt-3 text-sm text-ink-500">{session.user.role !== 'DRIVER'
               ? 'Este aplicativo está usando sua sessão do estabelecimento. O acesso do proprietário não cria um cadastro de entregador. Saia e entre com o e-mail individual cadastrado pela loja.'
-              : `${error.message} Solicite à loja a conferência do vínculo e do estado ativo do cadastro. Se recebeu um convite, conclua o primeiro acesso pelo link da loja.`}</p>
-            <a href="/entregador/acesso" className="mt-4 inline-flex min-h-11 items-center font-semibold text-brand hover:underline">Primeiro acesso ou recuperação de senha</a>
+              : `${error.message} Solicite à loja a conferência do vínculo. Para trabalhar em uma loja nova, abra o link da área de entregadores dela.`}</p>
+            <a href="/entregador/acesso?modo=reset" className="mt-4 inline-flex min-h-11 items-center font-semibold text-brand hover:underline">Esqueci minha senha</a>
             <form action={logoutAction} className="mt-6">
               <button type="submit" className="min-h-11 rounded-xl bg-brand px-5 py-3 font-semibold text-white">Sair e entrar com outra conta</button>
             </form>
@@ -119,6 +114,7 @@ export default async function DriverPage() {
     getOrganizationById(ctx.organizationId),
   ]);
 
+  const shift = driverShiftAvailability(readDriverSchedule(organization?.settings, ctx.driver.id));
   // A API de pedidos devolve Decimal e Date; o cliente React recebe
   // apenas o que precisa, já serializado.
   const serialized: DriverOrder[] = orders.map((order) => ({
@@ -174,6 +170,8 @@ export default async function DriverPage() {
         vehicleType: ctx.driver.vehicleType,
         vehiclePlate: ctx.driver.vehiclePlate,
         status: ctx.driver.status,
+        onShift: shift.allowed,
+        shiftLabel: shift.label,
       }}
       store={{
         name: organization?.name ?? 'Estabelecimento',

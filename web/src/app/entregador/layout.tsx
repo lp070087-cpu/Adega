@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next';
+import './driver.css';
+import { DriverPwaBootstrap } from '@/components/driver/DriverInstall';
 
 export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
@@ -14,6 +16,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
   themeColor: '#087EA4',
 };
 
@@ -29,5 +32,5 @@ export const viewport: Viewport = {
  * ═══════════════════════════════════════════════════════════════════════
  */
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen bg-ink-50">{children}</div>;
+  return <div className="min-h-screen bg-ink-50">{children}<DriverPwaBootstrap /></div>;
 }

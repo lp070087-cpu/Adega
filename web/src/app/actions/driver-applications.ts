@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import { auth,signOut } from '@/lib/auth';
+import { auth,signIn,signOut } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { requirePermission,toActionError } from '@/lib/auth/guards';
 import { driverRegistrationSchema,applicationStatuses,registrationPath } from '@/lib/driver-applications-rules';
@@ -12,7 +12,13 @@ export async function generateDriverLinkAction(){try{const ctx=await requirePerm
 export async function leaveDriverRegistrationAction(form:FormData){const number=form.get('storeNumber');let target='/entregador/';if(typeof number==='string'){try{const link=await resolveRegistrationLink(number);if(link)target=registrationPath(link);}catch{/* Sign-out still works if the store cannot be resolved. */}}await signOut({redirectTo:target});}
 export async function registerDriverApplicationAction(input:unknown){
  const parsed=z.object({number:z.string(),data:driverRegistrationSchema}).safeParse(input);if(!parsed.success)return {error:parsed.error.errors[0]?.message??'Dados inválidos.'};
- try{await requestDriverRegistration(parsed.data.number,parsed.data.data);return {ok:true};}catch(e){return toActionError(e);}
+ let result:'session'|'verify';
+ try{result=await requestDriverRegistration(parsed.data.number,parsed.data.data);}catch(e){return toActionError(e);}
+ if(result==='verify')return {ok:true,verify:true};
+ // Account created without a mail provider: sign in and land back on the store link, which shows the pending status.
+ const link=await resolveRegistrationLink(parsed.data.number);
+ await signIn('credentials',{login:parsed.data.data.email,password:parsed.data.data.password,driverOnly:'true',remember:'true',redirectTo:link?registrationPath(link):'/entregador/'});
+ return {ok:true};
 }
 export async function confirmDriverApplicationAction(number:string,token:string){try{await confirmDriverRegistration(number,token);return {ok:true};}catch(e){return toActionError(e);}}
 export async function joinDriverStoreAction(number:string){try{const session=await auth();if(!session?.user?.id)return {error:'Entre com sua conta individual de entregador.'};const link=await resolveRegistrationLink(number);if(!link)return {error:'Link indisponível.'};await applyToStore(link.organizationId,session.user.id);revalidatePath('/entregador');revalidatePath('/app/entregadores');return {ok:true};}catch(e){return toActionError(e);}}

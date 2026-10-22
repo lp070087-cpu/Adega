@@ -1,4 +1,5 @@
 'use client';
+import { driverAvailability, DRIVER_AVAILABILITY_LABEL } from '@/lib/driver-availability';
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -232,14 +233,7 @@ export function DriversManager({
       <Card>
         <CardHeader
           title="Frota"
-          subtitle="Status muda pelo app do entregador ou aqui, manualmente."
-          action={
-            canManage ? (
-              <Button size="sm" onClick={openCreate}>
-                + Novo entregador
-              </Button>
-            ) : undefined
-          }
+          subtitle="Disponibilidade calculada automaticamente pela escala e pelas entregas em andamento."
         />
 
         <div className="mb-4 flex flex-wrap items-center gap-2.5">
@@ -314,25 +308,7 @@ export function DriversManager({
                       )}
                     </td>
                     <td className="py-2.5 pr-4">
-                      {canManage && driver.active && driver.activeOrders === 0 ? (
-                        <select
-                          value={driver.status}
-                          onChange={(e) =>
-                            changeStatus(driver, e.target.value as (typeof STATUS_OPTIONS)[number])
-                          }
-                          disabled={pending}
-                          className="field-input max-w-[150px] cursor-pointer py-1.5 text-[0.76rem]"
-                          aria-label={`Status de ${driver.name}`}
-                        >
-                          {STATUS_OPTIONS.map((status) => (
-                            <option key={status} value={status} disabled={status === 'BUSY' || (status === 'ONLINE' && driver.onShift === false)}>
-                              {DRIVER_STATUS_LABEL[status]}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <DriverStatusBadge status={driver.status} />
-                      )}
+                      <DriverAvailabilityBadge driver={driver} />
                       {driver.lastLocation && (
                         <p className="mt-1 text-[0.68rem] text-ink-400">
                           GPS {timeAgo(driver.lastLocation.createdAt)}
@@ -533,4 +509,10 @@ function Th({ children, className }: { children: React.ReactNode; className?: st
       {children}
     </th>
   );
+}
+
+function DriverAvailabilityBadge({ driver }: { driver: DriverRow }) {
+  const state = driverAvailability(driver);
+  const tone = state === 'AVAILABLE' ? 'green' : state === 'BUSY' ? 'yellow' : 'neutral';
+  return <Badge tone={tone}>{DRIVER_AVAILABILITY_LABEL[state]}</Badge>;
 }

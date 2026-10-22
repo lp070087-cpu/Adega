@@ -56,7 +56,7 @@ export function DriverLoginForm({storeNumber}:{storeNumber?:string}={}) {
           autoComplete="username"
           placeholder="voce@email.com"
           required
-          autoFocus
+          
           aria-invalid={state?.field === 'login'}
         />
       </Field>
@@ -83,11 +83,11 @@ export function DriverLoginForm({storeNumber}:{storeNumber?:string}={}) {
         </div>
       </Field>
 
-      <label className="mb-4 flex min-h-11 items-center gap-2 text-sm"><input name="remember" type="checkbox"/>Manter conectado</label>
+      <label className="mb-4 flex min-h-11 items-center gap-2 text-sm"><input name="remember" type="checkbox" defaultChecked className="h-5 w-5"/>Manter conectado</label>
       <Button type="submit" size="lg" fullWidth loading={pending} className="mt-2">
         {pending ? 'Entrando...' : 'Entrar'}
       </Button>
-      <div className="mt-4 flex flex-wrap justify-between gap-2 text-sm font-semibold text-brand"><Link className="inline-flex min-h-11 items-center" href="/entregador/acesso">Primeiro acesso</Link><Link className="inline-flex min-h-11 items-center" href="/entregador/acesso?modo=reset">Esqueci minha senha</Link></div>
+      <div className="mt-3 flex justify-center text-sm font-semibold text-brand"><Link className="inline-flex min-h-11 items-center" href="/entregador/acesso?modo=reset">Esqueci minha senha</Link></div>
     </form>
   );
 }

@@ -8,12 +8,11 @@ import { DELIVERY_STATUS_LABEL } from '@/data/business-copy';
 import {
   driverStepAction,
   sendDriverLocationAction,
-  setMyDriverStatusAction,
 } from '@/app/actions/orders';
 import { driverLogoutAction as logoutAction } from '@/app/actions/auth';
 import { reportFailedDeliveryAction } from '@/app/actions/drivers';
 import { Alert, Badge, Button, Card, EmptyState, Input } from '@/components/ui';
-import { DriverInstall } from '@/components/driver/DriverInstall';
+import { DriverInstallCard } from '@/components/driver/DriverInstall';
 import { DriverScheduleNotice } from '@/components/driver/DriverScheduleNotice';
 
 /**
@@ -90,6 +89,9 @@ export type DriverIdentity = {
   vehicleType: string;
   vehiclePlate: string | null;
   status: string;
+  /** Derived on the server from the work schedule (no manual availability switch). */
+  onShift?: boolean;
+  shiftLabel?: string;
 };
 
 export type DriverStore = {
@@ -291,7 +293,9 @@ export function DriverApp({
     });
   }
 
-  const isOnline = driver.status !== 'OFFLINE';
+  // Derived state: deliveries in progress and the work schedule decide it.
+  const availability = active.length > 0 ? 'Em entrega' : driver.onShift === false ? 'Fora da escala' : 'Disponível para entregas';
+  const isOnline = active.length > 0 || driver.onShift !== false;
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[560px] flex-col bg-ink-50">
@@ -304,8 +308,8 @@ export function DriverApp({
       <div className="sticky top-0 z-20">
         {/* ── CABEÇALHO ────────────────────────────────────────────── */}
         <header
-          className="px-4 py-3 text-white shadow-sm"
-          style={{ backgroundColor: store.brandColor || '#F15A24' }}
+          className="px-4 pb-3 text-white shadow-sm"
+          style={{ background: 'linear-gradient(135deg,#087EA4,#0B1F3A)', paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
         >
           <div className="flex items-center gap-3">
             {store.logoUrl ? (
@@ -316,7 +320,7 @@ export function DriverApp({
                 className="h-10 w-10 flex-shrink-0 rounded object-cover ring-2 ring-white/40"
               />
             ) : (
-              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded bg-white/20 text-[0.95rem] font-extrabold ring-2 ring-white/30">
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded text-[0.95rem] font-extrabold ring-2 ring-white/30" style={{ backgroundColor: store.brandColor || 'rgba(255,255,255,.2)' }}>
                 {store.name.slice(0, 2).toUpperCase()}
               </span>
             )}
@@ -330,11 +334,7 @@ export function DriverApp({
                     isOnline ? 'bg-[#7BE495]' : 'bg-white/60',
                   )}
                 />
-                {driver.status === 'BUSY'
-                  ? 'Em entrega'
-                  : isOnline
-                    ? 'Disponível'
-                    : 'Offline'}
+                {availability}
                 <span className="text-white/50">•</span>
                 <span className="truncate">{store.name}</span>
               </p>
@@ -352,7 +352,7 @@ export function DriverApp({
             [
               ['entregas', 'Entregas', active.length],
               ['historico', 'Histórico', 0],
-              ['perfil', 'Perfil', 0],
+              ['perfil', 'Conta', 0],
             ] as const
           ).map(([key, label, count]) => (
             <button
@@ -390,9 +390,9 @@ export function DriverApp({
         {/* ── ENTREGAS ─────────────────────────────────────────────── */}
         {tab === 'entregas' && (
           <>
-            {!isOnline && (
-              <Alert tone="warn" title="Você está offline">
-                Fique disponível para receber novas entregas.
+            {driver.onShift === false && active.length === 0 && (
+              <Alert tone="neutral" title="Fora da sua escala">
+                Novas entregas são atribuídas dentro do seu horário de trabalho{driver.shiftLabel ? ` (${driver.shiftLabel})` : ''}.
               </Alert>
             )}
 
@@ -501,43 +501,11 @@ export function DriverApp({
             </Card>
 
             <Card>
-              <p className="mb-3 text-[0.86rem] font-bold text-ink-900">Minha disponibilidade</p>
-              <div className="grid grid-cols-3 gap-2">
-                {(
-                  [
-                    ['ONLINE', '📡', 'Disponível'],
-                    ['RETURNING', '↩️', 'Retornando'],
-                    ['OFFLINE', '⏸', 'Offline'],
-                  ] as const
-                ).map(([status, icon, label]) => (
-                  <button
-                    key={status}
-                    type="button"
-                    disabled={pending}
-                    onClick={() =>
-                      run(() => setMyDriverStatusAction(status), () =>
-                        setNotice(`Você está ${label.toLowerCase()}.`),
-                      )
-                    }
-                    className={cn(
-                      'rounded-lg border-2 px-2 py-3 text-[0.74rem] font-bold transition-all disabled:opacity-55',
-                      driver.status === status
-                        ? 'border-brand bg-brand-light text-brand'
-                        : 'border-ink-200 bg-white text-ink-600 hover:border-brand',
-                    )}
-                  >
-                    <span className="mb-1 block text-[1.1rem]">{icon}</span>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-3 text-[0.72rem] leading-relaxed text-ink-400">
-                &quot;Em entrega&quot; é definido pelo sistema ao atribuir um pedido a você — não dá
-                para escolher à mão.
-              </p>
+              <p className="text-[0.86rem] font-bold text-ink-900">Situação</p>
+              <p className="mt-1 text-[0.8rem] text-ink-600">{availability}. Calculada automaticamente pela sua escala e pelas entregas em andamento — não é preciso marcar disponibilidade.</p>
             </Card>
 
-            <DriverInstall compact />
+            <DriverInstallCard />
             <Alert tone="neutral" title="Sobre este app">
               A posição é compartilhada apenas quando você solicita o envio ou inicia a rota.
               Mantenha a conexão para registrar alterações. Use o aplicativo de mapas para navegar.
@@ -750,7 +718,7 @@ function OrderSheet({
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-400 hover:bg-ink-100"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-ink-400 hover:bg-ink-100"
           >
             ✕
           </button>
@@ -762,7 +730,7 @@ function OrderSheet({
           <div className="mt-2.5 flex gap-2">
             <a
               href={`tel:${phone}`}
-              className="rounded-sm border-2 border-ink-200 bg-white px-3 py-1.5 text-[0.74rem] font-semibold text-ink-700 hover:border-brand hover:text-brand"
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border-2 border-ink-200 bg-white px-3 text-[0.82rem] font-semibold text-ink-700 hover:border-brand hover:text-brand"
             >
               📞 Ligar
             </a>
@@ -770,7 +738,7 @@ function OrderSheet({
               href={`https://wa.me/55${phone}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-sm border-2 border-ink-200 bg-white px-3 py-1.5 text-[0.74rem] font-semibold text-ink-700 hover:border-brand hover:text-brand"
+              className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border-2 border-ink-200 bg-white px-3 text-[0.82rem] font-semibold text-ink-700 hover:border-brand hover:text-brand"
             >
               💬 WhatsApp
             </a>

@@ -838,7 +838,8 @@ export async function assignDriver(
   const activeOrders = await tx.order.count({ where: {
     organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
   } });
-  if (driver.status !== 'ONLINE' || activeOrders) throw new OperationError('Entregador indisponível. Atualize a expedição.');
+  // Availability is derived (active, access ready, on shift — checked above — and no delivery in progress); no manual switch.
+  if (activeOrders) throw new OperationError('Entregador em outra entrega. Atualize a expedição.');
 
     await tx.order.update({
       where: { id: orderId },

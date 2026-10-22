@@ -15,6 +15,10 @@ const nextConfig = {
       { protocol: 'https', hostname: 'res.cloudinary.com' },
     ],
   },
+  // Installation moved into the driver app's Conta tab.
+  async redirects() {
+    return [{ source: '/entregador/instalar/:rest*', destination: '/entregador/', permanent: false }];
+  },
   eslint: {
     // O build não deve falhar por regra de lint: a validação de tipos é
     // feita por `npm run typecheck`, separadamente.

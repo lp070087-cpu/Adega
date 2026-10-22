@@ -1,10 +1,10 @@
 'use client';
+import { canReceiveOrder, driverAvailability, DRIVER_AVAILABILITY_LABEL } from '@/lib/driver-availability';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn, formatBRL } from '@/lib/utils';
-import { DRIVER_STATUS_LABEL } from '@/data/business-copy';
 import {
   assignDriverAction,
   unassignDriverAction,
@@ -110,7 +110,7 @@ export function DispatchBoard({
     [orders],
   );
 
-  const freeDrivers = drivers.filter((d) => d.status === 'ONLINE' && d.activeOrders === 0 && d.onShift !== false);
+  const freeDrivers = drivers.filter((d) => canReceiveOrder({ active: true, activeOrders: d.activeOrders, onShift: d.onShift }));
   const busyDrivers = drivers.filter((d) => d.activeOrders > 0);
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>, onSuccess?: () => void) {
@@ -393,14 +393,14 @@ function Radar({
             key={driver.id}
             className={cn(
               'absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[0.75rem] shadow-sm ring-2 ring-white',
-              driver.status === 'BUSY'
+              driver.activeOrders > 0
                 ? 'bg-warn text-white'
-                : driver.status === 'ONLINE'
+                : canReceiveOrder({ active: true, activeOrders: 0, onShift: driver.onShift })
                   ? 'bg-success text-white'
                   : 'bg-ink-400 text-white',
             )}
             style={{ left: `${left}%`, top: `${top}%` }}
-            title={`${driver.name} — ${DRIVER_STATUS_LABEL[driver.status] ?? driver.status}`}
+            title={`${driver.name} — ${DRIVER_AVAILABILITY_LABEL[driverAvailability({ active: true, activeOrders: driver.activeOrders, onShift: driver.onShift })]}`}
           >
             🛵
           </div>
@@ -449,11 +449,9 @@ function DriverList({ drivers, now }: { drivers: DispatchDriver[]; now: number }
             </p>
           </div>
           <Badge
-            tone={
-              driver.status === 'BUSY' ? 'yellow' : driver.status === 'ONLINE' ? 'green' : 'neutral'
-            }
+            tone={availabilityTone(driver)}
           >
-            {DRIVER_STATUS_LABEL[driver.status] ?? driver.status}
+            {DRIVER_AVAILABILITY_LABEL[driverAvailability({ active: true, activeOrders: driver.activeOrders, onShift: driver.onShift })]}
           </Badge>
         </li>
       ))}
@@ -481,11 +479,11 @@ function AssignModal({
   // Sugere quem está livre primeiro: despachar para quem já tem pedido
   // atrasa as duas entregas.
   const ordered = [...drivers].sort((a, b) => {
-    const score = (d: DispatchDriver) => (d.activeOrders > 0 ? 1 : 0) + (d.status === 'ONLINE' ? 0 : 2);
+    const score = (d: DispatchDriver) => (d.activeOrders > 0 ? 1 : 0) + (d.onShift === false ? 2 : 0);
     return score(a) - score(b);
   });
 
-  const eligible = (driver: DispatchDriver) => driver.status === 'ONLINE' && driver.activeOrders === 0 && driver.onShift !== false;
+  const eligible = (driver: DispatchDriver) => canReceiveOrder({ active: true, activeOrders: driver.activeOrders, onShift: driver.onShift });
   const [driverId, setDriverId] = useState(ordered.find(eligible)?.id ?? '');
   const [reason, setReason] = useState('');
 
@@ -525,8 +523,8 @@ function AssignModal({
             <option value="">Selecione um entregador disponível</option>
             {ordered.map((driver) => (
               <option key={driver.id} value={driver.id} disabled={!eligible(driver)}>
-                {driver.name} — {DRIVER_STATUS_LABEL[driver.status] ?? driver.status}
-                {driver.activeOrders > 0 ? ` (${driver.activeOrders} em rota)` : ' (livre)'}
+                {driver.name} — {DRIVER_AVAILABILITY_LABEL[driverAvailability({ active: true, activeOrders: driver.activeOrders, onShift: driver.onShift })]}
+                {driver.activeOrders > 0 ? ` (${driver.activeOrders} em rota)` : ''}
                 {driver.shiftLabel ? ` · ${driver.shiftLabel}` : ''}
               </option>
             ))}
@@ -574,4 +572,9 @@ function agoFrom(value: string | null, now: number): string {
   const hours = Math.floor(min / 60);
   if (hours < 24) return `há ${hours} h`;
   return `há ${Math.floor(hours / 24)} d`;
+}
+
+function availabilityTone(driver: DispatchDriver) {
+  const state = driverAvailability({ active: true, activeOrders: driver.activeOrders, onShift: driver.onShift });
+  return state === 'AVAILABLE' ? 'green' : state === 'BUSY' ? 'yellow' : 'neutral';
 }

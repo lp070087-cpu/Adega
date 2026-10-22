@@ -73,3 +73,23 @@ test('stock screens never use the money counter animation', () => {
   const inventory = fs.readdirSync('src/components', { recursive: true }).map(String).filter((f) => /inventory|stock|estoque/i.test(f) && f.endsWith('.tsx'));
   for (const file of inventory) assert.doesNotMatch(fs.readFileSync(`src/components/${file}`, 'utf8'), /AnimatedMoney/);
 });
+
+test('driver availability is derived from schedule, access and deliveries in progress', async () => {
+  const { driverAvailability, canReceiveOrder } = await import('../src/lib/driver-availability');
+  assert.equal(driverAvailability({ active: true, activeOrders: 0, onShift: true }), 'AVAILABLE');
+  assert.equal(driverAvailability({ active: true, activeOrders: 0 }), 'AVAILABLE');
+  assert.equal(driverAvailability({ active: true, activeOrders: 1, onShift: true }), 'BUSY');
+  assert.equal(driverAvailability({ active: true, activeOrders: 0, onShift: false }), 'OFF_SHIFT');
+  assert.equal(driverAvailability({ active: false, activeOrders: 0 }), 'INACTIVE');
+  assert.equal(driverAvailability({ active: true, activeOrders: 0, accessPending: true }), 'PENDING_ACCESS');
+  assert.equal(canReceiveOrder({ active: true, activeOrders: 1 }), false);
+});
+
+test('install platform detection picks native prompt or the right manual steps', async () => {
+  const { detectInstallPlatform } = await import('../src/components/driver/DriverInstall');
+  assert.equal(detectInstallPlatform('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1'), 'ios-safari');
+  assert.equal(detectInstallPlatform('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) CriOS/120.0 Mobile Safari/604.1'), 'ios-other');
+  assert.equal(detectInstallPlatform('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15', true), 'ios-safari');
+  assert.equal(detectInstallPlatform('Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/120.0 Mobile Safari/537.36'), 'android');
+  assert.equal(detectInstallPlatform('Mozilla/5.0 (Windows NT 10.0) Chrome/120.0'), 'desktop');
+});

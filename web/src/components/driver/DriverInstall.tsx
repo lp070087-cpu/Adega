@@ -1,22 +1,33 @@
 'use client';
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Download, Smartphone } from 'lucide-react';
+import { CheckCircle2, Download, Share, Smartphone } from 'lucide-react';
 import { observeInstalledContext } from '@/lib/pwa-install-state';
 
 type InstallEvent = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
-export function DriverInstall({ compact = false }: { compact?: boolean }) {
-  const [prompt, setPrompt] = useState<InstallEvent | null>(null);
-  const [installed, setInstalled] = useState(false);
-  const [status, setStatus] = useState('');
+type Platform = 'ios-safari' | 'ios-other' | 'android' | 'desktop';
+
+export function detectInstallPlatform(ua: string, touchMac = false): Platform {
+  const ios = /iphone|ipad|ipod/i.test(ua) || touchMac;
+  if (ios) return /crios|fxios|edgios|opios/i.test(ua) ? 'ios-other' : 'ios-safari';
+  return /android/i.test(ua) ? 'android' : 'desktop';
+}
+
+type Listener = (event: InstallEvent | null) => void;
+let deferredPrompt: InstallEvent | null = null;
+const listeners = new Set<Listener>();
+const emit = () => listeners.forEach((listener) => listener(deferredPrompt));
+
+/**
+ * Mounted once for every /entregador page (layout): registers the service
+ * worker (required for Android to offer installation) and keeps the browser's
+ * one-time install prompt so the Conta tab can use it whenever it is opened.
+ */
+export function DriverPwaBootstrap() {
   useEffect(() => {
-    // The establishment may share the driver install link, but its own
-    // browser install prompt belongs to the management app, not the driver.
-    if (!/^\/entregador(?:\/|$)/.test(window.location.pathname)) return;
-    const stopObserving = observeInstalledContext(window, navigator, setInstalled);
-    const before = (event: Event) => { event.preventDefault(); setPrompt(event as InstallEvent); };
-    const complete = () => { setInstalled(true); setPrompt(null); };
-    window.addEventListener('beforeinstallprompt', before); window.addEventListener('appinstalled', complete);
+    const before = (event: Event) => { event.preventDefault(); deferredPrompt = event as InstallEvent; emit(); };
+    const installed = () => { deferredPrompt = null; emit(); };
+    window.addEventListener('beforeinstallprompt', before);
+    window.addEventListener('appinstalled', installed);
     if ('serviceWorker' in navigator && window.isSecureContext) {
       void (async () => {
         const legacyScope = new URL('/entregador', window.location.origin).href;
@@ -26,31 +37,81 @@ export function DriverInstall({ compact = false }: { compact?: boolean }) {
           if (registration.scope === legacyScope && registered?.scriptURL === script) await registration.unregister();
         }
         await navigator.serviceWorker.register('/driver-sw.js', { scope: '/entregador/', updateViaCache: 'none' });
-      })().catch(() => setStatus('Use o menu do navegador para adicionar à tela inicial.'));
+      })().catch(() => undefined);
     }
-    return () => { stopObserving(); window.removeEventListener('beforeinstallprompt', before); window.removeEventListener('appinstalled', complete); };
+    return () => { window.removeEventListener('beforeinstallprompt', before); window.removeEventListener('appinstalled', installed); };
   }, []);
+  return null;
+}
+
+/**
+ * "Instalar Del Flash Entregador" (Conta tab). Optional: the app works in the
+ * browser too. The button always does something real — the browser's native
+ * prompt when it offered one, otherwise the steps for this browser.
+ */
+export function DriverInstallCard() {
+  const [prompt, setPrompt] = useState<InstallEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+  const [platform, setPlatform] = useState<Platform>('desktop');
+  const [showSteps, setShowSteps] = useState(false);
+  const [status, setStatus] = useState('');
+
+  useEffect(() => {
+    setPlatform(detectInstallPlatform(navigator.userAgent, navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+    const stopObserving = observeInstalledContext(window, navigator, setInstalled);
+    const listener: Listener = (event) => setPrompt(event);
+    listeners.add(listener);
+    setPrompt(deferredPrompt);
+    return () => { stopObserving(); listeners.delete(listener); };
+  }, []);
+
   async function install() {
-    if (!prompt) return;
-    try { await prompt.prompt(); const choice = await prompt.userChoice; setStatus(choice.outcome === 'accepted' ? 'Instalação solicitada ao navegador.' : 'Você pode instalar depois pelo menu do navegador.'); }
-    catch { setStatus('Abra o menu do navegador e escolha adicionar à tela inicial.'); }
-    setPrompt(null);
+    if (!prompt) { setShowSteps(true); return; }
+    try {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
+      setStatus(choice.outcome === 'accepted' ? 'Instalando… o ícone aparecerá na tela inicial.' : 'Tudo bem. Você pode instalar depois por aqui.');
+    } catch { setShowSteps(true); }
+    deferredPrompt = null;
+    emit();
   }
-  if (installed && compact) return null;
-  return <section className="rounded-xl border border-ink-200 bg-white p-4">
-    <div className="flex items-center gap-2 font-semibold text-ink-900"><Smartphone size={20} aria-hidden="true" /> App do entregador</div>
-    <p className="mt-2 text-sm text-ink-500">{installed ? 'O app está aberto no modo instalado.' : 'Abra as entregas diretamente pela tela inicial do celular.'}</p>
-    {!installed && prompt && <button className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-4 py-2 font-semibold text-white" onClick={install}><Download size={18} aria-hidden="true" /> Instalar app</button>}
-    {compact ? <Link className="mt-3 inline-flex min-h-11 items-center font-semibold text-brand" href="/entregador/instalar">Ver instalação e compartilhar acesso</Link> : <>
-      <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-ink-700">
-        <li><strong>Android (Chrome):</strong> abra este endereço no Chrome. Use “Instalar app” quando disponível ou o menu ⋮ → Adicionar à tela inicial / Instalar aplicativo.</li>
-        <li><strong>iPhone (Safari):</strong> abra este endereço no Safari, toque em Compartilhar → Adicionar à Tela de Início → Adicionar.</li>
-        <li><strong>Desktop (Chrome ou Edge):</strong> use o ícone de instalação na barra de endereço ou a opção “Instalar aplicativo” do navegador, quando disponível.</li>
-        <li>Abra o ícone e entre com o acesso de entregador fornecido pelo estabelecimento. A instalação não concede acesso nem salva sua senha automaticamente.</li>
-      </ol>
-      <p className="mt-4 text-sm text-ink-500">É necessária conexão para consultar ou atualizar entregas. Não há envio de operações offline, notificações push ou rastreamento automático em segundo plano.</p>
-      <Link className="mt-4 inline-flex min-h-11 items-center font-semibold text-brand" href="/entregador">Abrir área do entregador</Link>
-    </>}
-    {status && <p role="status" className="mt-3 text-sm text-ink-600">{status}</p>}
-  </section>;
+
+  return (
+    <section className="rounded-xl border border-ink-200 bg-white p-4" aria-labelledby="driver-install-title" data-testid="driver-install">
+      <div className="flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-light text-brand">{installed ? <CheckCircle2 size={22} aria-hidden /> : <Smartphone size={22} aria-hidden />}</span>
+        <div className="min-w-0">
+          <h3 id="driver-install-title" className="font-bold text-ink-900">{installed ? 'Aplicativo instalado' : 'Instalar Del Flash Entregador'}</h3>
+          <p className="mt-0.5 text-sm text-ink-500">{installed ? 'Você está usando o app pela tela inicial do celular.' : 'Adicione o aplicativo à tela inicial do seu celular para acessar suas entregas com mais facilidade.'}</p>
+        </div>
+      </div>
+      {!installed && <>
+        <button type="button" onClick={install} className="mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 font-semibold text-white" aria-expanded={!prompt ? showSteps : undefined}>
+          <Download size={18} aria-hidden />Instalar aplicativo
+        </button>
+        {showSteps && <InstallSteps platform={platform} />}
+        <p className="mt-3 text-xs text-ink-500">Opcional: você também pode trabalhar normalmente pelo navegador.</p>
+      </>}
+      {status && <p role="status" className="mt-3 text-sm text-ink-600">{status}</p>}
+    </section>
+  );
+}
+
+function InstallSteps({ platform }: { platform: Platform }) {
+  const steps = platform === 'ios-safari' || platform === 'ios-other'
+    ? [
+        platform === 'ios-other' ? 'Abra este endereço no Safari (o iPhone só instala apps pelo Safari).' : 'Confirme que está no Safari.',
+        <>Toque em <strong>Compartilhar</strong> <Share size={14} className="inline align-[-2px]" aria-label="ícone de compartilhar" /> na barra do navegador.</>,
+        <>Selecione <strong>Adicionar à Tela de Início</strong>.</>,
+        <>Toque em <strong>Adicionar</strong> para confirmar.</>,
+      ]
+    : platform === 'android'
+      ? [<>Toque no menu <strong>⋮</strong> do navegador (Chrome, Edge ou Samsung Internet).</>, <>Escolha <strong>Instalar aplicativo</strong> ou <strong>Adicionar à tela inicial</strong>.</>, <>Confirme em <strong>Instalar</strong>.</>]
+      : [<>Use o ícone de instalação na barra de endereço do Chrome ou Edge.</>, <>Ou abra o menu do navegador e escolha <strong>Instalar Del Flash Entregador</strong>.</>];
+  return (
+    <div className="mt-4 rounded-xl bg-ink-50 p-4" role="region" aria-label="Como instalar">
+      <p className="mb-3 text-sm font-semibold text-ink-800">{platform.startsWith('ios') ? 'No iPhone:' : platform === 'android' ? 'No Android:' : 'No computador:'}</p>
+      <ol className="driver-install-steps">{steps.map((step, i) => <li key={i}><span>{step}</span></li>)}</ol>
+    </div>
+  );
 }
