@@ -6,7 +6,7 @@ import { getInventoryValue, getLowStockProducts } from '@/lib/data/inventory';
 import { getDriverSummary } from '@/lib/data/drivers';
 import { formatBRL, formatTime } from '@/lib/utils';
 import { ORDER_SOURCE_LABEL } from '@/data/business-copy';
-import { Alert, Badge, Card, CardHeader, EmptyState, StatCard } from '@/components/ui';
+import { Alert, Badge, Card, CardHeader, EmptyState, StatCard, AnimatedMoney } from '@/components/ui';
 import { BreakdownBars, DonutChart, HourBars, LineChart } from '@/components/charts/SimpleCharts';
 import { OperationalRefresh } from '@/components/layout/OperationalRefresh';
 
@@ -83,11 +83,11 @@ export default async function DashboardPage() {
       )}
 
       {/* ── Indicadores do dia ────────────────────────────────────── */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 min-[340px]:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon="💰"
           label="Faturamento hoje"
-          value={formatBRL(data.today.revenue)}
+          value={<AnimatedMoney value={data.today.revenue} />}
           hint={`${data.today.orders} pedido${data.today.orders === 1 ? '' : 's'} válido${
             data.today.orders === 1 ? '' : 's'
           }`}
@@ -107,7 +107,7 @@ export default async function DashboardPage() {
         <StatCard
           icon="🎯"
           label="Ticket médio"
-          value={formatBRL(data.today.averageTicket)}
+          value={<AnimatedMoney value={data.today.averageTicket} />}
           hint={`Entrega: ${data.today.delivered} concluída${data.today.delivered === 1 ? '' : 's'}`}
           tone="purple"
         />
@@ -260,19 +260,19 @@ export default async function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-[0.82rem] text-ink-500">Abertura</span>
                   <span className="text-[0.82rem] font-semibold text-ink-800">
-                    {formatBRL(cash.openShift.totals.opening)}
+                    <AnimatedMoney value={cash.openShift.totals.opening} />
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[0.82rem] text-ink-500">Vendas no turno</span>
                   <span className="text-[0.82rem] font-semibold text-ink-800">
-                    {formatBRL(cash.openShift.totals.totalSales)}
+                    <AnimatedMoney value={cash.openShift.totals.totalSales} />
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-ink-100 pt-2.5">
                   <span className="text-[0.84rem] font-bold text-ink-700">Em gaveta (esperado)</span>
                   <span className="text-[0.95rem] font-extrabold text-brand">
-                    {formatBRL(cash.openShift.totals.expectedCash)}
+                    <AnimatedMoney value={cash.openShift.totals.expectedCash} />
                   </span>
                 </div>
                 <Link

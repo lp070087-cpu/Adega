@@ -57,3 +57,19 @@ test('every business type input is normalized to beverage stores on the server',
   assert.equal(beverageBusinessTypeSchema.parse(undefined), 'BEVERAGE');
   assert.equal(updateOrganizationSchema.parse({ name: 'Adega Central', businessType: 'PIZZA' }).businessType, 'BEVERAGE');
 });
+
+test('animated money component formats with the Brazilian pattern and keeps the true value for assistive tech', async () => {
+  const { formatBRL } = await import('../src/lib/utils');
+  assert.equal(formatBRL(1250).replace(/\s/g, ' '), 'R$ 1.250,00');
+  const source = (await import('node:fs')).readFileSync('src/components/ui/AnimatedMoney.tsx', 'utf8');
+  assert.match(source, /prefers-reduced-motion: reduce/);
+  assert.match(source, /className="sr-only">\{formatBRL\(target\)\}/);
+});
+
+test('stock screens never use the money counter animation', () => {
+  const fs = require('node:fs') as typeof import('node:fs');
+  const files = fs.readdirSync('src/app/app/estoque', { recursive: true }).map(String).filter((f) => f.endsWith('.tsx'));
+  for (const file of files) assert.doesNotMatch(fs.readFileSync(`src/app/app/estoque/${file}`, 'utf8'), /AnimatedMoney/);
+  const inventory = fs.readdirSync('src/components', { recursive: true }).map(String).filter((f) => /inventory|stock|estoque/i.test(f) && f.endsWith('.tsx'));
+  for (const file of inventory) assert.doesNotMatch(fs.readFileSync(`src/components/${file}`, 'utf8'), /AnimatedMoney/);
+});

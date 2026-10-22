@@ -247,3 +247,38 @@ textarea {
 .storefront [class*="border-brand"] { border-color: color-mix(in srgb, var(--store-brand) 35%, transparent); }
 @media(prefers-reduced-motion:reduce) { .storefront button:enabled:active { transform:none; } }
 @media(display-mode:standalone) { [data-install-main="true"] { display:none; } }
+
+/* ── Mobile foundation (Android/iPhone) ────────────────────────────── */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* Safety net only: real overflows are fixed per component; clip keeps sticky headers working. */
+html, body { overflow-x: clip; max-width: 100%; }
+body {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  -webkit-tap-highlight-color: rgba(8, 126, 164, 0.12);
+}
+img, video, svg { max-width: 100%; }
+/* iOS Safari zooms into inputs below 16px. */
+@media (max-width: 767px) {
+  input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea { font-size: 16px !important; }
+}
+/* Keep sticky/fixed bottom elements above the home indicator. */
+.safe-bottom { padding-bottom: max(0.25rem, env(safe-area-inset-bottom)); }
+.connection-status {
+  position: fixed; left: 50%; top: max(12px, env(safe-area-inset-top)); z-index: 2000; pointer-events: none;
+  transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px); text-align: center;
+  padding: 10px 16px; border-radius: 999px; background: #0b1f3a; color: #fff;
+  font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(11, 31, 58, .25);
+  animation: connection-in .25s ease-out;
+}
+.connection-status[data-state=online] { background: #166534; }
+@keyframes connection-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* Short press feedback on buttons without layout shift. */
+button:not(:disabled):active, a[role=button]:active { transform: scale(.985); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  button:not(:disabled):active { transform: none; }
+}
+/* Subtle card feedback; no movement for reduced-motion users (rule above). */
+.ui-stat { transition: box-shadow .2s ease, border-color .2s ease; }
+@media (hover: hover) { .ui-stat:hover { border-color: #b9d7e4; box-shadow: 0 6px 18px rgba(8, 126, 164, .08); } }

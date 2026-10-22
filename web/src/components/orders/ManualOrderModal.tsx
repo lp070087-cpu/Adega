@@ -45,7 +45,7 @@ export function ManualOrderModal({ products, onCreated }: { products: ManualProd
   return <>
     <Button onClick={() => { setError(null); setOpen(true); }}>Novo pedido</Button>
     <Modal open={open} onClose={() => { if (!pending) setOpen(false); }} title="Novo pedido" subtitle="Preços e disponibilidade são conferidos no servidor." size="lg">
-      <form action={submit} className="space-y-4">
+      <form onSubmit={(e) => { e.preventDefault(); void submit(new FormData(e.currentTarget)); }} className="space-y-4">
         {error && <Alert tone="danger">{error}</Alert>}
         <div className="grid gap-3 sm:grid-cols-2">
           <label>Nome do cliente<input name="customerName" required minLength={2} maxLength={120} className={field} autoComplete="name" /></label>

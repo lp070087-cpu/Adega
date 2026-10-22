@@ -3,7 +3,7 @@ import { requireOrgPage } from '@/lib/auth/guards';
 import { getSalesReport, periodRange, type Period } from '@/lib/data/dashboard';
 import { formatBRL, formatDateTime, formatNumber } from '@/lib/utils';
 import { ORDER_SOURCE_LABEL, PAYMENT_METHOD_LABEL } from '@/data/business-copy';
-import { Badge, Card, CardHeader, EmptyState, StatCard } from '@/components/ui';
+import { Badge, Card, CardHeader, EmptyState, StatCard, AnimatedMoney } from '@/components/ui';
 import { BreakdownBars, LineChart } from '@/components/charts/SimpleCharts';
 import { PaymentStatusBadge, SourceBadge } from '@/components/ui/StatusBadge';
 
@@ -71,11 +71,11 @@ export default async function SalesPage({ searchParams }: PageProps) {
         </nav>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 min-[340px]:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon="💰"
           label="Faturamento"
-          value={formatBRL(report.totals.revenue)}
+          value={<AnimatedMoney value={report.totals.revenue} />}
           hint={`${formatNumber(report.totals.orders)} pedido${
             report.totals.orders === 1 ? '' : 's'
           } no período`}
@@ -84,21 +84,21 @@ export default async function SalesPage({ searchParams }: PageProps) {
         <StatCard
           icon="🎯"
           label="Ticket médio"
-          value={formatBRL(report.totals.averageTicket)}
+          value={<AnimatedMoney value={report.totals.averageTicket} />}
           hint="Faturamento ÷ pedidos"
           tone="purple"
         />
         <StatCard
           icon="🛵"
           label="Taxas de entrega"
-          value={formatBRL(report.totals.deliveryFees)}
+          value={<AnimatedMoney value={report.totals.deliveryFees} />}
           hint="Somadas ao cliente"
           tone="teal"
         />
         <StatCard
           icon="🏷️"
           label="Descontos"
-          value={formatBRL(report.totals.discounts)}
+          value={<AnimatedMoney value={report.totals.discounts} />}
           hint={`Subtotal ${formatBRL(report.totals.subtotal)}`}
           tone="blue"
         />

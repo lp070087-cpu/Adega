@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, type ReactNode } from 'react';
 import {PaymentConference} from './PaymentConference';
 import {cashMethodLabels,type CashReconciliation,type PaymentCounts,type PaymentNotes} from '@/lib/cash-reconciliation';
 import { useRouter } from 'next/navigation';
@@ -24,6 +24,7 @@ import {
   MoneyInput,
   Select,
   Textarea,
+  AnimatedMoney,
 } from '@/components/ui';
 
 /**
@@ -167,13 +168,13 @@ export function CashManager({
       <div className="grid gap-3 sm:grid-cols-3">
         <SummaryCard
           label="Vendas no turno atual"
-          value={formatBRL(openShift?.totals.totalSales ?? 0)}
+          value={<AnimatedMoney value={openShift?.totals.totalSales ?? 0} />}
           hint={openShift ? `${openShift.transactions.length} lançamentos` : 'Sem turno aberto'}
           tone="orange"
         />
         <SummaryCard
           label="Dinheiro em gaveta"
-          value={formatBRL(expected)}
+          value={<AnimatedMoney value={expected} />}
           hint={openShift ? 'Abertura + dinheiro − sangrias' : 'Sem turno aberto'}
           tone="green"
         />
@@ -304,7 +305,7 @@ export function CashManager({
                     Esperado em gaveta agora
                   </p>
                   <p className="text-[1.5rem] font-extrabold leading-tight text-brand">
-                    {formatBRL(expected)}
+                    <AnimatedMoney value={expected} />
                   </p>
                   <p className="mt-0.5 text-[0.7rem] text-ink-500">
                     Calculado no servidor a partir dos lançamentos do turno.
@@ -604,7 +605,7 @@ function SummaryCard({
   tone,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   hint: string;
   tone: 'orange' | 'green' | 'blue';
 }) {

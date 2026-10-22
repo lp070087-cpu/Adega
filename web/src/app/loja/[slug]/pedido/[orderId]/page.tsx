@@ -8,7 +8,7 @@ import { OrderRefresh } from '@/components/store/OrderRefresh';
 import { OrderTracker } from '@/components/orders/OrderTracker';
 import { orderTracking } from '@/lib/order-tracking';
 import { storeTimeZone } from '@/lib/schedule';
-import { portalSession } from '@/lib/customer-portal/server';
+import { portalReady, portalSession } from '@/lib/customer-portal/server';
 import '../../conta/portal.css';
 
 export const dynamic = 'force-dynamic';
@@ -32,9 +32,8 @@ export default async function TrackOrder({ params }: {
       createdAt: true, updatedAt: true, acceptedAt: true, preparingAt: true, readyAt: true,
       dispatchedAt: true, deliveredAt: true, cancelledAt: true,
       items: { select: { id: true, productName: true, variationName: true, quantity: true, total: true, options: { select: { name: true, quantity: true } } } },
-      delivery: { select: { status: true } },
+      delivery: { select: { status: true, updatedAt: true } },
       driver: { select: { name: true } },
-      portalLink: { select: { accountId: true } },
       organization: { select: { name: true, logoUrl: true, brandColor: true, settings: true, averageDeliveryTime: true } },
     },
   });
@@ -42,8 +41,10 @@ export default async function TrackOrder({ params }: {
   const store = order.organization, timeZone = storeTimeZone(store.settings);
   const tracking = orderTracking({ ...order, deliveryStatus: order.delivery?.status });
   const pickup = order.deliveryType === 'PICKUP';
-  const ownerSession = order.portalLink ? await portalSession(slug).catch(() => null) : null;
-  const isOwner = Boolean(ownerSession && ownerSession.id === order.portalLink?.accountId);
+  // CustomerPortalOrder only exists after the customer-portal migration; never query it before that.
+  const portalLink = await portalReady() ? await prisma.customerPortalOrder.findUnique({ where: { orderId }, select: { accountId: true } }) : null;
+  const ownerSession = portalLink ? await portalSession(slug).catch(() => null) : null;
+  const isOwner = Boolean(ownerSession && ownerSession.id === portalLink?.accountId);
   const brand = /^#[0-9a-f]{6}$/i.test(store.brandColor) ? store.brandColor : '#087EA4';
   const dateTime = (value: Date) => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone }).format(value);
   const driverFirstName = !pickup && order.driver?.name && ['DISPATCHED', 'DELIVERED'].includes(order.status) ? order.driver.name.trim().split(/\s+/)[0] : null;
@@ -72,7 +73,7 @@ export default async function TrackOrder({ params }: {
           <OrderTracker order={{ ...order, deliveryStatus: order.delivery?.status }} timeZone={timeZone} />
           {driverFirstName && <p className="customer-muted">Entregador responsável: <strong>{driverFirstName}</strong></p>}
           {!tracking.terminal && store.averageDeliveryTime > 0 && !pickup && <p className="customer-muted">Tempo médio de entrega informado pela loja: {store.averageDeliveryTime} min. Não é uma previsão exata deste pedido.</p>}
-          <OrderRefresh terminal={tracking.terminal} />
+          <OrderRefresh terminal={tracking.terminal} statusUrl={`/api/loja/${slug}/pedido/${orderId}`} version={[order.status, order.updatedAt.toISOString(), order.delivery?.status ?? '', order.delivery?.updatedAt.toISOString() ?? ''].join('|')} />
         </section>
         <div className="customer-grid">
           <section className="customer-card">

@@ -74,7 +74,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
         </nav>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 min-[340px]:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon="🧭"
           label="Pedidos no período"

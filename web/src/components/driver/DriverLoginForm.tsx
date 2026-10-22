@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { startTransition, useActionState, useState } from 'react';
 import { driverLoginAction, type AuthActionState } from '@/app/actions/auth';
 import { Button, Field, Input } from '@/components/ui';
 import Link from 'next/link';
@@ -30,7 +30,7 @@ export function DriverLoginForm({storeNumber}:{storeNumber?:string}={}) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <form action={formAction} className="mt-6 text-left">
+    <form onSubmit={(e) => { e.preventDefault(); const data = new FormData(e.currentTarget); startTransition(() => formAction(data)); }} className="mt-6 text-left">
       {storeNumber&&<input type="hidden" name="storeNumber" value={storeNumber}/>}
       {state?.error && (
         <p

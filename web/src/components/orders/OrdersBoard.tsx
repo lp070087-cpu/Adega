@@ -204,7 +204,7 @@ export function OrdersBoard({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar por nº, cliente ou telefone..."
-          className="field-input min-w-[220px] flex-1"
+          className="field-input w-full basis-full sm:w-auto sm:min-w-[220px] sm:flex-1 sm:basis-auto"
         />
 
         <span className="ml-auto whitespace-nowrap text-[0.76rem] text-ink-500">

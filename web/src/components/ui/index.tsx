@@ -211,13 +211,13 @@ export function StatCard({
 }: {
   icon: string;
   label: string;
-  value: string;
+  value: React.ReactNode;
   hint?: string;
   tone?: StatTone;
   trend?: { value: string; positive: boolean };
 }) {
   return (
-    <div className="ui-stat rounded-lg border border-ink-200 bg-white p-5">
+    <div className="ui-stat min-w-0 rounded-lg border border-ink-200 bg-white p-4 sm:p-5">
       <div className="mb-3 flex items-center justify-between">
         <span
           className={cn(
@@ -239,7 +239,7 @@ export function StatCard({
         )}
       </div>
       <p className="text-[0.76rem] font-medium text-ink-500">{label}</p>
-      <p className="mt-1 text-[1.6rem] font-extrabold leading-none text-ink-900">{value}</p>
+      <p className="mt-1 min-w-0 break-words text-[clamp(1.25rem,5vw,1.6rem)] font-extrabold leading-none text-ink-900">{value}</p>
       {hint && <p className="mt-1.5 text-[0.72rem] text-ink-400">{hint}</p>}
     </div>
   );
@@ -403,7 +403,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-sm text-ink-400 transition-all hover:bg-ink-100 hover:text-ink-700"
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-sm text-ink-400 transition-all hover:bg-ink-100 hover:text-ink-700"
           >
             <X aria-hidden="true" className="h-4 w-4" />
           </button>
@@ -461,7 +461,7 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="flex h-full w-full max-w-lg flex-col bg-white shadow-xl animate-slide-in-right"
+        className="flex h-full w-full max-w-lg flex-col bg-white shadow-xl animate-slide-in-right" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <header className="flex items-start justify-between gap-4 border-b border-ink-100 p-[18px_22px]">
           <div>
@@ -472,7 +472,7 @@ export function Drawer({
             type="button"
             onClick={onClose}
             aria-label="Fechar"
-            className="flex h-8 w-8 items-center justify-center rounded-sm text-ink-400 transition-all hover:bg-ink-100 hover:text-ink-700"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm text-ink-400 transition-all hover:bg-ink-100 hover:text-ink-700"
           >
             <X aria-hidden="true" className="h-4 w-4" />
           </button>
@@ -570,3 +570,5 @@ export function ProgressBar({ value, max = 100 }: { value: number; max?: number 
     </div>
   );
 }
+
+export { AnimatedMoney } from './AnimatedMoney';

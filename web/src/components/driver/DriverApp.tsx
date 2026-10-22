@@ -737,7 +737,7 @@ function OrderSheet({
         role="dialog"
         aria-modal="true"
         aria-label={`Entrega ${order.displayId}`}
-        className="max-h-[88vh] w-full max-w-[560px] overflow-y-auto rounded-t-2xl bg-white p-5 pb-8 animate-fade-in"
+        className="max-h-[88dvh] w-full max-w-[560px] overflow-y-auto rounded-t-2xl bg-white p-5 pb-[max(2rem,env(safe-area-inset-bottom))] animate-fade-in"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>

@@ -465,7 +465,10 @@ export function StoreCatalog({
     });
 
     } catch {
-      setError('Não foi possível confirmar o pedido. Tente novamente.');
+      // The same idempotency key is reused on retry, so trying again never duplicates the order.
+      setError(typeof navigator !== 'undefined' && !navigator.onLine
+        ? 'Sem conexão com a internet. O pedido não foi enviado. Quando a conexão voltar, toque em Enviar pedido novamente.'
+        : 'Não foi possível confirmar o pedido agora. Toque em Enviar pedido novamente; ele não será duplicado.');
       return;
     } finally {
       checkoutLocked.current = false;
@@ -663,7 +666,7 @@ export function StoreCatalog({
 
       {/* ── Barra da sacola ── */}
       {itemCount > 0 && (
-        <div className="sticky bottom-4 z-30 mx-auto max-w-[1180px] px-4 pb-1 sm:px-5">
+        <div className="safe-bottom sticky bottom-4 z-30 mx-auto max-w-[1180px] px-4 pb-1 sm:px-5">
           <button
             type="button"
             onClick={() => setCartOpen(true)}
@@ -822,7 +825,16 @@ export function StoreCatalog({
           </>
         }
       >
-        <form id="checkout-form" action={submitOrder} className="space-y-4">
+        <form
+          id="checkout-form"
+          // onSubmit instead of a form action: React resets action forms after every
+          // submission, which would wipe the customer's data when the order fails.
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submitOrder(new FormData(event.currentTarget));
+          }}
+          className="space-y-4"
+        >
           <CustomerCheckoutAccess slug={store.slug}/>
           {error && <Alert tone="danger">{error}</Alert>}
 
