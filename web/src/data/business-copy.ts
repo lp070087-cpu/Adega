@@ -79,9 +79,13 @@ export const COPY_GENERIC: BusinessCopy = {
   description: 'Peça online e receba com entrega rápida.',
 };
 
-export function copyByType(type: BusinessType | null | undefined): BusinessCopy {
-  if (!type) return COPY_GENERIC;
-  return BUSINESS_COPY[type] ?? COPY_GENERIC;
+/**
+ * A plataforma atende somente lojas de bebidas. Registros antigos com outro
+ * tipo continuam intactos no banco, mas a vitrine e o painel usam sempre os
+ * textos de loja de bebidas.
+ */
+export function copyByType(_type?: BusinessType | null): BusinessCopy {
+  return BUSINESS_COPY.BEVERAGE ?? COPY_GENERIC;
 }
 
 export function segmentNoun(type: BusinessType | null | undefined): string {

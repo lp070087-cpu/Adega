@@ -31,7 +31,7 @@ export default async function CombosPage() {
     getCategories(ctx.organizationId, true),
   ]);
 
-  const businessType = (organization?.businessType ?? 'SNACK_BAR') as BusinessType;
+  const businessType = 'BEVERAGE' as BusinessType; // plataforma exclusiva para lojas de bebidas
 
   const combos: ComboRow[] = combosRaw.map((combo) => ({
     id: combo.id,

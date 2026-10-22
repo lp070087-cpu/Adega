@@ -55,7 +55,7 @@ export async function checkoutAction(input: unknown): Promise<
     const store = await getPublicStoreBySlug(parsed.data.slug);
     if (!store) return { ok: false, error: 'Estabelecimento não encontrado.' };
 
-    const portalAccount = process.env.CUSTOMER_PORTAL_ENABLED === 'true' ? await (await import('@/lib/customer-portal/server')).portalSession(store.slug) : null;
+    const portalAccount = process.env.CUSTOMER_PORTAL_ENABLED !== 'false' ? await (await import('@/lib/customer-portal/server')).portalSession(store.slug) : null;
     const result = await orders.createOrderFromCheckout(
       store.id,
       {

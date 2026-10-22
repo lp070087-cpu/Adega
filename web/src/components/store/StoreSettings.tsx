@@ -35,7 +35,7 @@ import {
   Tabs,
   Textarea,
 } from '@/components/ui';
-import type { BusinessType, StoreStatus } from '@prisma/client';
+import type { StoreStatus } from '@prisma/client';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -196,7 +196,7 @@ export function StoreSettings({
 
     const data = new FormData();
     data.set('name', form.name);
-    data.set('businessType', form.businessType);
+    data.set('businessType', 'BEVERAGE');
     data.set('brandColor', form.brandColor);
     data.set('logoUrl', form.logoUrl ?? '');
     data.set('description', form.description ?? '');
@@ -323,7 +323,7 @@ export function StoreSettings({
     });
   }
 
-  const copy = BUSINESS_COPY[form.businessType as BusinessType];
+  const copy = BUSINESS_COPY.BEVERAGE;
 
   return (
     <div className="space-y-4">
@@ -440,18 +440,8 @@ export function StoreSettings({
                 />
               </Field>
 
-              <Field label="Tipo de negócio" hint="Muda as sugestões e os textos da vitrine.">
-                <Select
-                  value={form.businessType}
-                  onChange={(e) => set('businessType', e.target.value)}
-                  disabled={!canManage}
-                >
-                  {Object.entries(BUSINESS_COPY).map(([value, entry]) => (
-                    <option key={value} value={value}>
-                      {entry.noun.charAt(0).toUpperCase() + entry.noun.slice(1)}
-                    </option>
-                  ))}
-                </Select>
+              <Field label="Tipo de negócio" hint="A plataforma é especializada em lojas de bebidas.">
+                <Input value="Loja de bebidas" readOnly aria-readonly disabled />
               </Field>
 
               <Field

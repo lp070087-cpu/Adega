@@ -68,7 +68,7 @@ export default async function CatalogPage() {
     getCatalogSummary(ctx.organizationId),
   ]);
 
-  const businessType = (organization?.businessType ?? 'SNACK_BAR') as BusinessType;
+  const businessType = 'BEVERAGE' as BusinessType; // plataforma exclusiva para lojas de bebidas
 
   // ── Dados da biblioteca global, para o seletor abrir pronto ──
   const [globalCategories, globalBrands, ownedGlobalIds] = await Promise.all([

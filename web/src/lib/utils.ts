@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** R$ 1.234,56 â€” mesmo formato do sistema anterior. */
+/** R$ 1.234,56 — mesmo formato do sistema anterior. */
 export function formatBRL(value: number | string | null | undefined): string {
   const n = typeof value === 'string' ? Number(value) : (value ?? 0);
   return new Intl.NumberFormat('pt-BR', {
@@ -14,16 +14,16 @@ export function formatBRL(value: number | string | null | undefined): string {
   }).format(Number.isFinite(n) ? n : 0);
 }
 
-/** 1.234 â€” sem casas decimais (contadores). */
+/** 1.234 — sem casas decimais (contadores). */
 export function formatNumber(value: number | null | undefined): string {
   return new Intl.NumberFormat('pt-BR').format(value ?? 0);
 }
 
-/** 12/09 Ã s 14h30 */
+/** 12/09 às 14h30 */
 export function formatDateTime(value: Date | string | null | undefined): string {
-  if (!value) return 'â€”';
+  if (!value) return '—';
   const d = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(d.getTime())) return 'â€”';
+  if (Number.isNaN(d.getTime())) return '—';
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -32,32 +32,32 @@ export function formatDateTime(value: Date | string | null | undefined): string 
   }).format(d);
 }
 
-/** 14h30 â€” usado na fila do entregador e no kanban. */
+/** 14h30 — usado na fila do entregador e no kanban. */
 export function formatTime(value: Date | string | null | undefined): string {
-  if (!value) return 'â€”';
+  if (!value) return '—';
   const d = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(d.getTime())) return 'â€”';
+  if (Number.isNaN(d.getTime())) return '—';
   return new Intl.DateTimeFormat('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
   }).format(d);
 }
 
-/** "hÃ¡ 5 min", "hÃ¡ 2 h" â€” tempo relativo curto para a operaÃ§Ã£o. */
+/** "há 5 min", "há 2 h" — tempo relativo curto para a operação. */
 export function timeAgo(value: Date | string | null | undefined): string {
-  if (!value) return 'â€”';
+  if (!value) return '—';
   const d = typeof value === 'string' ? new Date(value) : value;
   const diffMs = Date.now() - d.getTime();
   const min = Math.floor(diffMs / 60000);
   if (min < 1) return 'agora';
-  if (min < 60) return `hÃ¡ ${min} min`;
+  if (min < 60) return `há ${min} min`;
   const hours = Math.floor(min / 60);
-  if (hours < 24) return `hÃ¡ ${hours} h`;
+  if (hours < 24) return `há ${hours} h`;
   const days = Math.floor(hours / 24);
-  return `hÃ¡ ${days} d`;
+  return `há ${days} d`;
 }
 
-/** Minutos entre duas datas â€” base dos indicadores de tempo operacional. */
+/** Minutos entre duas datas — base dos indicadores de tempo operacional. */
 export function minutesBetween(
   start: Date | string | null | undefined,
   end: Date | string | null | undefined = new Date(),
@@ -84,7 +84,7 @@ export function slugify(input: string): string {
     .substring(0, 60);
 }
 
-/** Telefone sÃ³ com dÃ­gitos â€” chave de deduplicaÃ§Ã£o de Customer. */
+/** Telefone só com dígitos — chave de deduplicação de Customer. */
 export function onlyDigits(value: string | null | undefined): string {
   return String(value ?? '').replace(/\D/g, '');
 }
@@ -94,10 +94,10 @@ export function formatPhone(value: string | null | undefined): string {
   const d = onlyDigits(value);
   if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
   if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-  return value ?? 'â€”';
+  return value ?? '—';
 }
 
-/** InÃ­cio do dia no fuso local do servidor. */
+/** Início do dia no fuso local do servidor. */
 export function startOfDay(date: Date = new Date()): Date {
   return new Date(`${dayKey(date)}T00:00:00-03:00`);
 }
@@ -112,14 +112,14 @@ export function addDays(date: Date, days: number): Date {
   return d;
 }
 
-/** Chave estÃ¡vel para agrupar por dia (YYYY-MM-DD). */
+/** Chave estável para agrupar por dia (YYYY-MM-DD). */
 export function dayKey(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
   const part = (type: string) => parts.find((p) => p.type === type)?.value;
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
-/** MÃ©dia segura: nunca divide por zero. */
+/** Média segura: nunca divide por zero. */
 export function safeAverage(total: number, count: number): number {
   if (!count) return 0;
   return total / count;

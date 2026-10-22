@@ -1450,6 +1450,7 @@ model CustomerPortalAccount {
   active Boolean @default(true)
   marketingOptIn Boolean @default(false)
   noticesReadAt DateTime?
+  termsAcceptedAt DateTime?
   failedAttempts Int @default(0)
   lockedUntil DateTime?
   createdAt DateTime @default(now())

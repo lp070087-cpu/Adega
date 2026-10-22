@@ -50,7 +50,7 @@ export default async function MyStorePage() {
   const store: StoreFormData = {
     name: organization.name,
     slug: organization.slug,
-    businessType: organization.businessType ?? '',
+    businessType: 'BEVERAGE',
     brandColor: organization.brandColor,
     logoUrl: organization.logoUrl,
     description: organization.description,

@@ -140,7 +140,7 @@ type Draft = {
 };
 
 const INITIAL: Draft = {
-  businessType: null,
+  businessType: 'BEVERAGE',
   restaurantStyle: null,
   name: '',
   responsibleName: '',
@@ -197,6 +197,8 @@ export function OnboardingWizardV3({
   const [draft, setDraft] = useState<Draft>(() => ({
     ...INITIAL,
     ...(resume?.draft as Partial<Draft> | undefined),
+    // A plataforma atende somente lojas de bebidas; rascunhos antigos também.
+    businessType: 'BEVERAGE',
     schedule: normalizeSchedule(
       (resume?.draft as Partial<Draft> | undefined)?.schedule ?? defaultSchedule(),
     ),
@@ -591,9 +593,9 @@ export function OnboardingWizardV3({
         {/* ══ 1 — TIPO ══ */}
         {step === 1 && (
           <section>
-            <StepTitle title="Que tipo de estabelecimento é?" subtitle="Isso ajusta as sugestões. Você pode vender o que quiser." />
+            <StepTitle title="Tipo de estabelecimento" subtitle="A plataforma é especializada em lojas de bebidas." />
             <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-              {BUSINESS_TYPES.map((type) => (
+              {BUSINESS_TYPES.filter((type) => type === 'BEVERAGE').map((type) => (
                 <button
                   key={type}
                   type="button"
@@ -1768,7 +1770,7 @@ function numericPrices(prices: Record<string, string>): Record<string, number> {
 }
 
 const BUSINESS_LABEL: Record<string, string> = {
-  BEVERAGE: 'Bebidas',
+  BEVERAGE: 'Loja de bebidas',
   BURGER: 'Hamburgueria',
   SNACK_BAR: 'Lanchonete',
   PIZZA: 'Pizzaria',

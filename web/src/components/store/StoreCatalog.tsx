@@ -274,6 +274,19 @@ export function StoreCatalog({
     setHydrated(true);
   }, [storageKey]);
 
+  // Volta do login/cadastro iniciado no checkout (?finalizar=1): a sacola
+  // salva neste dispositivo é reaberta direto na finalização.
+  const resumedCheckout = React.useRef(false);
+  React.useEffect(() => {
+    if (!hydrated || resumedCheckout.current) return;
+    resumedCheckout.current = true;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('finalizar') !== '1') return;
+    url.searchParams.delete('finalizar');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    if (cart.length > 0) setCheckoutOpen(true);
+  }, [hydrated, cart.length]);
+
   React.useEffect(() => {
     if (!hydrated) return;
     try {

@@ -12,18 +12,25 @@ import {
   zipCodeSchema,
 } from './common';
 
+/**
+ * A plataforma atende exclusivamente lojas de bebidas: qualquer valor
+ * recebido é normalizado para BEVERAGE no servidor. O enum do banco segue
+ * intacto para não tocar registros antigos.
+ */
+export const beverageBusinessTypeSchema = z
+  .unknown()
+  .transform((): typeof BusinessType.BEVERAGE => BusinessType.BEVERAGE);
+
 /** Etapa 1 do onboarding: tipo de negócio. */
 export const onboardingTypeSchema = z.object({
-  businessType: z.nativeEnum(BusinessType, {
-    errorMap: () => ({ message: 'Escolha o tipo de negócio' }),
-  }),
+  businessType: beverageBusinessTypeSchema,
 });
 
 /** Etapa 2 do onboarding: nome e identidade. O nome é do LOJISTA. */
 export const onboardingIdentitySchema = z.object({
   name: requiredText('Nome do estabelecimento', 2, 120),
   slug: slugSchema.optional(),
-  businessType: z.nativeEnum(BusinessType),
+  businessType: beverageBusinessTypeSchema,
   brandColor: hexColorSchema.optional(),
   /** URL do storage. Nesta fase aceitamos URL; base64 não é solução final. */
   logoUrl: z.string().url('URL da logo inválida').max(500).optional().or(z.literal('')),
@@ -54,7 +61,7 @@ export const onboardingDeliverySchema = z.object({
 
 /** Passo final: cria organização + categorias + produtos numa transação. */
 export const completeOnboardingSchema = z.object({
-  businessType: z.nativeEnum(BusinessType),
+  businessType: beverageBusinessTypeSchema,
   name: requiredText('Nome do estabelecimento', 2, 120),
   brandColor: hexColorSchema.default('#F15A24'),
   logoUrl: z.string().url().max(500).optional().or(z.literal('')),
@@ -125,7 +132,7 @@ const ownProductInputSchema = z.object({
  * lojista digitou, e ele é revalidado aqui.
  */
 export const completeOnboardingV2Schema = z.object({
-  businessType: z.nativeEnum(BusinessType),
+  businessType: beverageBusinessTypeSchema,
   restaurantStyle: restaurantStyleSchema.optional(),
 
   name: requiredText('Nome do estabelecimento', 2, 120),
@@ -286,7 +293,7 @@ export const slugCheckSchema = z.object({
 /** Minha Loja — atualização da organização. */
 export const updateOrganizationSchema = z.object({
   name: requiredText('Nome do estabelecimento', 2, 120),
-  businessType: z.nativeEnum(BusinessType).optional(),
+  businessType: beverageBusinessTypeSchema,
   brandColor: hexColorSchema.optional(),
   logoUrl: z.string().url('URL da logo inválida').max(500).optional().or(z.literal('')),
   description: optionalText(400),

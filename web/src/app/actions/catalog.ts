@@ -424,8 +424,7 @@ export async function applyTemplateAction(input: {
     // O segmento é o da própria organização. Aceitar o segmento vindo do
     // formulário deixaria alguém importar um catálogo de outro ramo, mas
     // pior: seria mais um campo controlado pelo cliente sem necessidade.
-    const organization = await getOrganizationById(organizationId);
-    const businessType = organization?.businessType ?? BusinessType.SNACK_BAR;
+    const businessType = BusinessType.BEVERAGE; // plataforma exclusiva para lojas de bebidas
 
     const result = await catalog.applySegmentTemplate(organizationId, businessType, {
       replaceExisting: parsed.data.replaceExisting,

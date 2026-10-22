@@ -8,6 +8,7 @@ import { onlyDigits } from '@/lib/utils';
 import { normalizeSchedule, storeOpenState } from '@/lib/schedule';
 import { deductOrderStock, restoreOrderStock } from '@/lib/data/inventory';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
+import { portalVerifiedFilter } from '@/lib/customer-portal/mail';
 import { registerOrderInCash } from '@/lib/data/cash';
 import { canTransition } from '@/lib/validations/order';
 import { getCommercialAccess } from '@/lib/platform/access';
@@ -497,7 +498,7 @@ export async function createOrderFromCheckout(
     }
     const fresh = await tx.organization.findUnique({where:{id:organizationId},select:{storeStatus:true,settings:true,status:true}});
     if(!fresh || !['ACTIVE','TRIAL'].includes(fresh.status) || storeOpenState(fresh.storeStatus,normalizeSchedule((fresh.settings as Record<string,unknown>|null)?.openingHours),undefined,storeOpeningMode(fresh.settings,fresh.storeStatus),storeTimeZone(fresh.settings))!=='OPEN') throw new CheckoutError('A loja não está recebendo novos pedidos neste momento.');
-    if(portalAccount && !await tx.customerPortalSession.findFirst({where:{tokenHash:portalAccount.sessionHash,accountId:portalAccount.id,expiresAt:{gt:new Date()},account:{organizationId,active:true,emailVerifiedAt:{not:null}}}})) throw new CheckoutError('Sua sessão mudou. Entre novamente antes de finalizar.');
+    if(portalAccount && !await tx.customerPortalSession.findFirst({where:{tokenHash:portalAccount.sessionHash,accountId:portalAccount.id,expiresAt:{gt:new Date()},account:{organizationId,active:true,...portalVerifiedFilter()}}})) throw new CheckoutError('Sua sessão mudou. Entre novamente antes de finalizar.');
     const customerRecord = await upsertCustomer(
       tx,
       organizationId,

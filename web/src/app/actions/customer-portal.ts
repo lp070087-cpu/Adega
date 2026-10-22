@@ -1,31 +1,33 @@
 'use server';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
 import { verifyPassword,hashPassword } from '@/lib/auth/password';
 import { toActionError } from '@/lib/auth/guards';
 import { OperationError } from '@/lib/operation-error';
-import { firstNameSchema,addressSchema,passwordSchema } from '@/lib/customer-portal/policy';
+import { fullNameSchema,brazilPhoneSchema,addressSchema,passwordSchema,safeReturnPath } from '@/lib/customer-portal/policy';
 import { registerPortalAccount,loginPortalAccount,logoutPortalAccount,requestPortalReset,consumePortalToken,requireCustomerAccount,changePortalEmail } from '@/lib/customer-portal/server';
 
-export type CustomerPortalState={ok:boolean;message:string;redirect?:string}|undefined;
+export type CustomerPortalState={ok:boolean;message:string;redirect?:string;field?:string}|undefined;
 export async function customerPortalAction(_previous:CustomerPortalState,form:FormData):Promise<CustomerPortalState>{
   const slug=String(form.get('slug')??''),action=String(form.get('action')??'');
   const value=(key:string)=>String(form.get(key)??'');
+  // Server redirect: clearing the cookie re-renders the current (protected) page, which would otherwise win the navigation.
+  if(action==='logout'){await logoutPortalAccount(slug);redirect(`/loja/${slug}/`);}
   try{
     if(action==='register'){
-      await registerPortalAccount(slug,{name:value('name'),email:value('email'),password:value('password'),confirmPassword:value('confirmPassword')});
+      const result=await registerPortalAccount(slug,{name:value('name'),email:value('email'),phone:value('phone'),password:value('password'),confirmPassword:value('confirmPassword'),acceptTerms:form.get('acceptTerms')==='on'},form.get('remember')==='on');
+      if(result==='session')return {ok:true,message:'Conta criada. Você já está conectado.',redirect:safeReturnPath(slug,value('voltar'))};
       return {ok:true,message:'Se este endereço puder ser cadastrado ou estiver pendente, siga a confirmação enviada por e-mail. Se já tem uma conta ativa, entre ou recupere sua senha.'};
     }
-    if(action==='login'){await loginPortalAccount(slug,value('email'),value('password'),form.get('remember')==='on');return {ok:true,message:'Você entrou na sua conta.',redirect:`/loja/${slug}/conta`};}
+    if(action==='login'){await loginPortalAccount(slug,value('email'),value('password'),form.get('remember')==='on');return {ok:true,message:'Você entrou na sua conta.',redirect:safeReturnPath(slug,value('voltar'))};}
     if(action==='recover'){await requestPortalReset(slug,value('email'));return {ok:true,message:'Se houver uma conta ativa para este e-mail, siga o link de recuperação. Confira também a pasta de spam.'};}
     if(action==='confirm'){await consumePortalToken(slug,value('token'),value('password'),value('confirmPassword'));await logoutPortalAccount(slug);return {ok:true,message:'Solicitação confirmada. Entre na sua conta.',redirect:`/loja/${slug}/conta/entrar`};}
-    if(action==='logout'){await logoutPortalAccount(slug);return {ok:true,message:'Sessão encerrada.',redirect:`/loja/${slug}/`};}
     const account=await requireCustomerAccount(slug);
     if(action==='profile'){
-      const name=firstNameSchema.parse(value('name')),phone=value('phone').replace(/\D/g,'');
-      if(phone&&!/^\d{10,11}$/.test(phone))throw new OperationError('Telefone inválido.');
+      const name=fullNameSchema.parse(value('name')),phone=value('phone').trim()?brazilPhoneSchema.parse(value('phone')):'';
       await prisma.customerPortalAccount.update({where:{id:account.id,organizationId:account.organizationId},data:{firstName:name,phone:phone||null}});
     }else if(action==='email'){
       await changePortalEmail(slug,value('email'),value('currentPassword'));return {ok:true,message:'Confirme o novo endereço pelo link enviado. O e-mail atual permanece válido até a confirmação.'};
@@ -60,5 +62,5 @@ export async function customerPortalAction(_previous:CustomerPortalState,form:Fo
     else if(action==='read-notices')await prisma.customerPortalAccount.update({where:{id:account.id,organizationId:account.organizationId},data:{noticesReadAt:new Date()}});
     else throw new OperationError('Ação inválida.');
     revalidatePath(`/loja/${slug}/conta`,'layout');return {ok:true,message:'Alterações salvas.'};
-  }catch(error){return {ok:false,message:error instanceof z.ZodError?error.issues[0]?.message??'Confira os campos.':toActionError(error).error};}
+  }catch(error){return error instanceof z.ZodError?{ok:false,message:error.issues[0]?.message??'Confira os campos.',field:String(error.issues[0]?.path[0]??'')}:{ok:false,message:toActionError(error).error};}
 }
