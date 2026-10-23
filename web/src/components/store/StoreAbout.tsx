@@ -1,3 +1,4 @@
+import { whatsappHref } from '@/lib/whatsapp';
 import * as React from 'react';
 
 /**
@@ -102,7 +103,7 @@ export function StoreAbout({ store }: { store: StoreContactData }) {
                 <InfoRow label="WhatsApp">
                   <a
                     className="hover:underline"
-                    href={`https://wa.me/${normalizeWhatsApp(store.whatsapp)}`}
+                    href={whatsappHref(store.whatsapp, `Olá! Vim pela loja ${store.name} no Del Flash.`) ?? undefined}
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -125,10 +126,6 @@ export function StoreAbout({ store }: { store: StoreContactData }) {
   );
 }
 
-function normalizeWhatsApp(value: string): string {
-  const digits = value.replace(/\D/g, '');
-  return digits.startsWith('55') ? digits : `55${digits}`;
-}
 
 /**
  * Rodapé da loja pública.

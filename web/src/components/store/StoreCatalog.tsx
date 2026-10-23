@@ -11,6 +11,8 @@ import { StoreHeader } from '@/components/store/StoreHeader';
 import { STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
 import type { BusinessType } from '@prisma/client';
 import { groupPublishedStoreProducts } from '@/lib/store-catalog-groups';
+import { Share2 } from 'lucide-react';
+import { whatsappDigits } from '@/lib/whatsapp';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -170,6 +172,23 @@ function comboSeparateTotal(items: StoreComboItem[]): number {
   return Math.round(items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0) * 100) / 100;
 }
 
+/** Loja atual, para o botão de compartilhar de cada produto. */
+const StoreShareContext = React.createContext<{ slug: string; name: string } | null>(null);
+
+/**
+ * Compartilha o link do produto (abre direto o produto na loja). Usa o
+ * compartilhamento nativo do celular quando existe; senão, o WhatsApp.
+ */
+async function shareProduct(product: StoreProduct, store: { slug: string; name: string }) {
+  const url = `${window.location.origin}/loja/${store.slug}?produto=${encodeURIComponent(product.id)}`;
+  const text = `${product.name} por ${formatBRL(effectivePrice(product))} em ${store.name}`;
+  if (typeof navigator.share === 'function') {
+    try { await navigator.share({ title: product.name, text, url }); return; }
+    catch (error) { if ((error as DOMException)?.name === 'AbortError') return; }
+  }
+  window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`, '_blank', 'noopener,noreferrer');
+}
+
 export function StoreCatalog({
   store,
   categories,
@@ -202,6 +221,7 @@ export function StoreCatalog({
       setCustomizing(product);
     }
   }, [store.slug, products]);
+  const shareStore = React.useMemo(() => ({ slug: store.slug, name: store.name }), [store.slug, store.name]);
   const [cartOpen, setCartOpen] = React.useState(false);
   const [checkoutOpen, setCheckoutOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -513,7 +533,7 @@ export function StoreCatalog({
   const whatsappHref = buildWhatsAppHref(store.whatsapp, store.name, order?.displayId);
 
   return (
-    <>
+    <StoreShareContext.Provider value={shareStore}>
       <StoreHeader
         storeName={store.name}
         slug={store.slug}
@@ -1056,7 +1076,7 @@ export function StoreCatalog({
           </div>
         )}
       </Modal>
-    </>
+    </StoreShareContext.Provider>
   );
 }
 
@@ -1066,13 +1086,12 @@ function buildWhatsAppHref(
   storeName: string,
   displayId?: number,
 ): string | null {
-  const digits = String(whatsapp ?? '').replace(/\D/g, '');
-  if (digits.length < 10) return null;
-  const withCountry = digits.startsWith('55') ? digits : `55${digits}`;
+  const digits = whatsappDigits(whatsapp);
+  if (!digits) return null;
   const text = displayId
     ? `Olá! Fiz o pedido #${displayId} em ${storeName} e gostaria de falar sobre ele.`
     : `Olá! Gostaria de falar com ${storeName}.`;
-  return `https://wa.me/${withCountry}?text=${encodeURIComponent(text)}`;
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
 
 function CategoryChip({
@@ -1199,6 +1218,7 @@ function ProductCard({
   const separate = product.comboItems.length > 0 ? comboSeparateTotal(product.comboItems) : 0;
   const savings = separate > 0 ? Math.round((separate - price) * 100) / 100 : 0;
   const isCombo = product.comboItems.length > 0;
+  const shareStore = React.useContext(StoreShareContext);
 
   return (
     <li className="store-product-card" style={{ '--store-brand': brandColor } as React.CSSProperties}>
@@ -1257,15 +1277,27 @@ function ProductCard({
           )}
         </div>
 
-        <Button
-          size="sm"
-          className="mt-2"
-          disabled={blocked}
-          onClick={onAdd}
-          style={!blocked ? { backgroundColor: brandColor } : undefined}
-        >
-          {soldOut ? (!product.available ? 'Produto pausado' : 'Sem estoque') : closed ? 'Adicionar para depois' : 'Adicionar'}
-        </Button>
+        <div className="mt-2 flex items-center gap-2">
+          <Button
+            size="sm"
+            disabled={blocked}
+            onClick={onAdd}
+            style={!blocked ? { backgroundColor: brandColor } : undefined}
+          >
+            {soldOut ? (!product.available ? 'Produto pausado' : 'Sem estoque') : closed ? 'Adicionar para depois' : 'Adicionar'}
+          </Button>
+          {shareStore && (
+            <button
+              type="button"
+              onClick={() => void shareProduct(product, shareStore)}
+              aria-label={`Compartilhar ${product.name}`}
+              title="Compartilhar"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-ink-200 bg-white text-ink-600 hover:text-ink-900"
+            >
+              <Share2 size={16} aria-hidden />
+            </button>
+          )}
+        </div>
       </div>
     </li>
   );

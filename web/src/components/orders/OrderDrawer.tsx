@@ -1,4 +1,5 @@
 'use client';
+import { whatsappHref } from '@/lib/whatsapp';
 
 import { useEffect, useState, useTransition } from 'react';
 import { formatBRL, formatDateTime, onlyDigits } from '@/lib/utils';
@@ -274,7 +275,7 @@ export function OrderDrawer({
 
           <div className="mt-3 flex flex-wrap gap-2">
             <a
-              href={`https://wa.me/55${onlyDigits(order.customerPhone)}`}
+              href={whatsappHref(order.customerPhone, `Olá, ${order.customerName.split(' ')[0]}! Aqui é da loja, sobre o seu pedido #${order.displayId}.`) ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-sm bg-success px-3 py-1.5 text-[0.74rem] font-bold text-white transition-all hover:brightness-95"

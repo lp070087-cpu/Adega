@@ -93,3 +93,4 @@
 /* Store colour is a personal accent only; the platform identity stays Del Flash blue. */
 .customer-header img,.customer-header .customer-store-dot{box-shadow:0 0 0 2px var(--store-accent,transparent)}
 .customer-store-tag{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--store-accent,#087EA4);margin-right:8px;vertical-align:middle}
+.customer-track-contact{display:inline-flex;min-height:46px;width:100%;align-items:center;justify-content:center;margin-top:12px;border:1.5px solid #cfe3ee;border-radius:12px;background:#fff;padding:10px 16px;color:#0b1f3a;font-weight:650;text-align:center}.customer-track-contact:hover{border-color:var(--customer-brand)}@media(min-width:640px){.customer-track-contact{width:auto}}

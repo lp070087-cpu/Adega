@@ -9,6 +9,7 @@ import { OrderTracker } from '@/components/orders/OrderTracker';
 import { orderTracking } from '@/lib/order-tracking';
 import { storeTimeZone } from '@/lib/schedule';
 import { portalReady, portalSession } from '@/lib/customer-portal/server';
+import { whatsappHref } from '@/lib/whatsapp';
 import '../../conta/portal.css';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,7 @@ export default async function TrackOrder({ params }: {
       items: { select: { id: true, productName: true, variationName: true, quantity: true, total: true, options: { select: { name: true, quantity: true } } } },
       delivery: { select: { status: true, updatedAt: true } },
       driver: { select: { name: true } },
-      organization: { select: { name: true, logoUrl: true, brandColor: true, settings: true, averageDeliveryTime: true } },
+      organization: { select: { name: true, logoUrl: true, brandColor: true, settings: true, averageDeliveryTime: true, whatsapp: true } },
     },
   });
   if (!order) notFound();
@@ -49,6 +50,7 @@ export default async function TrackOrder({ params }: {
   const dateTime = (value: Date) => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone }).format(value);
   const driverFirstName = !pickup && order.driver?.name && ['DISPATCHED', 'DELIVERED'].includes(order.status) ? order.driver.name.trim().split(/\s+/)[0] : null;
   const address = [order.deliveryAddress && `${order.deliveryAddress}${order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}`, order.deliveryDistrict, order.deliveryCity].filter(Boolean).join(' · ');
+  const contactHref = whatsappHref(store.whatsapp, `Olá! Fiz o pedido #${order.displayId} em ${store.name} e gostaria de falar sobre ele.`);
   const history = [
     { label: 'Pedido recebido', at: order.createdAt },
     { label: 'Aceito pela loja', at: order.acceptedAt },
@@ -73,6 +75,7 @@ export default async function TrackOrder({ params }: {
           <OrderTracker order={{ ...order, deliveryStatus: order.delivery?.status }} timeZone={timeZone} />
           {driverFirstName && <p className="customer-muted">Entregador responsável: <strong>{driverFirstName}</strong></p>}
           {!tracking.terminal && store.averageDeliveryTime > 0 && !pickup && <p className="customer-muted">Tempo médio de entrega informado pela loja: {store.averageDeliveryTime} min. Não é uma previsão exata deste pedido.</p>}
+          {contactHref && <a className="customer-track-contact" href={contactHref} target="_blank" rel="noopener noreferrer">Falar com a loja no WhatsApp</a>}
           <OrderRefresh terminal={tracking.terminal} statusUrl={`/api/loja/${slug}/pedido/${orderId}`} version={[order.status, order.updatedAt.toISOString(), order.delivery?.status ?? '', order.delivery?.updatedAt.toISOString() ?? ''].join('|')} />
         </section>
         <div className="customer-grid">

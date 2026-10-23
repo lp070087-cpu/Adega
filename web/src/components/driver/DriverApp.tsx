@@ -3,6 +3,7 @@
 import { Bike, Car, Footprints, MapPin, Navigation, CheckCircle2 } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { whatsappHref } from '@/lib/whatsapp';
 import { cn, formatBRL, formatPhone } from '@/lib/utils';
 import { DELIVERY_STATUS_LABEL } from '@/data/business-copy';
 import {
@@ -717,7 +718,7 @@ function OrderSheet({
               📞 Ligar
             </a>
             <a
-              href={`https://wa.me/55${phone}`}
+              href={whatsappHref(phone, `Olá, ${order.customerName.split(' ')[0]}! Sou o entregador da ${store.name} com o seu pedido #${order.displayId}.`) ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border-2 border-ink-200 bg-white px-3 text-[0.82rem] font-semibold text-ink-700 hover:border-brand hover:text-brand"
