@@ -1,5 +1,6 @@
 import 'server-only';
 import type { ProductType, Prisma } from '@prisma/client';
+import { OperationError } from '@/lib/operation-error';
 import { prisma } from '@/lib/db';
 import { toNumber } from '@/lib/db';
 import { slugify } from '@/lib/utils';
@@ -36,7 +37,7 @@ async function assertCategoryOfOrg(
     where: { id: categoryId, organizationId },
     select: { id: true },
   });
-  if (!found) throw new Error('Categoria não encontrada.');
+  if (!found) throw new OperationError('Categoria não encontrada.');
   return found.id;
 }
 
@@ -95,7 +96,7 @@ export async function updateCategory(
     where: { id: categoryId, organizationId },
     data,
   });
-  if (result.count === 0) throw new Error('Categoria não encontrada.');
+  if (result.count === 0) throw new OperationError('Categoria não encontrada.');
   // Leitura de volta já escopada: findUnique por id sozinho devolveria a
   // linha de outra loja se o id viesse de lá (o update acima barra, mas a
   // releitura não herda esse filtro).
@@ -106,7 +107,7 @@ export async function deleteCategory(organizationId: string, categoryId: string)
   const result = await prisma.category.deleteMany({
     where: { id: categoryId, organizationId },
   });
-  if (result.count === 0) throw new Error('Categoria não encontrada.');
+  if (result.count === 0) throw new OperationError('Categoria não encontrada.');
   return { ok: true };
 }
 
@@ -345,7 +346,7 @@ export async function updateProduct(
   const existing = await prisma.product.findFirst({
     where: { id: productId, organizationId },
   });
-  if (!existing) throw new Error('Produto não encontrado.');
+  if (!existing) throw new OperationError('Produto não encontrado.');
 
   const slug =
     input.slug && input.slug !== existing.slug
@@ -432,7 +433,7 @@ export async function deleteProduct(organizationId: string, productId: string) {
   const result = await prisma.product.deleteMany({
     where: { id: productId, organizationId },
   });
-  if (result.count === 0) throw new Error('Produto não encontrado.');
+  if (result.count === 0) throw new OperationError('Produto não encontrado.');
   return { ok: true };
 }
 
@@ -445,7 +446,7 @@ export async function duplicateProduct(organizationId: string, productId: string
       addonGroups: { include: { addons: { orderBy: { position: 'asc' } } } },
     },
   });
-  if (!original) throw new Error('Produto não encontrado.');
+  if (!original) throw new OperationError('Produto não encontrado.');
 
   const slug = await uniqueProductSlug(organizationId, `${original.name} copia`);
 
@@ -507,7 +508,7 @@ export async function updateProductPrice(
   promotionalPrice?: number | null,
 ) {
   if (promotionalPrice != null && promotionalPrice >= price) {
-    throw new Error('O preço promocional deve ser menor que o preço normal.');
+    throw new OperationError('O preço promocional deve ser menor que o preço normal.');
   }
   const result = await prisma.product.updateMany({
     where: { id: productId, organizationId },
@@ -516,7 +517,7 @@ export async function updateProductPrice(
       promotionalPrice: promotionalPrice === undefined ? undefined : promotionalPrice,
     },
   });
-  if (result.count === 0) throw new Error('Produto não encontrado.');
+  if (result.count === 0) throw new OperationError('Produto não encontrado.');
   return { ok: true };
 }
 
@@ -530,7 +531,7 @@ export async function toggleProduct(
     where: { id: productId, organizationId },
     data: { [field]: value },
   });
-  if (result.count === 0) throw new Error('Produto não encontrado.');
+  if (result.count === 0) throw new OperationError('Produto não encontrado.');
   return { ok: true };
 }
 

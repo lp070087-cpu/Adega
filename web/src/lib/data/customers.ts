@@ -1,5 +1,6 @@
 import 'server-only';
 import type { Prisma } from '@prisma/client';
+import { OperationError } from '@/lib/operation-error';
 import { prisma, toNumber } from '@/lib/db';
 import { onlyDigits } from '@/lib/utils';
 
@@ -171,7 +172,7 @@ export async function updateCustomer(
       notes: input.notes ?? null,
     },
   });
-  if (result.count === 0) throw new Error('Cliente não encontrado.');
+  if (result.count === 0) throw new OperationError('Cliente não encontrado.');
   return { ok: true };
 }
 
@@ -179,7 +180,7 @@ export async function deleteCustomer(organizationId: string, customerId: string)
   const result = await prisma.customer.deleteMany({
     where: { id: customerId, organizationId },
   });
-  if (result.count === 0) throw new Error('Cliente não encontrado.');
+  if (result.count === 0) throw new OperationError('Cliente não encontrado.');
   return { ok: true };
 }
 
@@ -206,7 +207,7 @@ export async function createAddress(
     where: { id: input.customerId, organizationId },
     select: { id: true },
   });
-  if (!customer) throw new Error('Cliente não encontrado.');
+  if (!customer) throw new OperationError('Cliente não encontrado.');
 
   return prisma.$transaction(async (tx) => {
     if (input.isDefault) {

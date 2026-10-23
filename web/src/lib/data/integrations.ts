@@ -1,4 +1,5 @@
 import 'server-only';
+import { OperationError } from '@/lib/operation-error';
 import { prisma } from '@/lib/db';
 import type { IntegrationProvider } from '@prisma/client';
 
@@ -141,7 +142,7 @@ export async function disconnectIntegration(
     where: { organizationId, provider },
     select: { id: true },
   });
-  if (!integration) throw new Error('Integração não encontrada.');
+  if (!integration) throw new OperationError('Integração não encontrada.');
 
   await prisma.$transaction([
     prisma.integrationCredential.deleteMany({ where: { integrationId: integration.id } }),

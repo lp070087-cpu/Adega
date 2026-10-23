@@ -1,4 +1,5 @@
 import 'server-only';
+import { OperationError } from '@/lib/operation-error';
 import { prisma } from '@/lib/db';
 import { slugify } from '@/lib/utils';
 
@@ -234,7 +235,7 @@ export async function updateOrganization(
   }
 
   if (slug && (await slugExists(slug, organizationId))) {
-    throw new Error('Este endereço de loja já está em uso.');
+    throw new OperationError('Este endereço de loja já está em uso.');
   }
 
   const result = await prisma.organization.updateMany({
@@ -274,7 +275,7 @@ export async function updateOrganization(
     },
   });
 
-  if (result.count === 0) throw new Error('Estabelecimento não encontrado.');
+  if (result.count === 0) throw new OperationError('Estabelecimento não encontrado.');
   return prisma.organization.findUnique({ where: { id: organizationId } });
 }
 
@@ -287,7 +288,7 @@ export async function setStoreStatus(
     where: { id: organizationId },
     data: { storeStatus },
   });
-  if (result.count === 0) throw new Error('Estabelecimento não encontrado.');
+  if (result.count === 0) throw new OperationError('Estabelecimento não encontrado.');
   return { ok: true, storeStatus };
 }
 

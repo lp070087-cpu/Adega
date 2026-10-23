@@ -1,6 +1,7 @@
 import { stockDefaults } from '@/lib/stock-policy';
 import 'server-only';
 import type { BusinessType, Prisma } from '@prisma/client';
+import { OperationError } from '@/lib/operation-error';
 import { prisma, toNumber } from '@/lib/db';
 import { slugify } from '@/lib/utils';
 
@@ -487,7 +488,7 @@ export async function copyGlobalProductsTx(
       where: { id: categoryId, organizationId },
       select: { id: true },
     });
-    if (!own) throw new Error('Categoria não encontrada.');
+    if (!own) throw new OperationError('Categoria não encontrada.');
     destinationCategoryId = own.id;
   }
 

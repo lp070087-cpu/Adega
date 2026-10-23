@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { storeProductAvailability } from '../src/lib/store-product-availability';
+import { OperationError } from '../src/lib/operation-error';
 
 test('public catalog retains empty and temporarily paused products, excludes inactive and foreign products', async () => {
   const products = [
@@ -16,7 +17,7 @@ test('public catalog retains empty and temporarily paused products, excludes ina
     productQuery = query;
     return products.filter(product => Object.entries(query.where).every(([key, value]) => product[key as keyof typeof product] === value));
   } } };
-  const imports: Record<string, unknown> = { 'server-only': {}, '@/lib/db': { prisma: db }, '@/lib/utils': { slugify: (name: string) => name } };
+  const imports: Record<string, unknown> = { 'server-only': {}, '@/lib/db': { prisma: db }, '@/lib/utils': { slugify: (name: string) => name }, '@/lib/operation-error': { OperationError } };
   const module = { exports: {} as any };
   const compiled = ts.transpileModule(readFileSync('src/lib/data/organization.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   new Function('require', 'module', 'exports', compiled)((name: string) => { if (!(name in imports)) throw new Error(name); return imports[name]; }, module, module.exports);

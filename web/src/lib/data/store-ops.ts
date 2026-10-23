@@ -1,4 +1,5 @@
 import 'server-only';
+import { OperationError } from '@/lib/operation-error';
 import { prisma } from '@/lib/db';
 import { normalizeSchedule, type WeekdaySchedule } from '@/lib/schedule';
 import { normalizeTiers } from '@/lib/data/delivery-fee';
@@ -53,7 +54,7 @@ async function mergeSettings(organizationId: string, patch: Settings): Promise<v
     where: { id: organizationId },
     data: { settings: { ...current, ...patch } as never },
   });
-  if (result.count === 0) throw new Error('Estabelecimento não encontrado.');
+  if (result.count === 0) throw new OperationError('Estabelecimento não encontrado.');
   });
 }
 
@@ -147,7 +148,7 @@ export async function saveSchedule(
     where: { id: organizationId },
     data: { openingHours: summary || null },
   });
-  if (result.count === 0) throw new Error('Estabelecimento não encontrado.');
+  if (result.count === 0) throw new OperationError('Estabelecimento não encontrado.');
 }
 
 // ── ENTREGA (4.22) ─────────────────────────────────────────────────────
@@ -190,7 +191,7 @@ export async function saveDelivery(
       deliveryFeeMode: feeMode,
     },
   });
-  if (result.count === 0) throw new Error('Estabelecimento não encontrado.');
+  if (result.count === 0) throw new OperationError('Estabelecimento não encontrado.');
 
   await mergeSettings(organizationId, { deliveryTiers: sorted });
 }
@@ -276,7 +277,7 @@ export async function updateDeliveryZone(
       ...(input.longitude !== undefined ? { longitude: input.longitude } : {}),
     },
   });
-  if (result.count === 0) throw new Error('Bairro não encontrado neste estabelecimento.');
+  if (result.count === 0) throw new OperationError('Bairro não encontrado neste estabelecimento.');
   return { ok: true as const };
 }
 
@@ -284,7 +285,7 @@ export async function deleteDeliveryZone(organizationId: string, zoneId: string)
   const result = await prisma.deliveryZone.deleteMany({
     where: { id: zoneId, organizationId },
   });
-  if (result.count === 0) throw new Error('Bairro não encontrado neste estabelecimento.');
+  if (result.count === 0) throw new OperationError('Bairro não encontrado neste estabelecimento.');
   return { ok: true as const };
 }
 
@@ -325,7 +326,7 @@ export async function saveVisualIdentity(
       logoUrl: input.logoUrl,
     },
   });
-  if (result.count === 0) throw new Error('Estabelecimento não encontrado.');
+  if (result.count === 0) throw new OperationError('Estabelecimento não encontrado.');
 }
 
 // ── BANNERS (4.19) ─────────────────────────────────────────────────────
@@ -420,19 +421,19 @@ export async function updateStoreBanner(
       active: input.active,
     },
   });
-  if (result.count === 0) throw new Error('Banner não encontrado neste estabelecimento.');
+  if (result.count === 0) throw new OperationError('Banner não encontrado neste estabelecimento.');
   return { ok: true as const };
 }
 
 export async function deleteStoreBanner(organizationId: string, bannerId: string) {
   const result = await prisma.storeBanner.deleteMany({ where: { id: bannerId, organizationId } });
-  if (result.count === 0) throw new Error('Banner não encontrado neste estabelecimento.');
+  if (result.count === 0) throw new OperationError('Banner não encontrado neste estabelecimento.');
   return { ok: true as const };
 }
 
 async function assertBannerCategory(organizationId:string,placement='hero') {
-  if(!/^(hero|hero-mobile|transition:[a-zA-Z0-9_-]{1,100})$/.test(placement))throw new Error('Posição inválida.');
-  if(placement.startsWith('transition:')&&!await prisma.category.findFirst({where:{id:placement.slice(11),organizationId},select:{id:true}}))throw new Error('Categoria não encontrada neste estabelecimento.');
+  if(!/^(hero|hero-mobile|transition:[a-zA-Z0-9_-]{1,100})$/.test(placement))throw new OperationError('Posição inválida.');
+  if(placement.startsWith('transition:')&&!await prisma.category.findFirst({where:{id:placement.slice(11),organizationId},select:{id:true}}))throw new OperationError('Categoria não encontrada neste estabelecimento.');
 }
 
 export async function getPublicMobileBanners(organizationId:string){
@@ -448,7 +449,7 @@ export async function toggleStoreBanner(
     where: { id: bannerId, organizationId },
     data: { active },
   });
-  if (result.count === 0) throw new Error('Banner não encontrado neste estabelecimento.');
+  if (result.count === 0) throw new OperationError('Banner não encontrado neste estabelecimento.');
   return { ok: true as const };
 }
 
@@ -458,7 +459,7 @@ export async function reorderStoreBanners(organizationId: string, bannerIds: str
 
   const found = await prisma.storeBanner.count({ where: { organizationId, id: { in: unique } } });
   if (found !== unique.length) {
-    throw new Error('A lista contém banners que não são deste estabelecimento.');
+    throw new OperationError('A lista contém banners que não são deste estabelecimento.');
   }
 
   await prisma.$transaction(

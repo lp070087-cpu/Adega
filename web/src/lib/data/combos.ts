@@ -1,5 +1,6 @@
 import 'server-only';
 import { Prisma } from '@prisma/client';
+import { OperationError } from '@/lib/operation-error';
 import { prisma } from '@/lib/db';
 import { slugify } from '@/lib/utils';
 import { setStock } from '@/lib/data/inventory';
@@ -43,7 +44,7 @@ async function assertCategoryOfOrg(
     where: { id: categoryId, organizationId },
     select: { id: true },
   });
-  if (!found) throw new Error('Categoria não encontrada.');
+  if (!found) throw new OperationError('Categoria não encontrada.');
   return found.id;
 }
 
@@ -158,7 +159,7 @@ export async function assertProductsInOrganization(
   });
 
   if (found !== unique.length) {
-    throw new Error('Um dos produtos escolhidos não pertence a este estabelecimento.');
+    throw new OperationError('Um dos produtos escolhidos não pertence a este estabelecimento.');
   }
   return found;
 }
@@ -230,7 +231,7 @@ export async function updateCombo(
     where: { organizationId, productId },
     select: { id: true },
   });
-  if (!combo) throw new Error('Combo não encontrado neste estabelecimento.');
+  if (!combo) throw new OperationError('Combo não encontrado neste estabelecimento.');
 
   await assertProductsInOrganization(
     organizationId,
@@ -279,12 +280,12 @@ export async function deleteCombo(organizationId: string, productId: string) {
     where: { organizationId, productId },
     select: { id: true },
   });
-  if (!combo) throw new Error('Combo não encontrado neste estabelecimento.');
+  if (!combo) throw new OperationError('Combo não encontrado neste estabelecimento.');
 
   // Apagar só a linha Combo deixaria o Product vendável sem composição —
   // pior que não existir.
   const result = await prisma.product.deleteMany({ where: { id: productId, organizationId } });
-  if (result.count === 0) throw new Error('Combo não encontrado neste estabelecimento.');
+  if (result.count === 0) throw new OperationError('Combo não encontrado neste estabelecimento.');
   return { ok: true as const };
 }
 
@@ -333,7 +334,7 @@ async function applyReorder(
       : await prisma.category.count({ where: { organizationId, id: { in: unique } } });
 
   if (owned !== unique.length) {
-    throw new Error('A lista enviada contém itens que não pertencem a este estabelecimento.');
+    throw new OperationError('A lista enviada contém itens que não pertencem a este estabelecimento.');
   }
 
   await prisma.$transaction(async (tx) => {
@@ -381,7 +382,7 @@ export async function reorderFeaturedProducts(organizationId: string, ids: strin
       where: { organizationId, id: { in: unique }, featured: true },
     });
     if (owned !== unique.length) {
-      throw new Error('Só é possível ordenar produtos que estão em destaque.');
+      throw new OperationError('Só é possível ordenar produtos que estão em destaque.');
     }
   }
 
@@ -417,7 +418,7 @@ export async function setProductAvailability(
     where: { id: productId, organizationId },
     data: { available },
   });
-  if (result.count === 0) throw new Error('Produto não encontrado neste estabelecimento.');
+  if (result.count === 0) throw new OperationError('Produto não encontrado neste estabelecimento.');
   return { available };
 }
 
@@ -438,10 +439,10 @@ export async function setProductFeatured(
     where: { id: productId, organizationId },
     select: { id: true, active: true, available: true },
   });
-  if (!product) throw new Error('Produto não encontrado neste estabelecimento.');
+  if (!product) throw new OperationError('Produto não encontrado neste estabelecimento.');
 
   if (featured && (!product.active || !product.available)) {
-    throw new Error(
+    throw new OperationError(
       'Só produtos ativos e disponíveis podem ser destacados — destaque com produto fora do ar não aparece para ninguém.',
     );
   }
