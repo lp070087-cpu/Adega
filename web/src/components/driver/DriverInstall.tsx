@@ -24,6 +24,8 @@ const emit = () => listeners.forEach((listener) => listener(deferredPrompt));
  */
 export function DriverPwaBootstrap() {
   useEffect(() => {
+    // The store panel has its own installable app; only the driver area takes over the prompt.
+    if (!/^\/entregador(?:\/|$)/.test(window.location.pathname)) return;
     const before = (event: Event) => { event.preventDefault(); deferredPrompt = event as InstallEvent; emit(); };
     const installed = () => { deferredPrompt = null; emit(); };
     window.addEventListener('beforeinstallprompt', before);
