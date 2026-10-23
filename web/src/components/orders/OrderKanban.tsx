@@ -197,7 +197,7 @@ function OrderCard({
    *
    * Cancelar não é "avançar": é uma ação à parte, com motivo, e vive no
    * detalhe do pedido. Por isso todo botão gerado aqui tem o mesmo estilo
-   * (avanço em destaque) â€” a variante de contorno cinza que existia antes
+   * (avanço em destaque) — a variante de contorno cinza que existia antes
    * era código morto que só o compilador conseguia ver.
    */
   const options = order.deliveryType === 'PICKUP' && order.status === 'READY'

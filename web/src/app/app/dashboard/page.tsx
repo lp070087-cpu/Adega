@@ -1,4 +1,4 @@
-﻿import Link from 'next/link';
+import Link from 'next/link';
 import { requireOrgPage } from '@/lib/auth/guards';
 import { getDashboard } from '@/lib/data/dashboard';
 import { getCashSummary } from '@/lib/data/cash';
