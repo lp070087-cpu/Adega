@@ -7,6 +7,30 @@ import {parseMoneyInput} from '@/lib/money-input';
  * não segurança.
  */
 
+// Mensagens padrão do Zod chegam ao usuário quando um schema não define a
+// sua; elas vêm em inglês ("Invalid input", "Required"). Esta tradução cobre
+// os casos genéricos. Mensagens próprias dos schemas continuam valendo.
+z.setErrorMap((issue, ctx) => {
+  if (issue.message) return { message: issue.message };
+  switch (issue.code) {
+    case z.ZodIssueCode.invalid_type:
+      return { message: issue.received === 'undefined' || issue.received === 'null' ? 'Campo obrigatório.' : 'Valor inválido.' };
+    case z.ZodIssueCode.invalid_union:
+    case z.ZodIssueCode.invalid_enum_value:
+    case z.ZodIssueCode.invalid_literal:
+    case z.ZodIssueCode.invalid_date:
+    case z.ZodIssueCode.invalid_string:
+    case z.ZodIssueCode.custom:
+      return { message: 'Valor inválido.' };
+    case z.ZodIssueCode.too_small:
+      return { message: issue.type === 'string' ? 'Texto muito curto.' : 'Valor abaixo do mínimo.' };
+    case z.ZodIssueCode.too_big:
+      return { message: issue.type === 'string' ? 'Texto muito longo.' : 'Valor acima do máximo.' };
+    default:
+      return { message: ctx.defaultError };
+  }
+});
+
 /** Texto obrigatório, com tamanho controlado e sem espaço nas pontas. */
 export function requiredText(label: string, min = 1, max = 160) {
   return z

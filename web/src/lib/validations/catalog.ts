@@ -87,7 +87,8 @@ export const productSchema = z
 export const productPriceSchema = z.object({
   productId: z.string().min(1),
   price: moneyInputSchema,
-  promotionalPrice: moneyInputSchema.optional(),
+  // null = sem promoção (o painel envia null quando o produto não tem uma).
+  promotionalPrice: moneyInputSchema.nullable().optional(),
 });
 
 /** Liga/desliga a venda de um produto sem excluí-lo. */
