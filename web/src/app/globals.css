@@ -282,3 +282,9 @@ button:not(:disabled):active, a[role=button]:active { transform: scale(.985); }
 /* Subtle card feedback; no movement for reduced-motion users (rule above). */
 .ui-stat { transition: box-shadow .2s ease, border-color .2s ease; }
 @media (hover: hover) { .ui-stat:hover { border-color: #b9d7e4; box-shadow: 0 6px 18px rgba(8, 126, 164, .08); } }
+/* Mapa da área de entrega (Leaflet): marcador da loja na cor Del Flash. */
+.df-map .leaflet-control-attribution { font-size: 10px; }
+.df-store-pin { background: transparent; border: 0; }
+.df-store-pin span { position: absolute; left: 3px; top: 0; width: 28px; height: 28px; border-radius: 50% 50% 50% 0; background: #087ea4; border: 3px solid #fff; transform: rotate(-45deg); box-shadow: 0 3px 8px rgba(11, 31, 58, .35); }
+.df-store-pin span::after { content: ''; position: absolute; left: 7px; top: 7px; width: 8px; height: 8px; border-radius: 50%; background: #fff; }
+.leaflet-container :focus-visible { outline: 2px solid #087ea4; outline-offset: 2px; }

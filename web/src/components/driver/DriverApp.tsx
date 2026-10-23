@@ -120,38 +120,23 @@ const PAYMENT_LABEL: Record<string, string> = {
 /**
  * Link de navegação externa.
  *
- * O mapa interno do app é visualização; quem navega é o aplicativo de mapa
- * do telefone (Google Maps ou Waze). A rota é montada por coordenadas
- * quando existem — nunca por uma coordenada inventada. Sem coordenada do
- * destino (ou da loja, para a primeira perna), degrada para busca pelo
- * endereço em texto.
+ * Quem navega é o aplicativo de mapa do telefone (Google Maps ou Waze),
+ * sempre a partir da posição atual do aparelho — não da loja, porque o
+ * entregador pode já estar na rua. O destino vai por coordenada quando o
+ * pedido tem uma (nunca inventada); sem ela, pelo endereço em texto.
  */
-function navigationUrl(
-  destination: {
-    latitude: number | null;
-    longitude: number | null;
-    address: string;
-  },
-  origin?: { latitude: number | null; longitude: number | null },
-): { google: string; waze: string } {
-  const dest = destination.latitude != null && destination.longitude != null
-    ? `${destination.latitude},${destination.longitude}`
-    : encodeURIComponent(destination.address);
-  const destLabel = encodeURIComponent(destination.address || 'Destino');
-
-  const google =
-    `https://www.google.com/maps/dir/?api=1&destination=${dest}` +
-    (origin?.latitude != null && origin?.longitude != null
-      ? `&origin=${origin.latitude},${origin.longitude}`
-      : '');
-
-  // Waze não aceita coordenadas no deep link `waze.to`; usa o endereço
-  // como texto quando não há coordenada, senão a coordenada formatada.
-  const wazeQuery = destination.latitude != null && destination.longitude != null
-    ? `${destination.latitude}%2C${destination.longitude}`
-    : destLabel;
-  const waze = `https://waze.com/ul?q=${wazeQuery}&navigate=yes`;
-
+export function navigationUrl(destination: {
+  latitude: number | null;
+  longitude: number | null;
+  address: string;
+}): { google: string; waze: string } {
+  const exact = destination.latitude != null && destination.longitude != null;
+  const google = `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${
+    exact ? `${destination.latitude},${destination.longitude}` : encodeURIComponent(destination.address)
+  }`;
+  const waze = exact
+    ? `https://waze.com/ul?ll=${destination.latitude}%2C${destination.longitude}&navigate=yes`
+    : `https://waze.com/ul?q=${encodeURIComponent(destination.address || 'Destino')}&navigate=yes`;
   return { google, waze };
 }
 
@@ -689,10 +674,7 @@ function OrderSheet({
       .filter(Boolean)
       .join(', '),
   };
-  const route = navigationUrl(destination, {
-    latitude: store.latitude,
-    longitude: store.longitude,
-  });
+  const route = navigationUrl(destination);
 
   return (
     <div

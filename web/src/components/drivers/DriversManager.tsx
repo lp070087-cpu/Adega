@@ -7,18 +7,18 @@ import { formatPhone, timeAgo } from '@/lib/utils';
 import {
   createDriverAction,
   deactivateDriverAction,
-  setDriverStatusAction,
+  reactivateDriverAction,
+  removeDriverLinkAction,
   updateDriverAction,
 } from '@/app/actions/drivers';
-import { DRIVER_STATUS_LABEL, VEHICLE_TYPE_LABEL } from '@/data/business-copy';
-import { DriverStatusBadge } from '@/components/ui/StatusBadge';
+import { DriverLinkCard } from './DriverLinkCard';
+import { VEHICLE_TYPE_LABEL } from '@/data/business-copy';
 import {
   Alert,
   Badge,
   Button,
   Card,
   CardHeader,
-  Checkbox,
   EmptyState,
   Field,
   Input,
@@ -71,16 +71,18 @@ export type DriverSummaryView = {
 };
 
 const VEHICLE_OPTIONS = ['MOTORCYCLE', 'CAR', 'BICYCLE', 'ON_FOOT'] as const;
-const STATUS_OPTIONS = ['OFFLINE', 'ONLINE', 'BUSY', 'RETURNING'] as const;
+type Confirm = { driver: DriverRow; kind: 'suspend' | 'remove' };
 
 export function DriversManager({
   drivers,
   summary,
   canManage,
+  linkUrl,
 }: {
   drivers: DriverRow[];
   summary: DriverSummaryView;
   canManage: boolean;
+  linkUrl: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -91,7 +93,7 @@ export function DriversManager({
 
   const [editing, setEditing] = useState<DriverRow | null>(null);
   const [creating, setCreating] = useState(false);
-  const [confirmDeactivate, setConfirmDeactivate] = useState<DriverRow | null>(null);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -185,39 +187,31 @@ export function DriversManager({
     });
   }
 
-  function changeStatus(driver: DriverRow, status: (typeof STATUS_OPTIONS)[number]) {
+  function run(action: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) {
     setError(null);
     startTransition(async () => {
-      const result = await setDriverStatusAction({ driverId: driver.id, status });
+      const result = await action();
       if (!result.ok) {
-        setError(result.error);
+        setError(result.error ?? 'Não foi possível concluir.');
         return;
       }
+      after?.();
       router.refresh();
     });
   }
 
-  function deactivate() {
-    if (!confirmDeactivate) return;
-    const target = confirmDeactivate;
-    setError(null);
-
-    startTransition(async () => {
-      const result = await deactivateDriverAction(target.id);
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      setConfirmDeactivate(null);
-      router.refresh();
-    });
+  function confirmAction() {
+    if (!confirm) return;
+    const { driver, kind } = confirm;
+    run(() => (kind === 'suspend' ? deactivateDriverAction(driver.id) : removeDriverLinkAction(driver.id)), () => setConfirm(null));
   }
 
   const formOpen = creating || editing !== null;
 
   return (
     <div className="space-y-4">
-      {error && !formOpen && !confirmDeactivate && (
+      {canManage && <DriverLinkCard url={linkUrl} onAdd={openCreate} />}
+      {error && !formOpen && !confirm && (
         <Alert tone="danger" title="Não foi possível concluir">
           {error}
         </Alert>
@@ -251,7 +245,7 @@ export function DriversManager({
               onChange={(e) => setShowInactive(e.target.checked)}
               className="h-4 w-4 cursor-pointer accent-[var(--orange)]"
             />
-            Mostrar desativados
+            Mostrar suspensos
           </label>
         </div>
 
@@ -261,18 +255,35 @@ export function DriversManager({
             title={drivers.length === 0 ? 'Nenhum entregador cadastrado' : 'Nada encontrado'}
             description={
               drivers.length === 0
-                ? 'Cadastre o primeiro entregador para começar a despachar pedidos. Dá para criar o acesso dele ao app no mesmo formulário.'
-                : 'Ajuste a busca ou marque “Mostrar desativados”.'
+                ? 'Adicione o primeiro entregador com nome e e-mail e envie a ele o link dos entregadores.'
+                : 'Ajuste a busca ou marque “Mostrar suspensos”.'
             }
             action={
               canManage && drivers.length === 0 ? (
-                <Button onClick={openCreate}>Cadastrar entregador</Button>
+                <Button onClick={openCreate}>Adicionar entregador</Button>
               ) : undefined
             }
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] border-collapse">
+          <>
+          <ul className="grid gap-3 md:hidden" data-testid="driver-cards">
+            {visible.map((driver) => (
+              <li key={driver.id} className={`rounded-lg border border-ink-100 p-3 ${driver.active ? '' : 'opacity-70'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="break-words text-[0.9rem] font-semibold text-ink-900">{driver.name}</p>
+                    <p className="text-[0.74rem] text-ink-500">{[driver.phone && formatPhone(driver.phone), VEHICLE_TYPE_LABEL[driver.vehicleType] ?? driver.vehicleType, driver.vehiclePlate].filter(Boolean).join(' · ')}</p>
+                  </div>
+                  <DriverAvailabilityBadge driver={driver} />
+                </div>
+                <div className="mt-2 text-[0.76rem] text-ink-600"><AccessInfo driver={driver} /></div>
+                <p className="mt-1 text-[0.72rem] text-ink-500">{driver.shiftLabel}{driver.activeOrders ? ` · ${driver.activeOrders} na rua` : ''} · {driver.deliveredToday} hoje · {driver.deliveredTotal} no total</p>
+                {canManage && <div className="mt-3"><RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id))} pending={pending} wide /></div>}
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[760px] border-collapse">
               <thead>
                 <tr className="border-b border-ink-100 text-left">
                   <Th>Entregador</Th>
@@ -330,39 +341,11 @@ export function DriversManager({
                       {driver.deliveredTotal}
                     </td>
                     <td className="py-2.5 pr-4">
-                      {driver.hasLogin ? (
-                        <span className="text-[0.74rem] text-ink-500">
-                          {driver.email ?? (driver.username ? `@${driver.username}`:'Com login')}
-                          {driver.accessPending&&<span className="mt-1 block font-semibold text-amber-700">Ativação pendente</span>}
-                        </span>
-                      ) : (
-                        <Badge tone="neutral">Sem login</Badge>
-                      )}
-                      {!driver.active && (
-                        <span className="mt-1 block text-[0.68rem] font-semibold text-danger">
-                          Desativado
-                        </span>
-                      )}
+                      <AccessInfo driver={driver} />
                     </td>
                     {canManage && (
                       <td className="py-2.5 text-right">
-                        <div className="flex justify-end gap-1.5">
-                          <Button size="sm" variant="secondary" onClick={() => openEdit(driver)}>
-                            Editar
-                          </Button>
-                          {driver.active && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setError(null);
-                                setConfirmDeactivate(driver);
-                              }}
-                            >
-                              Desativar
-                            </Button>
-                          )}
-                        </div>
+                        <RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id))} pending={pending} />
                       </td>
                     )}
                   </tr>
@@ -370,6 +353,7 @@ export function DriversManager({
               </tbody>
             </table>
           </div>
+          </>
         )}
       </Card>
 
@@ -377,11 +361,11 @@ export function DriversManager({
       <Modal
         open={formOpen}
         onClose={closeForm}
-        title={editing ? 'Editar entregador' : 'Novo entregador'}
+        title={editing ? 'Editar entregador' : 'Adicionar entregador'}
         subtitle={
           editing
-            ? 'Edição não altera login nem senha — isso é fluxo separado.'
-            : 'Informe primeiro nome e e-mail. Os demais dados podem ser preenchidos depois. O titular confirma a identidade e define a própria senha.'
+            ? 'A senha é sempre do entregador: a loja não vê nem altera.'
+            : 'Informe nome e e-mail. Depois envie o link dos entregadores: no primeiro acesso ele confirma o e-mail com um código e cria a própria senha.'
         }
         size="md"
         footer={
@@ -390,7 +374,7 @@ export function DriversManager({
               Cancelar
             </Button>
             <Button loading={pending} onClick={submit}>
-              {editing ? 'Salvar' : 'Cadastrar'}
+              {editing ? 'Salvar' : 'Adicionar'}
             </Button>
           </>
         }
@@ -402,7 +386,7 @@ export function DriversManager({
         )}
 
         <div className="grid gap-x-4 sm:grid-cols-2">
-          <Field label="Primeiro nome" required>
+          <Field label="Nome" required>
             <Input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -443,33 +427,25 @@ export function DriversManager({
           </Field>
         </div>
 
-        <Field label="E-mail de acesso" required hint="O entregador define sua senha após verificar este endereço. Ao alterar o e-mail, o acesso precisará ser ativado novamente.">
+        <Field label="E-mail do entregador" required hint={editing ? 'Ao trocar o e-mail, o entregador precisará confirmar o novo endereço com um código antes de entrar.' : 'É com este e-mail que ele entra. Se ele já trabalha em outra loja Del Flash, use o mesmo e-mail.'}>
           <Input type="email" value={form.email} onChange={event=>setForm({...form,email:event.target.value})} required maxLength={254} autoComplete="off" />
         </Field>
-        <p className="mb-4 text-sm text-ink-500">Compartilhe o link do aplicativo. O titular usa “Primeiro acesso” para receber a ativação; nenhuma senha é exibida ao estabelecimento.</p>
-        <section className="mb-4 rounded-lg bg-ink-50 p-3"><h3 className="text-sm font-semibold">Horários de trabalho</h3><p className="mt-1 text-sm text-ink-500">Após salvar, configure os dias, turnos e intervalos na seção de horários desta página. A escala pode atravessar a meia-noite.</p></section>
-        {(
-          <Checkbox
-            label="Entregador ativo (pode receber pedidos)"
-            checked={form.active}
-            onChange={(e) => setForm({ ...form, active: e.target.checked })}
-          />
-        )}
+        <section className="mb-1 rounded-lg bg-ink-50 p-3"><h3 className="text-sm font-semibold">Horários de trabalho</h3><p className="mt-1 text-sm text-ink-500">Depois de salvar, configure dias e turnos na seção de horários desta página.</p></section>
       </Modal>
 
-      {/* ── Desativar ──────────────────────────────────────────────── */}
+      {/* ── Suspender / remover vínculo ───────────────────────────── */}
       <Modal
-        open={confirmDeactivate !== null}
-        onClose={() => setConfirmDeactivate(null)}
-        title="Desativar entregador"
+        open={confirm !== null}
+        onClose={() => setConfirm(null)}
+        title={confirm?.kind === 'remove' ? 'Remover vínculo com a loja' : 'Suspender entregador'}
         size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setConfirmDeactivate(null)} disabled={pending}>
+            <Button variant="ghost" onClick={() => setConfirm(null)} disabled={pending}>
               Cancelar
             </Button>
-            <Button variant="danger" loading={pending} onClick={deactivate}>
-              Desativar
+            <Button variant="danger" loading={pending} onClick={confirmAction}>
+              {confirm?.kind === 'remove' ? 'Remover vínculo' : 'Suspender'}
             </Button>
           </>
         }
@@ -480,9 +456,11 @@ export function DriversManager({
           </Alert>
         )}
         <p className="text-[0.86rem] leading-relaxed text-ink-600">
-          <strong className="text-ink-900">{confirmDeactivate?.name}</strong> sai da lista de
-          despacho e o login do app é bloqueado. O histórico de entregas continua intacto — por isso
-          não apagamos o cadastro.
+          {confirm?.kind === 'remove' ? (
+            <><strong className="text-ink-900">{confirm.driver.name}</strong> deixa de acessar o aplicativo por esta loja. As entregas feitas continuam no histórico, e a conta dele segue funcionando em outras lojas. Para trazê-lo de volta, adicione o e-mail novamente.</>
+          ) : (
+            <><strong className="text-ink-900">{confirm?.driver.name}</strong> sai da lista de despacho e o acesso ao aplicativo por esta loja fica bloqueado até você reativar. O histórico de entregas continua intacto.</>
+          )}
         </p>
       </Modal>
     </div>
@@ -508,6 +486,30 @@ function Th({ children, className }: { children: React.ReactNode; className?: st
     >
       {children}
     </th>
+  );
+}
+
+function AccessInfo({ driver }: { driver: DriverRow }) {
+  return (
+    <span className="block min-w-0 break-words text-[0.74rem] text-ink-500">
+      {driver.hasLogin ? (driver.email ?? (driver.username ? `@${driver.username}` : 'Com acesso')) : <Badge tone="neutral">Sem acesso ao aplicativo</Badge>}
+      {driver.hasLogin && driver.accessPending && <span className="mt-1 block font-semibold text-amber-700">Aguardando primeiro acesso</span>}
+      {!driver.active && <span className="mt-1 block text-[0.68rem] font-semibold text-danger">Suspenso</span>}
+    </span>
+  );
+}
+
+function RowActions({ driver, onEdit, onConfirm, onReactivate, pending, wide }: { driver: DriverRow; onEdit: (driver: DriverRow) => void; onConfirm: (kind: 'suspend' | 'remove') => void; onReactivate: () => void; pending: boolean; wide?: boolean }) {
+  return (
+    <div className={wide ? 'grid grid-cols-2 gap-2 min-[400px]:flex min-[400px]:flex-wrap' : 'flex flex-wrap justify-end gap-1.5'}>
+      <Button size="sm" variant="secondary" onClick={() => onEdit(driver)}>Editar</Button>
+      {driver.active ? (
+        <Button size="sm" variant="ghost" onClick={() => onConfirm('suspend')}>Suspender</Button>
+      ) : (
+        <Button size="sm" variant="ghost" disabled={pending} onClick={onReactivate}>Reativar</Button>
+      )}
+      {driver.hasLogin && <Button size="sm" variant="ghost" onClick={() => onConfirm('remove')}>Remover vínculo</Button>}
+    </div>
   );
 }
 

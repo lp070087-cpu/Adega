@@ -1,11 +1,11 @@
-﻿import type { Config } from 'tailwindcss';
+import type { Config } from 'tailwindcss';
 
 /**
  * Tokens portados 1:1 de plataforma.html / site.html / entregador.html.
- * As variÃ¡veis CSS originais (--orange, --gray-*, --radius-*, --shadow-*)
- * continuam existindo em globals.css; aqui elas viram utilitÃ¡rios Tailwind
+ * As variáveis CSS originais (--orange, --gray-*, --radius-*, --shadow-*)
+ * continuam existindo em globals.css; aqui elas viram utilitários Tailwind
  * para que os componentes React reproduzam o mesmo visual sem reinventar
- * escala de cor ou espaÃ§amento.
+ * escala de cor ou espaçamento.
  */
 const config: Config = {
   content: [

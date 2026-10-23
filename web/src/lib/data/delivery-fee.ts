@@ -297,12 +297,13 @@ export function isOutsideDeliveryArea(
  * GEOCODIFICAÇÃO — nunca inventa coordenada
  * -----------------------------------------------------------------------
  * Um endereço só vira latitude/longitude quando um provedor REAL está
- * configurado. Sem provedor, devolve `not_configured` e a tela explica —
- * em vez de desenhar um ponto num lugar que não existe.
+ * configurado. Sem resultado, devolve o motivo e a tela explica — em vez
+ * de desenhar um ponto num lugar que não existe.
  *
  * Provedores suportados (env):
- *   GEOCODING_PROVIDER=nominatim → OpenStreetMap (sem chave; uso pontual)
- *   GEOCODING_PROVIDER=google     → exige GEOCODING_API_KEY
+ *   (padrão) ou GEOCODING_PROVIDER=nominatim → OpenStreetMap (sem chave; uso pontual)
+ *   GEOCODING_PROVIDER=google → exige GEOCODING_API_KEY
+ *   GEOCODING_PROVIDER=none   → desliga a busca por endereço
  *
  * A implementação mora em src/lib/maps/geocoding.ts; aqui fica o contrato
  * de importação reexportado para quem só precisa do "não invente".

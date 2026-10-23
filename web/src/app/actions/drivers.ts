@@ -132,6 +132,30 @@ export async function deactivateDriverAction(driverId: string): Promise<DriverAc
   }
 }
 
+/** Volta a liberar o acesso de um entregador suspenso. */
+export async function reactivateDriverAction(driverId: string): Promise<DriverActionResult> {
+  try {
+    const { organizationId, user } = await requirePermission('MANAGE_DRIVERS');
+    await drivers.updateDriver(organizationId, driverId, { active: true, actorId: user.id });
+    revalidateDrivers();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, ...toActionError(error) };
+  }
+}
+
+/** Desfaz o vínculo com a loja; o histórico de entregas permanece. */
+export async function removeDriverLinkAction(driverId: string): Promise<DriverActionResult> {
+  try {
+    const { organizationId } = await requirePermission('MANAGE_DRIVERS');
+    await drivers.removeDriverLink(organizationId, driverId);
+    revalidateDrivers();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, ...toActionError(error) };
+  }
+}
+
 function revalidateDrivers() {
   revalidatePath('/app/entregadores');
   revalidatePath('/app/expedicao');

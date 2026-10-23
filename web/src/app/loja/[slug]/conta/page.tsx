@@ -14,7 +14,7 @@ import { safeReturnPath } from '@/lib/customer-portal/policy';
 import { PAYMENT_METHOD_LABEL } from '@/data/business-copy';
 import './portal.css';
 export const dynamic='force-dynamic';
-export const metadata={title:'Minha conta',robots:{index:false,follow:false},referrer:'no-referrer' as const};
+export const metadata={title:'Minha conta',robots:{index:false,follow:false},referrer:'same-origin' as const};
 const sections=[['','Visão geral'],['pedidos','Meus pedidos'],['enderecos','Meus endereços'],['dados','Meus dados'],['notificacoes','Notificações']];
 type Props={params:Promise<{slug:string;section?:string}>;searchParams:Promise<{pagina?:string;voltar?:string}>};
 export default async function CustomerPortalPage({params,searchParams}:Props){

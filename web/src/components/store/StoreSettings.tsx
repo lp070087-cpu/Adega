@@ -142,7 +142,6 @@ export function StoreSettings({
   publicUrl,
   canManage,
   canChangeStatus,
-  tilesHint,
 }: {
   store: StoreFormData;
   publicUrl: string;
@@ -153,7 +152,6 @@ export function StoreSettings({
    * desta tela. Por isso a permissão é separada (MANAGE_ORDERS).
    */
   canChangeStatus: boolean;
-  tilesHint: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -754,7 +752,6 @@ export function StoreSettings({
               radiusKm={form.deliveryRadius}
               zones={form.deliveryZones}
               canManage={canManage}
-              tilesHint={tilesHint}
               addressReady={Boolean(form.address && form.city && form.state)}
             />
 

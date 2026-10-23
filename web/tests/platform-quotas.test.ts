@@ -8,6 +8,7 @@ function isolated(file: string, imports: Record<string, unknown>) {
   const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const module = { exports: {} as Record<string, any> };
   new Function('require', 'module', 'exports', code)((name: string) => {
+    if (name === '@/lib/operation-error' && !(name in imports)) return { OperationError: class OperationError extends Error {} };
     if (!(name in imports)) throw Error(`Unexpected import ${name}`);
     return imports[name];
   }, module, module.exports);

@@ -20,5 +20,5 @@ export const DRIVER_AVAILABILITY_LABEL: Record<DriverAvailability, string> = {
   BUSY: 'Em entrega',
   OFF_SHIFT: 'Fora da escala',
   INACTIVE: 'Inativo',
-  PENDING_ACCESS: 'Ativação pendente',
+  PENDING_ACCESS: 'Aguardando primeiro acesso',
 };

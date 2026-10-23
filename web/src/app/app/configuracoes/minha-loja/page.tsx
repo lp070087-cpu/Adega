@@ -4,7 +4,6 @@ import { requireOrgPage } from '@/lib/auth/guards';
 import { can } from '@/lib/permissions';
 import { getOrganizationById } from '@/lib/data/organization';
 import { getStoreOperations } from '@/lib/data/store-ops';
-import { mapProviderStatus } from '@/lib/maps/provider';
 import { StoreSettings } from '@/components/store/StoreSettings';
 import type { StoreFormData } from '@/components/store/StoreSettings';
 
@@ -99,7 +98,6 @@ export default async function MyStorePage() {
         publicUrl={publicUrl}
         canManage={can(ctx.role, 'MANAGE_SETTINGS')}
         canChangeStatus={can(ctx.role, 'MANAGE_ORDERS')}
-        tilesHint={mapProviderStatus().hint}
       />
     </div>
   );

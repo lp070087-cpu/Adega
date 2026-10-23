@@ -7,7 +7,7 @@ import { growthState,pointsBalance,campaignEligibility } from '@/lib/growth';
 import { formatBRL,formatDateTime } from '@/lib/utils';
 import { PreferenceForm } from './PreferenceForm';
 export const dynamic='force-dynamic';
-export const metadata:Metadata={title:'Meus benefícios',robots:{index:false,follow:false},referrer:'no-referrer'};
+export const metadata:Metadata={title:'Meus benefícios',robots:{index:false,follow:false},referrer:'same-origin'};
 export default async function BenefitsPage({params,searchParams}:{params:Promise<{slug:string}>;searchParams:Promise<{pedido?:string}>}){
  const {slug}=await params;const {pedido}=await searchParams;if(!pedido)notFound();const order=await getGuestBenefits(slug,pedido);if(!order?.customerId||!order.customer)notFound();
  const state=growthState(order.organization.settings);const customer={id:order.customerId,createdAt:order.customer.createdAt,lastOrderAt:order.customer.orders[0]?.createdAt??null};const usageState={...state,contacts:state.uses.map(u=>({id:u.key,campaignId:u.campaignId,customerId:u.customerId,createdAt:u.createdAt,actorId:''}))};

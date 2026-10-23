@@ -243,8 +243,6 @@ enum SubscriptionStatus {
 /// Um estabelecimento = uma organização = um tenant. Fronteira de
 /// isolamento: nada é lido ou escrito sem atravessar esta chave.
 model Organization {
-  driverRegistrationLink DriverRegistrationLink?
-  driverApplications DriverApplication[]
   id     String  @id @default(cuid())
   /// Usado na URL pública: /loja/[slug]. Único e imutável na prática.
   slug   String  @unique
@@ -397,7 +395,6 @@ model User {
   accounts           Account[]
   platformOperator PlatformOperator?
   driverProfile      Driver[]
-  driverApplications DriverApplication[]
   employeeProfile    Employee?
 
   @@index([email])
@@ -1030,41 +1027,6 @@ model Driver {
   @@index([organizationId, status])
   @@index([organizationId, active])
   @@unique([organizationId, userId])
-}
-
-/// Stable, public discovery link. The number is never an authentication credential.
-model DriverRegistrationLink {
-  id String @id @default(cuid())
-  organizationId String @unique
-  number Int @unique @default(autoincrement())
-  slug String
-  createdAt DateTime @default(now())
-  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Restrict)
-}
-
-model DriverApplication {
-  id String @id @default(cuid())
-  organizationId String
-  userId String
-  status String @default("PENDING")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  organization Organization @relation(fields:[organizationId], references:[id], onDelete:Restrict)
-  user User @relation(fields:[userId], references:[id], onDelete:Restrict)
-  events DriverApplicationEvent[]
-  @@unique([organizationId,userId])
-  @@index([organizationId,status,createdAt])
-}
-
-model DriverApplicationEvent {
-  id String @id @default(cuid())
-  applicationId String
-  actorId String
-  status String
-  reason String
-  createdAt DateTime @default(now())
-  application DriverApplication @relation(fields:[applicationId],references:[id],onDelete:Restrict)
-  @@index([applicationId,createdAt])
 }
 
 /// Histórico de posições. A última linha é a posição atual do entregador

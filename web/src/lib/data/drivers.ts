@@ -7,6 +7,7 @@ import { assertPlatformQuota } from '@/lib/platform/quotas';
 import { assertDriverOnShift, getDriverSchedules } from '@/lib/data/driver-schedules';
 import { readDriverSchedule, driverShiftAvailability } from '@/lib/driver-schedule';
 import {isPlatformIdentity} from '@/lib/platform/identity';
+import { OperationError } from '@/lib/operation-error';
 
 /**
  * Entregadores e despacho.
@@ -91,7 +92,7 @@ export async function getDrivers(
     username: d.user?.username ?? null,
     activeOrders: d._count.orders,
     onShift: (!d.user||d.user.active&&!d.user.mustChangePassword)&&driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).allowed,
-    shiftLabel: d.user?.mustChangePassword?'Ativação pendente':driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).label,
+    shiftLabel: driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).label,
     deliveredTotal: deliveredMap.get(d.id) ?? 0,
     deliveredToday: todayMap.get(d.id) ?? 0,
     lastLocation: d.locations[0]
@@ -164,7 +165,7 @@ export async function createDriver(
   // Login opcional: só cria se pedido E com credencial/senha válidas.
   if (input.createLogin) {
     if (!input.password && !input.activationOnly) {
-      throw new Error('Para criar o acesso do entregador, informe uma senha.');
+      throw new OperationError('Para criar o acesso do entregador, informe uma senha.');
     }
 
     // OPÇÃO B primeiro: login por nome de usuário, SEM e-mail. É o que
@@ -172,20 +173,20 @@ export async function createDriver(
     // "e-mail falso visível ao usuário", que era mentira no cadastro.
     const email = input.email?.toLowerCase().trim() || null;
     const username = input.username?.toLowerCase().trim() || null;
-    if(input.activationOnly&&!email)throw new Error('Informe um e-mail válido para ativação.');
+    if(input.activationOnly&&!email)throw new OperationError('Informe um e-mail válido para ativação.');
 
     if (!email && !username) {
-      throw new Error('Informe um e-mail de acesso ou um nome de usuário.');
+      throw new OperationError('Informe um e-mail de acesso ou um nome de usuário.');
     }
 
-    if (email) {
-      const existing = await prisma.user.findUnique({ where: { email } });
-      if (existing) throw new Error('Já existe um usuário com este e-mail.');
-    }
     if (username) {
       const existing = await prisma.user.findUnique({ where: { username } });
-      if (existing) throw new Error('Este nome de usuário já está em uso.');
+      if (existing) throw new OperationError('Este nome de usuário já está em uso.');
     }
+    // E-mail já cadastrado: se for uma conta só de entregador, ela ganha um
+    // vínculo com esta loja (mesmo login, perfis independentes por loja).
+    const existing = email ? await prisma.user.findUnique({ where: { email }, include: { organizations: true } }) : null;
+    if (existing) return linkExistingDriver(organizationId, existing, input);
 
     const passwordHash = input.activationOnly ? null : await hashPassword(input.password!);
 
@@ -230,6 +231,67 @@ export async function createDriver(
   });
 }
 
+type DriverInput = { name: string; phone: string; vehicleType: VehicleType; vehiclePlate?: string; active: boolean };
+
+/**
+ * Mesmo e-mail em outra loja: reaproveita a conta de entregador, com perfil
+ * próprio nesta loja. Contas de dono ou equipe nunca viram entregador por
+ * aqui, e a senha continua sendo só do titular.
+ */
+async function linkExistingDriver(
+  organizationId: string,
+  account: { id: string; active: boolean; organizations: Array<{ organizationId: string; role: string; active: boolean }> },
+  input: DriverInput,
+) {
+  if (!account.active || account.organizations.some((m) => m.role !== 'DRIVER') || await isPlatformIdentity(prisma, account.id)) {
+    throw new OperationError('Este e-mail já pertence a outro tipo de conta. Use um e-mail exclusivo do entregador.');
+  }
+  return withOrganizationTransaction(organizationId, async (tx) => {
+    const profile = await tx.driver.findFirst({ where: { organizationId, userId: account.id }, select: { id: true, active: true } });
+    if (profile?.active) throw new OperationError('Este entregador já está cadastrado nesta loja.');
+    const elsewhere = await tx.driver.count({ where: { userId: account.id, organizationId: { not: organizationId } } });
+    if (!profile && elsewhere && !(await (await import('@/lib/data/driver-link')).driverMultiStoreReady())) {
+      throw new OperationError('Este e-mail já é de um entregador de outra loja. O uso da mesma conta em várias lojas será liberado após a atualização do banco de dados da plataforma.');
+    }
+    if (input.active) await assertPlatformQuota(tx, organizationId, 'drivers');
+    await tx.organizationUser.upsert({
+      where: { organizationId_userId: { organizationId, userId: account.id } },
+      create: { organizationId, userId: account.id, role: 'DRIVER', active: input.active, acceptedAt: new Date() },
+      update: { role: 'DRIVER', active: input.active },
+    });
+    const data = {
+      name: input.name,
+      phone: input.phone.replace(/\D/g, ''),
+      vehicleType: input.vehicleType,
+      vehiclePlate: input.vehiclePlate?.toUpperCase() || null,
+      active: input.active,
+    };
+    return profile
+      ? tx.driver.update({ where: { id: profile.id }, data: { ...data, status: 'OFFLINE' } })
+      : tx.driver.create({ data: { ...data, organizationId, userId: account.id } });
+  });
+}
+
+/**
+ * Remove o vínculo da conta com a loja sem apagar o perfil: as entregas
+ * feitas continuam no histórico com o nome do entregador, e a conta segue
+ * funcionando nas outras lojas em que ele trabalha.
+ */
+export async function removeDriverLink(organizationId: string, driverId: string) {
+  return withOrganizationTransaction(organizationId, async (tx) => {
+    const driver = await tx.driver.findFirst({ where: { id: driverId, organizationId }, select: { id: true, userId: true } });
+    if (!driver) throw new OperationError('Entregador não encontrado.');
+    const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
+    if (ongoing) throw new OperationError('Conclua ou remova as atribuições antes de remover o vínculo.');
+    await tx.driver.update({ where: { id: driver.id }, data: { active: false, status: 'OFFLINE', userId: null } });
+    if (driver.userId) {
+      await tx.organizationUser.deleteMany({ where: { organizationId, userId: driver.userId, role: 'DRIVER' } });
+      await revokeDriverSessions(tx, organizationId, driver.userId);
+    }
+    return { ok: true };
+  });
+}
+
 export async function updateDriver(
   organizationId: string,
   driverId: string,
@@ -245,14 +307,10 @@ export async function updateDriver(
 ) {
   return withOrganizationTransaction(organizationId, async (tx) => {
   const current = await tx.driver.findFirst({ where: { id: driverId, organizationId }, select: { active: true, userId: true } });
-  if (!current) throw new Error('Entregador não encontrado.');
-  if(input.active!==undefined&&current.userId&&process.env.DRIVER_APPLICATIONS_ENABLED==='true'&&await (await import('./driver-applications')).driverApplicationsReady()){
-    const application=await tx.driverApplication.findUnique({where:{organizationId_userId:{organizationId,userId:current.userId}},select:{status:true}});
-    if(application&&(input.active!==current.active||input.active&&application.status!=='APPROVED'))throw new Error('Use as decisões de aprovação, suspensão ou revogação para alterar este acesso com histórico.');
-  }
+  if (!current) throw new OperationError('Entregador não encontrado.');
   if (input.active === false) {
     const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
-    if (ongoing) throw new Error('Conclua ou remova as atribuições antes de desativar o entregador.');
+    if (ongoing) throw new OperationError('Conclua ou remova as atribuições antes de desativar o entregador.');
   }
   if (input.active === true && !current.active) await assertPlatformQuota(tx, organizationId, 'drivers');
   const result = await tx.driver.updateMany({
@@ -267,7 +325,7 @@ export async function updateDriver(
       ...(input.active !== undefined ? { active: input.active } : {}),
     },
   });
-  if (result.count === 0) throw new Error('Entregador não encontrado.');
+  if (result.count === 0) throw new OperationError('Entregador não encontrado.');
   if (input.active !== undefined && current.userId) {
     await tx.organizationUser.updateMany({ where: { organizationId, userId: current.userId, role: 'DRIVER' }, data: { active: input.active } });
   }
@@ -284,11 +342,11 @@ export async function setDriverStatus(
 ) {
   return withOrganizationTransaction(organizationId, async tx => {
     const driver = await tx.driver.findFirst({ where: { id: driverId, organizationId, active: true }, select: { id: true,user:{select:{active:true,mustChangePassword:true,organizations:{where:{organizationId,active:true},select:{id:true}}}} } });
-    if (!driver) throw new Error('Entregador não encontrado ou desativado.');
-    if(status==='ONLINE'&&driver.user&&(!driver.user.active||driver.user.mustChangePassword||!driver.user.organizations.length))throw new Error('Ative o acesso do entregador antes de disponibilizá-lo.');
+    if (!driver) throw new OperationError('Entregador não encontrado ou desativado.');
+    if(status==='ONLINE'&&driver.user&&(!driver.user.active||driver.user.mustChangePassword||!driver.user.organizations.length))throw new OperationError('Ative o acesso do entregador antes de disponibilizá-lo.');
     const active = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
-    if (active) throw new Error('Conclua ou remova as atribuições antes de alterar a disponibilidade.');
-    if (status === 'BUSY') throw new Error('Em entrega é definido somente pela atribuição de pedidos.');
+    if (active) throw new OperationError('Conclua ou remova as atribuições antes de alterar a disponibilidade.');
+    if (status === 'BUSY') throw new OperationError('Em entrega é definido somente pela atribuição de pedidos.');
     if (status === 'ONLINE') await assertDriverOnShift(tx, organizationId, driverId);
     await tx.driver.update({ where: { id: driver.id }, data: { status } });
     return { ok: true };
@@ -305,10 +363,9 @@ export async function deactivateDriver(organizationId: string, driverId: string)
     where: { id: driverId, organizationId },
     select: { id: true, userId: true },
   });
-  if (!driver) throw new Error('Entregador não encontrado.');
-  if(driver.userId&&process.env.DRIVER_APPLICATIONS_ENABLED==='true'&&await (await import('./driver-applications')).driverApplicationsReady()&&await tx.driverApplication.findUnique({where:{organizationId_userId:{organizationId,userId:driver.userId}},select:{id:true}}))throw new Error('Use a suspensão ou revogação na seção de entregadores aprovados para preservar o histórico da decisão.');
+  if (!driver) throw new OperationError('Entregador não encontrado.');
   const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
-  if (ongoing) throw new Error('Conclua ou remova as atribuições antes de desativar o entregador.');
+  if (ongoing) throw new OperationError('Conclua ou remova as atribuições antes de desativar o entregador.');
     await tx.driver.update({
       where: { id: driverId },
       data: { active: false, status: 'OFFLINE' },
@@ -336,15 +393,15 @@ export async function revokeDriverSessions(tx:Prisma.TransactionClient,organizat
 export async function setDriverEmail(organizationId:string,driverId:string,email:string,actorId?:string,transaction?:Prisma.TransactionClient){
  return withOrganizationTransaction(organizationId,async tx=>{
   const driver=await tx.driver.findFirst({where:{id:driverId,organizationId},select:{id:true,name:true,phone:true,userId:true,active:true}});
-  if(!driver)throw new Error('Entregador não encontrado.');
+  if(!driver)throw new OperationError('Entregador não encontrado.');
   const normalized=email.trim().toLowerCase();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)||normalized.length>254)throw new Error('E-mail inválido.');
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)||normalized.length>254)throw new OperationError('E-mail inválido.');
   const account=driver.userId?await tx.user.findUnique({where:{id:driver.userId},include:{organizations:true}}):null;
   if(account?.email===normalized)return;
-  if(account&&(account.organizations.some(m=>m.role!=='DRIVER'||m.organizationId!==organizationId)||!account.organizations.some(m=>m.organizationId===organizationId&&m.role==='DRIVER')))throw new Error('Esta conta possui outros vínculos. Não é possível alterar seu acesso por aqui.');
-  if(account&&await isPlatformIdentity(tx,account.id))throw new Error('Este acesso deve ser administrado pela plataforma.');
-  if(await tx.user.findUnique({where:{email:normalized},select:{id:true}}))throw new Error('Este e-mail já está em uso.');
-  if(await tx.order.count({where:{organizationId,driverId,status:{in:['WAITING_DRIVER','DISPATCHED']}}}))throw new Error('Conclua ou remova as atribuições antes de alterar o e-mail.');
+  if(account&&(account.organizations.some(m=>m.role!=='DRIVER'||m.organizationId!==organizationId)||!account.organizations.some(m=>m.organizationId===organizationId&&m.role==='DRIVER')))throw new OperationError('Este entregador também trabalha em outra loja. Para usar outro e-mail, remova o vínculo e cadastre o novo e-mail.');
+  if(account&&await isPlatformIdentity(tx,account.id))throw new OperationError('Este acesso deve ser administrado pela plataforma.');
+  if(await tx.user.findUnique({where:{email:normalized},select:{id:true}}))throw new OperationError('Este e-mail já está em uso.');
+  if(await tx.order.count({where:{organizationId,driverId,status:{in:['WAITING_DRIVER','DISPATCHED']}}}))throw new OperationError('Conclua ou remova as atribuições antes de alterar o e-mail.');
   const user=account?await tx.user.update({where:{id:account.id},data:{email:normalized,emailVerified:null,mustChangePassword:true}}):await tx.user.create({data:{name:driver.name,email:normalized,phone:driver.phone,mustChangePassword:true}});
   if(!account)await tx.organizationUser.create({data:{organizationId,userId:user.id,role:'DRIVER',active:driver.active,acceptedAt:new Date()}});
   await tx.driver.update({where:{id:driver.id},data:{...(!account?{userId:user.id}:{}),status:'OFFLINE'}});
@@ -364,7 +421,7 @@ export async function recordDriverLocation(
     where: { id: driverId, organizationId },
     select: { id: true },
   });
-  if (!driver) throw new Error('Entregador não encontrado.');
+  if (!driver) throw new OperationError('Entregador não encontrado.');
 
   return prisma.driverLocation.create({
     data: {
@@ -410,7 +467,7 @@ export async function getDriverMap(organizationId: string) {
       : null,
     activeOrders: d.orders,
     onShift: (!d.user||d.user.active&&!d.user.mustChangePassword)&&driverShiftAvailability(readDriverSchedule(settings, d.id)).allowed,
-    shiftLabel: d.user?.mustChangePassword?'Ativação pendente':driverShiftAvailability(readDriverSchedule(settings, d.id)).label,
+    shiftLabel: driverShiftAvailability(readDriverSchedule(settings, d.id)).label,
   }));
 }
 

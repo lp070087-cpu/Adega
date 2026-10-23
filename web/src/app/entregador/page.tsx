@@ -4,11 +4,11 @@ import { requireDriver, AuthError } from '@/lib/auth/guards';
 import { getDriverOrders } from '@/lib/data/orders';
 import { getOrganizationById } from '@/lib/data/organization';
 import { DriverApp, type DriverOrder } from '@/components/driver/DriverApp';
-import { DriverLoginForm } from '@/components/driver/DriverLoginForm';
+import { DriverEntry } from '@/components/driver/DriverEntry';
+import { DriverAuthCard } from '@/components/driver/DriverAuthCard';
 import { prisma } from '@/lib/db';
-import { ownDriverApplications } from '@/lib/data/driver-applications';
-import { applicationLabels,type ApplicationStatus } from '@/lib/driver-applications-rules';
-import { selectDriverStoreAction } from '@/app/actions/driver-applications';
+import { selectDriverStoreAction } from '@/app/actions/driver-access';
+import { driverMailReady } from '@/lib/auth/driver-access';
 import { driverShiftAvailability, readDriverSchedule } from '@/lib/driver-schedule';
 
 /**
@@ -43,36 +43,23 @@ export default async function DriverPage() {
   // estado existir.
   if (!session?.user?.id) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-ink-50 p-4">
-        <div className="w-full min-w-0 max-w-[460px] rounded-xl bg-white p-5 text-center shadow-xl sm:p-10">
-          <span className="mx-auto mb-4 flex h-[46px] w-[46px] items-center justify-center rounded bg-brand-light text-[1.3rem]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/pwa/driver-192.png" alt="" width={46} height={46} className="rounded-xl"/>
-          </span>
-
-          <h1 className="text-[1.35rem] font-extrabold text-ink-900">Del Flash Entregador</h1>
-          <p className="mt-1.5 text-[0.84rem] text-ink-500">
-            Entre com o e-mail e a senha da sua conta. Ainda não tem conta? Abra o link da área de entregadores enviado pela loja e escolha “Criar conta”.
-          </p>
-
-          <DriverLoginForm />
-
-          <p className="mt-6 text-[0.8rem] text-ink-500">
-            É dono ou atendente da loja?{' '}
-            <a href="/login" className="inline-flex min-h-11 items-center font-semibold text-brand hover:underline">
-              Entrar no painel
-            </a>
-          </p>
-        </div>
-      </main>
+      <DriverAuthCard>
+        <p className="mt-1.5 text-[0.84rem] text-ink-500">
+          Entre com o e-mail que a loja cadastrou para você. Primeiro acesso? Toque em “Primeiro acesso” para criar sua senha.
+        </p>
+        <DriverEntry mailReady={driverMailReady()} />
+        <p className="mt-6 text-[0.8rem] text-ink-500">
+          É dono ou atendente da loja?{' '}
+          <a href="/login" className="inline-flex min-h-11 items-center font-semibold text-brand hover:underline">Entrar no painel</a>
+        </p>
+      </DriverAuthCard>
     );
   }
 
   const memberships=session.user.role==='DRIVER'?await prisma.organizationUser.findMany({where:{userId:session.user.id,role:'DRIVER',active:true,organization:{drivers:{some:{userId:session.user.id,active:true}}}},select:{organizationId:true,organization:{select:{name:true}}}}):[];
-  const applications=await ownDriverApplications(session.user.id);
-  const storePreference=process.env.DRIVER_APPLICATIONS_ENABLED==='true'?(await (await import('next/headers')).cookies()).get('driver-store')?.value:session.user.organizationId;
+  const storePreference=(await (await import('next/headers')).cookies()).get('driver-store')?.value;
   const selectedStore=memberships.some(m=>m.organizationId===storePreference)?storePreference:session.user.organizationId??memberships[0]?.organizationId;
-  const storeSelector=memberships.length>1?<form action={selectDriverStoreAction} className="flex flex-wrap items-end gap-2 rounded-lg bg-white p-3"><label className="min-w-0 flex-1 text-sm">Loja de trabalho<select name="organizationId" className="mt-1 min-h-11 w-full rounded-lg border p-2" defaultValue={selectedStore??undefined}>{memberships.map(m=><option key={m.organizationId} value={m.organizationId}>{m.organization.name}</option>)}</select></label><button className="min-h-11 rounded-lg bg-brand px-4 text-white">Selecionar loja</button></form>:null;
+  const storeSelector=memberships.length>1?<form action={selectDriverStoreAction} className="flex flex-wrap items-end gap-2 border-b border-ink-100 bg-white p-3"><label className="min-w-0 flex-1 text-left text-sm font-semibold text-ink-700">Loja de trabalho<select name="organizationId" className="mt-1 min-h-11 w-full rounded-lg border p-2" defaultValue={selectedStore??undefined}>{memberships.map(m=><option key={m.organizationId} value={m.organizationId}>{m.organization.name}</option>)}</select></label><button className="min-h-11 rounded-lg bg-brand px-4 font-semibold text-white">Trocar</button></form>:null;
 
   // Anotação explícita de propósito: sem ela o `ctx` fica como any
   // evolutivo e o TypeScript perde a garantia de que ele está atribuído
@@ -85,17 +72,14 @@ export default async function DriverPage() {
     // Um vínculo DRIVER desativado não pode voltar a /app, que redireciona
     // para cá. Exibir recuperação local evita esse ciclo de navegação.
     if (error instanceof AuthError) {
-      if(session.user.role==='DRIVER'&&applications.length&&!memberships.length&&error.code!=='UNAUTHENTICATED')return <main className="flex min-h-screen items-center justify-center bg-ink-50 p-4"><section className="w-full max-w-lg space-y-4 rounded-xl bg-white p-6 shadow-sm"><h1 className="text-xl font-bold">{applicationLabels[applications[0].status as ApplicationStatus]}</h1><p className="text-sm text-ink-500">O acesso às entregas depende da aprovação e ativação pela loja. Sua conta individual foi preservada.</p>{applications.map(a=><p key={a.id} className="rounded-lg bg-ink-50 p-3 text-sm">{a.organization.name}: <strong>{applicationLabels[a.status as ApplicationStatus]}</strong></p>)}<a href="/entregador" className="inline-flex min-h-11 items-center font-semibold text-brand">Atualizar situação</a><a href="/entregador/acesso?modo=reset" className="inline-flex min-h-11 items-center font-semibold text-brand">Esqueci minha senha</a><form action={logoutAction}><button className="min-h-11 rounded-lg bg-brand p-3 text-white">Sair e entrar com outra conta</button></form></section></main>;
       return (
         <main className="flex min-h-screen items-center justify-center bg-ink-50 p-4">
           <div role="alert" className="w-full max-w-[460px] rounded-xl bg-white p-6 text-center shadow-xl sm:p-10">
             <h1 className="text-xl font-extrabold text-ink-900">{session.user.role !== 'DRIVER' ? 'Entre com a conta do entregador' : 'Confira seu acesso de entregador'}</h1>
             {storeSelector}
-            {applications.map(a=><p key={a.id} className="mt-3 rounded-lg bg-ink-50 p-3 text-sm">{a.organization.name}: {applicationLabels[a.status as ApplicationStatus]}. {a.status==='PENDING'?'Sua solicitação foi enviada e ainda não permite acesso às entregas.':''}</p>)}
             <p className="mt-3 text-sm text-ink-500">{session.user.role !== 'DRIVER'
               ? 'Este aplicativo está usando sua sessão do estabelecimento. O acesso do proprietário não cria um cadastro de entregador. Saia e entre com o e-mail individual cadastrado pela loja.'
-              : `${error.message} Solicite à loja a conferência do vínculo. Para trabalhar em uma loja nova, abra o link da área de entregadores dela.`}</p>
-            <a href="/entregador/acesso?modo=reset" className="mt-4 inline-flex min-h-11 items-center font-semibold text-brand hover:underline">Esqueci minha senha</a>
+              : `${error.message} Peça à loja para conferir o seu cadastro. Para trabalhar em outra loja, ela precisa adicionar o seu e-mail.`}</p>
             <form action={logoutAction} className="mt-6">
               <button type="submit" className="min-h-11 rounded-xl bg-brand px-5 py-3 font-semibold text-white">Sair e entrar com outra conta</button>
             </form>
@@ -163,7 +147,6 @@ export default async function DriverPage() {
   }));
 
   return (<div>{storeSelector}
-    {applications.some(a=>a.status!=='APPROVED')&&<details className="m-3 rounded-lg bg-white p-3 text-sm"><summary className="min-h-11 cursor-pointer font-semibold">Suas solicitações em outras lojas</summary>{applications.filter(a=>a.status!=='APPROVED').map(a=><p key={a.id} className="py-2">{a.organization.name}: <strong>{applicationLabels[a.status as ApplicationStatus]}</strong></p>)}</details>}
     <DriverApp
       driver={{
         name: ctx.driver.name,
@@ -176,7 +159,7 @@ export default async function DriverPage() {
       store={{
         name: organization?.name ?? 'Estabelecimento',
         logoUrl: organization?.logoUrl ?? null,
-        brandColor: organization?.brandColor ?? '#F15A24',
+        brandColor: organization?.brandColor ?? '#087EA4',
         latitude: organization?.latitude ?? null,
         longitude: organization?.longitude ?? null,
       }}

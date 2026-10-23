@@ -73,15 +73,17 @@ export async function driverLoginAction(
   }
 
   try {
-    const {resolveRegistrationLink,registrationPath}=await import('@/lib/data/driver-applications');
-    const storeNumber=formData.get('storeNumber');
-    const target=typeof storeNumber==='string'?await resolveRegistrationLink(storeNumber):null;
+    // Login feito pelo link da loja: entra direto nessa loja.
+    const rawStore=formData.get('store');
+    const store=typeof rawStore==='string'&&/^[a-z0-9-]{1,160}$/.test(rawStore)?rawStore:'';
+    if(store)await (await import('@/lib/data/driver-link')).preferDriverStore(store);
     await signIn('credentials', {
       login: parsed.data.login,
       password: parsed.data.password,
       driverOnly:'true',
+      store,
       remember:formData.get('remember')==='on'?'true':'false',
-      redirectTo: target?registrationPath(target):'/entregador/',
+      redirectTo: '/entregador/',
     });
     return undefined;
   } catch (error) {

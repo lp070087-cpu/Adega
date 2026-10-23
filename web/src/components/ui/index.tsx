@@ -84,16 +84,23 @@ export interface FieldProps {
   className?: string;
 }
 
+const FIELD_CONTROLS = new Set<unknown>(['input', 'select', 'textarea']);
+
 export function Field({ label, hint, error, required, children, className }: FieldProps) {
+  // Associa o rótulo ao campo (toque no rótulo foca o campo; leitor de tela
+  // anuncia o nome) quando o filho é um único controle de formulário.
+  const generated = React.useId();
+  const control = React.isValidElement<{ id?: string }>(children) && FIELD_CONTROLS.has(children.type) ? children : null;
+  const id = control ? control.props.id ?? generated : undefined;
   return (
     <div className={cn('mb-3.5', className)}>
       {label && (
-        <label className="field-label">
+        <label className="field-label" htmlFor={id}>
           {label}
           {required && <span className="text-brand"> *</span>}
         </label>
       )}
-      {children}
+      {control ? React.cloneElement(control, { id }) : children}
       {hint && !error && <p className="mt-1.5 text-[0.72rem] text-ink-500">{hint}</p>}
       {error && <p className="mt-1.5 text-[0.72rem] font-medium text-danger">{error}</p>}
     </div>
@@ -123,6 +130,7 @@ export const Textarea = React.forwardRef<
 >(function Textarea({ className, ...props }, ref) {
   return <textarea ref={ref} {...props} className={cn('field-input resize-y', className)} />;
 });
+[Input, Select, Textarea].forEach((component) => FIELD_CONTROLS.add(component));
 
 export function Checkbox({
   label,

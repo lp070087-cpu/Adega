@@ -3,7 +3,6 @@
 import { startTransition, useActionState, useState } from 'react';
 import { driverLoginAction, type AuthActionState } from '@/app/actions/auth';
 import { Button, Field, Input } from '@/components/ui';
-import Link from 'next/link';
 import {Eye,EyeOff} from 'lucide-react';
 
 /**
@@ -22,7 +21,7 @@ import {Eye,EyeOff} from 'lucide-react';
  * como hash — nunca em texto puro (ver src/lib/auth/password.ts).
  * ═══════════════════════════════════════════════════════════════════════
  */
-export function DriverLoginForm({storeNumber}:{storeNumber?:string}={}) {
+export function DriverLoginForm({store,onFirstAccess}:{store?:string;onFirstAccess:()=>void}) {
   const [state, formAction, pending] = useActionState<AuthActionState, FormData>(
     driverLoginAction,
     undefined,
@@ -30,8 +29,8 @@ export function DriverLoginForm({storeNumber}:{storeNumber?:string}={}) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); const data = new FormData(e.currentTarget); startTransition(() => formAction(data)); }} className="mt-6 text-left">
-      {storeNumber&&<input type="hidden" name="storeNumber" value={storeNumber}/>}
+    <form action={formAction} onSubmit={(e) => { e.preventDefault(); const data = new FormData(e.currentTarget); startTransition(() => formAction(data)); }} className="mt-6 text-left">
+      {store&&<input type="hidden" name="store" value={store}/>}
       {state?.error && (
         <p
           role="alert"
@@ -87,7 +86,7 @@ export function DriverLoginForm({storeNumber}:{storeNumber?:string}={}) {
       <Button type="submit" size="lg" fullWidth loading={pending} className="mt-2">
         {pending ? 'Entrando...' : 'Entrar'}
       </Button>
-      <div className="mt-3 flex justify-center text-sm font-semibold text-brand"><Link className="inline-flex min-h-11 items-center" href="/entregador/acesso?modo=reset">Esqueci minha senha</Link></div>
+      <div className="mt-3 flex justify-center text-sm font-semibold text-brand"><button type="button" onClick={onFirstAccess} className="inline-flex min-h-11 items-center text-center">Primeiro acesso ou esqueci minha senha</button></div>
     </form>
   );
 }

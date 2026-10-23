@@ -31,9 +31,12 @@ type Provider = 'nominatim' | 'google';
 
 function configuredProvider(): Provider | null {
   const raw = process.env.GEOCODING_PROVIDER?.trim().toLowerCase();
-  if (raw === 'nominatim') return 'nominatim';
   if (raw === 'google') return 'google';
-  return null;
+  if (raw === 'none') return null;
+  // Padrão: Nominatim (OpenStreetMap), sem chave. O uso é pontual — só
+  // quando o lojista toca em "Localizar pelo endereço" — dentro da política
+  // de uso do serviço.
+  return 'nominatim';
 }
 
 /** Devolve o que está configurado — a tela usa para decidir o que mostrar. */
@@ -76,11 +79,11 @@ async function viaNominatim(address: string): Promise<GeocodeResult> {
   // chave, não a padrão de produção.
   const url =
     'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' +
-    encodeURIComponent(address);
+    encodeURIComponent(address) + '&countrycodes=br';
 
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'delivery-platform/0.1 (geocoding de cadastro)' },
+      headers: { 'User-Agent': `DelFlash/1.0 (${process.env.APP_PUBLIC_URL ?? 'https://adega-nine.vercel.app'})`, 'Accept-Language': 'pt-BR' },
       // Cache curto: o mesmo endereço não precisa ser resolvido a cada clique.
       next: { revalidate: 60 * 60 * 24 },
     });

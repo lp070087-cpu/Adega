@@ -109,6 +109,26 @@ async function resolveMembership(
 }
 
 /**
+ * Entregador pode trabalhar em várias lojas. A loja escolhida (cookie do
+ * link ou da troca de loja) vale enquanto o vínculo estiver ativo; suspenso
+ * nela, ele cai na próxima loja ativa. Só sem nenhuma o acesso é negado.
+ */
+async function resolveDriverMembership(userId: string, tokenOrganizationId?: string | null) {
+  const selected = (await (await import('next/headers')).cookies()).get('driver-store')?.value;
+  const memberships = await prisma.organizationUser.findMany({
+    where: { userId, role: 'DRIVER' },
+    select: { organizationId: true, role: true, active: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  const profiles = new Set((await prisma.driver.findMany({ where: { userId, active: true }, select: { organizationId: true } })).map((d) => d.organizationId));
+  const usable = memberships.filter((m) => m.active && profiles.has(m.organizationId));
+  const pick = usable.find((m) => m.organizationId === selected) ?? usable.find((m) => m.organizationId === tokenOrganizationId) ?? usable[0];
+  if (pick) return { organizationId: pick.organizationId, role: pick.role, revoked: false as const };
+  // Sem loja utilizável: mantém as mensagens de vínculo removido/inativo.
+  return resolveMembership(userId, tokenOrganizationId);
+}
+
+/**
  * Sessão + organização, obrigatórias.
  *
  * Uso:
@@ -133,8 +153,7 @@ export async function requireOrg(): Promise<OrganizationContext> {
 
   // O vínculo vem do banco (ver resolveMembership). O papel usado adiante
   // é o ATUAL, não o do token: desativar alguém tem efeito imediato.
-  const selectedDriverStore=user.role==='DRIVER'&&process.env.DRIVER_APPLICATIONS_ENABLED==='true'?(await (await import('next/headers')).cookies()).get('driver-store')?.value:undefined;
-  const membership = await resolveMembership(user.id, selectedDriverStore??user.organizationId);
+  const membership = user.role==='DRIVER' ? await resolveDriverMembership(user.id, user.organizationId) : await resolveMembership(user.id, user.organizationId);
 
   if (membership.revoked) {
     throw new AuthError(
