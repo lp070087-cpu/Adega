@@ -191,6 +191,11 @@ export async function requirePermission(
 ): Promise<OrganizationContext> {
   const ctx = await requireOrg();
   if (!can(ctx.role, permission)) {
+    // Mesmo navegador, mesmo cookie: quem entra no app do entregador troca a
+    // sessão do painel. Dizer isso é mais útil que "sem permissão".
+    if (ctx.role === 'DRIVER') {
+      throw new AuthError('Este navegador está conectado como entregador. Entre novamente com a conta da loja.', 'UNAUTHENTICATED');
+    }
     throw new AuthError(
       'Seu perfil não tem permissão para esta ação.',
       'FORBIDDEN',
@@ -315,8 +320,10 @@ export async function requireDriver() {
 }
 
 /** Erros de guard viram resposta de server action em vez de stack trace. */
-export function toActionError(error: unknown): { error: string } {
-  if (error instanceof AuthError || error instanceof OperationError) return { error: error.message };
+export function toActionError(error: unknown): { error: string; code?: string } {
+  // `code` permite à tela oferecer "Entrar novamente" quando a sessão acabou.
+  if (error instanceof AuthError) return { error: error.message, code: error.code };
+  if (error instanceof OperationError) return { error: error.message };
   // Erros de infraestrutura podem conter consultas, endereços e credenciais.
   // Apenas erros de autorização explicitamente destinados ao usuário são públicos.
   return { error: 'Não foi possível concluir a operação.' };

@@ -7,6 +7,7 @@ import { driverStoreBySlug } from '@/lib/data/driver-link';
 import { DriverAuthCard } from '@/components/driver/DriverAuthCard';
 import { DriverEntry } from '@/components/driver/DriverEntry';
 import { OpenDriverApp } from '@/components/driver/OpenDriverApp';
+import { StaffSessionNotice } from '@/components/driver/StaffSessionNotice';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Área do Entregador', robots: { index: false, follow: false }, referrer: 'same-origin' };
@@ -45,17 +46,17 @@ export default async function DriverStoreLink({ params }: { params: Promise<{ sl
     }
     return (
       <DriverAuthCard store={store}>
-        <div role="alert" className="mt-4 space-y-3 text-sm text-ink-600">
-          {session.user.role === 'DRIVER' ? (
-            <p>Sua conta ainda não está cadastrada como entregador desta loja, ou o acesso aqui está suspenso. Peça à loja para adicionar o seu e-mail na área de entregadores.</p>
-          ) : (
-            <p>Você está conectado com a conta do estabelecimento. Para usar o aplicativo do entregador, saia e entre com o e-mail do entregador.</p>
-          )}
-        </div>
-        <div className="mt-5 grid gap-2">
-          {session.user.role === 'DRIVER' && <a href="/entregador/" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-ink-200 font-semibold text-ink-800">Abrir minhas outras lojas</a>}
-          <form action={driverLogoutAction}><button type="submit" className="min-h-11 w-full rounded-lg bg-brand px-5 font-semibold text-white">Sair e entrar com outra conta</button></form>
-        </div>
+        {session.user.role === 'DRIVER' ? (
+          <>
+            <p role="alert" className="mt-4 text-sm text-ink-600">Sua conta ainda não está cadastrada como entregador desta loja, ou o acesso aqui está suspenso. Peça à loja para adicionar o seu e-mail na área de entregadores.</p>
+            <div className="mt-5 grid gap-2">
+              <a href="/entregador/" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-ink-200 font-semibold text-ink-800">Abrir minhas outras lojas</a>
+              <form action={driverLogoutAction}><button type="submit" className="min-h-11 w-full rounded-lg bg-brand px-5 font-semibold text-white">Sair e entrar com outra conta</button></form>
+            </div>
+          </>
+        ) : (
+          <StaffSessionNotice />
+        )}
       </DriverAuthCard>
     );
   }

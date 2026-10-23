@@ -1,7 +1,8 @@
 'use client';
 import { driverAvailability, DRIVER_AVAILABILITY_LABEL } from '@/lib/driver-availability';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { SessionExpiredNotice } from '@/components/ui/SessionExpiredNotice';
 import { useRouter } from 'next/navigation';
 import { formatPhone, timeAgo } from '@/lib/utils';
 import {
@@ -87,6 +88,11 @@ export function DriversManager({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Sessão do painel perdida (ex.: saiu ou entrou como entregador em outra aba).
+  const [sessionLost, setSessionLost] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  // Trava síncrona contra toque duplo: o estado `pending` só chega no próximo render.
+  const busy = useRef(false);
 
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
@@ -152,6 +158,36 @@ export function DriversManager({
   function closeForm() {
     setCreating(false);
     setEditing(null);
+    setSessionLost(null);
+  }
+
+  // Rascunho guardado antes de "Entrar novamente"; volta aberto após o login.
+  const DRAFT_KEY = 'delflash:entregadores:rascunho';
+  function saveDraft() {
+    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ form, editingId: editing?.id ?? null })); } catch { /* armazenamento indisponível */ }
+  }
+  useEffect(() => {
+    let raw: string | null = null;
+    try { raw = sessionStorage.getItem(DRAFT_KEY); sessionStorage.removeItem(DRAFT_KEY); } catch { return; }
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw) as { form: typeof form; editingId: string | null };
+      const target = draft.editingId ? drivers.find((driver) => driver.id === draft.editingId) : null;
+      if (draft.editingId && !target) return;
+      setForm(draft.form);
+      if (target) setEditing(target); else setCreating(true);
+      setNotice('Seus dados foram mantidos. Confira e salve novamente.');
+    } catch { /* rascunho inválido: ignora */ }
+    // Só na montagem: restaura uma vez.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleFailure(result: { error?: string; code?: string }) {
+    if (result.code === 'UNAUTHENTICATED') {
+      setSessionLost(result.error ?? 'Sua sessão do painel foi encerrada. Entre novamente.');
+      return;
+    }
+    setError(result.error ?? 'Não foi possível concluir.');
   }
 
   function buildForm(): FormData {
@@ -170,40 +206,62 @@ export function DriversManager({
   }
 
   function submit() {
+    if (busy.current) return;
+    if (!form.name.trim() || !form.email.trim()) {
+      setError('Informe o nome e o e-mail do entregador.');
+      return;
+    }
+    busy.current = true;
     setError(null);
+    setNotice(null);
     const data = buildForm();
+    const wasEditing = editing;
 
     startTransition(async () => {
-      const result = editing
-        ? await updateDriverAction(editing.id, data)
-        : await createDriverAction(data);
-
-      if (!result.ok) {
-        setError(result.error);
-        return;
+      try {
+        const result = wasEditing
+          ? await updateDriverAction(wasEditing.id, data)
+          : await createDriverAction(data);
+        if (!result.ok) { handleFailure(result); return; }
+        closeForm();
+        setNotice(wasEditing ? `Cadastro de ${form.name.trim()} atualizado.` : `${form.name.trim()} foi adicionado. Envie o link dos entregadores: no primeiro acesso ele usa este e-mail para criar a senha.`);
+        router.refresh();
+      } catch {
+        setError('Sem conexão com o servidor. Confira a internet e tente de novo.');
+      } finally {
+        busy.current = false;
       }
-      closeForm();
-      router.refresh();
     });
   }
 
-  function run(action: () => Promise<{ ok: boolean; error?: string }>, after?: () => void) {
+  function run(action: () => Promise<{ ok: boolean; error?: string; code?: string }>, success: string, after?: () => void) {
+    if (busy.current) return;
+    busy.current = true;
     setError(null);
+    setNotice(null);
     startTransition(async () => {
-      const result = await action();
-      if (!result.ok) {
-        setError(result.error ?? 'Não foi possível concluir.');
-        return;
+      try {
+        const result = await action();
+        if (!result.ok) { handleFailure(result); return; }
+        after?.();
+        setNotice(success);
+        router.refresh();
+      } catch {
+        setError('Sem conexão com o servidor. Confira a internet e tente de novo.');
+      } finally {
+        busy.current = false;
       }
-      after?.();
-      router.refresh();
     });
   }
 
   function confirmAction() {
     if (!confirm) return;
     const { driver, kind } = confirm;
-    run(() => (kind === 'suspend' ? deactivateDriverAction(driver.id) : removeDriverLinkAction(driver.id)), () => setConfirm(null));
+    run(
+      () => (kind === 'suspend' ? deactivateDriverAction(driver.id) : removeDriverLinkAction(driver.id)),
+      kind === 'suspend' ? `${driver.name} foi suspenso nesta loja.` : `Vínculo de ${driver.name} removido. O histórico de entregas foi mantido.`,
+      () => setConfirm(null),
+    );
   }
 
   const formOpen = creating || editing !== null;
@@ -211,6 +269,10 @@ export function DriversManager({
   return (
     <div className="space-y-4">
       {canManage && <DriverLinkCard url={linkUrl} onAdd={openCreate} />}
+      {sessionLost && !formOpen && !confirm && <SessionExpiredNotice message={sessionLost} back="/app/entregadores" />}
+      {notice && !formOpen && !error && !sessionLost && (
+        <Alert tone="success">{notice}</Alert>
+      )}
       {error && !formOpen && !confirm && (
         <Alert tone="danger" title="Não foi possível concluir">
           {error}
@@ -278,7 +340,7 @@ export function DriversManager({
                 </div>
                 <div className="mt-2 text-[0.76rem] text-ink-600"><AccessInfo driver={driver} /></div>
                 <p className="mt-1 text-[0.72rem] text-ink-500">{driver.shiftLabel}{driver.activeOrders ? ` · ${driver.activeOrders} na rua` : ''} · {driver.deliveredToday} hoje · {driver.deliveredTotal} no total</p>
-                {canManage && <div className="mt-3"><RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id))} pending={pending} wide /></div>}
+                {canManage && <div className="mt-3"><RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id), `${driver.name} foi reativado nesta loja.`)} pending={pending} wide /></div>}
               </li>
             ))}
           </ul>
@@ -345,7 +407,7 @@ export function DriversManager({
                     </td>
                     {canManage && (
                       <td className="py-2.5 text-right">
-                        <RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id))} pending={pending} />
+                        <RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id), `${driver.name} foi reativado nesta loja.`)} pending={pending} />
                       </td>
                     )}
                   </tr>
@@ -373,13 +435,15 @@ export function DriversManager({
             <Button variant="ghost" onClick={closeForm} disabled={pending}>
               Cancelar
             </Button>
-            <Button loading={pending} onClick={submit}>
+            <Button loading={pending} disabled={Boolean(sessionLost)} onClick={submit}>
               {editing ? 'Salvar' : 'Adicionar'}
             </Button>
           </>
         }
       >
-        {error && (
+        {sessionLost && <div className="mb-3.5"><SessionExpiredNotice message={sessionLost} back="/app/entregadores" onBeforeLogin={saveDraft} /></div>}
+        {notice && !sessionLost && <Alert tone="info" className="mb-3.5">{notice}</Alert>}
+        {error && !sessionLost && (
           <Alert tone="danger" className="mb-3.5">
             {error}
           </Alert>
@@ -404,7 +468,7 @@ export function DriversManager({
             />
           </Field>
 
-          <Field label="Veículo">
+          <Field label="Veículo (opcional)">
             <Select
               value={form.vehicleType}
               onChange={(e) => setForm({ ...form, vehicleType: e.target.value })}
@@ -436,7 +500,7 @@ export function DriversManager({
       {/* ── Suspender / remover vínculo ───────────────────────────── */}
       <Modal
         open={confirm !== null}
-        onClose={() => setConfirm(null)}
+        onClose={() => { setConfirm(null); setSessionLost(null); }}
         title={confirm?.kind === 'remove' ? 'Remover vínculo com a loja' : 'Suspender entregador'}
         size="sm"
         footer={
@@ -444,13 +508,14 @@ export function DriversManager({
             <Button variant="ghost" onClick={() => setConfirm(null)} disabled={pending}>
               Cancelar
             </Button>
-            <Button variant="danger" loading={pending} onClick={confirmAction}>
+            <Button variant="danger" loading={pending} disabled={Boolean(sessionLost)} onClick={confirmAction}>
               {confirm?.kind === 'remove' ? 'Remover vínculo' : 'Suspender'}
             </Button>
           </>
         }
       >
-        {error && (
+        {sessionLost && <div className="mb-3.5"><SessionExpiredNotice message={sessionLost} back="/app/entregadores" /></div>}
+        {error && !sessionLost && (
           <Alert tone="danger" className="mb-3.5">
             {error}
           </Alert>

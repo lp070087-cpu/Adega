@@ -6,6 +6,7 @@ import { getOrganizationById } from '@/lib/data/organization';
 import { DriverApp, type DriverOrder } from '@/components/driver/DriverApp';
 import { DriverEntry } from '@/components/driver/DriverEntry';
 import { DriverAuthCard } from '@/components/driver/DriverAuthCard';
+import { StaffSessionNotice } from '@/components/driver/StaffSessionNotice';
 import { prisma } from '@/lib/db';
 import { selectDriverStoreAction } from '@/app/actions/driver-access';
 import { driverMailReady } from '@/lib/auth/driver-access';
@@ -72,20 +73,18 @@ export default async function DriverPage() {
     // Um vínculo DRIVER desativado não pode voltar a /app, que redireciona
     // para cá. Exibir recuperação local evita esse ciclo de navegação.
     if (error instanceof AuthError) {
+      if (session.user.role !== 'DRIVER') {
+        return <DriverAuthCard><StaffSessionNotice /></DriverAuthCard>;
+      }
       return (
         <main className="flex min-h-screen items-center justify-center bg-ink-50 p-4">
           <div role="alert" className="w-full max-w-[460px] rounded-xl bg-white p-6 text-center shadow-xl sm:p-10">
-            <h1 className="text-xl font-extrabold text-ink-900">{session.user.role !== 'DRIVER' ? 'Entre com a conta do entregador' : 'Confira seu acesso de entregador'}</h1>
+            <h1 className="text-xl font-extrabold text-ink-900">Confira seu acesso de entregador</h1>
             {storeSelector}
-            <p className="mt-3 text-sm text-ink-500">{session.user.role !== 'DRIVER'
-              ? 'Este aplicativo está usando sua sessão do estabelecimento. O acesso do proprietário não cria um cadastro de entregador. Saia e entre com o e-mail individual cadastrado pela loja.'
-              : `${error.message} Peça à loja para conferir o seu cadastro. Para trabalhar em outra loja, ela precisa adicionar o seu e-mail.`}</p>
+            <p className="mt-3 text-sm text-ink-500">{`${error.message} Peça à loja para conferir o seu cadastro. Para trabalhar em outra loja, ela precisa adicionar o seu e-mail.`}</p>
             <form action={logoutAction} className="mt-6">
               <button type="submit" className="min-h-11 rounded-xl bg-brand px-5 py-3 font-semibold text-white">Sair e entrar com outra conta</button>
             </form>
-            {session.user.role !== 'DRIVER' && (
-              <a href="/app" className="mt-4 inline-flex min-h-11 items-center font-semibold text-brand hover:underline">Abrir painel do estabelecimento</a>
-            )}
           </div>
         </main>
       );

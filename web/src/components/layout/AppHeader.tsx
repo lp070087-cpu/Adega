@@ -2,9 +2,9 @@
 import { announceStoreAvailability } from '@/components/store/StoreAvailabilitySync';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { cn } from '@/lib/utils';
-import { Bell, ChevronDown, Menu } from 'lucide-react';
+import { Bell, Check, ChevronDown, Menu } from 'lucide-react';
 import { logoutAction } from '@/app/actions/auth';
 import { setStoreOpeningModeAction } from '@/app/actions/store-opening';
 import { STORE_OPENING_MODE_LABEL, type StoreOpeningMode, STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
@@ -13,6 +13,12 @@ import { STORE_OPENING_MODE_LABEL, type StoreOpeningMode, STORE_OPEN_STATE_LABEL
  * Header do painel — título da página, estado da loja, notificações e
  * menu do usuário. Mesmo desenho do topbar de plataforma.html.
  */
+
+const MODE_OPTIONS: Array<{ value: StoreOpeningMode; label: string; short: string; hint: string }> = [
+  { value: 'AUTO', label: 'Automático', short: 'Auto', hint: 'Segue os horários cadastrados.' },
+  { value: 'MANUAL_OPEN', label: 'Aberta manualmente', short: 'Aberta', hint: 'Recebe pedidos fora da agenda.' },
+  { value: 'MANUAL_CLOSED', label: 'Fechada manualmente', short: 'Fechada', hint: 'Bloqueia novos pedidos.' },
+];
 
 const STATUS_CLASS = {
   OPEN: 'bg-success-bg text-success',
@@ -47,8 +53,23 @@ export function AppHeader({
   const [pending, startTransition] = useTransition();
   const [showUser, setShowUser] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
+  const [showMode, setShowMode] = useState(false);
+  const controls = useRef<HTMLDivElement>(null);
+
+  // Menus fecham ao tocar fora ou com Esc; nenhum abre sozinho.
+  useEffect(() => {
+    if (!showMode && !showAlerts && !showUser) return;
+    const close = () => { setShowMode(false); setShowAlerts(false); setShowUser(false); };
+    const onPointer = (event: PointerEvent) => { if (!controls.current?.contains(event.target as Node)) close(); };
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('pointerdown', onPointer); document.removeEventListener('keydown', onKey); };
+  }, [showMode, showAlerts, showUser]);
 
   function changeStatus(next: StoreOpeningMode) {
+    setShowMode(false);
+    if (next === openingMode) return;
     startTransition(async () => {
       const result = await setStoreOpeningModeAction(next);
       if (!result.ok) window.alert(result.error);
@@ -63,12 +84,12 @@ export function AppHeader({
   }
 
   return (
-    <header className="sticky top-0 z-[400] flex flex-wrap items-center gap-3 border-b border-ink-200 bg-white px-4 py-2.5 lg:px-6">
+    <header className="sticky top-0 z-[400] flex flex-wrap items-center gap-2 border-b border-ink-200 bg-white px-3 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 lg:px-6">
       <button
         type="button"
         onClick={onOpenMenu}
         aria-label="Abrir menu"
-        className="flex h-9 w-9 items-center justify-center rounded-sm text-ink-600 transition-all hover:bg-ink-100 lg:hidden"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm text-ink-600 transition-all hover:bg-ink-100 lg:hidden"
       >
         <Menu aria-hidden="true" className="h-5 w-5" />
       </button>
@@ -85,27 +106,49 @@ export function AppHeader({
         </p>
       )}
 
-      <div className="flex max-w-full flex-wrap items-center gap-2">
+      <div ref={controls} className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
         {/* Estado da loja: abrir/pausar/fechar sem sair da tela. */}
         {canChangeStatus ? (
-          <div className="relative" title="Automático segue a agenda de Brasília/Recife. Abertura manual ignora a agenda; fechamento manual bloqueia novos pedidos.">
-            <select
-              value={openingMode}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => { setShowMode((v) => !v); setShowAlerts(false); setShowUser(false); }}
               disabled={pending}
-              onChange={(e) => changeStatus(e.target.value as StoreOpeningMode)}
-              aria-label="Status da loja"
+              aria-haspopup="listbox"
+              aria-expanded={showMode}
+              aria-label={`Modo da loja: ${STORE_OPENING_MODE_LABEL[openingMode]}. Alterar`}
+              data-testid="store-mode"
               className={cn(
-                'max-w-[180px] cursor-pointer appearance-none truncate rounded-full border-0 py-1.5 pl-3.5 pr-7 text-[0.74rem] font-bold outline-none transition-all disabled:opacity-60 sm:max-w-none',
+                'flex h-9 items-center gap-1 rounded-full pl-2.5 pr-1.5 text-[0.74rem] min-[360px]:pl-3 min-[360px]:pr-2 font-bold transition-all disabled:opacity-60',
                 effectiveStoreState === 'CLOSED_BY_SCHEDULE' ? STATUS_CLASS.CLOSED : STATUS_CLASS[storeStatus],
               )}
             >
-              <option value="AUTO">Automático</option>
-              <option value="MANUAL_OPEN">Aberta manualmente</option>
-              <option value="MANUAL_CLOSED">Fechada manualmente</option>
-            </select>
-            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[0.6rem]">
-              <ChevronDown className="h-3.5 w-3.5" />
-            </span>
+              <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-current min-[360px]:hidden" />
+              <span className="hidden min-[360px]:inline sm:hidden">{MODE_OPTIONS.find((o) => o.value === openingMode)?.short}</span>
+              <span className="hidden sm:inline">{STORE_OPENING_MODE_LABEL[openingMode]}</span>
+              <ChevronDown aria-hidden="true" className={cn('h-3.5 w-3.5 transition-transform', showMode && 'rotate-180')} />
+            </button>
+            {showMode && (
+              <ul role="listbox" aria-label="Modo da loja" className="absolute right-0 top-11 z-10 w-[min(260px,calc(100vw-1.5rem))] rounded-lg border border-ink-200 bg-white p-1.5 shadow-lg animate-fade-in">
+                {MODE_OPTIONS.map((option) => (
+                  <li key={option.value}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={option.value === openingMode}
+                      onClick={() => changeStatus(option.value)}
+                      className="flex min-h-11 w-full items-start gap-2 rounded-sm px-2.5 py-2 text-left hover:bg-ink-50"
+                    >
+                      <Check aria-hidden="true" className={cn('mt-0.5 h-4 w-4 shrink-0 text-brand', option.value !== openingMode && 'invisible')} />
+                      <span className="min-w-0">
+                        <span className="block text-[0.82rem] font-semibold text-ink-800">{option.label}</span>
+                        <span className="block text-[0.72rem] text-ink-500">{option.hint}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         ) : (
           <span
@@ -125,6 +168,7 @@ export function AppHeader({
             onClick={() => {
               setShowAlerts((v) => !v);
               setShowUser(false);
+              setShowMode(false);
             }}
             aria-label="Notificações"
             aria-expanded={showAlerts}
@@ -169,10 +213,11 @@ export function AppHeader({
             onClick={() => {
               setShowUser((v) => !v);
               setShowAlerts(false);
+              setShowMode(false);
             }}
             aria-expanded={showUser}
             aria-label="Menu da conta"
-            className="flex items-center gap-2 rounded-full border border-ink-200 py-1 pl-1 pr-3 transition-all hover:border-brand"
+            className="flex items-center gap-2 rounded-full border border-ink-200 py-1 pl-1 pr-1 transition-all hover:border-brand sm:pr-3"
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-[0.68rem] font-bold text-white">
               {userName.slice(0, 2).toUpperCase()}

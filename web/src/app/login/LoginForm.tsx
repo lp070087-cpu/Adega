@@ -8,7 +8,7 @@ import { Button, Field, Input } from '@/components/ui';
  * Formulário de login. A validação de verdade acontece no servidor —
  * aqui só marcamos o campo com erro quando o servidor devolve.
  */
-export function LoginForm() {
+export function LoginForm({ back }: { back?: string } = {}) {
   const [state, formAction, pending] = useActionState<AuthActionState, FormData>(
     loginAction,
     undefined,
@@ -16,6 +16,7 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="mt-6 text-left">
+      {back && <input type="hidden" name="voltar" value={back} />}
       {state?.error && (
         <p
           role="alert"

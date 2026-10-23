@@ -30,10 +30,13 @@ export async function loginAction(
   }
 
   try {
+    // Volta para a tela do painel em que a sessão acabou (só caminhos internos /app).
+    const back = formData.get('voltar');
+    const redirectTo = typeof back === 'string' && /^\/app(\/[a-z0-9\-/]*)?$/.test(back) && !back.includes('//') ? back : '/app';
     await signIn('credentials', {
       login: parsed.data.email,
       password: parsed.data.password,
-      redirectTo: '/app',
+      redirectTo,
     });
     return undefined;
   } catch (error) {

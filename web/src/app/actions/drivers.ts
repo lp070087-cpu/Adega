@@ -18,7 +18,7 @@ import { driverShiftAvailability, readDriverSchedule, tomorrowDriverShifts } fro
 
 export type DriverActionResult<T = undefined> =
   | { ok: true; data?: T }
-  | { ok: false; error: string; field?: string };
+  | { ok: false; error: string; field?: string; code?: string };
 
 function driverFromForm(formData: FormData) {
   return {

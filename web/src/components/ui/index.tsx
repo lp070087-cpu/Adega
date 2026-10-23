@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import {formatMoneyInput} from '@/lib/money-input';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
@@ -379,13 +380,27 @@ export function Modal({
     };
   }, [open, onClose]);
 
+  // Altura visível real: no celular o teclado virtual encolhe a área útil, e
+  // 100dvh não acompanha no iOS. Assim o botão de ação continua alcançável.
+  const [viewport, setViewport] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    if (!open || typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const update = () => setViewport(vv.height);
+    update();
+    vv.addEventListener('resize', update);
+    return () => vv.removeEventListener('resize', update);
+  }, [open]);
+
   if (!open) return null;
 
   const widths = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' };
 
-  return (
+  // Portal no body: um ancestral com transform (animações do painel) faria o
+  // `fixed` ficar preso a ele, deslocando o modal para fora da tela no celular.
+  const dialog = (
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-black/45 p-4 backdrop-blur-[2px] animate-fade-in"
+      className="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-black/45 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-[2px] animate-fade-in sm:p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -397,13 +412,13 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         className={cn(
-          'my-auto flex min-w-0 max-h-[calc(100dvh-2rem)] w-full flex-col rounded-xl bg-white p-4 shadow-xl sm:p-6',
+          'my-auto flex min-w-0 max-h-[calc(100dvh-1.5rem)] w-full flex-col rounded-xl bg-white p-4 shadow-xl sm:max-h-[calc(100dvh-2rem)] sm:p-6',
           widths[size],
         )}
-        style={{ borderRadius: 'var(--radius-xl)' }}
+        style={{ borderRadius: 'var(--radius-xl)', ...(viewport ? { maxHeight: `calc(${viewport}px - 1.5rem)` } : {}) }}
       >
-        <div className="mb-5 flex shrink-0 items-start justify-between gap-4">
-          <div>
+        <div className="mb-4 flex shrink-0 items-start justify-between gap-3 sm:mb-5 sm:gap-4">
+          <div className="min-w-0">
             <h2 className="text-[1.05rem] font-extrabold text-ink-900">{title}</h2>
             {subtitle && <p className="mt-1 text-[0.78rem] text-ink-500">{subtitle}</p>}
           </div>
@@ -420,11 +435,12 @@ export function Modal({
         <div className="min-h-0 min-w-0 overflow-y-auto">{children}</div>
 
         {footer && (
-          <div className="mt-5 flex shrink-0 flex-wrap justify-end gap-2.5 border-t border-ink-100 pt-4">{footer}</div>
+          <div className="mt-4 flex shrink-0 flex-wrap justify-end gap-2.5 border-t border-ink-100 pt-4 max-sm:[&>*]:min-h-11 max-sm:[&>*]:flex-1 sm:mt-5">{footer}</div>
         )}
       </div>
     </div>
   );
+  return typeof document === 'undefined' ? dialog : createPortal(dialog, document.body);
 }
 
 // ── DRAWER LATERAL ─────────────────────────────────────────────────────
@@ -456,7 +472,7 @@ export function Drawer({
 
   if (!open) return null;
 
-  return (
+  const panel = (
     <div
       className="fixed inset-0 z-[1000] flex justify-end bg-black/40 backdrop-blur-[2px]"
       onMouseDown={(e) => {
@@ -496,6 +512,7 @@ export function Drawer({
       </aside>
     </div>
   );
+  return typeof document === 'undefined' ? panel : createPortal(panel, document.body);
 }
 
 // ── AVISO / ALERTA ─────────────────────────────────────────────────────
