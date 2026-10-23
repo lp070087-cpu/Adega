@@ -907,7 +907,7 @@ function LocationCard({
     <Card className="p-4">
       <p className="text-[0.86rem] font-bold text-ink-900">Minha localização</p>
       <p className="mt-1 text-[0.74rem] leading-relaxed text-ink-500">
-        Envia a posição atual para o painel da loja. É um envio pontual — o navegador não manda GPS
+        Envia a sua posição atual para a loja. É um envio pontual — o navegador não manda GPS
         com a tela fechada, então não há rastreamento contínuo.
       </p>
 

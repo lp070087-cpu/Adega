@@ -49,10 +49,6 @@ export default async function DriverPage() {
           Entre com o e-mail que a loja cadastrou para você. Primeiro acesso? Toque em “Primeiro acesso” para criar sua senha.
         </p>
         <DriverEntry mailReady={driverMailReady()} />
-        <p className="mt-6 text-[0.8rem] text-ink-500">
-          É dono ou atendente da loja?{' '}
-          <a href="/login" className="inline-flex min-h-11 items-center font-semibold text-brand hover:underline">Entrar no painel</a>
-        </p>
       </DriverAuthCard>
     );
   }

@@ -1,23 +1,22 @@
 import { driverLogoutAction } from '@/app/actions/auth';
 
 /**
- * Dono ou equipe abrindo o app do entregador no mesmo navegador do painel.
- * Painel e app usam a mesma sessão do navegador: sair aqui também encerra o
- * painel (era a causa do "Sessão expirada" nas ações de Entregadores). Por
- * isso o caminho principal é voltar ao painel; sair fica explícito.
+ * Sessão que não é de entregador (dono ou equipe) abrindo o app do
+ * entregador. A área do entregador não oferece atalhos para outras áreas:
+ * só explica que é preciso entrar com uma conta de entregador.
+ *
+ * Painel e app compartilham a sessão do navegador, então trocar de conta
+ * aqui encerra a sessão atual — por isso o aviso é explícito.
  */
 export function StaffSessionNotice() {
   return (
     <div className="mt-4 space-y-3 text-left text-sm text-ink-600">
-      <p role="status">Este navegador está conectado ao <strong>painel da loja</strong>. O aplicativo do entregador usa a conta do próprio entregador.</p>
-      <p>Para testar como entregador sem sair do painel, abra este link em uma <strong>janela anônima</strong>, em outro navegador ou no celular do entregador.</p>
-      <div className="grid gap-2 pt-1">
-        <a href="/app/entregadores" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-5 font-semibold text-white">Voltar ao painel</a>
-        <form action={driverLogoutAction}>
-          <button type="submit" className="min-h-11 w-full rounded-lg border border-ink-200 px-5 font-semibold text-ink-700">Sair do painel e entrar como entregador</button>
-        </form>
-        <p className="text-xs text-ink-500">Sair encerra a sua sessão do painel neste navegador.</p>
-      </div>
+      <p role="status">Este aplicativo é exclusivo para entregadores. A sessão aberta neste navegador não é de uma conta de entregador.</p>
+      <p>Para usar o aplicativo, entre com o e-mail de entregador cadastrado pela loja. Em um aparelho compartilhado, prefira uma janela anônima.</p>
+      <form action={driverLogoutAction} className="pt-1">
+        <button type="submit" className="min-h-11 w-full rounded-lg bg-brand px-5 font-semibold text-white">Entrar com conta de entregador</button>
+      </form>
+      <p className="text-xs text-ink-500">Isso encerra a sessão atual deste navegador.</p>
     </div>
   );
 }
