@@ -15,7 +15,7 @@ export function DriverLinkCard({ url, onAdd }: { url: string | null; onAdd?: () 
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-light text-brand"><Link2 size={20} aria-hidden /></span>
         <div className="min-w-0">
           <h3 className="font-bold text-ink-900">Link dos entregadores</h3>
-          <p className="text-sm text-ink-500">Cadastre o entregador com nome e e-mail e envie este link. Ele entra com o mesmo e-mail; no primeiro acesso confirma o e-mail com um código e cria a própria senha.</p>
+          <p className="text-sm text-ink-500">Cadastre o entregador com nome e e-mail: o sistema gera uma senha temporária de 4 dígitos. Envie este link; ele entra com o e-mail e a senha temporária e cria a própria senha.</p>
         </div>
       </div>
       {url ? (

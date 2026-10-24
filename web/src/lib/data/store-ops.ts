@@ -1,9 +1,11 @@
 import 'server-only';
 import { OperationError } from '@/lib/operation-error';
 import { prisma } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 import { normalizeSchedule, type WeekdaySchedule } from '@/lib/schedule';
 import { normalizeTiers } from '@/lib/data/delivery-fee';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
+import { readBannerMeta } from '@/lib/banner-meta';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -338,11 +340,12 @@ export async function saveVisualIdentity(
 // "você ainda não tem banners seus".
 
 export async function getStoreBanners(organizationId: string) {
-  const banners = await prisma.storeBanner.findMany({
-    where: { organizationId },
-    orderBy: { position: 'asc' },
-  });
+  const [banners, org] = await Promise.all([
+    prisma.storeBanner.findMany({ where: { organizationId }, orderBy: { position: 'asc' } }),
+    prisma.organization.findUnique({ where: { id: organizationId }, select: { settings: true } }),
+  ]);
   return banners.map((banner) => ({
+    ...readBannerMeta(org?.settings, banner.id),
     id: banner.id,
     title: banner.title,
     subtitle: banner.subtitle,
@@ -363,14 +366,7 @@ export async function countDefaultBanners() {
 
 export async function createStoreBanner(
   organizationId: string,
-  input: {
-    placement?: string;
-    title: string;
-    subtitle?: string | null;
-    imagePath: string;
-    linkUrl?: string | null;
-    active: boolean;
-  },
+  input: BannerSaveInput,
 ) {
   await assertBannerCategory(organizationId,input.placement);
   // Entra no fim da fila: o lojista já escolheu uma ordem, e enfiar o
@@ -384,7 +380,7 @@ export async function createStoreBanner(
   const banner = await prisma.storeBanner.create({
     data: {
       organizationId,
-      title: input.title,
+      title: input.title || null,
       subtitle: input.subtitle || null,
       imagePath: input.imagePath,
       linkUrl: input.linkUrl || null,
@@ -394,27 +390,21 @@ export async function createStoreBanner(
     },
     select: { id: true },
   });
+  await saveBannerMeta(organizationId, banner.id, input);
   return banner;
 }
 
 export async function updateStoreBanner(
   organizationId: string,
   bannerId: string,
-  input: {
-    placement?: string;
-    title: string;
-    subtitle?: string | null;
-    imagePath: string;
-    linkUrl?: string | null;
-    active: boolean;
-  },
+  input: BannerSaveInput,
 ) {
   await assertBannerCategory(organizationId,input.placement);
   const result = await prisma.storeBanner.updateMany({
     where: { id: bannerId, organizationId },
     data: {
       placement: input.placement ?? 'hero',
-      title: input.title,
+      title: input.title || null,
       subtitle: input.subtitle || null,
       imagePath: input.imagePath,
       linkUrl: input.linkUrl || null,
@@ -422,7 +412,31 @@ export async function updateStoreBanner(
     },
   });
   if (result.count === 0) throw new OperationError('Banner não encontrado neste estabelecimento.');
+  await saveBannerMeta(organizationId, bannerId, input);
   return { ok: true as const };
+}
+
+type BannerSaveInput = {
+  placement?: string;
+  title?: string | null;
+  subtitle?: string | null;
+  imagePath: string;
+  linkUrl?: string | null;
+  active: boolean;
+  ctaLabel?: string | null;
+  focusX?: number;
+  focusY?: number;
+};
+
+/** CTA e enquadramento ficam nas configurações da loja (sem coluna própria). */
+async function saveBannerMeta(organizationId: string, bannerId: string, input: BannerSaveInput) {
+  await withOrganizationTransaction(organizationId, async (tx) => {
+    const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+    const settings = (org?.settings && typeof org.settings === 'object' && !Array.isArray(org.settings) ? org.settings : {}) as Prisma.JsonObject;
+    const current = settings.bannerMeta && typeof settings.bannerMeta === 'object' && !Array.isArray(settings.bannerMeta) ? (settings.bannerMeta as Prisma.JsonObject) : {};
+    const next = { ...current, [bannerId]: { cta: input.ctaLabel?.trim() || null, focusX: input.focusX ?? 50, focusY: input.focusY ?? 50 } };
+    await tx.organization.update({ where: { id: organizationId }, data: { settings: { ...settings, bannerMeta: next } } });
+  });
 }
 
 export async function deleteStoreBanner(organizationId: string, bannerId: string) {
@@ -437,7 +451,11 @@ async function assertBannerCategory(organizationId:string,placement='hero') {
 }
 
 export async function getPublicMobileBanners(organizationId:string){
-  return prisma.storeBanner.findMany({where:{organizationId,active:true,OR:[{placement:'hero-mobile'},{placement:{startsWith:'transition:'}}]},orderBy:[{position:'asc'},{id:'asc'}],select:{id:true,title:true,subtitle:true,imagePath:true,linkUrl:true,placement:true}});
+  const [banners,org]=await Promise.all([
+    prisma.storeBanner.findMany({where:{organizationId,active:true,OR:[{placement:'hero-mobile'},{placement:{startsWith:'transition:'}}]},orderBy:[{position:'asc'},{id:'asc'}],select:{id:true,title:true,subtitle:true,imagePath:true,linkUrl:true,placement:true}}),
+    prisma.organization.findUnique({where:{id:organizationId},select:{settings:true}}),
+  ]);
+  return banners.map(banner=>({...banner,...readBannerMeta(org?.settings,banner.id)}));
 }
 
 export async function toggleStoreBanner(

@@ -79,9 +79,14 @@ type Draft = {
   imagePath: string;
   linkUrl: string;
   active: boolean;
+  ctaLabel: string;
+  focusX: number;
+  focusY: number;
 };
 
-const EMPTY: Draft = { placement:'hero', id: null, title: '', subtitle: '', imagePath: '', linkUrl: '', active: true };
+const EMPTY: Draft = { placement:'hero', id: null, title: '', subtitle: '', imagePath: '', linkUrl: '', active: true, ctaLabel: '', focusX: 50, focusY: 50 };
+type BannerTab = 'main' | 'category';
+const isMainPlacement = (placement: string) => placement === 'hero' || placement === 'hero-mobile';
 
 /** Proporção das artes do acervo aprovado; outras proporções continuam aceitas. */
 const RECOMMENDED_WIDTH = 1200;
@@ -134,6 +139,9 @@ export function BannerManager({
   const [imageError, setImageError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<StoreBannerView | null>(null);
+  // Banner principal e banners de categoria ficam em abas separadas.
+  const [tab, setTab] = useState<BannerTab>('main');
+  const visibleBanners = banners.filter((banner) => (tab === 'main') === isMainPlacement(banner.placement));
 
   // Arquivo escolhido mas ainda não enviado (sobe junto com o "Salvar").
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -157,7 +165,7 @@ export function BannerManager({
 
   function beginNew() {
     resetFile();
-    setDraft({ ...EMPTY });
+    setDraft({ ...EMPTY, placement: tab === 'main' ? 'hero' : `transition:${categories[0]?.id ?? ''}` });
   }
 
   function beginEdit(banner: StoreBannerView) {
@@ -170,6 +178,9 @@ export function BannerManager({
       imagePath: banner.imagePath,
       linkUrl: banner.linkUrl ?? '',
       active: banner.active,
+      ctaLabel: banner.cta ?? '',
+      focusX: banner.focusX,
+      focusY: banner.focusY,
     });
   }
 
@@ -285,6 +296,9 @@ export function BannerManager({
         imagePath,
         linkUrl: draft.linkUrl,
         active: draft.active,
+        ctaLabel: draft.ctaLabel,
+        focusX: draft.focusX,
+        focusY: draft.focusY,
       };
 
       const result = draft.id
@@ -305,9 +319,10 @@ export function BannerManager({
   /** Move um banner uma posição e manda a lista inteira na ordem final. */
   function move(index: number, direction: -1 | 1) {
     const target = index + direction;
-    if (target < 0 || target >= banners.length) return;
+    if (target < 0 || target >= visibleBanners.length) return;
     const ids = banners.map((b) => b.id);
-    [ids[index], ids[target]] = [ids[target]!, ids[index]!];
+    const a = ids.indexOf(visibleBanners[index]!.id), b = ids.indexOf(visibleBanners[target]!.id);
+    [ids[a], ids[b]] = [ids[b]!, ids[a]!];
     run(() => reorderBannersAction(ids));
   }
 
@@ -330,17 +345,27 @@ export function BannerManager({
       <Card>
         <CardHeader
           title="Banners da vitrine"
-          subtitle="Topo desktop, topo mobile e transições entre categorias."
+          subtitle={tab === 'main' ? 'Topo da vitrine, com versões para desktop e celular.' : 'Aparecem antes de cada categoria escolhida, no desktop e no celular.'}
           action={
             canManage ? (
-              <Button size="sm" onClick={beginNew} disabled={pending}>
-                + Novo banner
+              <Button size="sm" onClick={beginNew} disabled={pending || (tab === 'category' && categories.length === 0)}>
+                {tab === 'main' ? '+ Banner principal' : '+ Banner de categoria'}
               </Button>
             ) : undefined
           }
         />
+        <div role="tablist" aria-label="Tipo de banner" className="mb-4 grid grid-cols-2 gap-1 rounded-lg bg-ink-50 p-1 sm:inline-grid sm:w-auto">
+          {([['main', 'Banner principal'], ['category', 'Banners de categorias']] as const).map(([value, label]) => (
+            <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => setTab(value)} className={cn('min-h-11 rounded-md px-4 text-[0.84rem] font-semibold transition-all', tab === value ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-800')}>
+              {label} <span className="text-ink-400">({banners.filter((banner) => (value === 'main') === isMainPlacement(banner.placement)).length})</span>
+            </button>
+          ))}
+        </div>
+        {tab === 'category' && categories.length === 0 && <Alert tone="info" className="mb-3">Cadastre uma categoria no catálogo para criar banners de categoria.</Alert>}
 
-        {banners.length === 0 ? (
+        {visibleBanners.length === 0 && tab === 'category' ? (
+          <EmptyState icon="🗂️" title="Nenhum banner de categoria" description="Escolha uma categoria e uma imagem: o banner aparece logo antes dos produtos dela na vitrine." action={canManage && categories.length > 0 ? <Button onClick={beginNew}>Criar banner de categoria</Button> : undefined} />
+        ) : visibleBanners.length === 0 ? (
           <EmptyState
             icon="🖼️"
             title="Você ainda não cadastrou banners"
@@ -357,7 +382,7 @@ export function BannerManager({
           />
         ) : (
           <ul className="space-y-3">
-            {banners.map((banner, index) => (
+            {visibleBanners.map((banner, index) => (
               <li
                 key={banner.id}
                 className="flex flex-col gap-3 rounded-lg border border-ink-100 p-3 sm:flex-row sm:items-center"
@@ -377,13 +402,13 @@ export function BannerManager({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="truncate text-[0.86rem] font-semibold text-ink-800">
-                      {banner.title}
+                      {banner.title || <span className="font-normal italic text-ink-400">Sem título · só imagem</span>}
                     </span>
                     <Badge tone={banner.active ? 'green' : 'neutral'}>
                       {banner.active ? 'No ar' : 'Pausado'}
                     </Badge>
                     <Badge tone="neutral">#{index + 1}</Badge>
-                    <Badge tone="neutral">{banner.placement==='hero'?'Desktop':banner.placement==='hero-mobile'?'Mobile':`Antes de ${categories.find(c=>banner.placement===`transition:${c.id}`)?.name??'categoria'}`}</Badge>
+                    <Badge tone="neutral">{banner.placement==='hero'?'Desktop':banner.placement==='hero-mobile'?'Celular':categories.find(c=>banner.placement===`transition:${c.id}`)?.name??'Categoria'}</Badge>
                   </div>
                   {banner.subtitle && (
                     <p className="mt-0.5 truncate text-[0.76rem] text-ink-500">{banner.subtitle}</p>
@@ -402,16 +427,16 @@ export function BannerManager({
                       disabled={pending || index === 0}
                       onClick={() => move(index, -1)}
                       className="rounded-sm px-2 py-1.5 text-[0.8rem] text-ink-500 transition-all hover:bg-ink-100 disabled:opacity-30"
-                      aria-label={`Mover ${banner.title} para cima`}
+                      aria-label={`Mover ${banner.title || 'banner'} para cima`}
                     >
                       ↑
                     </button>
                     <button
                       type="button"
-                      disabled={pending || index === banners.length - 1}
+                      disabled={pending || index === visibleBanners.length - 1}
                       onClick={() => move(index, 1)}
                       className="rounded-sm px-2 py-1.5 text-[0.8rem] text-ink-500 transition-all hover:bg-ink-100 disabled:opacity-30"
-                      aria-label={`Mover ${banner.title} para baixo`}
+                      aria-label={`Mover ${banner.title || 'banner'} para baixo`}
                     >
                       ↓
                     </button>
@@ -487,17 +512,25 @@ export function BannerManager({
       >
         {draft && (
           <>
-            <Field label="Posição do banner">
-              <Select value={draft.placement} onChange={event=>setDraft({...draft,placement:event.target.value})}>
-                <option value="hero">Banner principal desktop</option>
-                <option value="hero-mobile">Banner principal mobile</option>
-                {categories.map(category=><option key={category.id} value={`transition:${category.id}`}>Antes de {category.name} · mobile</option>)}
-              </Select>
-              <p className="mt-2 text-xs text-ink-500">Topo mobile: prefira arte em retrato. Entre categorias: formato horizontal próximo de 800 × 520. Revise o enquadramento antes de ativar.</p>
-            </Field>
+            {isMainPlacement(draft.placement) ? (
+              <Field label="Versão">
+                <Select value={draft.placement} onChange={event=>setDraft({...draft,placement:event.target.value})}>
+                  <option value="hero">Desktop (computador e tablet)</option>
+                  <option value="hero-mobile">Celular</option>
+                </Select>
+                <p className="mt-2 text-xs text-ink-500">Desktop: arte horizontal (ex.: 1600 × 700). Celular: prefira arte em retrato (ex.: 1080 × 1350).</p>
+              </Field>
+            ) : (
+              <Field label="Categoria">
+                <Select value={draft.placement} onChange={event=>setDraft({...draft,placement:event.target.value})}>
+                  {categories.map(category=><option key={category.id} value={`transition:${category.id}`}>{category.name}</option>)}
+                </Select>
+                <p className="mt-2 text-xs text-ink-500">Aparece logo antes dos produtos desta categoria. Arte horizontal (ex.: 1600 × 600).</p>
+              </Field>
+            )}
             <Field
               label="Título"
-              required
+              hint="Opcional. Sem título, o banner mostra só a imagem."
               error={fieldError === 'title' ? error ?? undefined : undefined}
             >
               <Input
@@ -650,10 +683,34 @@ export function BannerManager({
 
             {previewSource && (
               <div className="mb-3.5">
-                <p className="mb-1 text-[0.72rem] font-semibold text-ink-500">Prévia</p>
-                <div className="h-[110px] overflow-hidden rounded border border-ink-100 bg-ink-50">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={previewSource} alt="" className="h-full w-full object-cover" />
+                <p className="mb-1 text-[0.72rem] font-semibold text-ink-500">Prévia e enquadramento</p>
+                <div className={cn('grid gap-2', isMainPlacement(draft.placement) ? 'grid-cols-1' : 'grid-cols-[2fr_1fr]')}>
+                  {(isMainPlacement(draft.placement)
+                    ? [[draft.placement === 'hero' ? 'Desktop' : 'Celular', draft.placement === 'hero' ? '16 / 7' : '4 / 5']]
+                    : [['Desktop', '3.4 / 1'], ['Celular', '1.55 / 1']]
+                  ).map(([label, ratio]) => (
+                    <div key={label} className="min-w-0">
+                      <div className={cn('relative mx-auto overflow-hidden rounded border border-ink-100 bg-ink-900', draft.placement === 'hero-mobile' && 'max-w-[220px]')} style={{ aspectRatio: ratio }} data-testid={`banner-preview-${label}`}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={previewSource} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `${draft.focusX}% ${draft.focusY}%` }} />
+                        {(draft.title.trim() || draft.subtitle.trim()) && (
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 text-white">
+                            {draft.title.trim() && <p className="truncate text-[0.8rem] font-bold">{draft.title}</p>}
+                            {draft.subtitle.trim() && <p className="truncate text-[0.66rem]">{draft.subtitle}</p>}
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-1 text-center text-[0.68rem] text-ink-400">{label}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 grid gap-x-4 sm:grid-cols-2">
+                  <label className="block text-[0.74rem] font-semibold text-ink-600">Enquadramento horizontal
+                    <input type="range" min={0} max={100} value={draft.focusX} onChange={(e) => setDraft({ ...draft, focusX: Number(e.target.value) })} className="mt-1 block h-11 w-full accent-[var(--brand,#087ea4)]" aria-label="Enquadramento horizontal" />
+                  </label>
+                  <label className="block text-[0.74rem] font-semibold text-ink-600">Enquadramento vertical
+                    <input type="range" min={0} max={100} value={draft.focusY} onChange={(e) => setDraft({ ...draft, focusY: Number(e.target.value) })} className="mt-1 block h-11 w-full accent-[var(--brand,#087ea4)]" aria-label="Enquadramento vertical" />
+                  </label>
                 </div>
                 {usingLibraryImage && (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -678,6 +735,10 @@ export function BannerManager({
                 onChange={(e) => setDraft({ ...draft, linkUrl: e.target.value })}
                 placeholder="https://…"
               />
+            </Field>
+
+            <Field label="Texto do botão" hint="Opcional. Aparece só quando há link. Ex.: Ver ofertas.">
+              <Input value={draft.ctaLabel} onChange={(e) => setDraft({ ...draft, ctaLabel: e.target.value })} maxLength={30} placeholder="Ver ofertas" />
             </Field>
 
             <label className="flex cursor-pointer items-center gap-2.5 text-[0.84rem] text-ink-700">
@@ -723,7 +784,7 @@ export function BannerManager({
         }
       >
         <p className="text-[0.84rem] leading-relaxed text-ink-700">
-          O banner <strong>{confirmDelete?.title}</strong> sai do topo da vitrine. O arquivo da
+          O banner <strong>{confirmDelete?.title || "sem título"}</strong> sai do topo da vitrine. O arquivo da
           imagem no seu servidor não é apagado — só a referência.
         </p>
         <p className={cn('mt-2 text-[0.76rem] text-ink-500')}>

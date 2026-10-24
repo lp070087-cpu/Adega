@@ -1,4 +1,5 @@
 'use server';
+import { OperationError } from '@/lib/operation-error';
 
 import { AuthError } from 'next-auth';
 import { redirect } from 'next/navigation';
@@ -13,7 +14,7 @@ import { passwordSchema } from '@/lib/validations/common';
  * Toda validação roda no servidor antes de qualquer escrita.
  */
 
-export type AuthActionState = { error?: string; field?: string } | undefined;
+export type AuthActionState = { error?: string; field?: string; changePassword?: boolean } | undefined;
 
 export async function loginAction(
   _prev: AuthActionState,
@@ -76,6 +77,13 @@ export async function driverLoginAction(
   }
 
   try {
+    // PIN de 4 dígitos = credencial temporária: nunca abre sessão, só leva à
+    // troca obrigatória de senha (ver src/lib/auth/driver-temp.ts).
+    const temp=await import('@/lib/auth/driver-temp');
+    if(temp.isTemporaryPin(parsed.data.password)){
+      try{await temp.useTemporaryCredential(parsed.data.login,parsed.data.password);return {changePassword:true};}
+      catch(error){return {error:error instanceof OperationError?error.message:'Acesso ou senha incorretos.'};}
+    }
     // Login feito pelo link da loja: entra direto nessa loja.
     const rawStore=formData.get('store');
     const store=typeof rawStore==='string'&&/^[a-z0-9-]{1,160}$/.test(rawStore)?rawStore:'';

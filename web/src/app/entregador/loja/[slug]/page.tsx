@@ -63,7 +63,7 @@ export default async function DriverStoreLink({ params }: { params: Promise<{ sl
 
   return (
     <DriverAuthCard store={store}>
-      <p className="mt-1.5 text-[0.84rem] text-ink-500">Entre com o e-mail que a loja cadastrou para você. É o primeiro acesso? Toque em “Primeiro acesso” para criar sua senha.</p>
+      <p className="mt-1.5 text-[0.84rem] text-ink-500">Entre com o e-mail que a loja cadastrou. No primeiro acesso, use a senha temporária de 4 dígitos que a loja passou para você: em seguida você cria a sua senha.</p>
       <DriverEntry store={store.slug} mailReady={driverMailReady()} />
     </DriverAuthCard>
   );

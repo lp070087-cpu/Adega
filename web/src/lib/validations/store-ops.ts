@@ -88,8 +88,12 @@ export const saveVisualIdentitySchema = z.object({
 
 export const storeBannerInputSchema = z.object({
   placement: z.string().regex(/^(hero|hero-mobile|transition:[a-zA-Z0-9_-]{1,100})$/, 'Escolha uma posição válida.').default('hero'),
-  title: requiredText('Título do banner', 2, 80),
+  // Título e subtítulo são opcionais: sem texto, o banner mostra só a imagem.
+  title: optionalText(80),
   subtitle: optionalText(160),
+  ctaLabel: optionalText(30),
+  focusX: z.coerce.number().int().min(0).max(100).default(50),
+  focusY: z.coerce.number().int().min(0).max(100).default(50),
   // A imagem de um banner tem DUAS origens possíveis:
   //
   //   • upload  → o arquivo sobe pelo storage e vira uma URL http(s);

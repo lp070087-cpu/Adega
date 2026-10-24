@@ -8,6 +8,8 @@ import { formatPhone, timeAgo } from '@/lib/utils';
 import {
   createDriverAction,
   deactivateDriverAction,
+  issueTemporaryCredentialAction,
+  type TemporaryCredential,
   reactivateDriverAction,
   removeDriverLinkAction,
   updateDriverAction,
@@ -53,6 +55,7 @@ export type DriverRow = {
   active: boolean;
   hasLogin: boolean;
   accessPending?: boolean;
+  canIssueTemp?: boolean;
   email: string | null;
   username: string | null;
   activeOrders: number;
@@ -91,6 +94,8 @@ export function DriversManager({
   // Sessão do painel perdida (ex.: saiu ou entrou como entregador em outra aba).
   const [sessionLost, setSessionLost] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // PIN exibido uma única vez, logo após gerar.
+  const [credential, setCredential] = useState<TemporaryCredential | null>(null);
   // Trava síncrona contra toque duplo: o estado `pending` só chega no próximo render.
   const busy = useRef(false);
 
@@ -224,7 +229,9 @@ export function DriversManager({
           : await createDriverAction(data);
         if (!result.ok) { handleFailure(result); return; }
         closeForm();
-        setNotice(wasEditing ? `Cadastro de ${form.name.trim()} atualizado.` : `${form.name.trim()} foi adicionado. Envie o link dos entregadores: no primeiro acesso ele usa este e-mail para criar a senha.`);
+        const issued = !wasEditing && 'data' in result ? (result.data as TemporaryCredential | undefined) : undefined;
+        if (issued) setCredential(issued);
+        setNotice(wasEditing ? `Cadastro de ${form.name.trim()} atualizado.` : issued ? `${form.name.trim()} foi adicionado.` : `${form.name.trim()} foi vinculado à loja. Ele já tem conta Del Flash e entra pelo link com a própria senha.`);
         router.refresh();
       } catch {
         setError('Sem conexão com o servidor. Confira a internet e tente de novo.');
@@ -245,6 +252,25 @@ export function DriversManager({
         if (!result.ok) { handleFailure(result); return; }
         after?.();
         setNotice(success);
+        router.refresh();
+      } catch {
+        setError('Sem conexão com o servidor. Confira a internet e tente de novo.');
+      } finally {
+        busy.current = false;
+      }
+    });
+  }
+
+  function issueCredential(driver: DriverRow) {
+    if (busy.current) return;
+    busy.current = true;
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      try {
+        const result = await issueTemporaryCredentialAction(driver.id);
+        if (!result.ok) { handleFailure(result); return; }
+        if (result.data) setCredential(result.data);
         router.refresh();
       } catch {
         setError('Sem conexão com o servidor. Confira a internet e tente de novo.');
@@ -340,7 +366,7 @@ export function DriversManager({
                 </div>
                 <div className="mt-2 text-[0.76rem] text-ink-600"><AccessInfo driver={driver} /></div>
                 <p className="mt-1 text-[0.72rem] text-ink-500">{driver.shiftLabel}{driver.activeOrders ? ` · ${driver.activeOrders} na rua` : ''} · {driver.deliveredToday} hoje · {driver.deliveredTotal} no total</p>
-                {canManage && <div className="mt-3"><RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id), `${driver.name} foi reativado nesta loja.`)} pending={pending} wide /></div>}
+                {canManage && <div className="mt-3"><RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id), `${driver.name} foi reativado nesta loja.`)} onIssue={() => issueCredential(driver)} pending={pending} wide /></div>}
               </li>
             ))}
           </ul>
@@ -407,7 +433,7 @@ export function DriversManager({
                     </td>
                     {canManage && (
                       <td className="py-2.5 text-right">
-                        <RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id), `${driver.name} foi reativado nesta loja.`)} pending={pending} />
+                        <RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id), `${driver.name} foi reativado nesta loja.`)} onIssue={() => issueCredential(driver)} pending={pending} />
                       </td>
                     )}
                   </tr>
@@ -427,7 +453,7 @@ export function DriversManager({
         subtitle={
           editing
             ? 'A senha é sempre do entregador: a loja não vê nem altera.'
-            : 'Informe nome e e-mail. Depois envie o link dos entregadores: no primeiro acesso ele confirma o e-mail com um código e cria a própria senha.'
+            : 'Informe nome e e-mail. O sistema gera uma senha temporária de 4 dígitos para o primeiro acesso; o entregador cria a senha definitiva ao entrar.'
         }
         size="md"
         footer={
@@ -491,10 +517,21 @@ export function DriversManager({
           </Field>
         </div>
 
-        <Field label="E-mail do entregador" required hint={editing ? 'Ao trocar o e-mail, o entregador precisará confirmar o novo endereço com um código antes de entrar.' : 'É com este e-mail que ele entra. Se ele já trabalha em outra loja Del Flash, use o mesmo e-mail.'}>
+        <Field label="E-mail do entregador" required hint={editing ? 'Ao trocar o e-mail, gere uma nova senha temporária para o entregador entrar com o novo endereço.' : 'É com este e-mail que ele entra. Se ele já trabalha em outra loja Del Flash, use o mesmo e-mail.'}>
           <Input type="email" value={form.email} onChange={event=>setForm({...form,email:event.target.value})} required maxLength={254} autoComplete="off" />
         </Field>
         <section className="mb-1 rounded-lg bg-ink-50 p-3"><h3 className="text-sm font-semibold">Horários de trabalho</h3><p className="mt-1 text-sm text-ink-500">Depois de salvar, configure dias e turnos na seção de horários desta página.</p></section>
+      </Modal>
+
+      {/* ── Senha temporária (exibida uma vez) ─────────────────────── */}
+      <Modal
+        open={credential !== null}
+        onClose={() => setCredential(null)}
+        title="Senha temporária de primeiro acesso"
+        size="sm"
+        footer={<Button onClick={() => setCredential(null)}>Concluído</Button>}
+      >
+        {credential && <TemporaryCredentialCard credential={credential} linkUrl={linkUrl} />}
       </Modal>
 
       {/* ── Suspender / remover vínculo ───────────────────────────── */}
@@ -554,6 +591,28 @@ function Th({ children, className }: { children: React.ReactNode; className?: st
   );
 }
 
+function TemporaryCredentialCard({ credential, linkUrl }: { credential: TemporaryCredential; linkUrl: string | null }) {
+  const [copied, setCopied] = useState(false);
+  const expires = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Recife' }).format(new Date(credential.expires));
+  const share = `Seu acesso ao aplicativo de entregas: ${linkUrl ?? ''}\nE-mail: ${credential.email}\nA senha temporária eu te passo pessoalmente.`;
+  return (
+    <div className="space-y-3 text-[0.86rem] text-ink-600" data-testid="temp-credential">
+      <p>Passe ao entregador <strong className="text-ink-900">{credential.driverName}</strong>. Ela só serve para o primeiro acesso e depois ele cria a própria senha.</p>
+      <div className="rounded-lg border border-brand/30 bg-brand-light p-4 text-center">
+        <p className="text-[0.72rem] font-semibold uppercase tracking-wide text-ink-500">Senha temporária</p>
+        <p className="mt-1 font-mono text-[2rem] font-extrabold tracking-[0.35em] text-ink-900" data-testid="temp-pin">{credential.pin}</p>
+        <p className="mt-1 text-[0.74rem] text-ink-500">E-mail: {credential.email} · válida até {expires} · uso único</p>
+      </div>
+      <p className="text-[0.76rem]">Por segurança, esta senha não aparece de novo. Se perder, gere uma nova. Após 5 tentativas erradas ela é cancelada.</p>
+      <div className="grid gap-2 min-[400px]:grid-cols-2">
+        <button type="button" className="min-h-11 rounded-sm border border-ink-200 px-3 font-semibold text-ink-800" onClick={async () => { try { await navigator.clipboard.writeText(credential.pin); setCopied(true); } catch { setCopied(false); } }}>{copied ? 'Copiada' : 'Copiar senha'}</button>
+        {linkUrl && <a className="inline-flex min-h-11 items-center justify-center rounded-sm border border-ink-200 px-3 font-semibold text-ink-800" href={`https://wa.me/?text=${encodeURIComponent(share)}`} target="_blank" rel="noopener noreferrer">Enviar link pelo WhatsApp</a>}
+      </div>
+      <p className="text-[0.72rem] text-ink-500">O WhatsApp leva só o link e o e-mail. A senha não vai na mensagem automática.</p>
+    </div>
+  );
+}
+
 function AccessInfo({ driver }: { driver: DriverRow }) {
   return (
     <span className="block min-w-0 break-words text-[0.74rem] text-ink-500">
@@ -564,7 +623,7 @@ function AccessInfo({ driver }: { driver: DriverRow }) {
   );
 }
 
-function RowActions({ driver, onEdit, onConfirm, onReactivate, pending, wide }: { driver: DriverRow; onEdit: (driver: DriverRow) => void; onConfirm: (kind: 'suspend' | 'remove') => void; onReactivate: () => void; pending: boolean; wide?: boolean }) {
+function RowActions({ driver, onEdit, onConfirm, onReactivate, onIssue, pending, wide }: { driver: DriverRow; onEdit: (driver: DriverRow) => void; onConfirm: (kind: 'suspend' | 'remove') => void; onReactivate: () => void; onIssue: () => void; pending: boolean; wide?: boolean }) {
   return (
     <div className={wide ? 'grid grid-cols-2 gap-2 min-[400px]:flex min-[400px]:flex-wrap' : 'flex flex-wrap justify-end gap-1.5'}>
       <Button size="sm" variant="secondary" onClick={() => onEdit(driver)}>Editar</Button>
@@ -573,6 +632,7 @@ function RowActions({ driver, onEdit, onConfirm, onReactivate, pending, wide }: 
       ) : (
         <Button size="sm" variant="ghost" disabled={pending} onClick={onReactivate}>Reativar</Button>
       )}
+      {driver.active && driver.canIssueTemp && <Button size="sm" variant="ghost" disabled={pending} onClick={onIssue}>Nova senha temporária</Button>}
       {driver.hasLogin && <Button size="sm" variant="ghost" onClick={() => onConfirm('remove')}>Remover vínculo</Button>}
     </div>
   );

@@ -210,11 +210,14 @@ export async function createBannerAction(input: unknown): Promise<OpsActionResul
 
     await storeOps.createStoreBanner(organizationId, {
       placement: parsed.data.placement,
-      title: parsed.data.title,
+      title: parsed.data.title ?? null,
       subtitle: parsed.data.subtitle ?? null,
       imagePath: image,
       linkUrl: parsed.data.linkUrl || null,
       active: parsed.data.active,
+      ctaLabel: parsed.data.ctaLabel ?? null,
+      focusX: parsed.data.focusX,
+      focusY: parsed.data.focusY,
     });
 
     revalidateStore();
@@ -253,11 +256,14 @@ export async function updateBannerAction(
 
     await storeOps.updateStoreBanner(organizationId, id.data.bannerId, {
       placement: parsed.data.placement,
-      title: parsed.data.title,
+      title: parsed.data.title ?? null,
       subtitle: parsed.data.subtitle ?? null,
       imagePath: image,
       linkUrl: parsed.data.linkUrl || null,
       active: parsed.data.active,
+      ctaLabel: parsed.data.ctaLabel ?? null,
+      focusX: parsed.data.focusX,
+      focusY: parsed.data.focusY,
     });
 
     revalidateStore();

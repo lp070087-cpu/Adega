@@ -34,7 +34,7 @@ export const NAV_SECTIONS: NavSection[] = [
     { href: '/app/pedidos', label: 'Pedidos', icon: 'orders', permission: 'MANAGE_ORDERS', badgeKey: 'novos' },
     { href: '/app/clientes', label: 'Clientes', icon: 'users', permission: 'VIEW_CUSTOMERS' },
     { href: '/app/catalogo', label: 'Catálogo', icon: 'catalog', permission: 'MANAGE_PRODUCTS' },
-    { href: '/app/atendimento', label: 'Atendimento com IA', icon: 'chat', permission: 'MANAGE_SETTINGS' },
+    { href: '/app/atendimento', label: 'Atendimento', icon: 'chat', permission: 'MANAGE_SETTINGS' },
   ] },
   { title: 'Financeiro', items: [
     { href: '/app/caixa', label: 'Caixa', icon: 'cash', permission: 'MANAGE_CASH' },

@@ -38,7 +38,7 @@ export async function getDrivers(
     },
     orderBy: [{ status: 'asc' }, { name: 'asc' }],
     include: {
-      user: { select: { id: true, email: true, username: true, active: true,mustChangePassword:true } },
+      user: { select: { id: true, email: true, username: true, active: true,mustChangePassword:true,organizations:{select:{organizationId:true,role:true}} } },
       // Última posição conhecida: pega só a mais recente.
       locations: { orderBy: { createdAt: 'desc' }, take: 1 },
       _count: {
@@ -88,6 +88,8 @@ export async function getDrivers(
     active: d.active,
     hasLogin: Boolean(d.userId),
     accessPending:Boolean(d.user?.mustChangePassword),
+    // Só entregador exclusivo desta loja pode receber senha temporária dela.
+    canIssueTemp:Boolean(d.user?.email&&d.user.organizations.length&&d.user.organizations.every(m=>m.organizationId===organizationId&&m.role==='DRIVER')),
     email: d.user?.email ?? null,
     username: d.user?.username ?? null,
     activeOrders: d._count.orders,
@@ -406,7 +408,7 @@ export async function setDriverEmail(organizationId:string,driverId:string,email
   if(!account)await tx.organizationUser.create({data:{organizationId,userId:user.id,role:'DRIVER',active:driver.active,acceptedAt:new Date()}});
   await tx.driver.update({where:{id:driver.id},data:{...(!account?{userId:user.id}:{}),status:'OFFLINE'}});
   await revokeDriverSessions(tx,organizationId,user.id);
-  await tx.notification.create({data:{organizationId,userId:actorId,type:'SYSTEM',title:'E-mail de entregador atualizado',message:'Acesso individual aguarda verificação do novo e-mail.'}});
+  await tx.notification.create({data:{organizationId,userId:actorId,type:'SYSTEM',title:'E-mail de entregador atualizado',message:'O entregador precisa de uma nova senha temporária para entrar com o novo e-mail.'}});
  },transaction);
 }
 

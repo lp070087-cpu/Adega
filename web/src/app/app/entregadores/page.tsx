@@ -37,6 +37,7 @@ export default async function DriversPage() {
     active: driver.active,
     hasLogin: driver.hasLogin,
     accessPending:driver.accessPending,
+    canIssueTemp:driver.canIssueTemp,
     email: driver.email,
     username: driver.username,
     activeOrders: driver.activeOrders,

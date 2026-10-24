@@ -67,6 +67,10 @@ export type HeroBanner = {
   subtitle: string | null;
   imagePath: string;
   linkUrl: string | null;
+  /** Texto do botão (opcional) e enquadramento da imagem, em % (0–100). */
+  cta?: string | null;
+  focusX?: number;
+  focusY?: number;
 };
 
 export type DynamicStoreHeroProps = {
@@ -261,6 +265,7 @@ export function DynamicStoreHero({
               src={slide.imagePath}
               alt=""
               className={cn('store-hero-slide', index === activeIndex && 'is-active')}
+              style={{ objectPosition: `${slide.focusX ?? 50}% ${slide.focusY ?? 50}%` }}
               // O primeiro slide é o quadro de abertura: carregá-lo com
               // pressa evita o hero "vazio" no primeiro segundo. Os
               // outros podem esperar.
@@ -306,6 +311,9 @@ export function DynamicStoreHero({
             <h1 className="store-hero-title">{slides[activeIndex]?.title?.trim() || organization.name}</h1>
             {storeDescription && <p className="store-hero-tagline">{storeDescription}</p>}
             <p className="store-hero-tagline store-hero-tagline-segment">{slides[activeIndex]?.subtitle?.trim() || tagline}</p>
+            {slides[activeIndex]?.cta && slides[activeIndex]?.linkUrl && (
+              <a className="store-hero-cta" href={slides[activeIndex]!.linkUrl!} rel="noopener noreferrer">{slides[activeIndex]!.cta}</a>
+            )}
 
             <div className="store-hero-facts">
               {organization.averageDeliveryTime ? (
@@ -426,6 +434,7 @@ const HERO_CSS = `
   transition: opacity 1.2s ease-in-out;
 }
 .store-hero-slide.is-active { opacity: 1; }
+.store-hero-cta { display:inline-flex; min-height:44px; align-items:center; margin:0 0 16px; padding:10px 18px; border-radius:999px; background:#fff; color:#0b1f3a; font-weight:700; text-decoration:none; box-shadow:0 6px 18px rgba(11,31,58,.18); }
 
 .store-hero-glow { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.5; }
 .store-hero-glow-a {

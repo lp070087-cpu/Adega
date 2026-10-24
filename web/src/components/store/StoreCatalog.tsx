@@ -12,6 +12,7 @@ import { STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
 import type { BusinessType } from '@prisma/client';
 import { groupPublishedStoreProducts } from '@/lib/store-catalog-groups';
 import { Share2 } from 'lucide-react';
+import { storefrontCategoryView, type StorefrontCategories } from '@/lib/storefront-categories';
 import { whatsappDigits } from '@/lib/whatsapp';
 
 /**
@@ -196,6 +197,7 @@ export function StoreCatalog({
   sections,
   hero,
   transitionBanners=[],
+  categoryConfig={nav:null,showAll:null},
 }: {
   store: StoreInfo;
   categories: Array<{ id: string; name: string; slug: string; emoji: string | null }>;
@@ -203,7 +205,9 @@ export function StoreCatalog({
   /** Seções que existem de fato nesta loja — o menu não mostra âncora vazia. */
   sections: Array<{ id: string; label: string }>;
   hero?: React.ReactNode;
-  transitionBanners?: Array<{id:string;placement:string;imagePath:string;title:string|null;subtitle:string|null;linkUrl:string|null}>;
+  /** Categorias na navegação e em "Mostrar todos" (configuradas pela loja). */
+  categoryConfig?: StorefrontCategories;
+  transitionBanners?: Array<{id:string;placement:string;imagePath:string;title:string|null;subtitle:string|null;linkUrl:string|null;cta?:string|null;focusX?:number;focusY?:number}>;
 }) {
   const [search, setSearch] = React.useState('');
   const [activeCategory, setActiveCategory] = React.useState('all');
@@ -316,10 +320,16 @@ export function StoreCatalog({
     }
   }, [cart, hydrated, storageKey]);
 
+  const categoryView = React.useMemo(() => storefrontCategoryView(categories, categoryConfig), [categories, categoryConfig]);
+  const hiddenCategories = React.useMemo(() => new Set(categoryView.hidden.map((c) => c.id)), [categoryView]);
+  const showAllCategories = React.useMemo(() => new Set(categoryView.showAll.map((c) => c.id)), [categoryView]);
   const visible = React.useMemo(() => {
     const term = debouncedSearch.trim().toLowerCase();
     return products.filter((product) => {
+      // Categoria oculta pela loja: o produto continua existindo (e abre por link), só não é listado.
+      if (product.categoryId && hiddenCategories.has(product.categoryId)) return false;
       if (activeCategory !== 'all' && product.categoryId !== activeCategory) return false;
+      if (activeCategory === 'all' && !term && product.categoryId && categories.some((c) => c.id === product.categoryId) && !showAllCategories.has(product.categoryId)) return false;
       if (!term) return true;
       const categoryName =
         categories.find((category) => category.id === product.categoryId)?.name ?? '';
@@ -327,7 +337,7 @@ export function StoreCatalog({
         .toLowerCase()
         .includes(term);
     });
-  }, [products, debouncedSearch, activeCategory, categories]);
+  }, [products, debouncedSearch, activeCategory, categories, hiddenCategories, showAllCategories]);
 
   const grouped = React.useMemo(() => groupPublishedStoreProducts(visible, categories), [visible, categories]);
 
@@ -581,7 +591,7 @@ export function StoreCatalog({
             type="search"
           />
 
-          {categories.length > 1 && (
+          {categoryView.nav.length > 1 && (
             <div
               className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
               role="group"
@@ -592,9 +602,9 @@ export function StoreCatalog({
                 brandColor={store.brandColor}
                 onClick={() => setActiveCategory('all')}
               >
-                Tudo
+                Mostrar todos
               </CategoryChip>
-              {categories.map((category) => (
+              {categoryView.nav.map((category) => (
                 <CategoryChip
                   key={category.id}
                   active={activeCategory === category.id}
@@ -1163,12 +1173,17 @@ function ChoiceButton({
  * com ele faria o cliente procurar por algo que a loja vende e concluir que
  * a loja não tem — pior do que dizer "indisponível agora".
  */
-function CategoryBanner({banner}:{banner:{imagePath:string;title:string|null;subtitle:string|null;linkUrl:string|null}}){
+function CategoryBanner({banner}:{banner:{imagePath:string;title:string|null;subtitle:string|null;linkUrl:string|null;cta?:string|null;focusX?:number;focusY?:number}}){
   const [failed,setFailed]=React.useState(false);
   if(failed)return null;
+  const title=banner.title?.trim(),subtitle=banner.subtitle?.trim();
+  const hasText=Boolean(title||subtitle||banner.linkUrl);
+  // Sem texto, só a imagem: nada de faixa ou espaço reservado vazio.
+  const image=<img src={banner.imagePath} alt={title??''} loading="lazy" decoding="async" onError={()=>setFailed(true)} style={{objectPosition:`${banner.focusX??50}% ${banner.focusY??50}%`}} />;
+  if(!hasText)return <aside className="store-category-banner is-image-only">{image}</aside>;
   return <aside className="store-category-banner">
-    <img src={banner.imagePath} alt="" loading="lazy" decoding="async" onError={()=>setFailed(true)} />
-    <div><p>{banner.title}</p>{banner.subtitle&&<span>{banner.subtitle}</span>}{banner.linkUrl&&<a href={banner.linkUrl} rel="noreferrer">Saiba mais</a>}</div>
+    {image}
+    <div>{title&&<p>{title}</p>}{subtitle&&<span>{subtitle}</span>}{banner.linkUrl&&<a href={banner.linkUrl} rel="noreferrer">{banner.cta||'Saiba mais'}</a>}</div>
   </aside>;
 }
 

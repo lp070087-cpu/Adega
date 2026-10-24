@@ -1,4 +1,5 @@
 'use server';
+import { withOrganizationTransaction } from '@/lib/data/transaction';
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
@@ -166,6 +167,28 @@ export async function reorderCategoriesAction(ids: string[]): Promise<ComboActio
     const result = await combos.reorderCategories(organizationId, parsed.data.ids);
     revalidateCatalog();
     return { ok: true, data: result };
+  } catch (error) {
+    return { ok: false, ...toActionError(error) };
+  }
+}
+
+/** Quais categorias aparecem na navegação e em "Mostrar todos" da vitrine. */
+export async function saveStorefrontCategoriesAction(input: { nav: string[]; showAll: string[] }): Promise<ComboActionResult> {
+  try {
+    const { organizationId } = await requirePermission('MANAGE_PRODUCTS');
+    const parsed = z.object({ nav: z.array(z.string().min(1).max(100)).max(500), showAll: z.array(z.string().min(1).max(100)).max(500) }).safeParse(input);
+    if (!parsed.success) return { ok: false, error: 'Seleção de categorias inválida.' };
+    await withOrganizationTransaction(organizationId, async (tx) => {
+      // Só categorias desta loja entram na configuração.
+      const own = new Set((await tx.category.findMany({ where: { organizationId }, select: { id: true } })).map((c) => c.id));
+      const nav = [...new Set(parsed.data.nav)].filter((id) => own.has(id));
+      const showAll = [...new Set(parsed.data.showAll)].filter((id) => own.has(id));
+      const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+      const settings = (org?.settings && typeof org.settings === 'object' && !Array.isArray(org.settings) ? org.settings : {}) as Record<string, unknown>;
+      await tx.organization.update({ where: { id: organizationId }, data: { settings: { ...settings, storefrontCategories: { nav, showAll } } as never } });
+    });
+    revalidateCatalog();
+    return { ok: true };
   } catch (error) {
     return { ok: false, ...toActionError(error) };
   }

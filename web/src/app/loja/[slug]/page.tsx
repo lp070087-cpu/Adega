@@ -1,3 +1,5 @@
+import { readBannerMeta } from '@/lib/banner-meta';
+import { readStorefrontCategories } from '@/lib/storefront-categories';
 import { StoreAvailabilitySync } from '@/components/store/StoreAvailabilitySync';
 import { storeOpeningMode, storeTimeZone } from '@/lib/schedule';
 import { brandRgb } from '@/lib/brand';
@@ -236,6 +238,7 @@ export default async function PublicStorePage({ params }: PageProps) {
           subtitle: banner.subtitle,
           imagePath: banner.imagePath,
           linkUrl: banner.linkUrl,
+          ...readBannerMeta(settings, banner.id),
         }))}
       />
   );
@@ -274,6 +277,7 @@ export default async function PublicStorePage({ params }: PageProps) {
             description: store.description,
           }}
           categories={catalog.categories}
+          categoryConfig={readStorefrontCategories(settings)}
           products={products}
           sections={sections}
         />

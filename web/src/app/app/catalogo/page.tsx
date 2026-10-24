@@ -7,6 +7,7 @@ import {
   getOwnedGlobalProductIds,
 } from '@/lib/data/global-catalog';
 import { getOrganizationById } from '@/lib/data/organization';
+import { readStorefrontCategories } from '@/lib/storefront-categories';
 import { templateLabel, templateProductCount } from '@/data/business-templates';
 import { CatalogManager } from '@/components/catalog/CatalogManager';
 import type { CatalogCategory, CatalogProduct } from '@/components/catalog/CatalogManager';
@@ -212,6 +213,7 @@ export default async function CatalogPage() {
         pickerBrands={globalBrands}
         ownedGlobalProductIds={ownedGlobalIds}
         canManage={can(ctx.role, 'MANAGE_PRODUCTS')}
+        storefrontCategories={readStorefrontCategories(organization?.settings)}
       />
     </div>
   );

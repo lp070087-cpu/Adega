@@ -78,7 +78,7 @@ test('opening mode action authorizes the tenant, preserves schedules and records
 });
 
 test('driver logout returns to driver PWA while owner logout keeps its original destination',async()=>{
- const destinations:string[]=[];const actions=isolated('src/app/actions/auth.ts',{'next-auth':{AuthError:class extends Error{}},'next/navigation':{},'@/lib/db':{},'@/lib/auth/password':{},'@/lib/auth':{signOut:async(q:any)=>destinations.push(q.redirectTo)},'@/lib/validations/auth':{},'@/lib/validations/common':{}});
+ const destinations:string[]=[];const actions=isolated('src/app/actions/auth.ts',{'@/lib/operation-error':{OperationError:class extends Error{}},'next-auth':{AuthError:class extends Error{}},'next/navigation':{},'@/lib/db':{},'@/lib/auth/password':{},'@/lib/auth':{signOut:async(q:any)=>destinations.push(q.redirectTo)},'@/lib/validations/auth':{},'@/lib/validations/common':{}});
  await actions.driverLogoutAction();await actions.logoutAction();assert.deepEqual(destinations,['/entregador/','/login']);
 });
 

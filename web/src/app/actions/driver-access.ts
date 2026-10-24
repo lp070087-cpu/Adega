@@ -46,3 +46,17 @@ export async function selectDriverStoreAction(form:FormData){
  if(allowed)(await cookies()).set(DRIVER_STORE_COOKIE,organizationId,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:60*60*24*365});
  redirect('/entregador/');
 }
+
+/** Primeiro acesso com a credencial temporária: cria a senha definitiva e entra. */
+export async function activateDriverAction(_state:DriverAccessState,form:FormData):Promise<DriverAccessState>{
+ const input=z.object({email,pin:z.string().regex(/^\d{4}$/),password:passwordSchema.refine(value=>Buffer.byteLength(value,'utf8')<=72,'Use uma senha de até 72 bytes.'),confirm:z.string(),store}).refine(v=>v.password===v.confirm,{message:'As senhas precisam ser iguais.'}).safeParse(Object.fromEntries(['email','pin','password','confirm','store'].map(key=>[key,form.get(key)??undefined])));
+ if(!input.success)return {ok:false,message:input.error.issues[0]?.message??'Confira os dados.'};
+ const {useTemporaryCredential}=await import('@/lib/auth/driver-temp');
+ let account:string;
+ try{account=(await useTemporaryCredential(input.data.email,input.data.pin,input.data.password)).email;}
+ catch(error){return {ok:false,message:error instanceof OperationError?error.message:'Não foi possível ativar o acesso. Tente de novo.'};}
+ if(input.data.store)await preferDriverStore(input.data.store);
+ try{await signIn('credentials',{login:account,password:input.data.password,driverOnly:'true',store:input.data.store??'',remember:form.get('remember')==='on'?'true':'false',redirectTo:'/entregador/'});}
+ catch(error){if(error instanceof AuthError)return {ok:true,message:'Senha criada. Entre com seu e-mail e a nova senha.'};throw error;}
+ return {ok:true,message:'Senha criada.'};
+}

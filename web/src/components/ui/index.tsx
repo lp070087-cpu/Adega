@@ -91,7 +91,10 @@ export function Field({ label, hint, error, required, children, className }: Fie
   // Associa o rótulo ao campo (toque no rótulo foca o campo; leitor de tela
   // anuncia o nome) quando o filho é um único controle de formulário.
   const generated = React.useId();
-  const control = React.isValidElement<{ id?: string }>(children) && FIELD_CONTROLS.has(children.type) ? children : null;
+  // Primeiro controle de formulário entre os filhos diretos (pode haver um texto de apoio junto).
+  const items = React.Children.toArray(children);
+  const controlIndex = items.findIndex((child) => React.isValidElement(child) && FIELD_CONTROLS.has(child.type));
+  const control = controlIndex >= 0 ? (items[controlIndex] as React.ReactElement<{ id?: string }>) : null;
   const id = control ? control.props.id ?? generated : undefined;
   return (
     <div className={cn('mb-3.5', className)}>
@@ -101,7 +104,7 @@ export function Field({ label, hint, error, required, children, className }: Fie
           {required && <span className="text-brand"> *</span>}
         </label>
       )}
-      {control ? React.cloneElement(control, { id }) : children}
+      {control ? items.map((child, index) => (index === controlIndex ? React.cloneElement(control, { id }) : child)) : children}
       {hint && !error && <p className="mt-1.5 text-[0.72rem] text-ink-500">{hint}</p>}
       {error && <p className="mt-1.5 text-[0.72rem] font-medium text-danger">{error}</p>}
     </div>

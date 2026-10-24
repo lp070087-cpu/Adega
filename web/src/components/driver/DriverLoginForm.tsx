@@ -1,6 +1,7 @@
 'use client';
 
-import { startTransition, useActionState, useState } from 'react';
+import { startTransition, useActionState, useRef, useState } from 'react';
+import { DriverActivateForm } from './DriverActivateForm';
 import { driverLoginAction, type AuthActionState } from '@/app/actions/auth';
 import { Button, Field, Input } from '@/components/ui';
 import {Eye,EyeOff} from 'lucide-react';
@@ -27,9 +28,16 @@ export function DriverLoginForm({store,onFirstAccess}:{store?:string;onFirstAcce
     undefined,
   );
   const [showPassword, setShowPassword] = useState(false);
+  // E-mail e PIN da última tentativa: a troca de senha precisa dos dois, mas
+  // eles ficam só na memória da página (nunca em URL ou armazenamento).
+  const lastAttempt = useRef<{ login: string; pin: string } | null>(null);
+
+  if (state?.changePassword && lastAttempt.current) {
+    return <DriverActivateForm email={lastAttempt.current.login} pin={lastAttempt.current.pin} store={store} />;
+  }
 
   return (
-    <form action={formAction} onSubmit={(e) => { e.preventDefault(); const data = new FormData(e.currentTarget); startTransition(() => formAction(data)); }} className="mt-6 text-left">
+    <form action={formAction} onSubmit={(e) => { e.preventDefault(); const data = new FormData(e.currentTarget); lastAttempt.current = { login: String(data.get('login') ?? ''), pin: String(data.get('password') ?? '') }; startTransition(() => formAction(data)); }} className="mt-6 text-left">
       {store&&<input type="hidden" name="store" value={store}/>}
       {state?.error && (
         <p
@@ -86,7 +94,7 @@ export function DriverLoginForm({store,onFirstAccess}:{store?:string;onFirstAcce
       <Button type="submit" size="lg" fullWidth loading={pending} className="mt-2">
         {pending ? 'Entrando...' : 'Entrar'}
       </Button>
-      <div className="mt-3 flex justify-center text-sm font-semibold text-brand"><button type="button" onClick={onFirstAccess} className="inline-flex min-h-11 items-center text-center">Primeiro acesso ou esqueci minha senha</button></div>
+      <div className="mt-3 flex justify-center text-sm font-semibold text-brand"><button type="button" onClick={onFirstAccess} className="inline-flex min-h-11 items-center text-center">Esqueci minha senha</button></div>
     </form>
   );
 }

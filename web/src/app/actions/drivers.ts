@@ -16,6 +16,8 @@ import { driverShiftAvailability, readDriverSchedule, tomorrowDriverShifts } fro
  * app /entregador e a nada mais.
  */
 
+export type TemporaryCredential = { pin: string; expires: string; email: string; driverName: string };
+
 export type DriverActionResult<T = undefined> =
   | { ok: true; data?: T }
   | { ok: false; error: string; field?: string; code?: string };
@@ -32,9 +34,9 @@ function driverFromForm(formData: FormData) {
   };
 }
 
-export async function createDriverAction(formData: FormData): Promise<DriverActionResult> {
+export async function createDriverAction(formData: FormData): Promise<DriverActionResult<TemporaryCredential | undefined>> {
   try {
-    const { organizationId } = await requirePermission('MANAGE_DRIVERS');
+    const { organizationId, user } = await requirePermission('MANAGE_DRIVERS');
 
     const parsed = createDriverWithLoginSchema.safeParse(driverFromForm(formData));
     if (!parsed.success) {
@@ -43,7 +45,7 @@ export async function createDriverAction(formData: FormData): Promise<DriverActi
     }
 
     if(!parsed.data.email)return {ok:false,error:'Informe o e-mail individual do entregador.',field:'email'};
-    await drivers.createDriver(organizationId, {
+    const created = await drivers.createDriver(organizationId, {
       activationOnly:true,
       name: parsed.data.name,
       phone: parsed.data.phone,
@@ -54,8 +56,21 @@ export async function createDriverAction(formData: FormData): Promise<DriverActi
       email: parsed.data.email || undefined,
     });
 
+    // Conta nova (ou só desta loja, ainda sem senha): já sai com a senha
+    // temporária. Conta de outra loja continua usando a própria senha.
+    let credential: TemporaryCredential | undefined;
+    const { prisma } = await import('@/lib/db');
+    const { issueTemporaryCredential } = await import('@/lib/auth/driver-temp');
+    const account = created.userId ? await prisma.user.findUnique({ where: { id: created.userId }, select: { passwordHash: true, mustChangePassword: true } }) : null;
+    if (account && (!account.passwordHash || account.mustChangePassword)) {
+      try {
+        const issued = await issueTemporaryCredential(organizationId, created.id, user.id);
+        credential = { pin: issued.pin, expires: issued.expires.toISOString(), email: issued.email, driverName: parsed.data.name };
+      } catch { /* conta compartilhada com outra loja: sem PIN desta loja */ }
+    }
+
     revalidateDrivers();
-    return { ok: true };
+    return { ok: true, data: credential };
   } catch (error) {
     return { ok: false, ...toActionError(error) };
   }
@@ -153,6 +168,52 @@ export async function removeDriverLinkAction(driverId: string): Promise<DriverAc
     return { ok: true };
   } catch (error) {
     return { ok: false, ...toActionError(error) };
+  }
+}
+
+/** Nova senha temporária (substitui a anterior) para entregador exclusivo da loja. */
+export async function issueTemporaryCredentialAction(driverId: string): Promise<DriverActionResult<TemporaryCredential>> {
+  try {
+    const { organizationId, user } = await requirePermission('MANAGE_DRIVERS');
+    const { prisma } = await import('@/lib/db');
+    const { issueTemporaryCredential } = await import('@/lib/auth/driver-temp');
+    const driver = await prisma.driver.findFirst({ where: { id: driverId, organizationId }, select: { name: true } });
+    if (!driver) return { ok: false, error: 'Entregador não encontrado.' };
+    const issued = await issueTemporaryCredential(organizationId, driverId, user.id);
+    revalidateDrivers();
+    return { ok: true, data: { pin: issued.pin, expires: issued.expires.toISOString(), email: issued.email, driverName: driver.name } };
+  } catch (error) {
+    return { ok: false, ...toActionError(error) };
+  }
+}
+
+/**
+ * Dados da tela de navegação: só para o pedido atribuído a este entregador.
+ * A posição dele é usada apenas para pedir a rota e não é gravada aqui.
+ */
+export async function driverNavigationAction(input: { orderId: string; from?: { latitude: number; longitude: number } | null }) {
+  try {
+    const ctx = await requireDriver();
+    const { prisma } = await import('@/lib/db');
+    const order = await prisma.order.findFirst({
+      where: { id: input.orderId, organizationId: ctx.organizationId, driverId: ctx.driver.id, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } },
+      select: { deliveryLatitude: true, deliveryLongitude: true, deliveryAddress: true, deliveryNumber: true, deliveryDistrict: true, deliveryCity: true, organization: { select: { state: true } } },
+    });
+    if (!order) return { ok: false as const, error: 'Entrega não encontrada ou já concluída.' };
+    const address = [order.deliveryAddress && `${order.deliveryAddress}${order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}`, order.deliveryDistrict, order.deliveryCity, order.organization.state, 'Brasil'].filter(Boolean).join(', ');
+    let destination: { latitude: number; longitude: number; approximate: boolean } | null =
+      order.deliveryLatitude != null && order.deliveryLongitude != null ? { latitude: order.deliveryLatitude, longitude: order.deliveryLongitude, approximate: false } : null;
+    if (!destination && order.deliveryAddress) {
+      const { geocodeAddress } = await import('@/lib/maps/geocoding');
+      const found = await geocodeAddress(address);
+      if (found.ok) destination = { latitude: found.latitude, longitude: found.longitude, approximate: true };
+    }
+    const from = input.from && Number.isFinite(input.from.latitude) && Number.isFinite(input.from.longitude) && Math.abs(input.from.latitude) <= 90 && Math.abs(input.from.longitude) <= 180 ? input.from : null;
+    const { streetRoute, routingConfigured } = await import('@/lib/maps/routing');
+    const route = destination && from ? await streetRoute(from, destination) : { available: false as const, reason: routingConfigured() ? ('unavailable' as const) : ('not_configured' as const) };
+    return { ok: true as const, destination, route };
+  } catch (error) {
+    return { ok: false as const, ...toActionError(error) };
   }
 }
 

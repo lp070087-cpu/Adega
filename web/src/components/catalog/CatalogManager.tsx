@@ -19,6 +19,8 @@ import { Alert, Badge, Button, EmptyState, Field, Input, Modal, Select, Tabs } f
 import { ProductModal, type EditableProduct } from './ProductModal';
 import { ProductThumb } from './ProductThumb';
 import { ReorderList } from './ReorderList';
+import { StorefrontCategoriesPanel } from './StorefrontCategoriesPanel';
+import type { StorefrontCategories } from '@/lib/storefront-categories';
 import {
   GlobalProductPicker,
   type PickerCategory,
@@ -86,6 +88,7 @@ export function CatalogManager({
   pickerBrands,
   ownedGlobalProductIds,
   canManage,
+  storefrontCategories,
 }: {
   products: CatalogProduct[];
   categories: CatalogCategory[];
@@ -99,6 +102,7 @@ export function CatalogManager({
   pickerBrands: string[];
   ownedGlobalProductIds: string[];
   canManage: boolean;
+  storefrontCategories?: StorefrontCategories;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -546,6 +550,12 @@ export function CatalogManager({
                 </div>
               )}
             </div>
+
+            <StorefrontCategoriesPanel
+              categories={categories.map((category) => ({ id: category.id, name: category.name }))}
+              initial={storefrontCategories ?? { nav: null, showAll: null }}
+              disabled={!canManage}
+            />
 
             <div className="rounded-lg border border-ink-100 bg-white p-4">
               <h3 className="mb-1 text-[0.92rem] font-bold text-ink-900">Destaques do topo</h3>

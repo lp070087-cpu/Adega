@@ -27,13 +27,13 @@ export function DriverAccessForm({mailReady,store,onBack}:{mailReady:boolean;sto
  const submit=(action:(data:FormData)=>void)=>(event:React.FormEvent<HTMLFormElement>)=>{event.preventDefault();const data=new FormData(event.currentTarget);startTransition(()=>action(data));};
 
  if(!mailReady)return <div className="mt-6 space-y-4 text-left">
-  <h2 className="text-lg font-bold text-ink-900">Primeiro acesso ou nova senha</h2>
-  <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Para sua segurança, a senha só pode ser criada depois de confirmar o seu e-mail com um código. O envio de e-mails ainda está sendo ativado pela plataforma. Quem já tem senha continua entrando normalmente.</p>
+  <h2 className="text-lg font-bold text-ink-900">Esqueci minha senha</h2>
+  <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Peça à loja uma nova senha temporária de 4 dígitos e use-a no lugar da senha, na tela de entrar. Se você trabalha em mais de uma loja, a recuperação é feita pelo e-mail, que ainda está sendo ativado pela plataforma.</p>
   <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center text-sm font-semibold text-brand">Voltar para entrar</button>
  </div>;
 
  return <div className="mt-6 space-y-4 text-left">
-  <h2 className="text-lg font-bold text-ink-900">{step==='email'?'Primeiro acesso ou nova senha':'Digite o código e crie sua senha'}</h2>
+  <h2 className="text-lg font-bold text-ink-900">{step==='email'?'Esqueci minha senha':'Digite o código e crie sua senha'}</h2>
   {step==='email'?<>
    <p className="text-sm text-ink-500">Informe o mesmo e-mail que a loja cadastrou. Vamos enviar um código para confirmar que o e-mail é seu.</p>
    {request.message&&!request.ok&&<p role="alert" className="rounded-lg border border-danger/25 bg-danger-bg p-3 text-sm text-danger">{request.message}</p>}

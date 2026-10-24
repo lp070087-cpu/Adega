@@ -15,6 +15,7 @@ import { reportFailedDeliveryAction } from '@/app/actions/drivers';
 import { Alert, Badge, Button, Card, EmptyState, Input } from '@/components/ui';
 import { DriverInstallCard } from '@/components/driver/DriverInstall';
 import { DriverScheduleNotice } from '@/components/driver/DriverScheduleNotice';
+import { DriverNavigation } from '@/components/driver/DriverNavigation';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -660,6 +661,7 @@ function OrderSheet({
   const step = nextStep(order.delivery);
   const [receiver, setReceiver] = useState('');
   const [failureReason, setFailureReason] = useState('');
+  const [navigating, setNavigating] = useState(false);
   const phone = order.customerPhone.replace(/\D/g, '');
   const jaEntregue = order.status === 'DELIVERED';
 
@@ -728,29 +730,38 @@ function OrderSheet({
           </div>
 
           {/*
-            Navegação externa: o app não desenha a rota — quem navega é o
-            mapa do telefone. Dois botões (Google Maps e Waze) montados por
-            coordenadas reais quando existem; senão, busca pelo endereço.
+            Navegação: mapa dentro do app (rota pelas ruas só com serviço
+            real configurado) e, como alternativa, Google Maps e Waze.
           */}
-          <div className="mt-2.5 grid grid-cols-2 gap-2">
-            <a
-              href={route.google}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-sm bg-brand px-3 py-2 text-center text-[0.74rem] font-bold text-white hover:bg-brand-dark"
+          {!jaEntregue && (
+            <button
+              type="button"
+              onClick={() => setNavigating(true)}
+              className="mt-2.5 flex min-h-11 w-full items-center justify-center gap-2 rounded-sm bg-brand px-3 text-[0.82rem] font-bold text-white hover:bg-brand-dark"
             >
-              <Navigation className="inline-block" size={16} aria-hidden="true" /> Abrir rota
+              <Navigation size={16} aria-hidden="true" /> Ver rota no mapa
+            </button>
+          )}
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <a href={route.google} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-center rounded-sm border-2 border-ink-200 bg-white px-3 text-center text-[0.74rem] font-bold text-ink-700 hover:border-brand hover:text-brand">
+              Google Maps
             </a>
-            <a
-              href={route.waze}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-sm border-2 border-ink-200 bg-white px-3 py-2 text-center text-[0.74rem] font-bold text-ink-700 hover:border-brand hover:text-brand"
-            >
-              🚙 Waze
+            <a href={route.waze} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-center rounded-sm border-2 border-ink-200 bg-white px-3 text-center text-[0.74rem] font-bold text-ink-700 hover:border-brand hover:text-brand">
+              Waze
             </a>
           </div>
         </div>
+
+        {navigating && (
+          <DriverNavigation
+            orderId={order.id}
+            address={destination.address}
+            reference={order.notes}
+            googleUrl={route.google}
+            wazeUrl={route.waze}
+            onClose={() => setNavigating(false)}
+          />
+        )}
 
         <p className="mb-1 text-[0.78rem] font-bold text-ink-700">Endereço</p>
         <p className="mb-4 text-[0.82rem] leading-relaxed text-ink-600">
