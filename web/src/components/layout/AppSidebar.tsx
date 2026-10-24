@@ -107,12 +107,12 @@ export function AppSidebar({
 
       <aside
         className={cn(
-          'panel-sidebar fixed inset-y-0 left-0 z-[500] flex w-[260px] flex-col border-r border-ink-200 bg-white transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0',
+          'panel-sidebar fixed inset-y-0 left-0 z-[500] flex w-[260px] flex-col transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="border-b border-ink-100 px-4 py-3"><BrandMark/></div>
-        <div className="flex items-center gap-3 border-b border-ink-100 p-[16px_18px]">
+        <div className="px-5 pb-2 pt-5"><BrandMark tone="light"/></div>
+        <div className="mx-3 mt-2 flex items-center gap-3 rounded-xl bg-white/[0.06] p-3">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -127,17 +127,17 @@ export function AppSidebar({
           )}
 
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[0.88rem] font-extrabold leading-tight text-ink-900">
+            <p className="truncate text-[0.86rem] font-bold leading-tight text-white">
               {organizationName}
             </p>
-            <p className="truncate text-[0.68rem] text-ink-400">/{organizationSlug}</p>
+            <p className="truncate text-[0.68rem] text-white/50">/{organizationSlug}</p>
           </div>
 
           <button
             type="button"
             onClick={onCloseMobile}
             aria-label="Fechar menu"
-            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-sm text-ink-400 hover:bg-ink-100 lg:hidden"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-white/60 hover:bg-white/10 hover:text-white lg:hidden"
           >
             <X className="h-4 w-4" />
           </button>
@@ -151,7 +151,7 @@ export function AppSidebar({
             return (
               <div key={section.title ?? `section-${index}`}>
                 {section.title && (
-                  <p className="px-3.5 pb-1.5 pt-3.5 text-[0.64rem] font-bold uppercase tracking-[0.06em] text-ink-400">
+                  <p className="px-3.5 pb-1.5 pt-4 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-white/35">
                     {section.title}
                   </p>
                 )}
@@ -167,10 +167,10 @@ export function AppSidebar({
                       aria-current={active ? 'page' : undefined}
                       onClick={onCloseMobile}
                       className={cn(
-                        'relative flex items-center gap-3 rounded-sm px-3.5 py-[11px] text-[0.88rem] font-medium transition-all duration-200',
+                        'relative flex items-center gap-3 rounded-lg px-3.5 py-[11px] text-[0.88rem] font-medium transition-colors duration-200',
                         active
-                          ? 'bg-brand-light font-semibold text-brand'
-                          : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900',
+                          ? 'bg-brand font-semibold text-white shadow-[0_6px_16px_-6px_rgba(8,126,164,.7)]'
+                          : 'text-white/70 hover:bg-white/[0.07] hover:text-white',
                       )}
                     >
                       <span className="w-6 flex-shrink-0 text-center text-[1.15rem]" aria-hidden>
@@ -178,7 +178,7 @@ export function AppSidebar({
                       </span>
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>
                       {badge !== undefined && badge > 0 && (
-                        <span className="ml-auto min-w-[20px] rounded-full bg-brand px-2 py-px text-center text-[0.66rem] font-bold text-white">
+                        <span className={cn('ml-auto min-w-[20px] rounded-full px-2 py-px text-center text-[0.66rem] font-bold', active ? 'bg-white text-brand' : 'bg-brand text-white')}>
                           {badge}
                         </span>
                       )}
@@ -188,19 +188,19 @@ export function AppSidebar({
               </div>
             );
           })}
-          {centralAccess && <Link href="/admin" onClick={onCloseMobile} className="mt-1 flex min-h-11 items-center gap-2 rounded-sm px-3 text-sm font-semibold text-brand"><Icon name="settings"/>Admin Central</Link>}
+          {centralAccess && <Link href="/admin" onClick={onCloseMobile} className="mt-1 flex min-h-11 items-center gap-2 rounded-lg px-3.5 text-sm font-semibold text-[#BFE6FF] hover:bg-white/[0.07]"><Icon name="settings"/>Admin Central</Link>}
         </nav>
 
-        <div className="shrink-0 border-t border-ink-100 p-2.5">
+        <div className="shrink-0 border-t border-white/10 p-3">
 
-          <Link href={`/loja/${organizationSlug}`} target="_blank" rel="noopener noreferrer" className="mb-2 flex items-center justify-between rounded-sm px-3 py-2.5 text-xs font-medium text-ink-600 hover:bg-ink-100">Abrir loja pública <ExternalLink className="h-3.5 w-3.5" /></Link>
-          <div className="flex items-center gap-2.5 rounded border border-ink-200 bg-ink-50 p-[10px_12px]">
+          <Link href={`/loja/${organizationSlug}`} target="_blank" rel="noopener noreferrer" className="mb-2 flex items-center justify-between rounded-lg px-3 py-2.5 text-xs font-medium text-white/70 hover:bg-white/[0.07] hover:text-white">Abrir loja pública <ExternalLink className="h-3.5 w-3.5" /></Link>
+          <div className="flex items-center gap-2.5 rounded-xl bg-white/[0.06] p-[10px_12px]">
             <span className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full bg-brand text-[0.8rem] font-bold text-white">
               {initialsFromName(roleLabel)}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[0.76rem] font-bold text-ink-800">{roleLabel}</p>
-              <p className="truncate text-[0.68rem] text-ink-500">{storeLabel}</p>
+              <p className="truncate text-[0.76rem] font-bold text-white">{roleLabel}</p>
+              <p className="truncate text-[0.68rem] text-white/55">{storeLabel}</p>
             </div>
           </div>
         </div>
