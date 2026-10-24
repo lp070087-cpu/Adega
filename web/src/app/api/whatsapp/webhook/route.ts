@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { prisma } from '@/lib/db';
-import { assistantReady } from '@/lib/assistant/service';
+import { aiReady, assistantReady, processAssistantInbox } from '@/lib/assistant/service';
 import { sameSecret, validWebhookSignature } from '@/lib/assistant/security';
 export const runtime='nodejs';
 export async function GET(request:NextRequest){
@@ -15,6 +15,9 @@ export async function POST(request:NextRequest){
   if(!validWebhookSignature(raw,request.headers.get('x-hub-signature-256'),process.env.WHATSAPP_APP_SECRET))return new NextResponse(null,{status:401});
   try{
     const payload=JSON.parse(raw);if(payload.object!=='whatsapp_business_account')return new NextResponse(null,{status:400});
+    // Lojas com mensagem nova: a fila da IA é processada logo após responder à Meta
+    // (sem isso as respostas automáticas dependiam de uma rotina que nada acionava).
+    const received=new Set<string>();
     for(const entry of (Array.isArray(payload.entry)?payload.entry:[]).slice(0,10))for(const change of (entry.changes??[]).slice(0,10)){
       const value=change.value;const phone=value?.metadata?.phone_number_id;
       if(typeof phone!=='string')continue;
@@ -33,6 +36,7 @@ export async function POST(request:NextRequest){
             const thread=await tx.assistantThread.upsert({where:{organizationId_contact:{organizationId:channel.organizationId,contact:message.from}},create:{organizationId:channel.organizationId,contact:message.from,status:humanRequired?'HUMAN':'BOT'},update:{updatedAt:new Date(),...(humanRequired?{status:'HUMAN'}:{})}});
             await tx.assistantMessage.create({data:{organizationId:channel.organizationId,threadId:thread.id,externalId:message.id,direction:'IN',body,createdAt:receivedAt}});
           });
+          if(!humanRequired)received.add(channel.organizationId);
         }catch(error){if((error as {code?:string}).code!=='P2002')throw error;}
       }
       for(const status of (value.statuses??[]).slice(0,30)){
@@ -40,6 +44,7 @@ export async function POST(request:NextRequest){
         if(typeof status.id==='string'&&mapped[status.status])await prisma.assistantMessage.updateMany({where:{organizationId:channel.organizationId,providerMessageId:status.id},data:{status:mapped[status.status]}});
       }
     }
+    if(received.size&&aiReady())after(async()=>{for(const organizationId of received){try{await processAssistantInbox(organizationId);}catch{/* fica na fila para nova tentativa */}}});
     return NextResponse.json({received:true});
   }catch{return NextResponse.json({error:'Falha temporária'},{status:500});}
 }

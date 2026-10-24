@@ -35,7 +35,7 @@ function webhook(enabled = true) {
     assistantMessage: { updateMany: async (q: any) => { calls.push(['receipt', q]); return { count: 1 }; } },
     $transaction: async (fn: any) => fn(tx),
   };
-  const route = load('src/app/api/whatsapp/webhook/route.ts', { 'next/server': { NextResponse: MockResponse }, '@/lib/db': { prisma }, '@/lib/assistant/service': { assistantReady: async () => enabled }, '@/lib/assistant/security': { validWebhookSignature, sameSecret } });
+  const route = load('src/app/api/whatsapp/webhook/route.ts', { 'next/server': { NextResponse: MockResponse, after: () => {} }, '@/lib/db': { prisma }, '@/lib/assistant/service': { assistantReady: async () => enabled, aiReady: () => false, processAssistantInbox: async () => ({ processed: 0 }) }, '@/lib/assistant/security': { validWebhookSignature, sameSecret } });
   return { route, calls, ids };
 }
 function payload(phone = 'phone-a', id = 'event-1', type = 'text', timestamp: unknown = String(Math.floor(Date.now() / 1000))) {
@@ -121,7 +121,7 @@ test('clarification and no-match decisions cannot turn supplied IDs into invente
 test('disabled assistant service performs no database or external requests', async () => {
   const previous = process.env.WHATSAPP_ASSISTANT_ENABLED; process.env.WHATSAPP_ASSISTANT_ENABLED = 'false';
   try {
-    const service = load('src/lib/assistant/service.ts', { 'server-only': {}, '@/lib/db': { prisma: new Proxy({}, { get() { throw new Error('Unexpected DB access'); } }) }, '@/lib/crypto': { decrypt() { throw new Error('Unexpected decrypt'); } }, '@/lib/data/transaction': { withOrganizationTransaction() { throw new Error('Unexpected transaction'); } }, './catalog': { catalogReply }, './preferences': assistantPreferences, './catalog-entries': { assistantCatalogEntries }, zod: { z } });
+    const service = load('src/lib/assistant/service.ts', { '@/lib/schedule': { normalizeSchedule: () => [], summarizeSchedule: () => null }, 'server-only': {}, '@/lib/db': { prisma: new Proxy({}, { get() { throw new Error('Unexpected DB access'); } }) }, '@/lib/crypto': { decrypt() { throw new Error('Unexpected decrypt'); } }, '@/lib/data/transaction': { withOrganizationTransaction() { throw new Error('Unexpected transaction'); } }, './catalog': { catalogReply }, './preferences': assistantPreferences, './catalog-entries': { assistantCatalogEntries }, zod: { z } });
     assert.equal(await service.assistantReady(), false); assert.deepEqual(await service.processAssistantInbox('org-a'), { processed: 0 });
   } finally { if (previous === undefined) delete process.env.WHATSAPP_ASSISTANT_ENABLED; else process.env.WHATSAPP_ASSISTANT_ENABLED = previous; }
 });
@@ -140,7 +140,7 @@ test('assistant catalog query is tenant scoped and the AI can only select IDs al
   try {
     process.env.OPENAI_API_KEY = 'mock-key'; process.env.ASSISTANT_AI_MODEL = 'mock-model'; process.env.APP_PUBLIC_URL = 'https://example.test';
     globalThis.fetch = async (url: any, options: any) => { assert.equal(url, 'https://api.openai.com/v1/responses'); requests.push(JSON.parse(options.body)); return Response.json({ output: [{ content: [{ type: 'output_text', text: JSON.stringify(aiOutput) }] }] }); };
-    const service = load('src/lib/assistant/service.ts', {
+    const service = load('src/lib/assistant/service.ts', { '@/lib/schedule': { normalizeSchedule: () => [], summarizeSchedule: () => null },
       'server-only': {}, zod: { z }, './catalog': { catalogReply }, './preferences': assistantPreferences, './catalog-entries': { assistantCatalogEntries }, '@/lib/crypto': { decrypt() {} }, '@/lib/data/transaction': { withOrganizationTransaction() { throw new Error('Unexpected mutation'); } },
       '@/lib/db': { prisma: { product: { findMany: async (query: any) => { assert.equal(query.where.organizationId, 'org-a'); assert.equal(query.where.active, true); assert.equal(query.where.available, true); assert.deepEqual(query.where.OR, [{ trackStock: false }, { stock: { gt: 0 } }]); return [{ ...catalog[0], price: '8.00', promotionalPrice: '7.50', globalProduct: { packSize: 1, volume: 350, unit: 'ml' } }]; } } } },
     });

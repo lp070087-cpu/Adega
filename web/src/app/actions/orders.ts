@@ -103,41 +103,6 @@ export async function checkoutAction(input: unknown): Promise<
  * Localiza um endereço digitado no checkout (loja pública, sem sessão).
  * Só para posicionar o mapa: o ponto gravado é o que o cliente confirmar.
  */
-// Limite por IP (memória da instância): a busca é pública e o Nominatim
-// proíbe tráfego pesado. Cliente real busca poucas vezes por pedido.
-const geocodeHits = new Map<string, number[]>();
-function geocodeAllowed(ip: string): boolean {
-  const now = Date.now();
-  const recent = (geocodeHits.get(ip) ?? []).filter((t) => now - t < 60_000);
-  if (recent.length >= 8) { geocodeHits.set(ip, recent); return false; }
-  recent.push(now);
-  geocodeHits.set(ip, recent);
-  if (geocodeHits.size > 5000) geocodeHits.clear();
-  return true;
-}
-
-export async function geocodeCheckoutAddressAction(input: { slug: string; query: string }): Promise<OrderActionResult<{ latitude: number; longitude: number; label: string }>> {
-  try {
-    const slug = typeof input?.slug === 'string' ? input.slug : '';
-    const query = typeof input?.query === 'string' ? input.query.replace(/\s+/g, ' ').trim().slice(0, 240) : '';
-    if (query.length < 5) return { ok: false, error: 'Digite o endereço com rua e número antes de localizar.' };
-    const { headers } = await import('next/headers');
-    const h = await headers();
-    const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'local';
-    if (!geocodeAllowed(ip)) return { ok: false, error: 'Muitas buscas seguidas. Aguarde um minuto ou toque no mapa no local da entrega.' };
-    const { getPublicStoreBySlug } = await import('@/lib/data/organization');
-    const store = await getPublicStoreBySlug(slug);
-    if (!store) return { ok: false, error: 'Estabelecimento não encontrado.' };
-    const { geocodeAddress } = await import('@/lib/maps/geocoding');
-    const full = [query, !query.toLowerCase().includes((store.city ?? '').toLowerCase()) ? store.city : null, store.state, 'Brasil'].filter(Boolean).join(', ');
-    const found = await geocodeAddress(full);
-    if (!found.ok) return { ok: false, error: found.reason === 'not_found' ? 'Endereço não encontrado no mapa. Arraste o mapa e toque no local da entrega.' : 'O mapa não respondeu agora. Toque no local da entrega no mapa ou descreva uma referência.' };
-    return { ok: true, data: { latitude: found.latitude, longitude: found.longitude, label: found.displayName } };
-  } catch (error) {
-    return { ok: false, ...toActionError(error) };
-  }
-}
-
 /** Pedido lançado no balcão pelo atendente. */
 export async function createManualOrderAction(formData: FormData): Promise<OrderActionResult<Awaited<ReturnType<typeof orders.createOrderFromCheckout>>>> {
   try {

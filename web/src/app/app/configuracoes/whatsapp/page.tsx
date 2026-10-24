@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireOrgPage } from '@/lib/auth/guards';
-import { aiReady, assistantReady } from '@/lib/assistant/service';
+import { aiChecklist, aiReady, assistantReady, whatsappPlatformChecklist } from '@/lib/assistant/service';
 import { readAssistantPreferences } from '@/lib/assistant/preferences';
 import { AssistantPreferencesForm } from '@/components/assistant/AssistantPreferencesForm';
 import { AssistantAiToggle } from '@/components/assistant/AssistantAiToggle';
@@ -25,29 +25,47 @@ export default async function WhatsAppSettings() {
   const receiving = Boolean(verified && channel?.webhookVerifiedAt);
   const ai = aiReady();
   const aiEnabled = Boolean(settings.assistant?.enabled);
-  const steps: Array<[string, boolean, string]> = [
-    ['Recurso habilitado pela plataforma', available, 'A plataforma ativa o atendimento oficial (banco de dados e chaves do aplicativo Meta).'],
-    ['Número oficial conectado e verificado', verified, 'O número da loja é vinculado ao WhatsApp Business Platform e a autorização é testada na Meta.'],
-    ['Recebendo mensagens (webhook)', receiving, 'A Meta entrega as mensagens dos clientes ao Del Flash.'],
-    ['Serviço de IA configurado', ai, 'Necessário apenas para respostas automáticas. O atendimento humano funciona sem IA.'],
+  const platform = whatsappPlatformChecklist();
+  const aiItems = aiChecklist();
+  const platformOk = available && platform.every((item) => item.ok);
+  const webhookUrl = `${process.env.APP_PUBLIC_URL ?? 'https://adega-nine.vercel.app'}/api/whatsapp/webhook`;
+  const steps: Array<{ label: string; done: boolean; hint: string }> = [
+    { label: 'Plataforma pronta para o WhatsApp oficial', done: platformOk, hint: platformOk ? 'Chaves do aplicativo Meta configuradas no servidor.' : 'A equipe Del Flash precisa concluir a configuração do aplicativo Meta (detalhes abaixo).' },
+    { label: 'Número da loja conectado', done: verified, hint: verified ? 'Autorização do número confirmada na Meta.' : 'A equipe Del Flash vincula o número oficial da loja e testa a autorização na Meta.' },
+    { label: 'Recebendo mensagens', done: receiving, hint: receiving ? 'A Meta já entregou mensagens desta loja.' : 'Fica ativo quando a primeira mensagem de um cliente chega pelo webhook.' },
+    { label: 'Respostas automáticas com IA', done: ai && aiEnabled, hint: !ai ? 'Opcional. Depende da chave do serviço de IA na plataforma.' : aiEnabled ? 'Ativas.' : 'Disponíveis: ative abaixo quando quiser.' },
   ];
+  const status = receiving ? { tone: 'bg-success-bg text-success', text: 'Conectado' } : verified ? { tone: 'bg-warn-bg text-warn', text: 'Aguardando mensagens' } : { tone: 'bg-ink-100 text-ink-600', text: 'Não conectado' };
   return (
     <div className="max-w-3xl space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">WhatsApp</h1>
+        <h2 className="text-[1.35rem] font-extrabold tracking-tight text-ink-900">WhatsApp</h2>
         <Link href="/app/atendimento" className="text-sm font-semibold text-brand">Abrir Atendimento</Link>
       </div>
-      <section className="space-y-3 rounded-xl border bg-white p-5" data-testid="whatsapp-status">
-        <h2 className="font-semibold">Conexão oficial (WhatsApp Business Platform)</h2>
-        <ol className="space-y-2">
-          {steps.map(([label, done, hint]) => (
-            <li key={label} className="flex gap-3">
-              <span aria-hidden className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[0.7rem] font-bold ${done ? 'bg-success text-white' : 'bg-ink-100 text-ink-500'}`}>{done ? '✓' : '•'}</span>
-              <span><span className="block text-sm font-semibold text-ink-800">{label} · {done ? 'ok' : 'pendente'}</span><span className="block text-[0.76rem] text-ink-500">{hint}</span></span>
+      <section className="space-y-4 rounded-xl border bg-white p-5" data-testid="whatsapp-status">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-semibold text-ink-900">Conexão oficial (WhatsApp Business Platform)</h3>
+          <span className={`rounded-full px-3 py-1 text-[0.74rem] font-bold ${status.tone}`} data-testid="whatsapp-connection">{status.text}</span>
+        </div>
+        <ol className="space-y-3">
+          {steps.map((step, i) => (
+            <li key={step.label} className="flex gap-3">
+              <span aria-hidden className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[0.72rem] font-bold ${step.done ? 'bg-success text-white' : 'bg-ink-100 text-ink-500'}`}>{step.done ? '✓' : i + 1}</span>
+              <span><span className="block text-sm font-semibold text-ink-800">{step.label}</span><span className="block text-[0.78rem] text-ink-500">{step.hint}</span></span>
             </li>
           ))}
         </ol>
-        {!verified && <p className="rounded-lg bg-ink-50 p-3 text-[0.8rem] text-ink-600">A conexão do número é feita pela equipe da plataforma com o aplicativo oficial da Meta. Nenhuma conexão é criada ao abrir esta página, e nenhuma mensagem é simulada.</p>}
+        {!receiving && <p className="rounded-lg bg-ink-50 p-3 text-[0.8rem] text-ink-600">Nenhuma conexão é simulada: enquanto estas etapas não forem concluídas, o Atendimento não mostra conversas.</p>}
+        {!platformOk && (
+          <details className="rounded-lg border border-ink-100 p-3 text-[0.8rem]" data-testid="whatsapp-missing">
+            <summary className="cursor-pointer font-semibold text-ink-800">Detalhes para a equipe da plataforma</summary>
+            <ul className="mt-2 space-y-1">
+              {platform.map((item) => <li key={item.key}>{item.ok ? '✓' : '✗'} {item.label} <code className="text-[0.72rem] text-ink-500">{item.key}</code></li>)}
+              {aiItems.map((item) => <li key={item.key}>{item.ok ? '✓' : '○'} {item.label} (opcional) <code className="text-[0.72rem] text-ink-500">{item.key}</code></li>)}
+            </ul>
+            <p className="mt-2 text-ink-500">URL do webhook na Meta: <code className="break-all">{webhookUrl}</code> · campo assinado: <code>messages</code>.</p>
+          </details>
+        )}
         {channel && <p className="text-[0.76rem] text-ink-500">Limite: {channel.dailyLimit} mensagens processadas por dia.</p>}
       </section>
       <section className="space-y-3 rounded-xl border bg-white p-5">

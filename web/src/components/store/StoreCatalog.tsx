@@ -7,6 +7,7 @@ import { checkoutAction } from '@/app/actions/orders';
 import { Alert, Button, Field, Input, MoneyInput, Modal, Select, Textarea } from '@/components/ui';
 import { ProductThumb } from '@/components/catalog/ProductThumb';
 import { CustomerCheckoutAccess } from '@/components/customer/CustomerStoreAccess';
+import { saveCheckoutAddressAction } from '@/app/actions/customer-portal';
 import { StoreHeader } from '@/components/store/StoreHeader';
 import { STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
 import type { BusinessType } from '@prisma/client';
@@ -314,6 +315,49 @@ export function StoreCatalog({
     if (cart.length > 0) setCheckoutOpen(true);
   }, [hydrated, cart.length]);
 
+  // Link de sacola enviado pelo atendimento (?sacola=produto[.variação]:qtd,...):
+  // monta a sacola com os preços atuais do catálogo e abre para conferência.
+  // Nada é enviado à loja até o cliente finalizar no checkout.
+  const loadedLink = React.useRef(false);
+  React.useEffect(() => {
+    if (!hydrated || loadedLink.current) return;
+    loadedLink.current = true;
+    const url = new URL(window.location.href);
+    const raw = url.searchParams.get('sacola');
+    if (!raw) return;
+    url.searchParams.delete('sacola');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+    const lines: CartLine[] = [];
+    for (const entry of raw.split(',').slice(0, 10)) {
+      const [ref, qty] = entry.split(':');
+      const [productId, variationId] = (ref ?? '').split('.');
+      const product = products.find((p) => p.id === productId);
+      if (!product || !product.available || (product.trackStock && product.stock <= 0)) continue;
+      const variation = variationId ? product.variations.find((v) => v.id === variationId) : undefined;
+      if ((variationId && !variation) || (!variation && product.type === 'VARIATION' && product.variations.length > 0)) continue;
+      const quantity = Math.min(20, Math.max(1, Number.parseInt(qty ?? '1', 10) || 1));
+      lines.push({
+        key: variation ? `${product.id}|${variation.id}|` : `${product.id}|`,
+        productId: product.id,
+        name: product.name,
+        emoji: product.emoji,
+        customImageUrl: product.customImageUrl,
+        globalImageUrl: product.globalImageUrl,
+        basePath: product.basePath,
+        unitPrice: effectivePrice(product) + (variation?.priceAdjustment ?? 0),
+        quantity,
+        variationId: variation?.id,
+        variationName: variation?.name,
+        addonIds: [],
+        addonNames: [],
+      });
+    }
+    if (lines.length) {
+      setCart(lines);
+      setCartOpen(true);
+    } else setError('Os itens do link não estão mais disponíveis. Escolha no cardápio.');
+  }, [hydrated, products]);
+
   React.useEffect(() => {
     if (!hydrated) return;
     try {
@@ -520,6 +564,22 @@ export function StoreCatalog({
     }
 
     checkoutRequest.current = null;
+    // "Salvar este endereço": grava na conta depois do pedido criado; uma falha
+    // aqui não afeta a compra.
+    if (deliveryType !== 'PICKUP' && formData.get('saveAddress') === 'on') {
+      void saveCheckoutAddressAction({
+        slug: store.slug,
+        street: String(formData.get('deliveryAddress') ?? '').trim(),
+        number: noNumber ? 'S/N' : String(formData.get('deliveryNumber') ?? '').trim(),
+        district: String(formData.get('deliveryDistrict') ?? '').trim(),
+        city: String(formData.get('deliveryCity') ?? '').trim(),
+        state: String(formData.get('deliveryState') ?? '').trim(),
+        latitude: coord(formData.get('deliveryLatitude')),
+        longitude: coord(formData.get('deliveryLongitude')),
+        reference: String(formData.get('deliveryReference') ?? '').trim() || undefined,
+        isDefault: formData.get('saveAsDefault') === 'on',
+      }).catch(() => undefined);
+    }
     // O carrinho só é limpo com o pedido REALMENTE gravado.
     setCart([]);
     setCheckoutOpen(false);
@@ -948,6 +1008,7 @@ export function StoreCatalog({
                 </Field>
               </div>
 
+              <input type="hidden" name="deliveryState" defaultValue={store.state ?? ''} />
               <DeliveryPinPicker
                 slug={store.slug}
                 storeCenter={store.latitude != null && store.longitude != null ? { latitude: store.latitude, longitude: store.longitude } : null}
@@ -956,6 +1017,20 @@ export function StoreCatalog({
                   if (!form) return '';
                   const v = (name: string) => String((form.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '').trim();
                   return [v('deliveryAddress') && `${v('deliveryAddress')}${!noNumber && v('deliveryNumber') ? `, ${v('deliveryNumber')}` : ''}`, v('deliveryDistrict'), v('deliveryCity')].filter(Boolean).join(', ');
+                }}
+                onFields={(fields) => {
+                  const form = checkoutFormRef.current;
+                  if (!form) return;
+                  const put = (name: string, value: string | null) => {
+                    const input = form.elements.namedItem(name) as HTMLInputElement | null;
+                    if (input && value && !input.value.trim() && !input.disabled) input.value = value;
+                  };
+                  put('deliveryAddress', fields.street);
+                  put('deliveryNumber', fields.number);
+                  put('deliveryDistrict', fields.district);
+                  put('deliveryCity', fields.city);
+                  const uf = form.elements.namedItem('deliveryState') as HTMLInputElement | null;
+                  if (uf && fields.state) uf.value = fields.state;
                 }}
               />
 

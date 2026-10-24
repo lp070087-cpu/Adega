@@ -1,17 +1,51 @@
 export type AssistantProduct = { id: string; name: string; price: number; promotionalPrice: number | null; stock: number; trackStock: boolean; available: boolean; brand?: string | null; packSize?: number | null; volume?: number | null; unit?: string | null; productId?: string; variationId?: string; variationName?: string };
-export type CatalogDecision = { ids: string[]; question: 'RESULTS'|'BRAND'|'PACKAGING'|'HUMAN'|'NONE' };
+export type CatalogDecision = { ids: string[]; quantities?: number[]; question: 'RESULTS'|'BRAND'|'PACKAGING'|'HUMAN'|'NONE'|'HOURS'|'DELIVERY'|'ORDER' };
+export type StoreInfo = { hours: string | null; averageDeliveryTime: number | null; minimumOrder: number; baseDeliveryFee: number; allowPickup: boolean; allowDelivery: boolean };
 export function productLink(origin: string, slug: string, productId: string, variationId?: string) {
   const url = new URL(`/loja/${encodeURIComponent(slug)}`, origin);
   url.searchParams.set('produto', productId);
   if (variationId) url.searchParams.set('variacao', variationId);
   return url.toString();
 }
+const brl = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const unitPrice = (p: AssistantProduct) => (p.promotionalPrice !== null && p.promotionalPrice < p.price ? p.promotionalPrice : p.price);
+
+/** Link que abre a loja com a sacola montada; o pedido só nasce no checkout. */
+export function cartLink(origin: string, slug: string, lines: Array<{ product: AssistantProduct; quantity: number }>) {
+  const url = new URL(`/loja/${encodeURIComponent(slug)}`, origin);
+  url.searchParams.set('sacola', lines.map(({ product, quantity }) => `${product.productId ?? product.id}${product.variationId ? `.${product.variationId}` : ''}:${quantity}`).join(','));
+  return url.toString();
+}
+
+/** Horário e entrega vêm do cadastro da loja, nunca do texto da IA. */
+export function storeInfoReply(question: 'HOURS' | 'DELIVERY', info: StoreInfo) {
+  if (question === 'HOURS') return info.hours ? `Nosso horário: ${info.hours}.` : 'A loja ainda não cadastrou o horário de funcionamento. Vou deixar sua pergunta para a equipe.';
+  const parts: string[] = [];
+  if (info.allowDelivery) {
+    parts.push(info.averageDeliveryTime ? `Entregamos em cerca de ${info.averageDeliveryTime} minutos.` : 'Fazemos entregas.');
+    parts.push(info.baseDeliveryFee > 0 ? `Taxa de entrega a partir de ${brl(info.baseDeliveryFee)}; o valor final aparece no checkout conforme o endereço.` : 'A taxa de entrega aparece no checkout conforme o endereço.');
+  }
+  if (info.minimumOrder > 0) parts.push(`Pedido mínimo: ${brl(info.minimumOrder)}.`);
+  if (info.allowPickup) parts.push('Você também pode retirar na loja.');
+  return parts.join(' ') || 'Vou deixar sua pergunta sobre entrega para a equipe da loja.';
+}
+
 /** Toda informação comercial é composta aqui, nunca copiada da resposta da IA. */
-export function catalogReply(decision: CatalogDecision, catalog: AssistantProduct[], origin: string, slug: string) {
+export function catalogReply(decision: CatalogDecision, catalog: AssistantProduct[], origin: string, slug: string, info?: StoreInfo) {
+  if ((decision.question === 'HOURS' || decision.question === 'DELIVERY') && info) return storeInfoReply(decision.question, info);
+  if (decision.question === 'ORDER') {
+    const lines = decision.ids.map((id, i) => ({ product: catalog.find(p => p.id === id && p.available && (!p.trackStock || p.stock > 0)), quantity: Math.min(20, Math.max(1, Math.round(decision.quantities?.[i] ?? 1))) }))
+      .filter((line): line is { product: AssistantProduct; quantity: number } => Boolean(line.product)).slice(0, 4);
+    if (lines.length) {
+      const total = lines.reduce((sum, l) => sum + unitPrice(l.product) * l.quantity, 0);
+      const summary = lines.map(l => `${l.quantity}× ${l.product.variationName ? `${l.product.name} — ${l.product.variationName}` : l.product.name} — ${brl(unitPrice(l.product) * l.quantity)}`).join('\n');
+      return `Separei estes itens:\n${summary}\nSubtotal: ${brl(total)} (sem a entrega)\n\nConfira e finalize por aqui; o pedido só é enviado à loja quando você confirmar endereço e pagamento:\n${cartLink(origin, slug, lines)}`;
+    }
+  }
   if (decision.question === 'HUMAN') return 'Vou encaminhar seu atendimento para a equipe da loja.';
   if (decision.question === 'BRAND') return 'Qual marca ou produto você prefere? Vou consultar as opções disponíveis nesta loja.';
   if (decision.question === 'PACKAGING') return 'Você prefere unidade ou embalagem fechada? A quantidade por embalagem depende do produto cadastrado.';
-  if (decision.question === 'NONE') return 'Não encontrei uma opção disponível com essa descrição. Você pode informar a marca, o volume ou falar com a equipe da loja?';
+  if (decision.question === 'NONE' || decision.question === 'ORDER' || decision.question === 'HOURS' || decision.question === 'DELIVERY') return 'Não encontrei uma opção disponível com essa descrição. Você pode informar a marca, o volume ou falar com a equipe da loja?';
   const selected = [...new Set(decision.ids)].flatMap(id => catalog.filter(p => p.id === id && p.available && (!p.trackStock || p.stock > 0))).slice(0, 4);
   if (!selected.length) return 'Não encontrei uma opção disponível com essa descrição. Você pode informar a marca, o volume ou falar com a equipe da loja?';
   return selected.map(p => {
