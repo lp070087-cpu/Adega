@@ -153,7 +153,7 @@ export function DriverRoutes({ orders, onOpenOrder, onOpenSettings }: { orders: 
             <p className="text-[0.9rem] font-bold text-ink-900" data-testid="routes-summary">
               {focus ? `Até o pedido #${byId.get(focus)?.displayId}: ` : `${ordered.length} parada${ordered.length === 1 ? '' : 's'}: `}
               {formatDistance(plan.route.distanceMeters)} · {formatDuration(plan.route.durationSeconds)}{' '}
-              <span className="text-[0.72rem] font-normal text-ink-500">pelas ruas, saindo {plan.startKind === 'me' ? 'da sua posição' : 'da loja'}</span>
+              <span className="text-[0.72rem] font-normal text-ink-500">pelas ruas, saindo {plan.startKind === 'me' ? 'da sua posição' : plan.startKind === 'store' ? 'da loja' : 'da 1ª parada'}</span>
             </p>
           ) : (
             <p className="text-[0.78rem] text-ink-600" data-testid="routes-no-route">
@@ -161,7 +161,7 @@ export function DriverRoutes({ orders, onOpenOrder, onOpenSettings }: { orders: 
             </p>
           )}
         <p className="mt-1 text-[0.72rem] text-ink-500">
-          {gps === 'off' ? <>Localização desligada: o trajeto parte da loja. <button type="button" onClick={onOpenSettings} className="font-semibold text-brand underline">Ativar em Conta</button></>
+          {gps === 'off' ? <>Localização desligada: o trajeto parte {plan?.startKind === 'store' ? 'da loja' : 'da 1ª parada (a loja não marcou a localização no cadastro)'}. <button type="button" onClick={onOpenSettings} className="font-semibold text-brand underline">Ativar em Conta</button></>
             : gps === 'denied' ? 'Localização negada pelo navegador. Permita a localização para este site nas configurações do aparelho.'
             : gps === 'unavailable' ? 'GPS indisponível neste aparelho ou conexão. O trajeto parte da loja.'
             : gps === 'waiting' ? 'Procurando sua localização…'

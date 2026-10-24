@@ -36,6 +36,28 @@ carrinho continua intacto.
   separado, observação em destaque; Google Maps/Waze e a rota usam a coordenada.
 - Busca pública limitada a 8 por minuto por IP (respeita a política do Nominatim).
 
+## Página de produto
+Foto e nome do cartão abrem o detalhe do produto (foto grande sem corte,
+descrição, preço/promoção, variações, adicionais, quantidade e observação).
+Produto pausado ou sem estoque mostra o aviso e não deixa adicionar. Link
+compartilhado (`?produto=`) abre o mesmo detalhe.
+
+## Minhas rotas sem localização da loja
+Se a loja não marcou a localização no cadastro e o entregador não ligou o GPS,
+o trajeto pelas ruas liga as paradas a partir da 1ª, e o app explica o motivo
+em vez de dizer que "não foi possível calcular".
+
+## Testes executados (ambiente isolado, dados fictícios)
+- Fluxo de compra completo (`fullflow`): 23 verificações — categorias, busca,
+  detalhe, sacola e quantidades, cadastro só com o primeiro nome, pino, observação,
+  aceitação automática, separação, atribuição, entregador vê o pino, rota com 2
+  paradas reordenada, queda de conexão, entrega concluída, status ao vivo para
+  cliente e loja, sessão expirada.
+- Checkout e mapa (`pinflow`): 18 cenários de erro e sucesso.
+- Regressão: central de pedidos (15), fluxo final (11), acesso do entregador (14),
+  sessão (6), navegação (6), cliente (21), WhatsApp (6), telas temporárias (7 + 8),
+  teclado (3), varredura de 21 rotas × 5 larguras sem problemas.
+
 ## Mapas — avaliação e escolha
 | Necessidade | Escolha atual | Custo | Alternativa preparada |
 |---|---|---|---|

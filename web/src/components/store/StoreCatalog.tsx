@@ -649,7 +649,7 @@ export function StoreCatalog({
                   <span>{group.items.length} {group.items.length === 1 ? 'produto' : 'produtos'}</span>
                 </div>
 
-                <CategoryProducts products={group.items} categoryName={group.category.name} brandColor={store.brandColor} closed={closed} onAdd={quickAdd} />
+                <CategoryProducts products={group.items} categoryName={group.category.name} brandColor={store.brandColor} closed={closed} onAdd={quickAdd} onOpen={setCustomizing} />
               </section>
             ))}
           </div>
@@ -674,6 +674,7 @@ export function StoreCatalog({
                   brandColor={store.brandColor}
                   closed={closed}
                   onAdd={() => quickAdd(product)}
+                  onOpen={() => setCustomizing(product)}
                 />
               ))}
             </ul>
@@ -696,6 +697,7 @@ export function StoreCatalog({
                   brandColor={store.brandColor}
                   closed={closed}
                   onAdd={() => quickAdd(product)}
+                  onOpen={() => setCustomizing(product)}
                 />
               ))}
             </ul>
@@ -1217,11 +1219,11 @@ function CategoryBanner({banner}:{banner:{imagePath:string;title:string|null;sub
   </aside>;
 }
 
-function CategoryProducts({products,categoryName,brandColor,closed,onAdd}:{products:StoreProduct[];categoryName:string;brandColor:string;closed:boolean;onAdd:(product:StoreProduct)=>void}) {
+function CategoryProducts({products,categoryName,brandColor,closed,onAdd,onOpen}:{products:StoreProduct[];categoryName:string;brandColor:string;closed:boolean;onAdd:(product:StoreProduct)=>void;onOpen:(product:StoreProduct)=>void}) {
   const [expanded,setExpanded]=React.useState(false);
   const id=React.useId();
   const button=React.useRef<HTMLButtonElement>(null);
-  const render=(product:StoreProduct)=><ProductCard key={product.id} product={product} categoryName={categoryName} brandColor={brandColor} closed={closed} onAdd={()=>onAdd(product)} />;
+  const render=(product:StoreProduct)=><ProductCard key={product.id} product={product} categoryName={categoryName} brandColor={brandColor} closed={closed} onAdd={()=>onAdd(product)} onOpen={()=>onOpen(product)} />;
   return <>
     <ul className="store-product-grid">{products.slice(0,12).map(render)}</ul>
     {products.length>12&&<>
@@ -1242,12 +1244,14 @@ function ProductCard({
   brandColor,
   closed,
   onAdd,
+  onOpen,
 }: {
   product: StoreProduct;
   categoryName?: string;
   brandColor: string;
   closed: boolean;
   onAdd: () => void;
+  onOpen: () => void;
 }) {
   const price = effectivePrice(product);
   const onPromo = product.promotionalPrice != null && product.promotionalPrice < product.price;
@@ -1267,7 +1271,7 @@ function ProductCard({
 
   return (
     <li className="store-product-card" style={{ '--store-brand': brandColor } as React.CSSProperties}>
-      <div className="store-product-photo">
+      <button type="button" onClick={onOpen} className="store-product-photo" aria-label={`Ver detalhes de ${product.name}`}>
       {onPromo && <span className="store-product-discount">−{Math.round((1 - price / product.price) * 100)}%</span>}
       <ProductThumb
         customImageUrl={product.customImageUrl}
@@ -1278,12 +1282,12 @@ function ProductCard({
         size={220}
         className="store-product-thumb"
       />
-      </div>
+      </button>
 
       <div className="store-product-info min-w-0 flex-1">
         {categoryName && <p className="store-product-category">{categoryName}</p>}
         <div className="flex flex-wrap items-center gap-1.5">
-          <p className="text-[0.88rem] font-bold text-ink-900">{product.name}</p>
+          <p className="text-[0.88rem] font-bold text-ink-900"><button type="button" onClick={onOpen} className="text-left hover:underline focus-visible:underline">{product.name}</button></p>
           {onPromo && !isCombo && (
             <span className="rounded-full bg-danger-bg px-2 py-0.5 text-[0.62rem] font-extrabold uppercase text-danger">
               Promoção
@@ -1374,6 +1378,7 @@ function CustomizeModal({
   const [localError, setLocalError] = React.useState<string | null>(null);
 
   const variation = product.variations.find((v) => v.id === variationId);
+  const soldOut = !product.available || (product.trackStock && product.stock <= 0);
 
   /**
    * Teto de quantidade desta linha.
@@ -1475,7 +1480,7 @@ function CustomizeModal({
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={confirm}>
+          <Button onClick={confirm} disabled={soldOut}>
             Adicionar {quantity > 1 ? `${quantity} · ` : '· '}
             {formatBRL(unitPrice * quantity)}
           </Button>
@@ -1491,25 +1496,23 @@ function CustomizeModal({
           descrição longa importa. A precedência de imagem é a mesma da
           lista, resolvida pelo ProductThumb.
         */}
-        {(product.customImageUrl || product.globalImageUrl || product.description) && (
-          <div className="flex items-start gap-3.5">
-            {(product.customImageUrl || product.globalImageUrl) && (
-              <ProductThumb
-                customImageUrl={product.customImageUrl}
-                globalImageUrl={product.globalImageUrl}
-                basePath={product.basePath}
-                emoji={product.emoji}
-                alt={product.name}
-                size={92}
-              />
-            )}
-            {product.description && (
-              <p className="min-w-0 flex-1 text-[0.82rem] leading-relaxed text-ink-600">
-                {product.description}
-              </p>
-            )}
+        {(product.customImageUrl || product.globalImageUrl) && (
+          <div className="store-detail-photo flex h-56 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#fafaf8] to-[#f1f1ee] sm:h-64" data-testid="product-detail-photo">
+            <ProductThumb
+              customImageUrl={product.customImageUrl}
+              globalImageUrl={product.globalImageUrl}
+              basePath={product.basePath}
+              emoji={product.emoji}
+              alt={product.name}
+              size={240}
+              className="store-product-thumb"
+            />
           </div>
         )}
+        {product.description && (
+          <p className="text-[0.86rem] leading-relaxed text-ink-600">{product.description}</p>
+        )}
+        {soldOut && <Alert tone="warn">{!product.available ? 'Produto pausado pela loja no momento.' : 'Produto sem estoque no momento.'}</Alert>}
 
         {isOnPromo(product) && (
           <p className="text-[0.82rem]">

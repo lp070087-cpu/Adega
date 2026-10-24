@@ -110,7 +110,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       {commercial.message && <div role="status" className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">{commercial.message}</div>}
       {children}
-      <InstallApp name="Del Flash" worker="/pwa/panel-sw.js" scope="/app/" />
+      <div className="mt-8 border-t border-ink-100 pt-2 [&_section]:my-0 [&_section]:bg-transparent [&_section]:p-0"><InstallApp name="Del Flash" worker="/pwa/panel-sw.js" scope="/app/" /></div>
     </AppShell>
   );
 }

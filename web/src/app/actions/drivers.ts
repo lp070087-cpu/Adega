@@ -271,8 +271,11 @@ export async function driverRoutePlanAction(input: { sequence: string[]; from?: 
     }
     const focus = input.focus ? ordered.find(s => s.orderId === input.focus && s.latitude != null) : undefined;
     const path = focus ? [focus] : ordered.filter(s => s.latitude != null);
-    const route = start && path.length
-      ? await streetRouteThrough([start, ...path.map(s => ({ latitude: s.latitude!, longitude: s.longitude! }))])
+    // Sem ponto de partida (loja sem localização e entregador sem GPS), o
+    // trajeto ainda liga as paradas entre si, a partir da primeira.
+    const points = [...(start ? [start] : []), ...path.map(s => ({ latitude: s.latitude!, longitude: s.longitude! }))];
+    const route = points.length >= 2
+      ? await streetRouteThrough(points)
       : { available: false as const, reason: routingConfigured() ? ('unavailable' as const) : ('not_configured' as const) };
     return {
       ok: true as const,

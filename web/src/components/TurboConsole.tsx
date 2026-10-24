@@ -4,7 +4,7 @@ import { saveTurboAction, previewTurboAction, publishTurboAction } from '@/app/a
 import type { TurboCampaign } from '@/lib/turbo';
 
 const field = 'mt-1 min-h-11 w-full min-w-0 rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm';
-const button = 'min-h-11 rounded-lg bg-ink-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50';
+const button = 'min-h-11 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50';
 const days = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 const localDate = (value?: string) => value ? new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo'}).format(new Date(value)) : '';
 type Customer = { id: string; name: string };

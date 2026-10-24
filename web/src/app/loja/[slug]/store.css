@@ -13,6 +13,9 @@
 .store-product-card { display: flex; flex-direction: column; min-width: 0; background: white; border: 0; border-radius: 16px; overflow: hidden; transition: box-shadow .25s, transform .25s; }
 .store-product-card:hover { transform: translateY(-4px); box-shadow: 0 14px 32px #1717170c; }
 .store-product-photo { height: 220px; position: relative; padding: 12px; display: flex; align-items: center; justify-content: center; background: #fafafa; }
+.store-product-photo { width: 100%; border: 0; cursor: pointer; font: inherit; color: inherit; }
+.store-product-photo:focus-visible { outline: 3px solid var(--store-brand); outline-offset: 2px; }
+.store-detail-photo .store-product-thumb img { padding: 16px; }
 .store-product-thumb { width: 100% !important; height: 100% !important; min-width: 0 !important; background: transparent !important; }
 .store-product-thumb img { object-fit: contain; padding: 12px; mix-blend-mode: multiply; }
 .store-product-discount { position: absolute; z-index: 1; top: 14px; left: 14px; border-radius: 100px; padding: 5px 11px; color: white; background: var(--store-brand); font-size: 11px; font-weight: 800; }
