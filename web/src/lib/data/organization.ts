@@ -43,6 +43,8 @@ export async function getPublicStoreBySlug(slug: string) {
       city: true,
       state: true,
       zipCode: true,
+      latitude: true,
+      longitude: true,
       openingHours: true,
       minimumOrder: true,
       baseDeliveryFee: true,

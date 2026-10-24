@@ -36,7 +36,7 @@ export function CustomerAuthScreen({store,section,mailReady,returnTo}:{store:Sto
       <label className="customer-check"><input name="remember" type="checkbox" defaultChecked/>Manter conectado por 30 dias</label>
      </CustomerForm>
     :section==='criar-conta'?<CustomerForm slug={store.slug} action="register" submit="Criar conta" pendingLabel="Criando conta…">{hidden}
-      <label>Nome completo<input name="name" required minLength={2} maxLength={120} autoComplete="name" placeholder="Nome e sobrenome"/></label>
+      <label>Nome<input name="name" required minLength={2} maxLength={120} autoComplete="name" placeholder="Seu nome (sobrenome opcional)"/></label>
       <div className="customer-form-row"><label>E-mail<input name="email" type="email" required maxLength={254} autoComplete="email" inputMode="email" placeholder="voce@exemplo.com"/></label><CustomerPhoneInput/></div>
       <div className="customer-form-row"><CustomerPassword hint="Mínimo de oito caracteres."/><CustomerPassword name="confirmPassword" label="Confirme a senha"/></div>
       <label className="customer-check customer-check-top"><input name="acceptTerms" type="checkbox" required/><span>Li e aceito os <Link href={`${base}/conta/termos`} target="_blank" className="customer-link-inline">termos de uso e a política de privacidade</Link>.</span></label>

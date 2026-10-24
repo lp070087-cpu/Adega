@@ -275,6 +275,8 @@ export default async function PublicStorePage({ params }: PageProps) {
             city: store.city,
             state: store.state,
             description: store.description,
+            latitude: store.latitude,
+            longitude: store.longitude,
           }}
           categories={catalog.categories}
           categoryConfig={readStorefrontCategories(settings)}

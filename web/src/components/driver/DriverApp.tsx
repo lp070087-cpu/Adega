@@ -752,6 +752,11 @@ function OrderSheet({
           />
         )}
 
+        {order.deliveryLatitude != null && order.deliveryLongitude != null && (
+          <p className="mb-3 flex items-center gap-1.5 rounded-lg bg-brand-light px-3 py-2 text-[0.78rem] font-semibold text-brand" data-testid="exact-pin">
+            <MapPin size={15} aria-hidden /> Ponto exato marcado pelo cliente no mapa
+          </p>
+        )}
         <p className="mb-1 text-[0.78rem] font-bold text-ink-700">Endereço</p>
         <p className="mb-4 text-[0.82rem] leading-relaxed text-ink-600">
           {order.deliveryAddress}
@@ -862,20 +867,26 @@ function OrderSheet({
 
 function PresenceCard({ online, busy, disabled, onChange }: { online: boolean; busy: boolean; disabled: boolean; onChange: (status: 'ONLINE' | 'OFFLINE') => void }) {
   return (
-    <Card className="p-4" data-testid="driver-presence">
+    <section
+      data-testid="driver-presence"
+      className={cn('rounded-2xl border p-4 shadow-xs transition-colors', busy ? 'border-info/30 bg-info-bg' : online ? 'border-success/30 bg-success-bg' : 'border-ink-200 bg-white')}
+    >
       <div className="flex items-center gap-3">
-        <span className={cn('h-3 w-3 shrink-0 rounded-full', online ? 'bg-success' : 'bg-ink-300')} aria-hidden />
+        <span className={cn('relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full', busy ? 'bg-info/15 text-info' : online ? 'bg-success/15 text-success' : 'bg-ink-100 text-ink-400')} aria-hidden>
+          <span className={cn('h-3.5 w-3.5 rounded-full', busy ? 'bg-info' : online ? 'bg-success' : 'bg-ink-300')} />
+          {online && !busy && <span className="absolute inset-0 animate-ping rounded-full bg-success/20 motion-reduce:hidden" />}
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[0.9rem] font-bold text-ink-900">{busy ? 'Em entrega' : online ? 'Você está online' : 'Você está offline'}</p>
-          <p className="text-[0.74rem] text-ink-500">{online ? 'A loja pode atribuir entregas a você, dentro ou fora da escala.' : 'Fique online para receber entregas da loja.'}</p>
+          <p className="text-[0.95rem] font-extrabold text-ink-900">{busy ? 'Em entrega' : online ? 'Você está online' : 'Você está offline'}</p>
+          <p className="text-[0.74rem] leading-snug text-ink-600">{busy ? 'Conclua as entregas atuais para mudar a disponibilidade.' : online ? 'A loja pode atribuir entregas a você, dentro ou fora da escala.' : 'Fique online para receber entregas da loja.'}</p>
         </div>
-        {!busy && (
-          <Button size="sm" variant={online ? 'secondary' : 'primary'} disabled={disabled} onClick={() => onChange(online ? 'OFFLINE' : 'ONLINE')}>
-            {online ? 'Ficar offline' : 'Ficar online'}
-          </Button>
-        )}
       </div>
-    </Card>
+      {!busy && (
+        <Button className="mt-3 w-full" variant={online ? 'secondary' : 'primary'} disabled={disabled} onClick={() => onChange(online ? 'OFFLINE' : 'ONLINE')}>
+          {online ? 'Ficar offline' : 'Ficar online'}
+        </Button>
+      )}
+    </section>
   );
 }
 

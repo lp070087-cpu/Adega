@@ -81,7 +81,7 @@ export function OrderCard({
       data-testid="order-card"
       data-order={order.displayId}
       data-status={order.status}
-      className={cn('flex flex-col rounded-lg border bg-white p-3.5 shadow-xs transition-opacity', late ? 'border-danger/40' : 'border-ink-100', pending && 'opacity-60')}
+      className={cn('flex flex-col rounded-2xl border bg-white p-3.5 shadow-[0_1px_2px_rgba(11,31,58,.04),0_6px_18px_rgba(11,31,58,.05)] transition-[opacity,box-shadow] hover:shadow-[0_2px_4px_rgba(11,31,58,.06),0_12px_28px_rgba(11,31,58,.08)]', late ? 'border-danger/40' : 'border-ink-100', pending && 'opacity-60')}
     >
       <button type="button" onClick={onOpen} className="block w-full text-left" aria-label={`Abrir detalhes do pedido #${order.displayId}`}>
         <div className="flex items-start justify-between gap-2">
@@ -110,7 +110,7 @@ export function OrderCard({
       {action && (
         <div className="mt-3 border-t border-ink-100 pt-3">
           {action.kind === 'advance' && (canManageOrders ? (
-            <button type="button" disabled={pending} onClick={() => onAdvance(order)} className="min-h-11 w-full rounded-sm bg-brand px-3 text-[0.82rem] font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-55">
+            <button type="button" disabled={pending} onClick={() => onAdvance(order)} className="min-h-11 w-full rounded-xl bg-brand px-3 text-[0.82rem] font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-55">
               {pending ? 'Atualizando…' : action.label}
             </button>
           ) : <p className="text-[0.76rem] text-ink-500">Próxima etapa: {action.label}</p>)}
@@ -121,14 +121,14 @@ export function OrderCard({
                 <option value="">Escolha o entregador</option>
                 {sorted.map((d) => <option key={d.id} value={d.id} disabled={!isDriverOnline(availability(d))}>{driverOptionLabel(availability(d))}</option>)}
               </select>
-              <button type="button" disabled={pending || !driverId} onClick={() => onAssign(order, driverId)} className="min-h-11 shrink-0 rounded-sm bg-brand px-3 text-[0.8rem] font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-55">
+              <button type="button" disabled={pending || !driverId} onClick={() => onAssign(order, driverId)} className="min-h-11 shrink-0 rounded-xl bg-brand px-3 text-[0.8rem] font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-55">
                 Atribuir
               </button>
             </div>
           ) : <p className="text-[0.76rem] text-ink-500">Aguardando atribuição de entregador.</p>)}
 
           {action.kind === 'tracking' && (
-            <button type="button" onClick={onOpen} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-sm border border-info/30 bg-info-bg px-3 text-[0.8rem] font-semibold text-info">
+            <button type="button" onClick={onOpen} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-info/30 bg-info-bg px-3 text-[0.8rem] font-semibold text-info">
               🛵 {order.driver ? `Em rota com ${order.driver.name.split(' ')[0]}` : action.label} · acompanhar
             </button>
           )}

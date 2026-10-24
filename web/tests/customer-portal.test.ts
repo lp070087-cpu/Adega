@@ -38,7 +38,7 @@ test('consumer signup validates confirmation, phone and terms, requires no addre
  assert.equal(registrationSchema.safeParse({...signup,confirmPassword:'wrong'}).success,false);
  assert.equal(registrationSchema.safeParse({...signup,acceptTerms:false}).success,false);
  assert.equal(registrationSchema.safeParse({...signup,phone:'9999'}).success,false);
- assert.equal(registrationSchema.safeParse({...signup,name:'Ana'}).success,false);
+ assert.equal(registrationSchema.safeParse({...signup,name:'Ana'}).success,true,'sobrenome é opcional');assert.equal(registrationSchema.safeParse({...signup,name:''}).success,false);
  assert.equal(passwordSchema.safeParse('á'.repeat(40)).success,false);
  assert.equal(addressSchema.safeParse({street:'Rua A',number:'1',district:'Centro',city:'Recife',state:'PE',zipCode:'50000000',isDefault:true}).success,true);
 });

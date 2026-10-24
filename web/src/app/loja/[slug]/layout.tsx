@@ -18,5 +18,5 @@ export default async function StoreLayout({ children, params }: Props) {
   const { slug } = await params;
   let path: string;
   try { path = storeAppPath(slug); } catch { return children; }
-  return <>{children}<div className="mx-auto max-w-6xl px-4 pb-24"><InstallApp name="Del Flash Loja" worker={`${path}/sw.js`} scope={`${path}/`} /><Link className="inline-flex min-h-11 items-center text-sm text-ink-500" href={`${path}/configuracoes`}>Configurações do aplicativo</Link></div></>;
+  return <>{children}<div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 pb-24 pt-4 [&>*]:min-w-0"><InstallApp name="Del Flash Loja" worker={`${path}/sw.js`} scope={`${path}/`} /><Link className="inline-flex min-h-11 items-center text-sm text-ink-500" href={`${path}/configuracoes`}>Configurações do aplicativo</Link></div></>;
 }

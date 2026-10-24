@@ -9,5 +9,5 @@ export function DriverScheduleNotice() {
     void refresh(); const timer = window.setInterval(refresh, 60000); document.addEventListener('visibilitychange', refresh);
     return () => { active = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh); };
   }, []);
-  return text ? <p className="rounded-lg border border-ink-200 bg-white p-3 text-sm text-ink-600" role="status">{text}</p> : null;
+  return text ? <p className="flex items-start gap-2 rounded-xl bg-ink-100/70 px-3 py-2 text-[0.74rem] leading-snug text-ink-600" role="status"><span aria-hidden>🗓️</span><span className="min-w-0">{text}</span></p> : null;
 }

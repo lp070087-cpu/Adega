@@ -36,6 +36,8 @@ import type { KanbanOrder } from './OrderCard';
  */
 
 export type DrawerOrder = KanbanOrder & {
+  deliveryLatitude?: number | null;
+  deliveryLongitude?: number | null;
   deliveryAddress: string;
   deliveryNumber: string | null;
   deliveryDistrict: string | null;
@@ -296,17 +298,16 @@ export function OrderDrawer({
             >
               WhatsApp
             </a>
-            {/* Mapa: nesta fase aponta para busca pública; integração real
-                com Google Maps fica para quando houver chave configurada. */}
+            {/* Com ponto confirmado pelo cliente, o mapa abre exatamente nele. */}
             <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+              href={`https://www.google.com/maps/search/?api=1&query=${order.deliveryLatitude != null && order.deliveryLongitude != null ? `${order.deliveryLatitude},${order.deliveryLongitude}` : encodeURIComponent(
                 `${order.deliveryAddress} ${order.deliveryNumber ?? ''} ${order.deliveryDistrict ?? ''}`,
               )}`}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-sm border-2 border-ink-200 px-3 py-1.5 text-[0.74rem] font-semibold text-ink-600 transition-all hover:border-brand hover:text-brand"
             >
-              Ver no mapa
+              {order.deliveryLatitude != null ? 'Ver ponto no mapa' : 'Ver no mapa'}
             </a>
           </div>
         </div>

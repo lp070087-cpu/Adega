@@ -27,7 +27,7 @@ export default async function SubscriptionPage() {
     } catch { /* Activation may not yet have been approved; preserve legacy reads. */ }
   }
   return <div className="space-y-6">
-    <header><p className="text-xs font-semibold uppercase tracking-wider text-ink-500">Sua conta</p><h1 className="mt-1 text-2xl font-semibold">Plano e assinatura</h1><p className="mt-2 text-sm text-ink-500">Consulte a situação comercial do estabelecimento.</p></header>
+    <header><p className="text-xs font-semibold uppercase tracking-wider text-ink-500">Sua conta</p><h2 className="text-[1.35rem] font-extrabold tracking-tight text-ink-900 mt-1">Plano e assinatura</h2><p className="mt-2 text-sm text-ink-500">Consulte a situação comercial do estabelecimento.</p></header>
     <section className="rounded-xl border border-ink-200 bg-white p-6">
       <CreditCard className="mb-4 h-6 w-6 text-ink-500" aria-hidden="true" />
       {current ? <><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-semibold">{current.name}</h2><span className="rounded-full bg-ink-100 px-3 py-1 text-sm">{statusLabel[current.status] ?? current.status}</span></div><p className="mt-3 text-xl font-semibold">{formatBRL(current.amount)} <span className="text-sm font-normal text-ink-500">/ {current.period}</span></p><p className="mt-4 flex items-center gap-2 text-sm text-ink-600"><CalendarDays size={16} aria-hidden="true" />Vencimento: {current.dueAt ? formatDateTime(current.dueAt) : 'Não definido'}</p></> : <><h2 className="font-semibold">Plano ainda não associado</h2><p className="mt-2 text-sm text-ink-500">A administração confirmará o plano e as condições comerciais da sua loja.</p></>}

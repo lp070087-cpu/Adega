@@ -128,27 +128,35 @@ export function StoreAbout({ store }: { store: StoreContactData }) {
 
 
 /**
- * Rodapé da loja pública.
- *
- * O crédito da plataforma fica de fora por enquanto: a marca da plataforma
- * ainda não está definida, e inventar um nome aqui faria toda loja da base
- * exibir uma marca que não existe. Quando houver branding definido, é uma
- * linha a acrescentar.
+ * Rodapé da loja pública: atalhos para o que o cliente procura depois de
+ * rolar a vitrine (cardápio, promoções, conta e pedidos) e o crédito discreto
+ * da plataforma Del Flash. A cor de destaque é a da própria loja.
  */
 export function StoreFooter({ store }: { store: { name: string; slug: string } }) {
+  const links = [
+    { href: '#cardapio', label: 'Cardápio' },
+    { href: '#promocoes', label: 'Promoções' },
+    { href: `/loja/${store.slug}/conta`, label: 'Minha conta' },
+    { href: `/loja/${store.slug}/conta/pedidos`, label: 'Meus pedidos' },
+  ];
   return (
-    <footer className="border-t border-ink-100 bg-white px-4 py-8 sm:px-5">
-      <div className="mx-auto flex max-w-[1180px] flex-col items-center gap-2 text-center">
-        <p className="text-[0.84rem] font-bold text-ink-800">{store.name}</p>
-        <p className="text-[0.72rem] text-ink-400">
-          Cardápio e pedidos online · /loja/{store.slug}
-        </p>
-        <a
-          href="#inicio"
-          className="mt-1 text-[0.74rem] font-semibold text-ink-500 hover:text-ink-800"
-        >
-          Voltar ao topo
-        </a>
+    <footer className="mt-6 bg-[#0b1f3a] px-4 pb-10 pt-9 text-white sm:px-5">
+      <div className="mx-auto flex max-w-[1180px] flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[1.05rem] font-extrabold tracking-tight">{store.name}</p>
+          <p className="mt-1 text-[0.78rem] text-white/60">Bebidas geladas com pedido online e entrega acompanhada.</p>
+        </div>
+        <nav aria-label="Rodapé" className="grid grid-cols-2 gap-x-6 gap-y-1 sm:flex sm:gap-2">
+          {links.map((link) => (
+            <a key={link.href} href={link.href} className="flex min-h-11 items-center rounded-lg text-[0.82rem] font-semibold text-white/80 hover:text-white sm:px-3 sm:hover:bg-white/10">
+              {link.label}
+            </a>
+          ))}
+        </nav>
+      </div>
+      <div className="mx-auto mt-6 flex max-w-[1180px] flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-5 text-[0.72rem] text-white/50">
+        <span>Pedidos online com Del Flash</span>
+        <a href="#inicio" className="inline-flex min-h-11 items-center font-semibold text-white/70 hover:text-white">Voltar ao topo ↑</a>
       </div>
     </footer>
   );

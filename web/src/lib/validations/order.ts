@@ -50,6 +50,8 @@ const orderBaseSchema = z.object({
   deliveryZipCode: optionalText(9),
   deliveryLatitude: z.number().min(-90).max(90).optional(),
   deliveryLongitude: z.number().min(-180).max(180).optional(),
+  /** Observação para achar o ponto (escadaria, portão lateral…). Opcional com pino confirmado. */
+  deliveryReference: optionalText(200),
   paymentMethod: z.nativeEnum(PaymentMethod).default('CASH'),
   /** Troco para quanto. Só faz sentido em dinheiro — conferido abaixo. */
   changeFor: z.number().min(0).max(99999).optional(),
@@ -71,11 +73,26 @@ const orderRefinementMessages = [
   { message: 'Troco só se aplica a pagamento em dinheiro', path: ['changeFor'] },
 ];
 
+/** Entrega da loja pública: endereço completo e um jeito de achar o destino. */
+const hasPin = (d: { deliveryLatitude?: number; deliveryLongitude?: number }) => d.deliveryLatitude !== undefined && d.deliveryLongitude !== undefined;
+const deliveryChecks: Array<[(d: z.infer<typeof orderBaseSchema>) => boolean, { message: string; path: string[] }]> = [
+  [(d) => d.deliveryType === 'PICKUP' || (d.deliveryNumber ?? '').trim().length > 0, { message: 'Informe o número do imóvel ou marque "Sem número"', path: ['deliveryNumber'] }],
+  [(d) => d.deliveryType === 'PICKUP' || (d.deliveryDistrict ?? '').trim().length >= 2, { message: 'Informe o bairro', path: ['deliveryDistrict'] }],
+  [(d) => d.deliveryType === 'PICKUP' || (d.deliveryCity ?? '').trim().length >= 2, { message: 'Informe a cidade', path: ['deliveryCity'] }],
+  [(d) => d.deliveryType === 'PICKUP' || hasPin(d) || (d.deliveryReference ?? '').trim().length >= 5, { message: 'Marque o ponto de entrega no mapa ou descreva uma referência para achar o local', path: ['deliveryReference'] }],
+  [(d) => hasPin(d) === (d.deliveryLatitude !== undefined || d.deliveryLongitude !== undefined), { message: 'Ponto de entrega inválido. Marque novamente no mapa.', path: ['deliveryLatitude'] }],
+];
+
 export const checkoutSchema = orderBaseSchema
   .refine((data) => ['CASH', 'PIX', 'CREDIT_CARD', 'DEBIT_CARD'].includes(data.paymentMethod), {
     message: 'Escolha uma forma de pagamento na entrega ou retirada.', path: ['paymentMethod'],
   })
   .refine(orderRefinements[0], orderRefinementMessages[0])
+  .refine(deliveryChecks[0][0], deliveryChecks[0][1])
+  .refine(deliveryChecks[1][0], deliveryChecks[1][1])
+  .refine(deliveryChecks[2][0], deliveryChecks[2][1])
+  .refine(deliveryChecks[3][0], deliveryChecks[3][1])
+  .refine(deliveryChecks[4][0], deliveryChecks[4][1])
   .refine(orderRefinements[1], orderRefinementMessages[1]);
 
 /**

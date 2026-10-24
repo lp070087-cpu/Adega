@@ -58,6 +58,8 @@ export default async function OrdersPage() {
     deliveryDistrict: order.deliveryDistrict,
     deliveryCity: order.deliveryCity,
     deliveryZipCode: order.deliveryZipCode,
+    deliveryLatitude: order.deliveryLatitude ?? null,
+    deliveryLongitude: order.deliveryLongitude ?? null,
     notes: order.notes,
     createdAt: (order.createdAt as Date).toISOString(),
     acceptedAt: order.acceptedAt ? (order.acceptedAt as Date).toISOString() : null,

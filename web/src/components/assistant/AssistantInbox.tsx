@@ -86,7 +86,7 @@ export function AssistantInbox({ threads, selectedId, messages, aiEnabled, webho
   return (
     <div className="space-y-3" data-testid="inbox">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold text-ink-900">Atendimento</h1>
+        <h2 className="text-[1.35rem] font-extrabold tracking-tight text-ink-900">Atendimento</h2>
         <p className="text-[0.76rem] text-ink-500">IA {aiEnabled ? 'ativa' : 'desativada'} · <Link href="/app/configuracoes/whatsapp" className="font-semibold text-brand">Configurar WhatsApp e IA</Link></p>
       </div>
       {!webhookVerified && <Alert tone="warn">Número conectado, mas o WhatsApp ainda não entregou nenhuma mensagem a esta loja. Confira o webhook na configuração do WhatsApp.</Alert>}

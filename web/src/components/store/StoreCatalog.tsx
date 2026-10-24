@@ -14,6 +14,7 @@ import { groupPublishedStoreProducts } from '@/lib/store-catalog-groups';
 import { Share2 } from 'lucide-react';
 import { storefrontCategoryView, type StorefrontCategories } from '@/lib/storefront-categories';
 import { whatsappDigits } from '@/lib/whatsapp';
+import { DeliveryPinPicker } from './DeliveryPinPicker';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -104,6 +105,8 @@ export type StoreInfo = {
   city: string | null;
   state: string | null;
   description: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 type CartLine = {
@@ -438,6 +441,9 @@ export function StoreCatalog({
   }
 
   const checkoutRequest = React.useRef<string | null>(null);
+  const checkoutFormRef = React.useRef<HTMLFormElement>(null);
+  const [noNumber, setNoNumber] = React.useState(false);
+  const coord = (value: FormDataEntryValue | null) => { const n = typeof value === 'string' && value.trim() ? Number(value) : NaN; return Number.isFinite(n) ? n : undefined; };
   const checkoutLocked = React.useRef(false);
 
   async function submitOrder(formData: FormData) {
@@ -478,9 +484,12 @@ export function StoreCatalog({
       customerPhone: String(formData.get('customerPhone') ?? '').trim(),
       deliveryType,
       deliveryAddress: String(formData.get('deliveryAddress') ?? '').trim() || undefined,
-      deliveryNumber: String(formData.get('deliveryNumber') ?? '').trim() || undefined,
+      deliveryNumber: noNumber ? 'S/N' : String(formData.get('deliveryNumber') ?? '').trim() || undefined,
       deliveryDistrict: String(formData.get('deliveryDistrict') ?? '').trim() || undefined,
       deliveryCity: String(formData.get('deliveryCity') ?? '').trim() || undefined,
+      deliveryLatitude: coord(formData.get('deliveryLatitude')),
+      deliveryLongitude: coord(formData.get('deliveryLongitude')),
+      deliveryReference: String(formData.get('deliveryReference') ?? '').trim() || undefined,
       paymentMethod,
       changeFor: changeFor !== undefined && Number.isFinite(changeFor) ? changeFor : undefined,
       notes: String(formData.get('notes') ?? '').trim() || undefined,
@@ -857,6 +866,7 @@ export function StoreCatalog({
       >
         <form
           id="checkout-form"
+          ref={checkoutFormRef}
           // onSubmit instead of a form action: React resets action forms after every
           // submission, which would wipe the customer's data when the order fails.
           onSubmit={(event) => {
@@ -915,21 +925,41 @@ export function StoreCatalog({
 
           {deliveryType === 'DELIVERY' ? (
             <>
-              <Field label="Endereço de entrega" required>
-                <Input name="deliveryAddress" required minLength={5} maxLength={200} />
+              <Field label="Rua / avenida" required>
+                <Input name="deliveryAddress" required minLength={5} maxLength={200} autoComplete="address-line1" placeholder="Ex.: Rua das Flores" />
               </Field>
 
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                <Field label="Número" className="mb-0">
-                  <Input name="deliveryNumber" maxLength={20} />
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2.5">
+                <Field label="Número" required className="mb-0">
+                  <Input name="deliveryNumber" maxLength={20} required={!noNumber} disabled={noNumber} placeholder={noNumber ? 'S/N' : 'Ex.: 120'} inputMode="numeric" />
                 </Field>
-                <Field label="Bairro" className="mb-0">
-                  <Input name="deliveryDistrict" maxLength={120} />
+                <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-ink-200 px-3 text-[0.8rem] font-semibold text-ink-700 has-[:checked]:border-brand has-[:checked]:bg-brand-light">
+                  <input type="checkbox" className="h-5 w-5 accent-[var(--brand)]" checked={noNumber} onChange={(e) => setNoNumber(e.target.checked)} /> Sem número
+                </label>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
+                <Field label="Bairro" required className="mb-0">
+                  <Input name="deliveryDistrict" required minLength={2} maxLength={120} autoComplete="address-level3" />
                 </Field>
-                <Field label="Cidade" className="mb-0">
-                  <Input name="deliveryCity" maxLength={120} />
+                <Field label="Cidade" required className="mb-0">
+                  <Input name="deliveryCity" required minLength={2} maxLength={120} defaultValue={store.city ?? ''} autoComplete="address-level2" />
                 </Field>
               </div>
+
+              <DeliveryPinPicker
+                slug={store.slug}
+                storeCenter={store.latitude != null && store.longitude != null ? { latitude: store.latitude, longitude: store.longitude } : null}
+                readAddress={() => {
+                  const form = checkoutFormRef.current;
+                  if (!form) return '';
+                  const v = (name: string) => String((form.elements.namedItem(name) as HTMLInputElement | null)?.value ?? '').trim();
+                  return [v('deliveryAddress') && `${v('deliveryAddress')}${!noNumber && v('deliveryNumber') ? `, ${v('deliveryNumber')}` : ''}`, v('deliveryDistrict'), v('deliveryCity')].filter(Boolean).join(', ');
+                }}
+              />
+
+              <Field label="Observação para o entregador" hint="Opcional se você confirmou o ponto no mapa. Ex.: entrada pela escadaria, portão lateral, rua de trás, condomínio.">
+                <Textarea name="deliveryReference" rows={2} maxLength={200} placeholder="Ex.: Portão azul ao lado da padaria" />
+              </Field>
 
               <p className="text-[0.72rem] leading-relaxed text-ink-400">
                 A taxa mostrada é uma prévia. O valor final é calculado pela loja no momento do
@@ -1278,7 +1308,7 @@ function ProductCard({
           </p>
         )}
 
-        <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
+        <div className="store-product-price mt-1.5 flex flex-wrap items-baseline gap-2">
           <span className="text-[0.9rem] font-extrabold text-ink-900">{formatBRL(price)}</span>
           {(onPromo || (isCombo && separate > price)) && (
             <span className="text-[0.76rem] text-ink-400 line-through">
@@ -1292,9 +1322,10 @@ function ProductCard({
           )}
         </div>
 
-        <div className="mt-2 flex items-center gap-2">
+        <div className="store-product-actions mt-2 flex items-center gap-2">
           <Button
             size="sm"
+            className="min-w-0 flex-1"
             disabled={blocked}
             onClick={onAdd}
             style={!blocked ? { backgroundColor: brandColor } : undefined}
@@ -1307,7 +1338,7 @@ function ProductCard({
               onClick={() => void shareProduct(product, shareStore)}
               aria-label={`Compartilhar ${product.name}`}
               title="Compartilhar"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-ink-200 bg-white text-ink-600 hover:text-ink-900"
+              className="store-product-share inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-ink-200 bg-white text-ink-600 hover:border-ink-400 hover:text-ink-900"
             >
               <Share2 size={16} aria-hidden />
             </button>

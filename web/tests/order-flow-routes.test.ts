@@ -66,3 +66,21 @@ test('store side never receives driver coordinates', () => {
   }
   assert.doesNotMatch(readFileSync('src/app/actions/orders.ts', 'utf8'), /sendDriverLocationAction/);
 });
+
+test('checkout: first name only, phone, full address with number or S/N, and pin or reference for delivery', async () => {
+  const { checkoutSchema } = await import('../src/lib/validations/order');
+  const base = { slug: 'loja', customerName: 'Ana', customerPhone: '81999998888', items: [{ productId: 'p1', quantity: 1 }], paymentMethod: 'CASH' };
+  const delivery = { ...base, deliveryType: 'DELIVERY', deliveryAddress: 'Rua das Flores', deliveryNumber: '10', deliveryDistrict: 'Centro', deliveryCity: 'Recife' };
+  const err = (input: unknown) => { const r = checkoutSchema.safeParse(input); return r.success ? null : r.error.errors[0]?.path[0]; };
+  assert.equal(err({ ...delivery, deliveryLatitude: -8.05, deliveryLongitude: -34.9 }), null);
+  assert.equal(err({ ...delivery, deliveryReference: 'Portão azul ao lado da padaria' }), null);
+  assert.equal(err(delivery), 'deliveryReference');
+  assert.equal(err({ ...delivery, deliveryNumber: undefined, deliveryLatitude: -8, deliveryLongitude: -34 }), 'deliveryNumber');
+  assert.equal(err({ ...delivery, deliveryNumber: 'S/N', deliveryLatitude: -8, deliveryLongitude: -34 }), null);
+  assert.equal(err({ ...delivery, deliveryDistrict: undefined, deliveryLatitude: -8, deliveryLongitude: -34 }), 'deliveryDistrict');
+  assert.equal(err({ ...delivery, deliveryAddress: undefined, deliveryLatitude: -8, deliveryLongitude: -34 }), 'deliveryAddress');
+  assert.notEqual(err({ ...delivery, deliveryLatitude: -8 }), null, 'meia coordenada é recusada');
+  assert.equal(err({ ...delivery, customerName: '', deliveryLatitude: -8, deliveryLongitude: -34 }), 'customerName');
+  assert.equal(err({ ...delivery, customerPhone: '', deliveryLatitude: -8, deliveryLongitude: -34 }), 'customerPhone');
+  assert.equal(err({ ...base, deliveryType: 'PICKUP' }), null, 'retirada não exige endereço');
+});

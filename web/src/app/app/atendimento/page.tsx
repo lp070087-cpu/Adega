@@ -22,7 +22,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   if (!connected) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
-        <h1 className="text-xl font-bold text-ink-900">Atendimento</h1>
+        <h2 className="text-[1.35rem] font-extrabold tracking-tight text-ink-900">Atendimento</h2>
         <section className="rounded-xl border border-ink-200 bg-white p-6 text-center" data-testid="inbox-not-connected">
           <p className="text-[1.05rem] font-bold text-ink-900">WhatsApp ainda não conectado</p>
           <p className="mx-auto mt-2 max-w-md text-sm text-ink-500">As conversas dos clientes aparecem aqui assim que o número oficial da loja estiver conectado ao WhatsApp Business Platform. Nenhuma conversa é exibida antes disso.</p>
