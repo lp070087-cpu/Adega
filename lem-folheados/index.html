@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>L&amp;M Folheados</title>
+<meta name="description" content="L&M Folheados: acessórios femininos, bolsas e maquiagem a partir de R$ 5,00. 10 anos fazendo história, 5 lojas físicas.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;0,6..96,700;1,6..96,500&family=Figtree:wght@400;500;600;700&family=Pinyon+Script&display=swap">
+<style>
+/* Layout: vitrine de joalheria (preto e ouro, como a logo) que se abre para o rosa das campanhas;
+   o preço é o protagonista, exibido em etiquetas de loja penduradas. */
+:root{
+  --ink:#0e0c0a;          /* preto do selo */
+  --ink-2:#1b1713;
+  --gold:#c9a24a;         /* ouro do letreiro */
+  --gold-hi:#f3dc93;
+  --gold-lo:#8a6a24;
+  --rose:#e0457b;         /* rosa das campanhas */
+  --rose-deep:#b8285c;
+  --blush:#fbe8ee;
+  --paper:#fffaf7;
+  --text:#2a2320;
+  --muted:#7a6b66;
+  --line:#ead9d2;
+  --f-display:"Bodoni Moda","Didot","Bodoni 72",Georgia,serif;
+  --f-script:"Pinyon Script","Snell Roundhand","Brush Script MT",cursive;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --gold-grad:linear-gradient(100deg,var(--gold-lo) 0%,var(--gold-hi) 28%,var(--gold) 52%,var(--gold-hi) 74%,var(--gold-lo) 100%);
+  --wrap:1180px;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--paper);color:var(--text);font:16px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:inherit}
+h1,h2,h3{font-family:var(--f-display);font-weight:500;line-height:1.08;text-wrap:balance;margin:0}
+p{margin:0}
+.wrap{max-width:var(--wrap);margin-inline:auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.eyebrow{font:600 .74rem/1 var(--f-body);letter-spacing:.22em;text-transform:uppercase;color:var(--gold-lo)}
+.script{font-family:var(--f-script);font-weight:400;color:var(--rose)}
+.gold-text{background:var(--gold-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+:focus-visible{outline:2px solid var(--rose);outline-offset:3px;border-radius:4px}
+
+/* ---------- topo ---------- */
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--ink)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:rgba(14,12,10,.92);backdrop-filter:blur(10px);border-bottom:1px solid rgba(201,162,74,.25)}
+.top .wrap{display:flex;align-items:center;gap:20px;height:68px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff}
+.brand img{width:42px;height:42px}
+.brand span{font:600 .78rem/1.2 var(--f-body);letter-spacing:.18em;text-transform:uppercase;color:var(--gold-hi)}
+.nav{display:flex;gap:26px;margin-left:auto}
+.nav a{color:#e9e1d4;text-decoration:none;font-size:.92rem}
+.nav a:hover{color:var(--gold-hi)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:999px;font:600 .92rem/1 var(--f-body);text-decoration:none;border:0;cursor:pointer;transition:transform .2s,box-shadow .2s,background .2s}
+.btn:hover{transform:translateY(-1px)}
+.btn-gold{background:var(--gold-grad);color:var(--ink);box-shadow:0 6px 20px -8px rgba(201,162,74,.7)}
+.btn-rose{background:var(--rose);color:#fff}
+.btn-rose:hover{background:var(--rose-deep)}
+.btn-ghost{background:transparent;color:#fff;box-shadow:inset 0 0 0 1px rgba(243,220,147,.5)}
+.btn svg{width:18px;height:18px}
+.top .btn{padding:10px 16px}
+@media (max-width:860px){.nav{display:none}.top .btn{margin-left:auto}}
+
+/* ---------- hero ---------- */
+.hero{background:radial-gradient(1200px 520px at 75% 30%,#2a2015 0%,var(--ink) 60%);color:#f6efe4;overflow:hidden;position:relative}
+.hero .wrap{display:grid;grid-template-columns:1.15fr .85fr;gap:48px;align-items:center;padding-block:72px 84px}
+.hero h1{font-size:clamp(2.6rem,6vw,4.9rem);letter-spacing:-.01em}
+.hero h1 em{font-style:italic}
+.hero .lead{margin-top:22px;max-width:34em;color:#d9cfc0;font-size:1.08rem}
+.hero .ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+.stats{display:grid;grid-template-columns:repeat(4,auto);gap:28px;margin-top:44px;padding-top:26px;border-top:1px solid rgba(201,162,74,.25);justify-content:start}
+.stats b{display:block;font:500 2rem/1 var(--f-display);color:var(--gold-hi);font-variant-numeric:tabular-nums}
+.stats span{font-size:.8rem;color:#b8ab98;letter-spacing:.04em}
+.seal{position:relative;justify-self:center;width:min(100%,420px);aspect-ratio:1}
+.seal img{width:100%;height:100%;border-radius:50%;box-shadow:0 30px 80px -20px rgba(0,0,0,.8),0 0 0 1px rgba(243,220,147,.25)}
+.seal::before{content:"";position:absolute;inset:-7%;border-radius:50%;border:1px dashed rgba(201,162,74,.35);animation:spin 60s linear infinite}
+.seal .badge{position:absolute;right:-4%;bottom:6%;width:34%;aspect-ratio:1;border-radius:50%;background:var(--rose);color:#fff;display:grid;place-content:center;text-align:center;transform:rotate(-10deg);box-shadow:0 14px 30px -10px rgba(224,69,123,.7)}
+.seal .badge small{font:600 .62rem/1 var(--f-body);letter-spacing:.16em;text-transform:uppercase}
+.seal .badge b{font:700 clamp(1.4rem,3.4vw,2.2rem)/1 var(--f-display)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (max-width:860px){
+  .hero .wrap{grid-template-columns:1fr;padding-block:44px 56px;gap:36px}
+  .seal{order:-1;width:min(70%,300px)}
+  .stats{grid-template-columns:repeat(2,auto);gap:22px 36px}
+}
+
+/* ---------- faixa ---------- */
+.ribbon{background:var(--gold-grad);color:var(--ink);overflow:hidden;white-space:nowrap;border-block:1px solid var(--gold-lo)}
+.ribbon .track{display:inline-flex;gap:38px;padding-block:13px;animation:slide 38s linear infinite;font:600 .8rem/1 var(--f-body);letter-spacing:.24em;text-transform:uppercase}
+.ribbon .track span::after{content:"◆";margin-left:38px;font-size:.6rem;vertical-align:middle}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+/* ---------- seções ---------- */
+section{scroll-margin-top:80px}
+.sec{padding-block:96px}
+.sec-head{display:grid;gap:14px;max-width:44rem;margin-bottom:48px}
+.sec-head h2{font-size:clamp(2rem,4.4vw,3.3rem)}
+.sec-head p{color:var(--muted);font-size:1.05rem}
+@media (max-width:600px){.sec{padding-block:64px}.sec-head{margin-bottom:32px}}
+
+/* ---------- etiquetas de preço ---------- */
+.prices{background:var(--blush);position:relative}
+.tagwall{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:34px 22px;padding-top:10px}
+.tag{position:relative;background:#fff;border-radius:6px 18px 18px 6px;padding:20px 18px 18px 30px;box-shadow:0 10px 24px -14px rgba(184,40,92,.45);transform:rotate(var(--r,0deg));transition:transform .25s}
+.tag:hover{transform:rotate(0deg) translateY(-3px)}
+.tag::before{content:"";position:absolute;left:11px;top:50%;width:9px;height:9px;margin-top:-4.5px;border-radius:50%;background:var(--blush);box-shadow:inset 0 0 0 1.5px var(--line)}
+.tag::after{content:"";position:absolute;left:-26px;top:50%;width:32px;height:1.5px;background:var(--gold);transform-origin:right;transform:rotate(-18deg)}
+.tag .val{font:700 2rem/1 var(--f-display);color:var(--rose-deep);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tag .val sup{font-size:.48em;vertical-align:.9em;margin-right:2px;font-weight:500}
+.tag .val small{font-size:.5em}
+.tag .what{margin-top:8px;font-size:.9rem;line-height:1.35;color:var(--text)}
+.tag .from{margin-top:4px;font-size:.72rem;color:var(--muted);letter-spacing:.04em}
+.fine{margin-top:34px;font-size:.82rem;color:var(--muted)}
+
+/* ---------- simulador ---------- */
+.sim{margin-top:72px;background:var(--ink);color:#f3ebdf;border-radius:28px;padding:44px;display:grid;grid-template-columns:.9fr 1.1fr;gap:44px;align-items:start}
+.sim h3{font-size:clamp(1.7rem,3.4vw,2.5rem)}
+.sim h3 .script{font-size:1.15em}
+.sim p{color:#c9bcab;margin-top:12px}
+.budget{margin-top:26px}
+.budget output{display:block;font:700 3.6rem/1 var(--f-display);font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.chip{background:transparent;color:#f3ebdf;border:1px solid rgba(243,220,147,.4);border-radius:999px;padding:8px 14px;font:600 .85rem/1 var(--f-body);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--gold-grad);color:var(--ink);border-color:transparent}
+input[type=range]{width:100%;margin-top:20px;accent-color:var(--gold)}
+.basket{background:var(--ink-2);border:1px solid rgba(201,162,74,.22);border-radius:18px;padding:22px 24px;min-width:0}
+.basket ul{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.basket li{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px dashed rgba(201,162,74,.2);font-size:.95rem}
+.basket li span:last-child{font-variant-numeric:tabular-nums;color:var(--gold-hi);white-space:nowrap}
+.basket .sum{display:flex;justify-content:space-between;margin-top:16px;font-weight:600}
+.basket .sum b{font-variant-numeric:tabular-nums}
+.basket .left{margin-top:6px;font-size:.82rem;color:#a99c8a}
+.basket .title{font:600 .74rem/1 var(--f-body);letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:10px}
+@media (max-width:860px){.sim{grid-template-columns:1fr;padding:28px 22px;gap:28px;border-radius:22px}}
+
+/* ---------- categorias ---------- */
+.cats{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.cat{position:relative;border-radius:20px;overflow:hidden;min-height:340px;display:flex;align-items:flex-end;color:#fff;text-decoration:none;isolation:isolate}
+.cat img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;transition:transform .5s}
+.cat::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(14,12,10,0) 30%,rgba(14,12,10,.88) 100%)}
+.cat:hover img{transform:scale(1.04)}
+.cat div{padding:22px}
+.cat h3{font-size:1.6rem}
+.cat p{font-size:.88rem;color:#eadfd2;margin-top:6px}
+.cat .pill{display:inline-block;margin-bottom:10px;background:var(--rose);border-radius:999px;padding:5px 10px;font:600 .68rem/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase}
+.cat.wide{grid-column:span 2}
+@media (max-width:860px){.cats{grid-template-columns:1fr 1fr}.cat.wide{grid-column:span 2}}
+@media (max-width:560px){.cats{grid-template-columns:1fr}.cat.wide{grid-column:auto}.cat{min-height:300px}}
+
+/* ---------- make 10 ---------- */
+.make{background:var(--ink);color:#f3ebdf;overflow:hidden}
+.make .wrap{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
+.make .big{font:700 clamp(5rem,15vw,11rem)/.85 var(--f-display);letter-spacing:-.03em}
+.make .big .script{display:block;font-size:.42em;color:var(--rose);margin:0 0 -.1em .1em;letter-spacing:0}
+.make p{color:#cbbfae;margin-top:22px;max-width:30em}
+.brands{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
+.brands span{border:1px solid rgba(243,220,147,.35);border-radius:999px;padding:8px 14px;font-size:.85rem;color:var(--gold-hi)}
+.make-pics{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.make-pics img{border-radius:16px;aspect-ratio:3/4;object-fit:cover;width:100%}
+.make-pics img:nth-child(2){margin-top:48px}
+@media (max-width:860px){.make .wrap{grid-template-columns:1fr;gap:36px}}
+
+/* ---------- calendário ---------- */
+.cal{display:grid;grid-template-columns:repeat(6,1fr);gap:0;border-top:1px solid var(--line)}
+.cal li{list-style:none;padding:22px 18px 4px 0;position:relative;min-width:0}
+.cal li::before{content:"";position:absolute;top:-6px;left:0;width:11px;height:11px;border-radius:50%;background:var(--paper);box-shadow:inset 0 0 0 2px var(--gold)}
+.cal li.now::before{background:var(--rose);box-shadow:0 0 0 4px rgba(224,69,123,.2)}
+.cal .mon{font:600 .72rem/1 var(--f-body);letter-spacing:.2em;text-transform:uppercase;color:var(--gold-lo)}
+.cal h3{font-size:1.35rem;margin-top:10px}
+.cal p{font-size:.88rem;color:var(--muted);margin-top:6px}
+.cal ol{padding:0;margin:0;display:contents}
+@media (max-width:860px){.cal{grid-template-columns:repeat(3,1fr);row-gap:20px}}
+@media (max-width:520px){.cal{grid-template-columns:1fr;border-top:0;border-left:1px solid var(--line);padding-left:20px}.cal li{padding:0 0 22px}.cal li::before{left:-26px;top:3px}}
+
+/* ---------- feed ---------- */
+.feed-sec{background:var(--blush)}
+.feed{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.feed a{position:relative;display:block;overflow:hidden;border-radius:6px;aspect-ratio:3/4}
+.feed img{width:100%;height:100%;object-fit:cover;transition:transform .4s,filter .4s}
+.feed a:hover img{transform:scale(1.05);filter:saturate(1.1)}
+.feed-cta{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between;margin-top:30px}
+.handle{display:flex;align-items:center;gap:14px}
+.handle img{width:58px;height:58px;border-radius:50%;box-shadow:0 0 0 3px var(--paper),0 0 0 5px var(--rose)}
+.handle b{display:block;font-size:1.05rem}
+.handle span{font-size:.86rem;color:var(--muted)}
+@media (max-width:860px){.feed{grid-template-columns:repeat(3,1fr)}}
+
+/* ---------- lojas ---------- */
+.stores{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+.store{border:1px solid var(--line);border-radius:18px;padding:22px 20px;background:#fff;display:flex;flex-direction:column;gap:8px;min-width:0}
+.store .n{font:500 2.4rem/1 var(--f-display);color:var(--gold);font-variant-numeric:tabular-nums}
+.store h3{font-size:1.25rem}
+.store p{font-size:.86rem;color:var(--muted)}
+.store.todo{border-style:dashed;background:transparent}
+.store.todo h3{color:var(--muted)}
+@media (max-width:1000px){.stores{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:620px){.stores{grid-template-columns:1fr 1fr}}
+.note{margin-top:22px;font-size:.84rem;color:var(--muted)}
+
+/* ---------- comunidade ---------- */
+.club{background:linear-gradient(120deg,var(--rose-deep),var(--rose));color:#fff}
+.club .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:40px;align-items:center;padding-block:72px}
+.club h2{font-size:clamp(2rem,4.4vw,3.2rem)}
+.club p{margin-top:14px;color:#ffe3ec;max-width:34em}
+.club .actions{display:flex;flex-wrap:wrap;gap:12px;justify-self:end}
+.club .btn-ghost{box-shadow:inset 0 0 0 1px rgba(255,255,255,.6)}
+.club .btn-gold{box-shadow:none}
+@media (max-width:860px){.club .wrap{grid-template-columns:1fr}.club .actions{justify-self:start}}
+
+/* ---------- rodapé ---------- */
+footer{background:var(--ink);color:#bfb3a2;font-size:.88rem}
+footer .wrap{display:flex;flex-wrap:wrap;gap:24px;justify-content:space-between;align-items:center;padding-block:40px}
+footer .brand img{width:52px;height:52px}
+footer a{color:var(--gold-hi)}
+.proposal{border-top:1px solid rgba(201,162,74,.18)}
+.proposal .wrap{padding-block:16px;font-size:.78rem;color:#8d8172;display:block}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#inicio" aria-label="L&amp;M Folheados, início">
+      <img src="img/logo.png" alt="">
+      <span>L&amp;M Folheados</span>
+    </a>
+    <nav class="nav" aria-label="Seções">
+      <a href="#precos">Achados</a>
+      <a href="#categorias">Categorias</a>
+      <a href="#make">Make 10</a>
+      <a href="#lojas">Lojas</a>
+      <a href="#feed">Instagram</a>
+    </nav>
+    <a class="btn btn-gold" href="https://www.instagram.com/lem_folheados/" target="_blank" rel="noopener">Seguir</a>
+  </div>
+</header>
+
+<main id="inicio">
+
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow" style="color:var(--gold)">Acessórios femininos · Bolsas · Make</p>
+        <h1 style="margin-top:18px">Tudo o que <em>brilha</em>,<br>a partir de <span class="gold-text">R$&nbsp;5,00</span></h1>
+        <p class="lead">Bijuterias folheadas, bolsas, maquiagem, cabelos e presentes em cinco lojas físicas. Há dez anos a L&amp;M enche as prateleiras de novidades toda semana, com preço que cabe no bolso.</p>
+        <div class="ctas">
+          <a class="btn btn-gold" href="#precos">Ver os achados</a>
+          <a class="btn btn-ghost" href="#lojas">Encontrar uma loja</a>
+        </div>
+        <div class="stats">
+          <div><b>10</b><span>anos fazendo história</span></div>
+          <div><b>5</b><span>lojas físicas</span></div>
+          <div><b>47,1 mil</b><span>seguidores</span></div>
+          <div><b>976</b><span>posts de novidades</span></div>
+        </div>
+      </div>
+      <div class="seal">
+        <img src="img/logo.png" alt="Logo L&amp;M Folheados: monograma dourado sobre círculo preto">
+        <div class="badge"><small>itens a partir de</small><b>R$5</b></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="ribbon" aria-hidden="true">
+    <div class="track">
+      <span>Bijuterias folheadas</span><span>Bolsas</span><span>Make 10</span><span>Cabelos</span><span>Presentes</span><span>Skincare</span><span>Hello Kitty</span><span>Squishys</span>
+      <span>Bijuterias folheadas</span><span>Bolsas</span><span>Make 10</span><span>Cabelos</span><span>Presentes</span><span>Skincare</span><span>Hello Kitty</span><span>Squishys</span>
+    </div>
+  </div>
+
+  <section class="sec prices" id="precos">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Achados da semana</p>
+        <h2>Seu dia começa em <span class="script">R$ 5,00</span></h2>
+        <p>Preços que já apareceram nas vitrines da L&amp;M. Pendurados como etiqueta de loja, do jeitinho que você encontra no corredor.</p>
+      </div>
+
+      <div class="tagwall">
+        <div class="tag" style="--r:-3deg"><div class="val"><sup>R$</sup>3<small>,00</small></div><p class="what">Acessórios de torcida</p><p class="from">Copa · a partir de</p></div>
+        <div class="tag" style="--r:2deg"><div class="val"><sup>R$</sup>5<small>,00</small></div><p class="what">Bracelete folheado</p><p class="from">Bijuteria · cada</p></div>
+        <div class="tag" style="--r:-1deg"><div class="val"><sup>R$</sup>5<small>,00</small></div><p class="what">Blush Ruby Rose</p><p class="from">Make · exclusivo</p></div>
+        <div class="tag" style="--r:3deg"><div class="val"><sup>R$</sup>5<small>,00</small></div><p class="what">Presilhas de flor</p><p class="from">Cabelos</p></div>
+        <div class="tag" style="--r:-2deg"><div class="val"><sup>R$</sup>5<small>,00</small></div><p class="what">Sabonete íntimo Kalyus 200 ml</p><p class="from">Cuidados</p></div>
+        <div class="tag" style="--r:1deg"><div class="val"><sup>R$</sup>10<small>,00</small></div><p class="what">Paleta de sombras Lyrics</p><p class="from">Make 10</p></div>
+        <div class="tag" style="--r:-3deg"><div class="val"><sup>R$</sup>15<small>,00</small></div><p class="what">Base Matte Payot 30 ml</p><p class="from">Todas as unidades</p></div>
+        <div class="tag" style="--r:2deg"><div class="val"><sup>R$</sup>18<small>,00</small></div><p class="what">Conjunto colar + brinco na caixinha</p><p class="from">Dia das Mães</p></div>
+        <div class="tag" style="--r:-1deg"><div class="val"><sup>R$</sup>20<small>,00</small></div><p class="what">Kit completo para cabelos</p><p class="from">Cabelos</p></div>
+        <div class="tag" style="--r:3deg"><div class="val"><sup>R$</sup>40<small>,00</small></div><p class="what">Kit Torcedor Apaixonado, 12 itens</p><p class="from">Copa</p></div>
+      </div>
+      <p class="fine">Valores divulgados no Instagram da loja. Preços e estoque podem variar entre unidades e campanhas.</p>
+
+      <div class="sim" id="simulador">
+        <div>
+          <p class="eyebrow" style="color:var(--gold)">Simulador</p>
+          <h3 style="margin-top:12px">O que você leva com <span class="script">esse valor?</span></h3>
+          <p>Escolha quanto quer gastar e veja uma sacolinha montada com itens reais da loja.</p>
+          <div class="budget">
+            <output id="budgetOut" for="budget">R$ 20</output>
+            <div class="chips" role="group" aria-label="Valores rápidos">
+              <button class="chip" type="button" data-v="10">R$ 10</button>
+              <button class="chip" type="button" data-v="20">R$ 20</button>
+              <button class="chip" type="button" data-v="50">R$ 50</button>
+              <button class="chip" type="button" data-v="100">R$ 100</button>
+            </div>
+            <label for="budget" class="eyebrow" style="display:block;margin-top:24px;color:#a99c8a">Ajuste fino</label>
+            <input id="budget" type="range" min="5" max="150" step="5" value="20">
+          </div>
+        </div>
+        <div class="basket" aria-live="polite">
+          <p class="title">Sua sacolinha L&amp;M</p>
+          <ul id="basketList"></ul>
+          <div class="sum"><span>Total</span><b id="basketTotal">R$ 0,00</b></div>
+          <p class="left" id="basketLeft"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="categorias">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Corredores da loja</p>
+        <h2>De um brinco a um <span class="script">presente inteiro</span></h2>
+        <p>Cada unidade é um labirinto de prateleiras do chão ao teto. Estas são as seções que mais aparecem no nosso feed.</p>
+      </div>
+      <div class="cats">
+        <a class="cat wide" href="#feed">
+          <img src="img/loja-vitrine.jpg" alt="Corredor da loja com paredes de acessórios">
+          <div><span class="pill">Carro-chefe</span><h3>Bijuterias folheadas</h3><p>Colares, brincos, pulseiras e braceletes dourados e prateados, de kits para presente a peças avulsas.</p></div>
+        </a>
+        <a class="cat" href="#make">
+          <img src="img/make-payot.jpg" alt="Base Matte Payot por R$ 15,00">
+          <div><span class="pill">Make 10</span><h3>Maquiagem</h3><p>Ruby Rose, Payot, Lyrics e um setor inteiro de make.</p></div>
+        </a>
+        <a class="cat" href="#feed">
+          <img src="img/cabelos.jpg" alt="Kits para cabelos por R$ 20,00">
+          <div><h3>Cabelos</h3><p>Presilhas, piranhas, toucas de cetim e kits de tratamento.</p></div>
+        </a>
+        <a class="cat" href="#feed">
+          <img src="img/hellokitty.jpg" alt="Produtos Hello Kitty">
+          <div><h3>Fofuras</h3><p>Hello Kitty, squishys, pelúcias e brinquedos que viralizam.</p></div>
+        </a>
+        <a class="cat" href="#feed">
+          <img src="img/namorados.jpg" alt="Kit Coração Infinito para o Dia dos Namorados">
+          <div><h3>Presentes</h3><p>Kits prontos para Dia das Mães, Namorados e aniversários.</p></div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec make" id="make">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow" style="color:var(--gold)">Setor de maquiagem</p>
+        <div class="big" style="margin-top:18px"><span class="script">a linha</span><span class="gold-text">Make 10</span></div>
+        <p>Paletas, blushes, máscaras e bases de marcas que você conhece, com preços redondos para testar sem medo. Tem maquiagem por R$ 5,00, paleta por R$ 10,00 e base de cobertura alta por R$ 15,00.</p>
+        <div class="brands"><span>Ruby Rose</span><span>Payot</span><span>Lyrics</span><span>Kalyus</span><span>Porán</span><span>Salon Line</span></div>
+      </div>
+      <div class="make-pics">
+        <img src="img/rubyrose.jpg" alt="Produtos exclusivos Ruby Rose por R$ 5,00">
+        <img src="img/loja-r5.jpg" alt="Fachada da loja: itens exclusivos por R$ 5,00">
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="campanhas">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">O ano na L&amp;M</p>
+        <h2>Cada data tem a sua <span class="script">vitrine</span></h2>
+        <p>A loja troca de roupa a cada temporada. Este é o calendário que se repete no feed.</p>
+      </div>
+      <ol class="cal">
+        <li><p class="mon">Fevereiro</p><h3>Carnaval</h3><p>Saias de tule, sombrinhas de frevo, glitter e make fácil para o bloco.</p></li>
+        <li><p class="mon">Março</p><h3>Dia da Mulher</h3><p>Liquida em toda a área de maquiagem.</p></li>
+        <li><p class="mon">Maio</p><h3>Dia das Mães</h3><p>Conjuntos folheados na caixinha a partir de R$ 18,00.</p></li>
+        <li><p class="mon">Junho</p><h3>Namorados</h3><p>Kit Coração Infinito e cestinhas prontas para presentear.</p></li>
+        <li><p class="mon">Jun · Jul</p><h3>Copa</h3><p>Bandeirolas, tatuagens, kit torcedor e bolão de placar exato.</p></li>
+        <li><p class="mon">Julho</p><h3>Férias</h3><p>Diversão e acessórios para a criançada a partir de R$ 5,00.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="sec feed-sec" id="feed">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">@lem_folheados</p>
+        <h2>Novidade todo dia no <span class="script">Instagram</span></h2>
+        <p>Quase mil posts entre lançamentos, tours pela loja, looks de carnaval e promoções relâmpago.</p>
+      </div>
+      <div class="feed">
+        <a href="https://www.instagram.com/lem_folheados/" target="_blank" rel="noopener"><img src="img/tour.jpg" alt="Vem conhecer a L&amp;M Folheados"></a>
+        <a href="https://www.instagram.com/lem_folheados/" target="_blank" rel="noopener"><img src="img/maes.jpg" alt="Conjuntos para o Dia das Mães por R$ 18,00"></a>
+        <a href="https://www.instagram.com/lem_folheados/" target="_blank" rel="noopener"><img src="img/carnaval.jpg" alt="Look de carnaval com sombrinha de frevo"></a>
+        <a href="https://www.instagram.com/lem_folheados/" target="_blank" rel="noopener"><img src="img/presilhas.jpg" alt="Presilhas de flor"></a>
+        <a href="https://www.instagram.com/lem_folheados/" target="_blank" rel="noopener"><img src="img/fachada.jpg" alt="Letreiro da loja L&amp;M Folheados"></a>
+        <a href="https://www.instagram.com/lem_folheados/" target="_blank" rel="noopener"><img src="img/hellokitty.jpg" alt="Hello Kitty: aqui você encontra de tudo um pouco"></a>
+      </div>
+      <div class="feed-cta">
+        <div class="handle">
+          <img src="img/logo.png" alt="">
+          <div><b>lem_folheados</b><span>47,1 mil seguidores · 976 posts</span></div>
+        </div>
+        <a class="btn btn-rose" href="https://www.instagram.com/lem_folheados/" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
+          Seguir no Instagram
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="lojas">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Lojas físicas</p>
+        <h2>Cinco endereços, <span class="script">a mesma vitrine</span></h2>
+        <p>As promoções divulgadas valem em todas as unidades. Passe na mais perto de você.</p>
+      </div>
+      <div class="stores">
+        <div class="store"><span class="n">01</span><h3>Beberibe</h3><p>Endereço e horário a confirmar</p></div>
+        <div class="store"><span class="n">02</span><h3>Peixinhos</h3><p>Endereço e horário a confirmar</p></div>
+        <div class="store todo"><span class="n">03</span><h3>Unidade 3</h3><p>Bairro e endereço a confirmar</p></div>
+        <div class="store todo"><span class="n">04</span><h3>Unidade 4</h3><p>Bairro e endereço a confirmar</p></div>
+        <div class="store todo"><span class="n">05</span><h3>Unidade 5</h3><p>Bairro e endereço a confirmar</p></div>
+      </div>
+      <p class="note">Beberibe e Peixinhos aparecem nas campanhas da loja. Os demais endereços, horários e telefones ficam no <a href="https://linkbio.co/LemFolheados_" target="_blank" rel="noopener">linkbio.co/LemFolheados_</a>.</p>
+    </div>
+  </section>
+
+  <section class="club">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow" style="color:#ffd3e1">Canal de transmissão</p>
+        <h2 style="margin-top:12px">Novidades imperdíveis, antes de todo mundo</h2>
+        <p>Entre no canal da L&amp;M no Instagram e receba lançamentos, sorteios e promoções relâmpago direto nas suas mensagens. Já são 268 membros.</p>
+      </div>
+      <div class="actions">
+        <a class="btn btn-gold" href="https://www.instagram.com/lem_folheados/" target="_blank" rel="noopener">Entrar no canal</a>
+        <a class="btn btn-ghost" href="https://linkbio.co/LemFolheados_" target="_blank" rel="noopener">Todos os links</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#inicio"><img src="img/logo.png" alt=""><span>L&amp;M Folheados<br><small style="letter-spacing:.12em;color:#bfb3a2">Varejo · 10 anos de história</small></span></a>
+    <p>Acessórios femininos · Bolsas · Make 10 · 5 lojas físicas</p>
+    <p><a href="https://www.instagram.com/lem_folheados/" target="_blank" rel="noopener">@lem_folheados</a></p>
+  </div>
+  <div class="proposal"><div class="wrap">Proposta de site elaborada a partir do perfil público @lem_folheados. Imagens e preços retirados das publicações da loja.</div></div>
+</footer>
+
+<script>
+(function(){
+  // Itens e preços vistos nas publicações da loja; ordem pensada para variar a sacolinha.
+  var items=[
+    {n:"Presilhas de flor",p:5},
+    {n:"Blush Ruby Rose",p:5},
+    {n:"Sabonete íntimo Kalyus",p:5},
+    {n:"Acessório de torcida",p:3},
+    {n:"Bracelete folheado",p:5},
+    {n:"Paleta de sombras Lyrics",p:10},
+    {n:"Escovinha de sobrancelha",p:5},
+    {n:"Meia temática",p:7},
+    {n:"Base Matte Payot",p:15},
+    {n:"Colar + brinco na caixinha",p:18},
+    {n:"Kit completo para cabelos",p:20},
+    {n:"Squishy Fidget Fun",p:25},
+    {n:"Kit Torcedor Apaixonado",p:40}
+  ];
+  var brl=function(v){return "R$ "+v.toFixed(2).replace(".",",")};
+  var range=document.getElementById("budget"),out=document.getElementById("budgetOut"),
+      list=document.getElementById("basketList"),total=document.getElementById("basketTotal"),
+      left=document.getElementById("basketLeft"),chips=[].slice.call(document.querySelectorAll(".chip"));
+
+  function fill(budget){
+    var bag={},spent=0,added=true;
+    // Uma volta por todos os itens, depois repete os que ainda cabem
+    while(added){
+      added=false;
+      for(var i=0;i<items.length;i++){
+        var it=items[i];
+        if(spent+it.p<=budget && (bag[it.n]||0)<2){bag[it.n]=(bag[it.n]||0)+1;spent+=it.p;added=true}
+      }
+    }
+    return {bag:bag,spent:spent};
+  }
+  function render(){
+    var b=+range.value,r=fill(b);
+    out.textContent="R$ "+b;
+    list.innerHTML="";
+    items.forEach(function(it){
+      var q=r.bag[it.n];if(!q)return;
+      var li=document.createElement("li");
+      li.innerHTML="<span></span><span></span>";
+      li.firstChild.textContent=(q>1?q+"× ":"")+it.n;
+      li.lastChild.textContent=brl(it.p*q);
+      list.appendChild(li);
+    });
+    total.textContent=brl(r.spent);
+    var rest=b-r.spent;
+    left.textContent=rest>0?"Sobram "+brl(rest)+" para um docinho no caminho.":"Valor usado até o último centavo.";
+    chips.forEach(function(c){c.setAttribute("aria-pressed",String(+c.dataset.v===b))});
+  }
+  chips.forEach(function(c){c.addEventListener("click",function(){range.value=c.dataset.v;render()})});
+  range.addEventListener("input",render);
+  render();
+})();
+</script>
+</body>
+</html>
