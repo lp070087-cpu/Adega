@@ -75,7 +75,10 @@ export async function processAssistantInbox(organizationId?:string){
         const catalog=await assistantCatalog(message.organizationId);
         const decision=await interpretCatalog(message.body,history.reverse().map(h=>h.body),catalog);
         reply=catalogReply(decision,catalog,process.env.APP_PUBLIC_URL!,claimed.org.slug);
-        if(decision.question==='HUMAN')await prisma.assistantThread.updateMany({where:{id:message.threadId,organizationId:message.organizationId},data:{status:'HUMAN'}});
+        if(decision.question==='HUMAN'){
+          const moved=await prisma.assistantThread.updateMany({where:{id:message.threadId,organizationId:message.organizationId,status:{not:'HUMAN'}},data:{status:'HUMAN'}});
+          if(moved.count)await prisma.notification.create({data:{organizationId:message.organizationId,type:'SYSTEM',title:'Cliente pediu atendimento humano',message:'Uma conversa do WhatsApp aguarda resposta da equipe.',href:`/app/atendimento?conversa=${message.threadId}`}});
+        }
       }
       const outgoing=await prisma.assistantMessage.upsert({where:{externalId:`reply:${message.id}`},create:{organizationId:message.organizationId,threadId:message.threadId,externalId:`reply:${message.id}`,direction:'OUT',body:reply,status:'QUEUED'},update:{}});
       const maySend=await withOrganizationTransaction(message.organizationId,async tx=>{

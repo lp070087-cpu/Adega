@@ -61,16 +61,25 @@ class VercelBlobStorage implements StorageAdapter {
     return Boolean(token && token.length > 0);
   }
 
-  async upload(): Promise<UploadResult> {
-    if (!this.isConfigured()) {
-      throw new OperationError('Vercel Blob não configurado (BLOB_READ_WRITE_TOKEN ausente).');
+  async upload(file: Buffer, options: { filename: string; contentType: string; folder?: string }): Promise<UploadResult> {
+    if (!this.isConfigured()) throw new OperationError('Envio de imagens não configurado.');
+    validateUploadBytes(file, options.contentType);
+    const folder = (options.folder ?? 'images').replace(/[^a-z0-9/_-]/gi, '');
+    const extension = options.contentType === 'image/png' ? 'png' : options.contentType === 'image/webp' ? 'webp' : 'jpg';
+    const { put } = await import('@vercel/blob');
+    try {
+      const result = await put(`${folder}/${randomUUID()}.${extension}`, file, { access: 'public', contentType: options.contentType, addRandomSuffix: false, cacheControlMaxAge: 60 * 60 * 24 * 365 });
+      if (!/^https:\/\//.test(result.url)) throw new OperationError('O serviço não retornou uma imagem válida.');
+      return { url: result.url, provider: this.name };
+    } catch (error) {
+      if (error instanceof OperationError) throw error;
+      throw new OperationError('Não foi possível enviar a imagem. Tente novamente.');
     }
-    // TODO: implementar com @vercel/blob quando o upload real entrar.
-    throw new OperationError('Upload para Vercel Blob ainda não implementado.');
   }
 }
 
 let adapter: StorageAdapter = new ManualUrlStorage();
+const vercelBlobStorage = new VercelBlobStorage();
 
 class CloudinaryStorage implements StorageAdapter {
   readonly name = 'cloudinary';
@@ -104,7 +113,8 @@ export function validateUploadBytes(file: Buffer, contentType: string): void {
 }
 
 export function getStorage(): StorageAdapter {
-  return process.env.STORAGE_PROVIDER === 'cloudinary' ? new CloudinaryStorage() : adapter;
+  if (process.env.STORAGE_PROVIDER === 'cloudinary') return new CloudinaryStorage();
+  return vercelBlobStorage.isConfigured() ? vercelBlobStorage : adapter;
 }
 
 /** Troca o adapter (usado quando um provedor for plugado). */
@@ -146,4 +156,3 @@ export function validateImageUrl(url: string | null | undefined): string | null 
   return trimmed;
 }
 
-export const vercelBlobStorage = new VercelBlobStorage();

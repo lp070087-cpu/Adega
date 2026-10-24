@@ -87,7 +87,6 @@ export async function driverLoginAction(
     // Login feito pelo link da loja: entra direto nessa loja.
     const rawStore=formData.get('store');
     const store=typeof rawStore==='string'&&/^[a-z0-9-]{1,160}$/.test(rawStore)?rawStore:'';
-    if(store)await (await import('@/lib/data/driver-link')).preferDriverStore(store);
     await signIn('credentials', {
       login: parsed.data.login,
       password: parsed.data.password,
@@ -104,6 +103,12 @@ export async function driverLoginAction(
       }
       return { error: 'Não foi possível entrar. Tente novamente.' };
     }
+    // Sucesso (signIn redireciona lançando): só então lembra a loja do link.
+    // Gravar o cookie antes, numa senha errada, fazia a resposta renderizar a
+    // página de novo e às vezes deixava o botão preso em "Entrando...".
+    const rawStore=formData.get('store');
+    const redirected=String((error as {digest?:unknown}|null)?.digest??'').startsWith('NEXT_REDIRECT');
+    if(redirected&&typeof rawStore==='string'&&/^[a-z0-9-]{1,160}$/.test(rawStore))await (await import('@/lib/data/driver-link')).preferDriverStore(rawStore);
     throw error;
   }
 }

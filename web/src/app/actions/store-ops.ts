@@ -343,7 +343,7 @@ export async function uploadBannerImageAction(
   formData: FormData,
 ): Promise<OpsActionResult<{ url: string; provider: string }>> {
   try {
-    await requirePermission('MANAGE_SETTINGS');
+    const ctx = await requirePermission('MANAGE_SETTINGS');
 
     if (!getStorage().isConfigured()) {
       return { ok: false, error: 'Envio de arquivos indisponível. Use uma imagem do acervo ou informe uma URL.', field: 'file' };
@@ -365,7 +365,7 @@ export async function uploadBannerImageAction(
     const upload = await getStorage().upload(buffer, {
       filename: file.name || 'banner',
       contentType: file.type,
-      folder: 'banners',
+      folder: `organizations/${ctx.organizationId}/banners`,
     });
 
     if (!upload?.url) {

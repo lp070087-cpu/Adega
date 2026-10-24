@@ -23,7 +23,7 @@ export type AppShellProps = {
   role: string;
   roleLabel: string;
   permissions: Permission[];
-  counters: { novos: number; emAndamento: number; aguardandoEntregador: number };
+  counters: { novos: number; emAndamento: number; aguardandoEntregador: number; atendimento?: number };
   storeStatus: 'OPEN' | 'PAUSED' | 'CLOSED';
   openingMode?: StoreOpeningMode;
   openingTimeZone?: string;

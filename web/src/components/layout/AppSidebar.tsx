@@ -23,7 +23,7 @@ export type NavItem = {
   label: string;
   icon: string;
   permission?: Permission;
-  badgeKey?: 'novos' | 'emAndamento' | 'aguardandoEntregador';
+  badgeKey?: 'novos' | 'emAndamento' | 'aguardandoEntregador' | 'atendimento';
 };
 
 export type NavSection = { title?: string; items: NavItem[] };
@@ -34,7 +34,7 @@ export const NAV_SECTIONS: NavSection[] = [
     { href: '/app/pedidos', label: 'Pedidos', icon: 'orders', permission: 'MANAGE_ORDERS', badgeKey: 'novos' },
     { href: '/app/clientes', label: 'Clientes', icon: 'users', permission: 'VIEW_CUSTOMERS' },
     { href: '/app/catalogo', label: 'Catálogo', icon: 'catalog', permission: 'MANAGE_PRODUCTS' },
-    { href: '/app/atendimento', label: 'Atendimento', icon: 'chat', permission: 'MANAGE_SETTINGS' },
+    { href: '/app/atendimento', label: 'Atendimento', icon: 'chat', permission: 'MANAGE_SETTINGS', badgeKey: 'atendimento' },
   ] },
   { title: 'Financeiro', items: [
     { href: '/app/caixa', label: 'Caixa', icon: 'cash', permission: 'MANAGE_CASH' },
@@ -63,7 +63,7 @@ export type SidebarProps = {
   logoUrl: string | null;
   roleLabel: string;
   permissions: Permission[];
-  counters?: { novos?: number; emAndamento?: number; aguardandoEntregador?: number };
+  counters?: { novos?: number; emAndamento?: number; aguardandoEntregador?: number; atendimento?: number };
   storeStatus: 'OPEN' | 'PAUSED' | 'CLOSED';
   effectiveStoreState?: StoreOpenState;
   /** No mobile a sidebar é uma gaveta: este estado vem do AppShell. */

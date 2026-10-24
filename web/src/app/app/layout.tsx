@@ -49,7 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const commercial = await getCommercialAccess(ctx.organizationId);
   const centralAccess = await requirePlatformOperator().then(() => true).catch(() => false);
 
-  const [organization, counters, notifications] = await Promise.all([
+  const [organization, counters, notifications, atendimento] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: ctx.organizationId },
       select: {
@@ -72,6 +72,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       take: 10,
       select: { id: true, title: true, message: true, href: true, createdAt: true },
     }),
+    waitingConversations(ctx.organizationId),
   ]);
 
   // Organização apagada com sessão ainda válida.
@@ -91,6 +92,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         novos: counters.novos,
         emAndamento: counters.emAndamento,
         aguardandoEntregador: counters.aguardandoEntregador,
+        atendimento,
       }}
       openingTimeZone={storeTimeZone(organization.settings)}
       openingMode={storeOpeningMode(organization.settings, organization.storeStatus)}
@@ -111,4 +113,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <InstallApp name="Del Flash" worker="/pwa/panel-sw.js" scope="/app/" />
     </AppShell>
   );
+}
+
+/** Conversas do WhatsApp cuja última mensagem é do cliente (aguardando resposta). */
+async function waitingConversations(organizationId: string): Promise<number> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ n: number }>>`
+      SELECT count(*)::int AS n FROM (
+        SELECT DISTINCT ON (m."threadId") m."direction" FROM "AssistantMessage" m
+        JOIN "AssistantThread" t ON t."id" = m."threadId" AND t."organizationId" = m."organizationId"
+        WHERE m."organizationId" = ${organizationId} AND t."status" <> 'CLOSED'
+        ORDER BY m."threadId", m."createdAt" DESC
+      ) last WHERE last."direction" = 'IN'`;
+    return rows[0]?.n ?? 0;
+  } catch {
+    return 0;
+  }
 }
