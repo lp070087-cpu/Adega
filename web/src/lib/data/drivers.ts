@@ -4,7 +4,7 @@ import { prisma, toNumber } from '@/lib/db';
 import { hashPassword } from '@/lib/auth/password';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
 import { assertPlatformQuota } from '@/lib/platform/quotas';
-import { assertDriverOnShift, getDriverSchedules } from '@/lib/data/driver-schedules';
+import { getDriverSchedules } from '@/lib/data/driver-schedules';
 import { readDriverSchedule, driverShiftAvailability } from '@/lib/driver-schedule';
 import {isPlatformIdentity} from '@/lib/platform/identity';
 import { OperationError } from '@/lib/operation-error';
@@ -39,8 +39,6 @@ export async function getDrivers(
     orderBy: [{ status: 'asc' }, { name: 'asc' }],
     include: {
       user: { select: { id: true, email: true, username: true, active: true,mustChangePassword:true,organizations:{select:{organizationId:true,role:true}} } },
-      // Última posição conhecida: pega só a mais recente.
-      locations: { orderBy: { createdAt: 'desc' }, take: 1 },
       _count: {
         select: {
           orders: { where: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } },
@@ -93,17 +91,11 @@ export async function getDrivers(
     email: d.user?.email ?? null,
     username: d.user?.username ?? null,
     activeOrders: d._count.orders,
-    onShift: (!d.user||d.user.active&&!d.user.mustChangePassword)&&driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).allowed,
+    // Escala é informativa: indica se está escalado agora, nunca bloqueia.
+    onShift: driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).allowed,
     shiftLabel: driverShiftAvailability(readDriverSchedule(scheduleSettings, d.id)).label,
     deliveredTotal: deliveredMap.get(d.id) ?? 0,
     deliveredToday: todayMap.get(d.id) ?? 0,
-    lastLocation: d.locations[0]
-      ? {
-          latitude: d.locations[0].latitude,
-          longitude: d.locations[0].longitude,
-          createdAt: d.locations[0].createdAt,
-        }
-      : null,
   }));
 }
 
@@ -114,7 +106,6 @@ export async function getDriverById(organizationId: string, driverId: string) {
     where: { id: driverId, organizationId },
     include: {
       user: { select: { id: true, email: true, username: true, active: true } },
-      locations: { orderBy: { createdAt: 'desc' }, take: 50 },
     },
   });
   if (!driver) return null;
@@ -349,7 +340,6 @@ export async function setDriverStatus(
     const active = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
     if (active) throw new OperationError('Conclua ou remova as atribuições antes de alterar a disponibilidade.');
     if (status === 'BUSY') throw new OperationError('Em entrega é definido somente pela atribuição de pedidos.');
-    if (status === 'ONLINE') await assertDriverOnShift(tx, organizationId, driverId);
     await tx.driver.update({ where: { id: driver.id }, data: { status } });
     return { ok: true };
   });
@@ -412,30 +402,7 @@ export async function setDriverEmail(organizationId:string,driverId:string,email
  },transaction);
 }
 
-/** Registra posição enviada pelo app. Mantém histórico, não sobrescreve. */
-export async function recordDriverLocation(
-  organizationId: string,
-  driverId: string,
-  location: { latitude: number; longitude: number; accuracy?: number },
-) {
-  // Confere que o entregador é desta organização antes de gravar.
-  const driver = await prisma.driver.findFirst({
-    where: { id: driverId, organizationId },
-    select: { id: true },
-  });
-  if (!driver) throw new OperationError('Entregador não encontrado.');
-
-  return prisma.driverLocation.create({
-    data: {
-      driverId,
-      latitude: location.latitude,
-      longitude: location.longitude,
-      accuracy: location.accuracy ?? null,
-    },
-  });
-}
-
-/** Última posição de cada entregador ativo (mapa de expedição). */
+/** Entregadores ativos e suas entregas em andamento (expedição). Sem localização. */
 export async function getDriverMap(organizationId: string) {
   const settings = await getDriverSchedules(organizationId);
   const drivers = await prisma.driver.findMany({
@@ -446,7 +413,6 @@ export async function getDriverMap(organizationId: string) {
       status: true,
       vehiclePlate: true,
       user:{select:{active:true,mustChangePassword:true}},
-      locations: { orderBy: { createdAt: 'desc' }, take: 1 },
       orders: {
         where: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } },
         select: { id: true, displayId: true, status: true, deliveryAddress: true },
@@ -459,26 +425,20 @@ export async function getDriverMap(organizationId: string) {
     name: d.name,
     status: d.status,
     vehiclePlate: d.vehiclePlate,
-    position: d.locations[0]
-      ? {
-          latitude: d.locations[0].latitude,
-          longitude: d.locations[0].longitude,
-          accuracy: d.locations[0].accuracy,
-          at: d.locations[0].createdAt,
-        }
-      : null,
+    accessPending: Boolean(d.user && (!d.user.active || d.user.mustChangePassword)),
     activeOrders: d.orders,
-    onShift: (!d.user||d.user.active&&!d.user.mustChangePassword)&&driverShiftAvailability(readDriverSchedule(settings, d.id)).allowed,
+    onShift: driverShiftAvailability(readDriverSchedule(settings, d.id)).allowed,
     shiftLabel: driverShiftAvailability(readDriverSchedule(settings, d.id)).label,
   }));
 }
 
 export async function getDriverSummary(organizationId: string) {
-  const [total, active, onlineDrivers, busy, dispatchesToday, settings] = await Promise.all([
+  const ready = { active: true, OR: [{ userId: null }, { user: { active: true, mustChangePassword: false } }] };
+  const [total, active, online, busy, dispatchesToday] = await Promise.all([
     prisma.driver.count({ where: { organizationId } }),
     prisma.driver.count({ where: { organizationId, active: true } }),
-    // Derived availability: active, access ready, on shift, no delivery in progress.
-    prisma.driver.findMany({ where: { organizationId, active: true, OR: [{ userId: null }, { user: { active: true, mustChangePassword: false } }], orders: { none: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } } }, select: { id: true } }),
+    // Online = ligou no app (ou está em entrega); a escala não entra na conta.
+    prisma.driver.count({ where: { organizationId, AND: [ready, { OR: [{ status: { not: 'OFFLINE' } }, { orders: { some: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } } }] }] } }),
     prisma.driver.count({ where: { organizationId, active: true, orders: { some: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } } } }),
     prisma.order.count({
       where: {
@@ -488,8 +448,6 @@ export async function getDriverSummary(organizationId: string) {
         driverId: { not: null },
       },
     }),
-    getDriverSchedules(organizationId),
   ]);
-  const online = onlineDrivers.filter(driver => driverShiftAvailability(readDriverSchedule(settings, driver.id)).allowed).length;
   return { total, active, online, busy, dispatchesToday };
 }

@@ -1,10 +1,10 @@
 'use client';
-import { driverAvailability, DRIVER_AVAILABILITY_LABEL } from '@/lib/driver-availability';
+import { driverAvailability, isDriverOnline, DRIVER_AVAILABILITY_LABEL } from '@/lib/driver-availability';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { SessionExpiredNotice } from '@/components/ui/SessionExpiredNotice';
 import { useRouter } from 'next/navigation';
-import { formatPhone, timeAgo } from '@/lib/utils';
+import { formatPhone } from '@/lib/utils';
 import {
   createDriverAction,
   deactivateDriverAction,
@@ -63,7 +63,6 @@ export type DriverRow = {
   shiftLabel?: string;
   deliveredTotal: number;
   deliveredToday: number;
-  lastLocation: { latitude: number; longitude: number; createdAt: string } | null;
 };
 
 export type DriverSummaryView = {
@@ -82,11 +81,13 @@ export function DriversManager({
   summary,
   canManage,
   linkUrl,
+  scheduleSlot,
 }: {
   drivers: DriverRow[];
   summary: DriverSummaryView;
   canManage: boolean;
   linkUrl: string | null;
+  scheduleSlot?: React.ReactNode;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -100,7 +101,8 @@ export function DriversManager({
   const busy = useRef(false);
 
   const [search, setSearch] = useState('');
-  const [showInactive, setShowInactive] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'online' | 'offline' | 'suspended'>('all');
+  const [tab, setTab] = useState<'team' | 'schedule' | 'access'>('team');
 
   const [editing, setEditing] = useState<DriverRow | null>(null);
   const [creating, setCreating] = useState(false);
@@ -120,7 +122,9 @@ export function DriversManager({
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
     return drivers.filter((driver) => {
-      if (!showInactive && !driver.active) return false;
+      if (filter === 'suspended' ? driver.active : !driver.active) return false;
+      if (filter === 'online' && !isDriverOnline(driver)) return false;
+      if (filter === 'offline' && isDriverOnline(driver)) return false;
       if (!term) return true;
       return (
         driver.name.toLowerCase().includes(term) ||
@@ -128,7 +132,7 @@ export function DriversManager({
         (driver.vehiclePlate ?? '').toLowerCase().includes(term)
       );
     });
-  }, [drivers, search, showInactive]);
+  }, [drivers, search, filter]);
 
   function openCreate() {
     setError(null);
@@ -292,158 +296,98 @@ export function DriversManager({
 
   const formOpen = creating || editing !== null;
 
+  const counts = {
+    online: drivers.filter((d) => d.active && isDriverOnline(d)).length,
+    offline: drivers.filter((d) => d.active && !isDriverOnline(d)).length,
+    suspended: drivers.filter((d) => !d.active).length,
+  };
+
   return (
     <div className="space-y-4">
-      {canManage && <DriverLinkCard url={linkUrl} onAdd={openCreate} />}
       {sessionLost && !formOpen && !confirm && <SessionExpiredNotice message={sessionLost} back="/app/entregadores" />}
-      {notice && !formOpen && !error && !sessionLost && (
-        <Alert tone="success">{notice}</Alert>
-      )}
-      {error && !formOpen && !confirm && (
-        <Alert tone="danger" title="Não foi possível concluir">
-          {error}
-        </Alert>
-      )}
+      {notice && !formOpen && !error && !sessionLost && <Alert tone="success">{notice}</Alert>}
+      {error && !formOpen && !confirm && <Alert tone="danger" title="Não foi possível concluir">{error}</Alert>}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Summary label="Entregadores" value={String(summary.active)} hint={`${summary.total} no total`} />
-        <Summary label="Disponíveis agora" value={String(summary.online)} hint="Prontos para receber pedido" />
-        <Summary label="Em entrega" value={String(summary.busy)} hint="Com pedido na rua" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="driver-summary">
+        <Summary label="Online agora" value={String(summary.online)} tone="green" hint="Podem receber pedidos" />
+        <Summary label="Em entrega" value={String(summary.busy)} tone="yellow" hint="Com pedido na rua" />
+        <Summary label="Offline" value={String(Math.max(0, summary.active - summary.online))} hint={`${summary.active} ativos · ${summary.total} no total`} />
         <Summary label="Entregas hoje" value={String(summary.dispatchesToday)} hint="Concluídas" />
       </div>
 
-      <Card>
-        <CardHeader
-          title="Frota"
-          subtitle="Disponibilidade calculada automaticamente pela escala e pelas entregas em andamento."
-        />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid grid-cols-3 gap-1 rounded-lg bg-ink-100 p-1" role="tablist" aria-label="Seções de entregadores">
+          {([['team', 'Equipe'], ['schedule', 'Escala semanal'], ['access', 'Acesso ao app']] as const).map(([key, label]) => (
+            <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={`min-h-11 rounded-md px-3 text-[0.78rem] font-bold transition-colors ${tab === key ? 'bg-white text-brand shadow-xs' : 'text-ink-600 hover:text-ink-900'}`}>{label}</button>
+          ))}
+        </div>
+        {canManage && <Button onClick={openCreate}>+ Adicionar entregador</Button>}
+      </div>
 
+      {tab === 'access' && (
+        <div className="space-y-3">
+          {canManage && <DriverLinkCard url={linkUrl} />}
+          <Card>
+            <CardHeader title="Primeiro acesso" subtitle="Como o entregador entra no aplicativo" />
+            <ol className="list-decimal space-y-1.5 pl-5 text-[0.82rem] text-ink-600">
+              <li>Adicione o entregador com nome e e-mail: o sistema mostra uma senha temporária de 4 dígitos (uma única vez).</li>
+              <li>Envie o link dos entregadores e passe a senha temporária pessoalmente.</li>
+              <li>No primeiro acesso ele entra com e-mail e senha temporária e cria a própria senha.</li>
+              <li>Esqueceu a senha? Use “Nova senha temporária” no cartão dele, na aba Equipe.</li>
+            </ol>
+          </Card>
+        </div>
+      )}
+
+      {tab === 'schedule' && scheduleSlot}
+
+      {tab === 'team' && (
+      <Card>
         <div className="mb-4 flex flex-wrap items-center gap-2.5">
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome, telefone ou placa…"
-            className="max-w-xs"
-            aria-label="Buscar entregador"
-          />
-          <label className="flex cursor-pointer items-center gap-2 text-[0.8rem] text-ink-600">
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-              className="h-4 w-4 cursor-pointer accent-[var(--orange)]"
-            />
-            Mostrar suspensos
-          </label>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar entregadores">
+            {([['all', `Todos (${drivers.length - counts.suspended})`], ['online', `Online (${counts.online})`], ['offline', `Offline (${counts.offline})`], ['suspended', `Suspensos (${counts.suspended})`]] as const).map(([key, label]) => (
+              <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)} className={`min-h-9 rounded-full border px-3 text-[0.76rem] font-semibold ${filter === key ? 'border-brand bg-brand text-white' : 'border-ink-200 bg-white text-ink-700 hover:border-brand'}`}>{label}</button>
+            ))}
+          </div>
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por nome, telefone ou placa…" className="w-full sm:ml-auto sm:max-w-xs" aria-label="Buscar entregador" />
         </div>
 
         {visible.length === 0 ? (
           <EmptyState
             icon="🛵"
             title={drivers.length === 0 ? 'Nenhum entregador cadastrado' : 'Nada encontrado'}
-            description={
-              drivers.length === 0
-                ? 'Adicione o primeiro entregador com nome e e-mail e envie a ele o link dos entregadores.'
-                : 'Ajuste a busca ou marque “Mostrar suspensos”.'
-            }
-            action={
-              canManage && drivers.length === 0 ? (
-                <Button onClick={openCreate}>Adicionar entregador</Button>
-              ) : undefined
-            }
+            description={drivers.length === 0 ? 'Adicione o primeiro entregador com nome e e-mail e envie a ele o link dos entregadores.' : 'Ajuste a busca ou o filtro.'}
+            action={canManage && drivers.length === 0 ? <Button onClick={openCreate}>Adicionar entregador</Button> : undefined}
           />
         ) : (
-          <>
-          <ul className="grid gap-3 md:hidden" data-testid="driver-cards">
+          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="driver-cards">
             {visible.map((driver) => (
-              <li key={driver.id} className={`rounded-lg border border-ink-100 p-3 ${driver.active ? '' : 'opacity-70'}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+              <li key={driver.id} data-testid="driver-card" className={`flex min-w-0 flex-col rounded-lg border border-ink-100 p-3.5 ${driver.active ? 'bg-white' : 'bg-ink-50 opacity-75'}`}>
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-light text-[0.8rem] font-extrabold text-brand" aria-hidden>{driver.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}</span>
+                  <div className="min-w-0 flex-1">
                     <p className="break-words text-[0.9rem] font-semibold text-ink-900">{driver.name}</p>
                     <p className="text-[0.74rem] text-ink-500">{[driver.phone && formatPhone(driver.phone), VEHICLE_TYPE_LABEL[driver.vehicleType] ?? driver.vehicleType, driver.vehiclePlate].filter(Boolean).join(' · ')}</p>
                   </div>
                   <DriverAvailabilityBadge driver={driver} />
                 </div>
-                <div className="mt-2 text-[0.76rem] text-ink-600"><AccessInfo driver={driver} /></div>
-                <p className="mt-1 text-[0.72rem] text-ink-500">{driver.shiftLabel}{driver.activeOrders ? ` · ${driver.activeOrders} na rua` : ''} · {driver.deliveredToday} hoje · {driver.deliveredTotal} no total</p>
-                {canManage && <div className="mt-3"><RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id), `${driver.name} foi reativado nesta loja.`)} onIssue={() => issueCredential(driver)} pending={pending} wide /></div>}
+                <dl className="mt-3 grid grid-cols-3 gap-2 rounded-md bg-ink-50 px-2 py-2 text-center">
+                  <div><dt className="text-[0.66rem] text-ink-500">Na rua</dt><dd className="text-[0.9rem] font-extrabold text-ink-900">{driver.activeOrders}</dd></div>
+                  <div><dt className="text-[0.66rem] text-ink-500">Hoje</dt><dd className="text-[0.9rem] font-extrabold text-ink-900">{driver.deliveredToday}</dd></div>
+                  <div><dt className="text-[0.66rem] text-ink-500">Total</dt><dd className="text-[0.9rem] font-extrabold text-ink-900">{driver.deliveredTotal}</dd></div>
+                </dl>
+                <div className="mt-2.5 space-y-1 text-[0.74rem] text-ink-600">
+                  <AccessInfo driver={driver} />
+                  {driver.shiftLabel && <p className="text-ink-500">Escala: {driver.shiftLabel.toLowerCase()}</p>}
+                </div>
+                {canManage && <div className="mt-3 border-t border-ink-100 pt-3"><RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id), `${driver.name} foi reativado nesta loja.`)} onIssue={() => issueCredential(driver)} pending={pending} wide /></div>}
               </li>
             ))}
           </ul>
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[760px] border-collapse">
-              <thead>
-                <tr className="border-b border-ink-100 text-left">
-                  <Th>Entregador</Th>
-                  <Th>Veículo</Th>
-                  <Th>Status</Th>
-                  <Th className="text-right">Na rua</Th>
-                  <Th className="text-right">Hoje</Th>
-                  <Th className="text-right">Total</Th>
-                  <Th>Acesso</Th>
-                  {canManage && <Th className="text-right">Ações</Th>}
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((driver) => (
-                  <tr
-                    key={driver.id}
-                    className={`border-b border-ink-100 last:border-b-0 ${
-                      driver.active ? '' : 'opacity-60'
-                    }`}
-                  >
-                    <td className="py-2.5 pr-4">
-                      <p className="text-[0.84rem] font-semibold text-ink-800">{driver.name}</p>
-                      <p className="text-[0.7rem] text-ink-400">{formatPhone(driver.phone)}</p>
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <p className="text-[0.8rem] text-ink-600">
-                        {VEHICLE_TYPE_LABEL[driver.vehicleType] ?? driver.vehicleType}
-                      </p>
-                      {driver.vehiclePlate && (
-                        <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-ink-400">
-                          {driver.vehiclePlate}
-                        </p>
-                      )}
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <DriverAvailabilityBadge driver={driver} />
-                      {driver.lastLocation && (
-                        <p className="mt-1 text-[0.68rem] text-ink-400">
-                          GPS {timeAgo(driver.lastLocation.createdAt)}
-                        </p>
-                      )}
-                      <p className="mt-1 text-[0.7rem] text-ink-500">{driver.shiftLabel}</p>
-                    </td>
-                    <td className="py-2.5 pr-4 text-right">
-                      {driver.activeOrders > 0 ? (
-                        <Badge tone="orange">{driver.activeOrders}</Badge>
-                      ) : (
-                        <span className="text-[0.8rem] text-ink-400">—</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right text-[0.82rem] font-bold text-ink-900">
-                      {driver.deliveredToday}
-                    </td>
-                    <td className="py-2.5 pr-4 text-right text-[0.8rem] text-ink-600">
-                      {driver.deliveredTotal}
-                    </td>
-                    <td className="py-2.5 pr-4">
-                      <AccessInfo driver={driver} />
-                    </td>
-                    {canManage && (
-                      <td className="py-2.5 text-right">
-                        <RowActions driver={driver} onEdit={openEdit} onConfirm={(kind) => { setError(null); setConfirm({ driver, kind }); }} onReactivate={() => run(() => reactivateDriverAction(driver.id), `${driver.name} foi reativado nesta loja.`)} onIssue={() => issueCredential(driver)} pending={pending} />
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          </>
         )}
+        <p className="mt-3 text-[0.72rem] text-ink-400">Online e offline vêm do aplicativo do entregador. A escala é só organizacional: não impede receber pedidos.</p>
       </Card>
+      )}
 
       {/* ── Criar / editar ─────────────────────────────────────────── */}
       <Modal
@@ -569,25 +513,13 @@ export function DriversManager({
   );
 }
 
-function Summary({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Summary({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: 'green' | 'yellow' }) {
   return (
     <div className="rounded-lg border border-ink-100 bg-white px-4 py-3.5">
-      <p className="text-[0.72rem] font-medium text-ink-500">{label}</p>
+      <p className="flex items-center gap-1.5 text-[0.72rem] font-medium text-ink-500">{tone && <span className={`h-2 w-2 rounded-full ${tone === 'green' ? 'bg-success' : 'bg-warn'}`} aria-hidden />}{label}</p>
       <p className="mt-1 text-[1.2rem] font-extrabold leading-none text-ink-900">{value}</p>
       {hint && <p className="mt-1 text-[0.7rem] text-ink-400">{hint}</p>}
     </div>
-  );
-}
-
-function Th({ children, className }: { children: React.ReactNode; className?: string }) {
-  return (
-    <th
-      className={`pb-2 pr-4 text-[0.68rem] font-bold uppercase tracking-wide text-ink-500 ${
-        className ?? ''
-      }`}
-    >
-      {children}
-    </th>
   );
 }
 
@@ -615,7 +547,7 @@ function TemporaryCredentialCard({ credential, linkUrl }: { credential: Temporar
 
 function AccessInfo({ driver }: { driver: DriverRow }) {
   return (
-    <span className="block min-w-0 break-words text-[0.74rem] text-ink-500">
+    <span className="block min-w-0 break-words text-[0.74rem] text-ink-500">{driver.hasLogin && 'Acesso: '}
       {driver.hasLogin ? (driver.email ?? (driver.username ? `@${driver.username}` : 'Com acesso')) : <Badge tone="neutral">Sem acesso ao aplicativo</Badge>}
       {driver.hasLogin && driver.accessPending && <span className="mt-1 block font-semibold text-amber-700">Aguardando primeiro acesso</span>}
       {!driver.active && <span className="mt-1 block text-[0.68rem] font-semibold text-danger">Suspenso</span>}
@@ -625,7 +557,7 @@ function AccessInfo({ driver }: { driver: DriverRow }) {
 
 function RowActions({ driver, onEdit, onConfirm, onReactivate, onIssue, pending, wide }: { driver: DriverRow; onEdit: (driver: DriverRow) => void; onConfirm: (kind: 'suspend' | 'remove') => void; onReactivate: () => void; onIssue: () => void; pending: boolean; wide?: boolean }) {
   return (
-    <div className={wide ? 'grid grid-cols-2 gap-2 min-[400px]:flex min-[400px]:flex-wrap' : 'flex flex-wrap justify-end gap-1.5'}>
+    <div className={wide ? 'flex flex-wrap gap-2' : 'flex flex-wrap justify-end gap-1.5'}>
       <Button size="sm" variant="secondary" onClick={() => onEdit(driver)}>Editar</Button>
       {driver.active ? (
         <Button size="sm" variant="ghost" onClick={() => onConfirm('suspend')}>Suspender</Button>
@@ -640,6 +572,6 @@ function RowActions({ driver, onEdit, onConfirm, onReactivate, onIssue, pending,
 
 function DriverAvailabilityBadge({ driver }: { driver: DriverRow }) {
   const state = driverAvailability(driver);
-  const tone = state === 'AVAILABLE' ? 'green' : state === 'BUSY' ? 'yellow' : 'neutral';
+  const tone = state === 'AVAILABLE' ? 'green' : state === 'BUSY' ? 'yellow' : state === 'INACTIVE' ? 'red' : 'neutral';
   return <Badge tone={tone}>{DRIVER_AVAILABILITY_LABEL[state]}</Badge>;
 }

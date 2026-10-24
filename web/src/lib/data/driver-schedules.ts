@@ -3,13 +3,8 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { OperationError } from '@/lib/operation-error';
 import { withOrganizationTransaction } from './transaction';
-import { driverScheduleSchema, readDriverSchedule, driverShiftAvailability, tomorrowDriverShifts, type DriverSchedule } from '@/lib/driver-schedule';
+import { driverScheduleSchema, readDriverSchedule, tomorrowDriverShifts, type DriverSchedule } from '@/lib/driver-schedule';
 
-export async function assertDriverOnShift(tx: Prisma.TransactionClient, organizationId: string, driverId: string, now = new Date()) {
-  const organization = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
-  const state = driverShiftAvailability(readDriverSchedule(organization?.settings, driverId), now);
-  if (!state.allowed) throw new OperationError(`Entregador indisponível: ${state.label.toLowerCase()}.`);
-}
 export async function getDriverSchedules(organizationId: string) {
   const organization = await prisma.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
   return organization?.settings ?? {};

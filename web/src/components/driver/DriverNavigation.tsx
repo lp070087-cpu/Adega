@@ -29,7 +29,7 @@ function metersBetween(a: Point, b: Point) {
   return 6371000 * 2 * Math.asin(Math.sqrt(h));
 }
 
-export function DriverNavigation({ orderId, address, reference, googleUrl, wazeUrl, onClose }: { orderId: string; address: string; reference?: string | null; googleUrl: string; wazeUrl: string; onClose: () => void }) {
+export function DriverNavigation({ orderId, address, reference, googleUrl, wazeUrl, useLocation = true, onClose }: { orderId: string; address: string; reference?: string | null; googleUrl: string; wazeUrl: string; useLocation?: boolean; onClose: () => void }) {
   const box = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -42,7 +42,7 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
   const [destination, setDestination] = useState<(Point & { approximate: boolean }) | null>(null);
   const [route, setRoute] = useState<Route | null>(null);
   const [status, setStatus] = useState<{ tone: 'info' | 'warn' | 'error'; text: string } | null>({ tone: 'info', text: 'Carregando o mapa…' });
-  const [gps, setGps] = useState<'waiting' | 'ok' | 'denied' | 'unavailable'>('waiting');
+  const [gps, setGps] = useState<'off' | 'waiting' | 'ok' | 'denied' | 'unavailable'>(useLocation ? 'waiting' : 'off');
   const [follow, setFollow] = useState(true);
 
   // Fecha com Esc e trava a rolagem do fundo.
@@ -92,8 +92,9 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
 
   useEffect(() => { void load(null); }, [load]);
 
-  // Posição do entregador: só com esta tela aberta.
+  // Posição do entregador: só com a opção ligada e esta tela aberta.
   useEffect(() => {
+    if (!useLocation) { setGps('off'); return; }
     if (typeof navigator === 'undefined' || !navigator.geolocation || !window.isSecureContext) { setGps('unavailable'); return; }
     const id = navigator.geolocation.watchPosition(
       (position) => { setGps('ok'); setMe({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy }); },
@@ -101,7 +102,7 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, []);
+  }, [useLocation]);
 
   // Pede nova rota ao andar ~150 m ou a cada 60 s (nunca mais de uma vez a cada 20 s).
   useEffect(() => {
@@ -143,13 +144,23 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
     } else if (follow && framed.current) instance.panTo([me.latitude, me.longitude], { animate: true });
   }, [ready, me, destination, follow]);
 
+  // Sem posição (localização desligada): enquadra o trajeto loja → cliente.
+  useEffect(() => {
+    const L = leaflet.current, instance = map.current;
+    if (!ready || !L || !instance || me || framed.current || !route?.available) return;
+    instance.fitBounds(L.latLngBounds(route.coordinates), { padding: [48, 48], maxZoom: 17 });
+    framed.current = true;
+  }, [ready, me, route]);
+
   function center() {
     setFollow(true);
     if (me) map.current?.setView([me.latitude, me.longitude], Math.max(map.current.getZoom(), 16));
     else if (destination) map.current?.setView([destination.latitude, destination.longitude], 16);
   }
 
-  const gpsText = gps === 'denied'
+  const gpsText = gps === 'off'
+    ? 'Localização desligada: o trajeto parte da loja. Para ver sua posição, ative "Usar minha localização para navegação" em Conta.'
+    : gps === 'denied'
     ? 'Localização negada. Para ver sua posição, permita a localização para este site nas configurações do navegador.'
     : gps === 'unavailable' ? 'GPS indisponível neste aparelho ou conexão. O destino continua no mapa.'
     : gps === 'waiting' ? 'Procurando sua localização…' : null;

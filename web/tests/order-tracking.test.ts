@@ -74,15 +74,18 @@ test('stock screens never use the money counter animation', () => {
   for (const file of inventory) assert.doesNotMatch(fs.readFileSync(`src/components/${file}`, 'utf8'), /AnimatedMoney/);
 });
 
-test('driver availability is derived from schedule, access and deliveries in progress', async () => {
-  const { driverAvailability, canReceiveOrder } = await import('../src/lib/driver-availability');
-  assert.equal(driverAvailability({ active: true, activeOrders: 0, onShift: true }), 'AVAILABLE');
-  assert.equal(driverAvailability({ active: true, activeOrders: 0 }), 'AVAILABLE');
-  assert.equal(driverAvailability({ active: true, activeOrders: 1, onShift: true }), 'BUSY');
-  assert.equal(driverAvailability({ active: true, activeOrders: 0, onShift: false }), 'OFF_SHIFT');
-  assert.equal(driverAvailability({ active: false, activeOrders: 0 }), 'INACTIVE');
-  assert.equal(driverAvailability({ active: true, activeOrders: 0, accessPending: true }), 'PENDING_ACCESS');
-  assert.equal(canReceiveOrder({ active: true, activeOrders: 1 }), false);
+test('driver availability: online switch decides, schedule never blocks, several deliveries allowed', async () => {
+  const { driverAvailability, canReceiveOrder, driverOptionLabel } = await import('../src/lib/driver-availability');
+  assert.equal(driverAvailability({ active: true, activeOrders: 0, status: 'ONLINE' }), 'AVAILABLE');
+  assert.equal(driverAvailability({ active: true, activeOrders: 0, status: 'OFFLINE' }), 'OFFLINE');
+  assert.equal(driverAvailability({ active: true, activeOrders: 0 }), 'OFFLINE');
+  assert.equal(driverAvailability({ active: true, activeOrders: 2, status: 'BUSY' }), 'BUSY');
+  assert.equal(driverAvailability({ active: false, activeOrders: 0, status: 'ONLINE' }), 'INACTIVE');
+  assert.equal(driverAvailability({ active: true, activeOrders: 0, status: 'ONLINE', accessPending: true }), 'PENDING_ACCESS');
+  assert.equal(canReceiveOrder({ active: true, activeOrders: 1, status: 'BUSY' }), true);
+  assert.equal(canReceiveOrder({ active: true, activeOrders: 0, status: 'OFFLINE' }), false);
+  assert.equal(driverOptionLabel({ name: 'Carlos', active: true, activeOrders: 0, status: 'ONLINE' }), 'Carlos — Online');
+  assert.equal(driverOptionLabel({ name: 'Ana', active: true, activeOrders: 0, status: 'OFFLINE' }), 'Ana — Offline');
 });
 
 test('install platform detection picks native prompt or the right manual steps', async () => {

@@ -200,6 +200,70 @@ export async function updateOrderStatusAction(input: {
   }
 }
 
+/**
+ * Botão principal do cartão. O servidor recalcula a próxima etapa a partir
+ * do status gravado; se o pedido já mudou (outra aba, o entregador), recusa
+ * sem aplicar nada.
+ */
+export async function advanceOrderAction(input: { orderId: string; from: string }): Promise<OrderActionResult> {
+  try {
+    const { organizationId, user } = await requirePermission('MANAGE_ORDERS');
+    if (typeof input.orderId !== 'string' || !input.orderId) return { ok: false, error: 'Pedido inválido.' };
+    const { primaryOrderAction } = await import('@/lib/order-flow');
+    await withOrganizationTransaction(organizationId, async (tx) => {
+      const order = await tx.order.findFirst({ where: { id: input.orderId, organizationId }, select: { status: true, deliveryType: true, driverId: true } });
+      if (!order) throw new OperationError('Pedido não encontrado.');
+      if (order.status !== input.from) throw new OperationError('Este pedido já foi atualizado. A tela mostra a situação atual.');
+      const action = primaryOrderAction(order);
+      if (!action || action.kind === 'tracking') throw new OperationError('Este pedido não tem próxima etapa para a loja.');
+      if (action.kind === 'assign') throw new OperationError('Atribua um entregador antes de despachar.');
+      await orders.updateOrderStatus(organizationId, input.orderId, action.to, { userId: user.id, transaction: tx });
+    });
+    revalidateOrders();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, ...toActionError(error) };
+  }
+}
+
+/** Atribui o entregador direto do cartão (pedido em separação fica pronto e aguardando saída). */
+export async function assignFromCardAction(input: { orderId: string; driverId: string }): Promise<OrderActionResult> {
+  try {
+    const { organizationId, user } = await requirePermission('MANAGE_DRIVERS');
+    const parsed = assignDriverSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'Dados inválidos.' };
+    await withOrganizationTransaction(organizationId, async (tx) => {
+      const order = await tx.order.findFirst({ where: { id: parsed.data.orderId, organizationId }, select: { status: true, deliveryType: true, driverId: true } });
+      if (!order) throw new OperationError('Pedido não encontrado.');
+      if (order.deliveryType === 'PICKUP') throw new OperationError('Pedido de retirada não recebe entregador.');
+      if (order.driverId) throw new OperationError('Este pedido já tem entregador. A tela mostra a situação atual.');
+      if (order.status === 'PREPARING') await orders.updateOrderStatus(organizationId, parsed.data.orderId, 'READY', { userId: user.id, transaction: tx });
+      await orders.assignDriver(organizationId, parsed.data.orderId, parsed.data.driverId, tx);
+    });
+    revalidateOrders();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, ...toActionError(error) };
+  }
+}
+
+/** Liga/desliga a aceitação automática de pedidos da loja própria. */
+export async function setOrderAutoAcceptAction(enabled: boolean): Promise<OrderActionResult> {
+  try {
+    const { organizationId, user } = await requirePermission('MANAGE_SETTINGS');
+    await withOrganizationTransaction(organizationId, async (tx) => {
+      const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+      const settings = (org?.settings && typeof org.settings === 'object' && !Array.isArray(org.settings) ? org.settings : {}) as Record<string, unknown>;
+      await tx.organization.update({ where: { id: organizationId }, data: { settings: { ...settings, orderAutoAccept: enabled === true } as never } });
+      await tx.notification.create({ data: { organizationId, userId: user.id, type: 'SYSTEM', title: enabled ? 'Aceitação automática ativada' : 'Aceitação automática desativada', message: enabled ? 'Novos pedidos válidos da loja própria entram como Aceito.' : 'Novos pedidos entram como Novo e aguardam aceitação.' } });
+    });
+    revalidateOrders();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, ...toActionError(error) };
+  }
+}
+
 /** Atribui entregador. Confere que ele é desta organização. */
 export async function assignDriverAction(input: {
   orderId: string;
@@ -399,51 +463,27 @@ export async function setMyDriverStatusAction(
         organizationId: ctx.organizationId, userId: ctx.user.id, active: true,
       } });
       if (!driver) throw new OperationError('Entregador não encontrado.');
-      if(status==='ONLINE') await (await import('@/lib/data/driver-schedules')).assertDriverOnShift(tx,ctx.organizationId,driver.id);
       const active = await tx.order.count({ where: {
         organizationId: ctx.organizationId, driverId: driver.id,
         status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
       } });
-      if (active) throw new OperationError('Conclua suas entregas antes de alterar a disponibilidade.');
-      await tx.driver.update({ where: { id: driver.id }, data: { status } });
+      if (active && status === 'OFFLINE') throw new OperationError('Conclua suas entregas antes de ficar offline.');
+      await tx.driver.update({ where: { id: driver.id }, data: { status: active ? 'BUSY' : status } });
     });
 
     revalidatePath('/entregador');
     revalidatePath('/app/entregadores');
+    revalidatePath('/app/pedidos');
+    revalidatePath('/app/expedicao');
     return { ok: true };
   } catch (error) {
     return { ok: false, ...toActionError(error) };
   }
 }
 
-/** Posição enviada pelo app do entregador. */
-export async function sendDriverLocationAction(input: {
-  latitude: number;
-  longitude: number;
-  accuracy?: number;
-}): Promise<OrderActionResult> {
-  try {
-    if (!Number.isFinite(input.latitude) || Math.abs(input.latitude) > 90 ||
-        !Number.isFinite(input.longitude) || Math.abs(input.longitude) > 180 ||
-        (input.accuracy !== undefined && (!Number.isFinite(input.accuracy) || input.accuracy < 0))) {
-      return { ok: false, error: 'Localização inválida.' };
-    }
-    const ctx = await requireOrg();
-    const { recordDriverLocation } = await import('@/lib/data/drivers');
-    const { prisma } = await import('@/lib/db');
-
-    const driver = await prisma.driver.findFirst({
-      where: { organizationId: ctx.organizationId, userId: ctx.user.id, active: true },
-      select: { id: true },
-    });
-    if (!driver) return { ok: false, error: 'Entregador não encontrado.' };
-
-    await recordDriverLocation(ctx.organizationId, driver.id, input);
-    return { ok: true };
-  } catch (error) {
-    return { ok: false, ...toActionError(error) };
-  }
-}
+// A posição do entregador não é enviada ao servidor: ela fica só no
+// aparelho dele, para navegação (ver DriverRoutes). A loja não acompanha
+// a localização em tempo real.
 
 // ── auxiliares ─────────────────────────────────────────────────────────
 

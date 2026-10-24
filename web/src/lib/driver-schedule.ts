@@ -27,8 +27,8 @@ export const driverScheduleSchema = z.object({
 export const EMPTY_DRIVER_SCHEDULE: DriverSchedule = { enabled: false, timezone: 'America/Sao_Paulo', shifts: [] };
 export function driverDaySummary(schedule: DriverSchedule, day: number): string {
   const shifts = schedule.shifts.filter(shift => shift.day === day).sort((a, b) => a.start.localeCompare(b.start));
-  if (!shifts.length) return schedule.enabled ? 'Folga · sem escala' : 'Sem escala · atribuições sem restrição';
-  return `${schedule.enabled ? 'Trabalha' : 'Turnos cadastrados · sem restrição'} · ` + shifts.map(shift => `${shift.start}–${shift.end}${shift.end < shift.start ? ' (+1 dia)' : ''}${shift.breaks.length ? ` · ${shift.breaks.length} intervalo(s)` : ''}`).join(' / ');
+  if (!shifts.length) return schedule.enabled ? 'Folga' : 'Sem escala neste dia';
+  return `${schedule.enabled ? 'Escalado' : 'Turnos cadastrados (escala desligada)'} · ` + shifts.map(shift => `${shift.start}–${shift.end}${shift.end < shift.start ? ' (+1 dia)' : ''}${shift.breaks.length ? ` · ${shift.breaks.length} intervalo(s)` : ''}`).join(' / ');
 }
 export function readDriverSchedule(settings: unknown, driverId: string): DriverSchedule {
   const root = settings && typeof settings === 'object' ? settings as Record<string, any> : {};
@@ -44,7 +44,7 @@ export function driverLocalDate(now: Date, timezone: string) {
   return { date, weekday: new Date(`${date}T12:00:00Z`).getUTCDay(), minute: Number(part('hour')) * 60 + Number(part('minute')) };
 }
 export function driverShiftAvailability(schedule: DriverSchedule, now = new Date()): { allowed: boolean; label: string } {
-  if (!schedule.enabled) return { allowed: true, label: 'Sem restrição de escala' };
+  if (!schedule.enabled) return { allowed: true, label: 'Sem escala definida' };
   const local = driverLocalDate(now, schedule.timezone); const point = local.weekday * 1440 + local.minute;
   for (const shift of schedule.shifts) {
     const range = span(shift); const start = shift.day * 1440 + range.start; const end = shift.day * 1440 + range.end;
@@ -55,7 +55,7 @@ export function driverShiftAvailability(schedule: DriverSchedule, now = new Date
       }
     }
   }
-  return { allowed: false, label: 'Fora da escala' };
+  return { allowed: false, label: 'Fora do horário da escala' };
 }
 export function tomorrowDriverShifts(schedule: DriverSchedule, now = new Date()) {
   const local = driverLocalDate(now, schedule.timezone); const tomorrow = new Date(`${local.date}T12:00:00Z`); tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);

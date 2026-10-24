@@ -5,6 +5,7 @@ import { getOrders } from '@/lib/data/orders';
 import { getDrivers } from '@/lib/data/drivers';
 import { OrdersBoard } from '@/components/orders/OrdersBoard';
 import type { DrawerOrder } from '@/components/orders/OrderDrawer';
+import { readAutoAccept } from '@/lib/order-flow';
 
 export const metadata = { title: 'Central de Pedidos' };
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export default async function OrdersPage() {
   const ctx = await requireOrgPage('MANAGE_ORDERS');
 
-  const [orders, drivers, products] = await Promise.all([
+  const [orders, drivers, products, organization] = await Promise.all([
     getOrders(ctx.organizationId, { perPage: 100, status: undefined }),
     can(ctx.role, 'MANAGE_DRIVERS')
       ? getDrivers(ctx.organizationId, { active: true })
@@ -33,6 +34,7 @@ export default async function OrdersPage() {
         addonGroups: { select: { id: true, name: true, required: true, minSelections: true, maxSelections: true,
           addons: { where: { active: true }, select: { id: true, name: true, price: true } } } } },
     }),
+    prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } }),
   ]);
 
   // Só os campos que a tela usa — nada de mandar o objeto Prisma inteiro.
@@ -87,7 +89,7 @@ export default async function OrdersPage() {
       <div className="mb-4">
         <h2 className="text-[1.05rem] font-extrabold text-ink-900">Central de Pedidos</h2>
         <p className="text-[0.8rem] text-ink-500">
-          Acompanhe e avance cada pedido. Últimos {serialized.length} pedidos da loja.
+          Um cartão por pedido, com o botão da próxima etapa. Últimos {serialized.length} pedidos da loja.
         </p>
       </div>
 
@@ -98,16 +100,17 @@ export default async function OrdersPage() {
           variations: product.variations.map((v) => ({ ...v, priceAdjustment: toNumber(v.priceAdjustment) })),
           addonGroups: product.addonGroups.map((g) => ({ ...g, addons: g.addons.map((a) => ({ ...a, price: toNumber(a.price) })) })),
         }))}
-        drivers={drivers.map((driver) => ({
+        drivers={drivers.filter((driver) => driver.active).map((driver) => ({
           id: driver.id,
           name: driver.name,
           status: driver.status,
           activeOrders: driver.activeOrders,
-          onShift: driver.onShift,
-          shiftLabel: driver.shiftLabel,
+          accessPending: driver.accessPending,
         }))}
         canManageOrders={can(ctx.role, 'MANAGE_ORDERS')}
         canManageDrivers={can(ctx.role, 'MANAGE_DRIVERS')}
+        canManageSettings={can(ctx.role, 'MANAGE_SETTINGS')}
+        autoAccept={readAutoAccept(organization?.settings)}
       />
     </div>
   );

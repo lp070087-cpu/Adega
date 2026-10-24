@@ -4,14 +4,19 @@ import { whatsappHref } from '@/lib/whatsapp';
 import { useEffect, useState, useTransition } from 'react';
 import { formatBRL, formatDateTime, onlyDigits } from '@/lib/utils';
 import { ORDER_STATUS_LABEL } from '@/data/business-copy';
-import { operationalLabel } from '@/lib/order-presentation';
 import {
-  assignDriverAction,
+  assignFromCardAction,
   unassignDriverAction,
   reassignDriverAction,
   updateOrderStatusAction,
+  advanceOrderAction,
 } from '@/app/actions/orders';
-import { nextStatuses } from '@/lib/validations/order';
+import { primaryOrderAction } from '@/lib/order-flow';
+import { driverAvailability, driverOptionLabel, isDriverOnline, DRIVER_AVAILABILITY_LABEL } from '@/lib/driver-availability';
+
+type DrawerDriver = { name: string; status: string; activeOrders?: number; accessPending?: boolean };
+const asAvailability = (driver: DrawerDriver) => ({ name: driver.name, active: true, status: driver.status, activeOrders: driver.activeOrders ?? 0, accessPending: driver.accessPending });
+const online = (driver: DrawerDriver) => isDriverOnline(asAvailability(driver));
 import { Alert, Button, Drawer, Select, Textarea } from '@/components/ui';
 import {
   PaymentMethodBadge,
@@ -20,7 +25,7 @@ import {
   StatusBadge,
 } from '@/components/ui/StatusBadge';
 import type { OrderStatus } from '@prisma/client';
-import type { KanbanOrder } from './OrderKanban';
+import type { KanbanOrder } from './OrderCard';
 
 /**
  * Detalhe do pedido em gaveta lateral — mesma leitura de plataforma.html:
@@ -59,7 +64,7 @@ export function OrderDrawer({
   order: DrawerOrder | null;
   open: boolean;
   onClose: () => void;
-  drivers: Array<{ id: string; name: string; status: string; activeOrders?: number; onShift?: boolean; shiftLabel?: string }>;
+  drivers: Array<{ id: string; name: string; status: string; activeOrders?: number; accessPending?: boolean }>;
   canManageOrders: boolean;
   canManageDrivers: boolean;
   onChanged: () => void;
@@ -69,6 +74,7 @@ export function OrderDrawer({
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [selectedDriver, setSelectedDriver] = useState('');
+  const sortedDrivers = [...drivers].sort((a, b) => Number(online(b)) - Number(online(a)) || a.name.localeCompare(b.name));
   const [showReassign, setShowReassign] = useState(false);
   const [reassignReason, setReassignReason] = useState('');
   useEffect(() => { setSelectedDriver(''); setShowReassign(false); setReassignReason(''); setError(null); }, [order?.id]);
@@ -116,7 +122,7 @@ export function OrderDrawer({
     startTransition(async () => {
       const result = showReassign && order!.driver
         ? await reassignDriverAction({ orderId: order!.id, driverId: selectedDriver, reason: reassignReason.trim() })
-        : await assignDriverAction({ orderId: order!.id, driverId: selectedDriver });
+        : await assignFromCardAction({ orderId: order!.id, driverId: selectedDriver });
       if (!result.ok) setError(result.error);
       else {
         onChanged();
@@ -137,9 +143,15 @@ export function OrderDrawer({
     });
   }
 
-  const options = order.deliveryType === 'PICKUP' && order.status === 'READY'
-    ? ['DELIVERED' as OrderStatus]
-    : nextStatuses(order.status as OrderStatus).filter((s) => s !== 'CANCELLED' && s !== 'WAITING_DRIVER');
+  const primary = primaryOrderAction({ status: order.status, deliveryType: order.deliveryType, driverId: order.driver?.id ?? null });
+  function advancePrimary() {
+    setError(null);
+    startTransition(async () => {
+      const result = await advanceOrderAction({ orderId: order!.id, from: order!.status });
+      if (!result.ok) { setError(result.error); onChanged(); }
+      else { onChanged(); onClose(); }
+    });
+  }
   const isOpen = !['DELIVERED', 'CANCELLED'].includes(order.status);
 
   return (
@@ -154,11 +166,13 @@ export function OrderDrawer({
             <Button variant="ghost" onClick={() => setShowCancel((v) => !v)} disabled={pending}>
               Cancelar pedido
             </Button>
-            {options.map((status) => (
-              <Button key={status} onClick={() => advance(status)} loading={pending}>
-                {status==='READY'&&order.deliveryType!=='PICKUP'?'Concluir separação':operationalLabel(status,order.deliveryType)}
-              </Button>
-            ))}
+            {primary?.kind === 'advance' && (
+              <Button onClick={advancePrimary} loading={pending}>{primary.label}</Button>
+            )}
+            {order.status === 'DISPATCHED' && (
+              // Para entregador sem aplicativo: a loja confirma a entrega.
+              <Button variant="secondary" onClick={() => advance('DELIVERED')} loading={pending}>Marcar como entregue</Button>
+            )}
           </>
         ) : (
           <Button variant="secondary" onClick={onClose}>
@@ -299,7 +313,7 @@ export function OrderDrawer({
       </section>
 
       {/* ── Entregador ────────────────────────────────────────────── */}
-      {canManageDrivers && isOpen && order.deliveryType !== 'PICKUP' && ['READY', 'WAITING_DRIVER', 'DISPATCHED'].includes(order.status) && (
+      {canManageDrivers && isOpen && order.deliveryType !== 'PICKUP' && ['PREPARING', 'READY', 'WAITING_DRIVER', 'DISPATCHED'].includes(order.status) && (
         <section className="mb-5">
           <h3 className="mb-2 text-[0.7rem] font-bold uppercase tracking-wide text-ink-400">
             Entregador
@@ -309,7 +323,7 @@ export function OrderDrawer({
             <div className="flex items-center justify-between gap-3 rounded border border-ink-100 px-3.5 py-3">
               <div>
                 <p className="text-[0.84rem] font-semibold text-ink-800">{order.driver.name}</p>
-                <p className="text-[0.72rem] text-ink-500">{order.driver.status}</p>
+                <p className="text-[0.72rem] text-ink-500">{DRIVER_AVAILABILITY_LABEL[driverAvailability(asAvailability(drivers.find(d => d.id === order.driver?.id) ?? { name: order.driver.name, status: order.driver.status }))]}</p>
               </div>
               {order.status === 'WAITING_DRIVER' && <div className="flex flex-wrap gap-2"><Button size="sm" variant="ghost" onClick={() => { setShowReassign(!showReassign); setSelectedDriver(''); setReassignReason(''); }} disabled={pending}>Trocar</Button><Button size="sm" variant="ghost" onClick={unassign} disabled={pending}>Remover</Button></div>}
             </div>
@@ -321,19 +335,19 @@ export function OrderDrawer({
                 className="flex-1"
               >
                 <option value="">Selecione um entregador...</option>
-                {drivers.map((driver) => (
-                  <option key={driver.id} value={driver.id} disabled={driver.status !== 'ONLINE' || Boolean(driver.activeOrders) || driver.onShift === false}>
-                    {driver.name} — {driver.status} · {driver.activeOrders ?? 0} em andamento {driver.shiftLabel ? `· ${driver.shiftLabel}` : ''}
+                {sortedDrivers.map((driver) => (
+                  <option key={driver.id} value={driver.id} disabled={!online(driver)}>
+                    {driverOptionLabel(asAvailability(driver))}
                   </option>
                 ))}
               </Select>
-              <Button onClick={assign} loading={pending} disabled={!selectedDriver || order.status !== 'READY'}>
+              <Button onClick={assign} loading={pending} disabled={!selectedDriver || !['PREPARING', 'READY'].includes(order.status)}>
                 Atribuir
               </Button>
             </div>
           )}
           {showReassign && order.driver && order.status === 'WAITING_DRIVER' && <div className="mt-3 space-y-3">
-            <Select aria-label="Novo entregador" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}><option value="">Selecione outro entregador</option>{drivers.map(driver => <option key={driver.id} value={driver.id} disabled={driver.status !== 'ONLINE' || Boolean(driver.activeOrders) || driver.onShift === false}>{driver.name} — {driver.status} · {driver.activeOrders ?? 0} em andamento · {driver.shiftLabel ?? 'Sem restrição de escala'}</option>)}</Select>
+            <Select aria-label="Novo entregador" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}><option value="">Selecione outro entregador</option>{sortedDrivers.filter(driver => driver.id !== order.driver?.id).map(driver => <option key={driver.id} value={driver.id} disabled={!online(driver)}>{driverOptionLabel(asAvailability(driver))}</option>)}</Select>
             <label className="block text-sm text-ink-600">Motivo da troca<Textarea value={reassignReason} onChange={e => setReassignReason(e.target.value)} minLength={5} maxLength={300} placeholder="Informe o motivo com pelo menos 5 caracteres" /></label>
             <Button loading={pending} disabled={!selectedDriver || reassignReason.trim().length < 5} onClick={assign}>Confirmar troca de entregador</Button>
             <p className="text-xs text-ink-500">Permitido somente antes da retirada. Motivo e operador ficam registrados.</p>

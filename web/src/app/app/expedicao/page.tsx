@@ -2,7 +2,6 @@ import { requireOrgPage } from '@/lib/auth/guards';
 import { can } from '@/lib/permissions';
 import { getOrderBoard } from '@/lib/data/orders';
 import { getDriverMap } from '@/lib/data/drivers';
-import { getOrganizationById } from '@/lib/data/organization';
 import { DispatchBoard } from '@/components/dispatch/DispatchBoard';
 import type { DispatchOrder, DispatchDriver } from '@/components/dispatch/DispatchBoard';
 
@@ -24,10 +23,9 @@ export const dynamic = 'force-dynamic';
 export default async function DispatchPage() {
   const ctx = await requireOrgPage('MANAGE_DRIVERS');
 
-  const [board, driversRaw, organization] = await Promise.all([
+  const [board, driversRaw] = await Promise.all([
     getOrderBoard(ctx.organizationId, 48),
     getDriverMap(ctx.organizationId),
-    getOrganizationById(ctx.organizationId),
   ]);
 
   // Esperando entregador: pronto sem entregador, mais o que aguarda
@@ -60,36 +58,24 @@ export default async function DispatchPage() {
     name: driver.name,
     status: driver.status,
     vehiclePlate: driver.vehiclePlate,
-    position: driver.position
-      ? {
-          latitude: driver.position.latitude,
-          longitude: driver.position.longitude,
-          at: driver.position.at.toISOString(),
-        }
-      : null,
+    accessPending: driver.accessPending,
     activeOrders: driver.activeOrders.length,
     onShift: driver.onShift,
     shiftLabel: driver.shiftLabel,
   }));
 
-  const storePosition =
-    organization?.latitude != null && organization?.longitude != null
-      ? { latitude: organization.latitude, longitude: organization.longitude }
-      : null;
-
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-[1.05rem] font-extrabold text-ink-900">Mapa / Expedição</h2>
+        <h2 className="text-[1.05rem] font-extrabold text-ink-900">Expedição</h2>
         <p className="text-[0.8rem] text-ink-500">
-          O que precisa sair, quem está na rua e onde cada um está.
+          O que precisa sair, quem está na rua e quem está online.
         </p>
       </div>
 
       <DispatchBoard
         orders={orders}
         drivers={drivers}
-        storePosition={storePosition}
         canDispatch={can(ctx.role, 'MANAGE_DRIVERS')}
       />
     </div>

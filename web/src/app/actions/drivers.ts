@@ -208,10 +208,82 @@ export async function driverNavigationAction(input: { orderId: string; from?: { 
       const found = await geocodeAddress(address);
       if (found.ok) destination = { latitude: found.latitude, longitude: found.longitude, approximate: true };
     }
-    const from = input.from && Number.isFinite(input.from.latitude) && Number.isFinite(input.from.longitude) && Math.abs(input.from.latitude) <= 90 && Math.abs(input.from.longitude) <= 180 ? input.from : null;
+    // Sem a posição do entregador (localização desligada), a rota parte da loja.
+    const store = await prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { latitude: true, longitude: true } });
+    const from = validPoint(input.from) ? input.from! : store?.latitude != null && store.longitude != null ? { latitude: store.latitude, longitude: store.longitude } : null;
     const { streetRoute, routingConfigured } = await import('@/lib/maps/routing');
     const route = destination && from ? await streetRoute(from, destination) : { available: false as const, reason: routingConfigured() ? ('unavailable' as const) : ('not_configured' as const) };
     return { ok: true as const, destination, route };
+  } catch (error) {
+    return { ok: false as const, ...toActionError(error) };
+  }
+}
+
+const validPoint = (p: { latitude: number; longitude: number } | null | undefined): p is { latitude: number; longitude: number } =>
+  Boolean(p && Number.isFinite(p.latitude) && Number.isFinite(p.longitude) && Math.abs(p.latitude) <= 90 && Math.abs(p.longitude) <= 180);
+
+export type RoutePlanStop = { orderId: string; displayId: number; latitude: number | null; longitude: number | null; approximate: boolean };
+
+/**
+ * Plano de rota do entregador: paradas (entregas atribuídas a ele), a
+ * sequência pedida ou sugerida e o trajeto pelas ruas. A posição do
+ * entregador só vem quando ele ativou "Usar minha localização" e não é
+ * gravada; sem ela, o trajeto parte da loja.
+ */
+export async function driverRoutePlanAction(input: { sequence: string[]; from?: { latitude: number; longitude: number } | null; optimize?: boolean; focus?: string | null }) {
+  try {
+    const ctx = await requireDriver();
+    const { prisma } = await import('@/lib/db');
+    const [orders, store] = await Promise.all([
+      prisma.order.findMany({
+        where: { organizationId: ctx.organizationId, driverId: ctx.driver.id, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } },
+        select: { id: true, displayId: true, createdAt: true, deliveryLatitude: true, deliveryLongitude: true, deliveryAddress: true, deliveryNumber: true, deliveryDistrict: true, deliveryCity: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { latitude: true, longitude: true, state: true } }),
+    ]);
+    const wanted = Array.isArray(input.sequence) ? input.sequence.filter((id): id is string => typeof id === 'string').slice(0, 50) : [];
+    const byId = new Map(orders.map(o => [o.id, o]));
+    const sequence = [...wanted.filter(id => byId.has(id)), ...orders.map(o => o.id).filter(id => !wanted.includes(id))];
+    const { geocodeAddress } = await import('@/lib/maps/geocoding');
+    const stops: RoutePlanStop[] = [];
+    for (const id of sequence) {
+      const o = byId.get(id)!;
+      if (o.deliveryLatitude != null && o.deliveryLongitude != null) { stops.push({ orderId: o.id, displayId: o.displayId, latitude: o.deliveryLatitude, longitude: o.deliveryLongitude, approximate: false }); continue; }
+      const address = [o.deliveryAddress && `${o.deliveryAddress}${o.deliveryNumber ? `, ${o.deliveryNumber}` : ''}`, o.deliveryDistrict, o.deliveryCity, store?.state, 'Brasil'].filter(Boolean).join(', ');
+      const found = o.deliveryAddress ? await geocodeAddress(address) : null;
+      stops.push({ orderId: o.id, displayId: o.displayId, latitude: found?.ok ? found.latitude : null, longitude: found?.ok ? found.longitude : null, approximate: Boolean(found?.ok) });
+    }
+    const startKind = validPoint(input.from) ? 'me' as const : store?.latitude != null && store.longitude != null ? 'store' as const : null;
+    const start = startKind === 'me' ? input.from! : startKind === 'store' ? { latitude: store!.latitude!, longitude: store!.longitude! } : null;
+    const { routingConfigured, streetRouteThrough, durationMatrix } = await import('@/lib/maps/routing');
+    const located = stops.filter(s => s.latitude != null && s.longitude != null);
+    let optimized = false;
+    let ordered = stops;
+    if (input.optimize && start && located.length > 1) {
+      const matrix = await durationMatrix([start, ...located.map(s => ({ latitude: s.latitude!, longitude: s.longitude! }))]);
+      if (matrix) {
+        const { bestStopOrder } = await import('@/lib/maps/route-order');
+        const best = bestStopOrder(matrix).map(i => located[i - 1]);
+        ordered = [...best, ...stops.filter(s => s.latitude == null)];
+        optimized = true;
+      }
+    }
+    const focus = input.focus ? ordered.find(s => s.orderId === input.focus && s.latitude != null) : undefined;
+    const path = focus ? [focus] : ordered.filter(s => s.latitude != null);
+    const route = start && path.length
+      ? await streetRouteThrough([start, ...path.map(s => ({ latitude: s.latitude!, longitude: s.longitude! }))])
+      : { available: false as const, reason: routingConfigured() ? ('unavailable' as const) : ('not_configured' as const) };
+    return {
+      ok: true as const,
+      stops: ordered,
+      sequence: ordered.map(s => s.orderId),
+      optimized,
+      routing: routingConfigured(),
+      startKind,
+      store: store?.latitude != null && store.longitude != null ? { latitude: store.latitude, longitude: store.longitude } : null,
+      route,
+    };
   } catch (error) {
     return { ok: false as const, ...toActionError(error) };
   }

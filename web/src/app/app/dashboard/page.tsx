@@ -8,7 +8,7 @@ import { formatBRL, formatTime } from '@/lib/utils';
 import { ORDER_SOURCE_LABEL } from '@/data/business-copy';
 import { Alert, Badge, Card, CardHeader, EmptyState, StatCard, AnimatedMoney } from '@/components/ui';
 import { BreakdownBars, DonutChart, HourBars, LineChart } from '@/components/charts/SimpleCharts';
-import { OperationalRefresh } from '@/components/layout/OperationalRefresh';
+import { LiveRefresh } from '@/components/layout/LiveRefresh';
 
 export const metadata = { title: 'Visão Geral' };
 export const dynamic = 'force-dynamic';
@@ -48,7 +48,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-5">
-      <OperationalRefresh />
+      <LiveRefresh url="/api/app/pedidos/versao" />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-[1.15rem] font-extrabold text-ink-900">

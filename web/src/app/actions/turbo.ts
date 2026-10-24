@@ -16,7 +16,7 @@ async function assertCapacity(organizationId: string) {
   const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { storeStatus: true, settings: true } });
   const settings = org?.settings && typeof org.settings === 'object' && !Array.isArray(org.settings) ? org.settings as Record<string, unknown> : {};
   if (!org || storeOpenState(org.storeStatus, normalizeSchedule(settings.openingHours), undefined, storeOpeningMode(settings, org.storeStatus), storeTimeZone(settings)) !== 'OPEN') throw new OperationError('A loja precisa estar aberta para ativar ou publicar Entrega Turbo.');
-  if (!(await getDriverMap(organizationId)).some(d => d.onShift && d.activeOrders.length === 0)) throw new OperationError('Não há entregador livre e em horário de trabalho. Revise a capacidade antes de oferecer Entrega Turbo.');
+  if (!(await getDriverMap(organizationId)).some(d => !d.accessPending && d.activeOrders.length === 0 && d.status !== 'OFFLINE')) throw new OperationError('Não há entregador online e livre. Revise a capacidade antes de oferecer Entrega Turbo.');
 }
 export async function saveTurboAction(_state: TurboActionState, form: FormData): Promise<TurboActionState> {
   try {

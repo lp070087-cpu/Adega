@@ -18,8 +18,8 @@ test('driver with ongoing orders cannot be manually made available or deactivate
   }
 });
 test('pending individual account cannot become available before activation',async()=>{const h=harness(0,true,true);await assert.rejects(h.api.setDriverStatus('org','driver','ONLINE'),/Ative/);assert.equal(h.writes(),0);await h.api.setDriverStatus('org','driver','OFFLINE');assert.equal(h.writes(),1);});
-test('busy is derived from assignment; becoming available requires on-shift; going offline remains allowed', async () => {
+test('busy is derived from assignment; the schedule never blocks going online', async () => {
   const busy = harness(); await assert.rejects(busy.api.setDriverStatus('org', 'driver', 'BUSY'), /atribuição/); assert.equal(busy.writes(), 0);
-  const off = harness(0, false); await assert.rejects(off.api.setDriverStatus('org', 'driver', 'ONLINE'), /Fora da escala/); assert.equal(off.writes(), 0);
-  await off.api.setDriverStatus('org', 'driver', 'OFFLINE'); assert.equal(off.writes(), 1); assert.equal(off.checks(), 1);
+  const off = harness(0, false); await off.api.setDriverStatus('org', 'driver', 'ONLINE'); assert.equal(off.writes(), 1); assert.equal(off.checks(), 0);
+  await off.api.setDriverStatus('org', 'driver', 'OFFLINE'); assert.equal(off.writes(), 2);
 });

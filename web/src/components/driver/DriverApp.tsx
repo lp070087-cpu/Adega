@@ -8,7 +8,7 @@ import { cn, formatBRL, formatPhone } from '@/lib/utils';
 import { DELIVERY_STATUS_LABEL } from '@/data/business-copy';
 import {
   driverStepAction,
-  sendDriverLocationAction,
+  setMyDriverStatusAction,
 } from '@/app/actions/orders';
 import { driverLogoutAction as logoutAction } from '@/app/actions/auth';
 import { reportFailedDeliveryAction } from '@/app/actions/drivers';
@@ -16,6 +16,9 @@ import { Alert, Badge, Button, Card, EmptyState, Input } from '@/components/ui';
 import { DriverInstallCard } from '@/components/driver/DriverInstall';
 import { DriverScheduleNotice } from '@/components/driver/DriverScheduleNotice';
 import { DriverNavigation } from '@/components/driver/DriverNavigation';
+import { DriverRoutes } from '@/components/driver/DriverRoutes';
+import { useLiveRefresh } from '@/components/layout/LiveRefresh';
+import { requestDriverLocation, useDriverLocationPref } from '@/lib/driver-location-pref';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -91,7 +94,7 @@ export type DriverIdentity = {
   vehicleType: string;
   vehiclePlate: string | null;
   status: string;
-  /** Derived on the server from the work schedule (no manual availability switch). */
+  /** Escala do dia (informativa: não bloqueia receber entregas). */
   onShift?: boolean;
   shiftLabel?: string;
 };
@@ -119,28 +122,8 @@ const PAYMENT_LABEL: Record<string, string> = {
   OTHER: 'Outro',
 };
 
-/**
- * Link de navegação externa.
- *
- * Quem navega é o aplicativo de mapa do telefone (Google Maps ou Waze),
- * sempre a partir da posição atual do aparelho — não da loja, porque o
- * entregador pode já estar na rua. O destino vai por coordenada quando o
- * pedido tem uma (nunca inventada); sem ela, pelo endereço em texto.
- */
-export function navigationUrl(destination: {
-  latitude: number | null;
-  longitude: number | null;
-  address: string;
-}): { google: string; waze: string } {
-  const exact = destination.latitude != null && destination.longitude != null;
-  const google = `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${
-    exact ? `${destination.latitude},${destination.longitude}` : encodeURIComponent(destination.address)
-  }`;
-  const waze = exact
-    ? `https://waze.com/ul?ll=${destination.latitude}%2C${destination.longitude}&navigate=yes`
-    : `https://waze.com/ul?q=${encodeURIComponent(destination.address || 'Destino')}&navigate=yes`;
-  return { google, waze };
-}
+export { navigationUrl } from '@/lib/driver-nav-url';
+import { navigationUrl } from '@/lib/driver-nav-url';
 
 /**
  * Próximo passo a partir do estado da entrega.
@@ -210,8 +193,9 @@ export function DriverApp({
   orders: DriverOrder[];
 }) {
   const router = useRouter();
+  useLiveRefresh('/api/entregador/versao', 8000);
   const [pending, startTransition] = useTransition();
-  const [tab, setTab] = useState<'entregas' | 'historico' | 'perfil'>('entregas');
+  const [tab, setTab] = useState<'entregas' | 'rotas' | 'historico' | 'perfil'>('entregas');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -228,10 +212,11 @@ export function DriverApp({
   // nada. Polling controlado (e interrompido ao sair da tela), não
   // long-polling nem websocket — é a estrutura simples e honesta.
   useEffect(() => {
+    // Novas atribuições chegam pela versão leve (useLiveRefresh); aqui só
+    // o relógio e o estado da conexão.
     const refresh = () => {
       setOnline(navigator.onLine);
       setNow(Date.now());
-      if (!document.hidden && navigator.onLine && tab !== 'perfil' && !pending) router.refresh();
     };
     setOnline(navigator.onLine);
     const timer = window.setInterval(refresh, 30000);
@@ -244,7 +229,7 @@ export function DriverApp({
       window.removeEventListener('offline', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [router, tab, pending]);
+  }, []);
 
   const active = useMemo(
     () => orders.filter((o) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED'),
@@ -280,9 +265,10 @@ export function DriverApp({
     });
   }
 
-  // Derived state: deliveries in progress and the work schedule decide it.
-  const availability = active.length > 0 ? 'Em entrega' : driver.onShift === false ? 'Fora da escala' : 'Disponível para entregas';
-  const isOnline = active.length > 0 || driver.onShift !== false;
+  // Online/offline é escolha do entregador; a escala é só informativa.
+  const isOnline = active.length > 0 || driver.status !== 'OFFLINE';
+  const availability = active.length > 0 ? 'Em entrega' : isOnline ? 'Online · recebendo entregas' : 'Offline';
+  const setPresence = (status: 'ONLINE' | 'OFFLINE') => run(() => setMyDriverStatusAction(status), () => setNotice(status === 'ONLINE' ? 'Você está online e pode receber entregas.' : 'Você está offline. A loja não vai atribuir novas entregas.'));
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[560px] flex-col bg-ink-50">
@@ -338,6 +324,7 @@ export function DriverApp({
           {(
             [
               ['entregas', 'Entregas', active.length],
+              ['rotas', 'Minhas rotas', 0],
               ['historico', 'Histórico', 0],
               ['perfil', 'Conta', 0],
             ] as const
@@ -347,7 +334,7 @@ export function DriverApp({
               type="button"
               onClick={() => setTab(key)}
               className={cn(
-                'flex flex-1 items-center justify-center gap-1.5 border-b-2 py-3 text-[0.8rem] font-bold transition-all',
+                'flex min-h-11 flex-1 items-center justify-center gap-1 border-b-2 px-1 py-2.5 text-center text-[0.74rem] font-bold leading-tight transition-all sm:text-[0.8rem]',
                 tab === key
                   ? 'border-brand text-brand'
                   : 'border-transparent text-ink-500 hover:text-ink-700',
@@ -377,18 +364,13 @@ export function DriverApp({
         {/* ── ENTREGAS ─────────────────────────────────────────────── */}
         {tab === 'entregas' && (
           <>
-            {driver.onShift === false && active.length === 0 && (
-              <Alert tone="neutral" title="Fora da sua escala">
-                Novas entregas são atribuídas dentro do seu horário de trabalho{driver.shiftLabel ? ` (${driver.shiftLabel})` : ''}.
-              </Alert>
-            )}
-
+            <PresenceCard online={isOnline} busy={active.length > 0} disabled={pending} onChange={setPresence} />
             {active.length === 0 ? (
               <Card>
                 <EmptyState
                   icon="🛵"
                   title="Nenhuma entrega atribuída"
-                  description="Quando a loja designar um pedido para você, ele aparece aqui. Atualizamos a cada 30 segundos enquanto esta tela está aberta e conectada."
+                  description="Quando a loja atribuir um pedido para você, ele aparece aqui sozinho em poucos segundos, com esta tela aberta e conectada."
                   action={
                     <Button variant="secondary" size="sm" onClick={() => router.refresh()}>
                       ↻ Atualizar
@@ -420,9 +402,16 @@ export function DriverApp({
                 />
               ))
             )}
-
-            <LocationCard disabled={pending} onSend={(coords) => run(() => sendDriverLocationAction(coords))} />
           </>
+        )}
+
+        {/* ── MINHAS ROTAS ─────────────────────────────────────────── */}
+        {tab === 'rotas' && (
+          <DriverRoutes
+            orders={active.map((o) => ({ ...o, stepLabel: o.delivery ? DELIVERY_STATUS_LABEL[o.delivery.status] ?? 'Atribuída' : 'Atribuída' }))}
+            onOpenOrder={(id) => setOpenId(id)}
+            onOpenSettings={() => setTab('perfil')}
+          />
         )}
 
         {/* ── HISTÓRICO ────────────────────────────────────────────── */}
@@ -487,15 +476,13 @@ export function DriverApp({
               </div>
             </Card>
 
-            <Card>
-              <p className="text-[0.86rem] font-bold text-ink-900">Situação</p>
-              <p className="mt-1 text-[0.8rem] text-ink-600">{availability}. Calculada automaticamente pela sua escala e pelas entregas em andamento — não é preciso marcar disponibilidade.</p>
-            </Card>
+            <PresenceCard online={isOnline} busy={active.length > 0} disabled={pending} onChange={setPresence} />
+            <LocationSettingsCard />
 
             <DriverInstallCard />
             <Alert tone="neutral" title="Sobre este app">
-              A posição é compartilhada apenas quando você solicita o envio ou inicia a rota.
-              Mantenha a conexão para registrar alterações. Use o aplicativo de mapas para navegar.
+              A loja vê se você está online e o andamento das entregas, nunca a sua localização.
+              Mantenha a conexão para registrar alterações.
             </Alert>
 
             <button
@@ -566,7 +553,7 @@ function OrderCard({
   const late = minutes >= 30 && !isDelivery;
 
   return (
-    <Card className={cn('p-4', late && 'border-warn/40')}>
+    <Card className={cn('p-4', late && 'border-warn/40')} data-testid="driver-order">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[0.95rem] font-extrabold text-ink-900">#{order.displayId}</p>
@@ -662,6 +649,7 @@ function OrderSheet({
   const [receiver, setReceiver] = useState('');
   const [failureReason, setFailureReason] = useState('');
   const [navigating, setNavigating] = useState(false);
+  const [useLocation] = useDriverLocationPref();
   const phone = order.customerPhone.replace(/\D/g, '');
   const jaEntregue = order.status === 'DELIVERED';
 
@@ -759,6 +747,7 @@ function OrderSheet({
             reference={order.notes}
             googleUrl={route.google}
             wazeUrl={route.waze}
+            useLocation={useLocation}
             onClose={() => setNavigating(false)}
           />
         )}
@@ -869,77 +858,53 @@ function OrderSheet({
   );
 }
 
-// ── LOCALIZAÇÃO ──────────────────────────────────────────────────────────
+// ── DISPONIBILIDADE E LOCALIZAÇÃO ───────────────────────────────────────
 
-function LocationCard({
-  disabled,
-  onSend,
-}: {
-  disabled: boolean;
-  onSend: (coords: { latitude: number; longitude: number; accuracy?: number }) => void;
-}) {
-  const [state, setState] = useState<string | null>(null);
-  const [coords, setCoords] = useState<{ latitude: number; longitude: number; accuracy?: number } | null>(
-    null,
-  );
-
-  function locate() {
-    setState('Buscando sinal…');
-    setCoords(null);
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setState('Este dispositivo não expõe geolocalização.');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const next = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-        };
-        setCoords(next);
-        setState(
-          `📍 ${next.latitude.toFixed(5)}, ${next.longitude.toFixed(5)}` +
-            (next.accuracy ? ` (±${Math.round(next.accuracy)} m)` : ''),
-        );
-      },
-      (err) => {
-        setState(
-          err.code === err.PERMISSION_DENIED
-            ? 'Permissão de localização negada.'
-            : 'Não foi possível obter a posição.',
-        );
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
-  }
-
+function PresenceCard({ online, busy, disabled, onChange }: { online: boolean; busy: boolean; disabled: boolean; onChange: (status: 'ONLINE' | 'OFFLINE') => void }) {
   return (
-    <Card className="p-4">
-      <p className="text-[0.86rem] font-bold text-ink-900">Minha localização</p>
-      <p className="mt-1 text-[0.74rem] leading-relaxed text-ink-500">
-        Envia a sua posição atual para a loja. É um envio pontual — o navegador não manda GPS
-        com a tela fechada, então não há rastreamento contínuo.
-      </p>
-
-      {state && <p className="mt-2.5 text-[0.78rem] font-semibold text-ink-700">{state}</p>}
-
-      <div className="mt-3 flex gap-2">
-        <Button variant="secondary" size="sm" onClick={locate} disabled={disabled} className="flex-1">
-          Onde estou
-        </Button>
-        <Button
-          size="sm"
-          className="flex-1"
-          disabled={disabled || !coords}
-          onClick={() => {
-            if (!coords) return;
-            onSend(coords);
-          }}
-        >
-          Enviar para a loja
-        </Button>
+    <Card className="p-4" data-testid="driver-presence">
+      <div className="flex items-center gap-3">
+        <span className={cn('h-3 w-3 shrink-0 rounded-full', online ? 'bg-success' : 'bg-ink-300')} aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="text-[0.9rem] font-bold text-ink-900">{busy ? 'Em entrega' : online ? 'Você está online' : 'Você está offline'}</p>
+          <p className="text-[0.74rem] text-ink-500">{online ? 'A loja pode atribuir entregas a você, dentro ou fora da escala.' : 'Fique online para receber entregas da loja.'}</p>
+        </div>
+        {!busy && (
+          <Button size="sm" variant={online ? 'secondary' : 'primary'} disabled={disabled} onClick={() => onChange(online ? 'OFFLINE' : 'ONLINE')}>
+            {online ? 'Ficar offline' : 'Ficar online'}
+          </Button>
+        )}
       </div>
+    </Card>
+  );
+}
+
+function LocationSettingsCard() {
+  const [enabled, setEnabled] = useDriverLocationPref();
+  const [state, setState] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  async function toggle() {
+    if (enabled) { setEnabled(false); setState('Localização desligada. As rotas passam a partir da loja.'); return; }
+    setChecking(true); setState(null);
+    const result = await requestDriverLocation();
+    setChecking(false);
+    if (result.ok) { setEnabled(true); setState('Localização ativada para navegação.'); }
+    else setState(result.reason === 'denied' ? 'Permissão negada. Para usar, permita a localização para este site nas configurações do navegador ou do celular.' : 'Este aparelho ou navegador não forneceu a localização agora.');
+  }
+  return (
+    <Card className="p-4" data-testid="driver-location-settings">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[0.86rem] font-bold text-ink-900">Usar minha localização para navegação</p>
+          <p className="mt-1 text-[0.74rem] leading-relaxed text-ink-500">
+            Mostra sua posição no mapa e calcula as rotas a partir de onde você está. A posição fica neste aparelho e é usada só para navegação: a loja não vê sua localização e ela não é gravada. Atualiza com o aplicativo aberto na tela.
+          </p>
+        </div>
+        <button type="button" role="switch" aria-checked={enabled} aria-label="Usar minha localização para navegação" disabled={checking} onClick={toggle} className={cn('relative mt-0.5 inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors disabled:opacity-60', enabled ? 'bg-brand' : 'bg-ink-300')}>
+          <span className={cn('inline-block h-6 w-6 rounded-full bg-white shadow transition-transform', enabled ? 'translate-x-7' : 'translate-x-1')} />
+        </button>
+      </div>
+      {(state || checking) && <p className="mt-2.5 text-[0.76rem] font-semibold text-ink-700" role="status">{checking ? 'Pedindo permissão de localização…' : state}</p>}
     </Card>
   );
 }

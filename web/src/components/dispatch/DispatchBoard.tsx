@@ -1,5 +1,5 @@
 'use client';
-import { canReceiveOrder, driverAvailability, DRIVER_AVAILABILITY_LABEL } from '@/lib/driver-availability';
+import { canReceiveOrder, driverAvailability, driverOptionLabel, DRIVER_AVAILABILITY_LABEL } from '@/lib/driver-availability';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -61,7 +61,7 @@ export type DispatchDriver = {
   name: string;
   status: string;
   vehiclePlate: string | null;
-  position: { latitude: number; longitude: number; at: string } | null;
+  accessPending?: boolean;
   activeOrders: number;
   onShift?: boolean;
   shiftLabel?: string;
@@ -72,13 +72,10 @@ const URGENT_MINUTES = 20;
 export function DispatchBoard({
   orders,
   drivers,
-  storePosition,
   canDispatch,
 }: {
   orders: DispatchOrder[];
   drivers: DispatchDriver[];
-  /** Coordenadas da loja, quando cadastradas — o centro do radar. */
-  storePosition: { latitude: number; longitude: number } | null;
   canDispatch: boolean;
 }) {
   const router = useRouter();
@@ -110,7 +107,7 @@ export function DispatchBoard({
     [orders],
   );
 
-  const freeDrivers = drivers.filter((d) => canReceiveOrder({ active: true, activeOrders: d.activeOrders, onShift: d.onShift }));
+  const freeDrivers = drivers.filter((d) => canReceiveOrder({ active: true, activeOrders: d.activeOrders, status: d.status, accessPending: d.accessPending }));
   const busyDrivers = drivers.filter((d) => d.activeOrders > 0);
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>, onSuccess?: () => void) {
@@ -159,7 +156,7 @@ export function DispatchBoard({
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.25fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.25fr_1fr] [&>*]:min-w-0">
         {/* ── Fila de despacho ─────────────────────────────────────── */}
         <Card>
           <CardHeader
@@ -237,28 +234,22 @@ export function DispatchBoard({
           )}
         </Card>
 
-        {/* ── Radar ────────────────────────────────────────────────── */}
+        {/* ── Frota ─────────────────────────────────────────────── */}
         <div className="space-y-4">
           <Card>
             <CardHeader
-              title="Radar da frota"
-              subtitle="Posições enviadas pelo app do entregador"
+              title="Entregadores"
+              subtitle="Online e offline conforme o aplicativo do entregador"
             />
-
-            <Alert tone="neutral">
-              Posições compartilhadas pelos entregadores. Confira o horário da última atualização;
-              o deslocamento não é acompanhado automaticamente.
-            </Alert>
-
-            <div className="mt-4">
+            <div className="mt-2">
               {drivers.length === 0 ? (
                 <EmptyState
                   icon="🛵"
                   title="Nenhum entregador ativo"
-                  description="Cadastre a frota para acompanhar as posições."
+                  description="Cadastre a frota na aba Entregadores."
                 />
               ) : (
-                <Radar drivers={drivers} storePosition={storePosition} now={now} />
+                <DriverList drivers={drivers} />
               )}
             </div>
           </Card>
@@ -321,108 +312,7 @@ export function DispatchBoard({
  * com escala em km. Não é Mercator — para distâncias de entrega urbana a
  * diferença é irrelevante, e a conta fica verificável.
  */
-function Radar({
-  drivers,
-  storePosition,
-  now,
-}: {
-  drivers: DispatchDriver[];
-  storePosition: { latitude: number; longitude: number } | null;
-  now: number;
-}) {
-  const withPosition = drivers.filter((d) => d.position);
-  const center = storePosition ?? (withPosition[0]?.position
-    ? { latitude: withPosition[0].position.latitude, longitude: withPosition[0].position.longitude }
-    : null);
-
-  if (!center) {
-    return (
-      <div className="space-y-3">
-        <Alert tone="warn" title="Sem coordenadas para desenhar o radar">
-          Nem a loja nem os entregadores têm posição registrada. O radar aparece quando o primeiro
-          entregador enviar a posição pelo app — ou quando as coordenadas da loja forem cadastradas
-          em Minha Loja.
-        </Alert>
-        <DriverList drivers={drivers} now={now} />
-      </div>
-    );
-  }
-
-  // Raio em graus ≈ 2 km, o suficiente para leitura urbana.
-  const span = 0.02;
-  const points = withPosition.map((driver) => {
-    const dx = (driver.position!.longitude - center.longitude) / span;
-    const dy = (driver.position!.latitude - center.latitude) / span;
-    return {
-      driver,
-      // Limitado à borda: quem está longe fica na borda, não fora do quadro.
-      left: clamp(50 + dx * 50, 4, 96),
-      top: clamp(50 - dy * 50, 4, 96),
-    };
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="relative mx-auto aspect-square w-full max-w-[320px] overflow-hidden rounded-full border-2 border-ink-200 bg-ink-50">
-        {/* Anéis de distância */}
-        {[0.33, 0.66].map((scale) => (
-          <div
-            key={scale}
-            className="pointer-events-none absolute rounded-full border border-dashed border-ink-200"
-            style={{
-              left: `${50 - scale * 50}%`,
-              top: `${50 - scale * 50}%`,
-              width: `${scale * 100}%`,
-              height: `${scale * 100}%`,
-            }}
-            aria-hidden
-          />
-        ))}
-
-        {/* Loja no centro */}
-        <div
-          className="absolute flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-brand text-[0.8rem] text-white shadow-sm"
-          style={{ left: '50%', top: '50%' }}
-          title="Sua loja"
-        >
-          🏪
-        </div>
-
-        {points.map(({ driver, left, top }) => (
-          <div
-            key={driver.id}
-            className={cn(
-              'absolute flex h-7 w-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-[0.75rem] shadow-sm ring-2 ring-white',
-              driver.activeOrders > 0
-                ? 'bg-warn text-white'
-                : canReceiveOrder({ active: true, activeOrders: 0, onShift: driver.onShift })
-                  ? 'bg-success text-white'
-                  : 'bg-ink-400 text-white',
-            )}
-            style={{ left: `${left}%`, top: `${top}%` }}
-            title={`${driver.name} — ${DRIVER_AVAILABILITY_LABEL[driverAvailability({ active: true, activeOrders: driver.activeOrders, onShift: driver.onShift })]}`}
-          >
-            🛵
-          </div>
-        ))}
-
-        {points.length === 0 && (
-          <p className="absolute inset-x-0 bottom-3 px-6 text-center text-[0.7rem] text-ink-500">
-            Nenhum entregador transmitindo posição agora.
-          </p>
-        )}
-      </div>
-
-      <p className="text-center text-[0.7rem] text-ink-400">
-        Anéis a cada ~660 m. Fora do alcance, o ponto fica na borda.
-      </p>
-
-      <DriverList drivers={drivers} now={now} />
-    </div>
-  );
-}
-
-function DriverList({ drivers, now }: { drivers: DispatchDriver[]; now: number }) {
+function DriverList({ drivers }: { drivers: DispatchDriver[] }) {
   return (
     <ul className="space-y-2">
       {drivers.map((driver) => (
@@ -440,18 +330,16 @@ function DriverList({ drivers, now }: { drivers: DispatchDriver[]; now: number }
               )}
             </p>
             <p className="text-[0.7rem] text-ink-500">
-              {driver.position
-                ? `Sinal ${agoFrom(driver.position.at, now)}`
-                : 'Sem sinal de posição'}
-              {driver.activeOrders > 0 &&
-                ` · ${driver.activeOrders} pedido${driver.activeOrders === 1 ? '' : 's'}`}
-              {driver.shiftLabel && ` · ${driver.shiftLabel}`}
+              {driver.activeOrders > 0
+                ? `${driver.activeOrders} pedido${driver.activeOrders === 1 ? '' : 's'} em rota`
+                : 'Sem entregas agora'}
+              {driver.shiftLabel && ` · Escala: ${driver.shiftLabel.toLowerCase()}`}
             </p>
           </div>
           <Badge
             tone={availabilityTone(driver)}
           >
-            {DRIVER_AVAILABILITY_LABEL[driverAvailability({ active: true, activeOrders: driver.activeOrders, onShift: driver.onShift })]}
+            {DRIVER_AVAILABILITY_LABEL[driverAvailability({ active: true, activeOrders: driver.activeOrders, status: driver.status, accessPending: driver.accessPending })]}
           </Badge>
         </li>
       ))}
@@ -478,12 +366,12 @@ function AssignModal({
 }) {
   // Sugere quem está livre primeiro: despachar para quem já tem pedido
   // atrasa as duas entregas.
+  const eligible = (driver: DispatchDriver) => canReceiveOrder({ active: true, activeOrders: driver.activeOrders, status: driver.status, accessPending: driver.accessPending });
   const ordered = [...drivers].sort((a, b) => {
-    const score = (d: DispatchDriver) => (d.activeOrders > 0 ? 1 : 0) + (d.onShift === false ? 2 : 0);
+    const score = (d: DispatchDriver) => (eligible(d) ? 0 : 4) + (d.activeOrders > 0 ? 1 : 0);
     return score(a) - score(b);
   });
 
-  const eligible = (driver: DispatchDriver) => canReceiveOrder({ active: true, activeOrders: driver.activeOrders, onShift: driver.onShift });
   const [driverId, setDriverId] = useState(ordered.find(eligible)?.id ?? '');
   const [reason, setReason] = useState('');
 
@@ -518,14 +406,12 @@ function AssignModal({
           Nenhum entregador ativo. Cadastre a frota antes de despachar.
         </Alert>
       ) : (
-        <Field label="Entregador" hint="Disponibilidade, escala e pedidos em andamento são conferidos novamente ao atribuir.">
+        <Field label="Entregador" hint="Entregadores online recebem pedidos, mesmo fora da escala. Detalhes na aba Entregadores.">
           <Select value={driverId} onChange={(e) => setDriverId(e.target.value)}>
-            <option value="">Selecione um entregador disponível</option>
+            <option value="">Selecione um entregador online</option>
             {ordered.map((driver) => (
               <option key={driver.id} value={driver.id} disabled={!eligible(driver)}>
-                {driver.name} — {DRIVER_AVAILABILITY_LABEL[driverAvailability({ active: true, activeOrders: driver.activeOrders, onShift: driver.onShift })]}
-                {driver.activeOrders > 0 ? ` (${driver.activeOrders} em rota)` : ''}
-                {driver.shiftLabel ? ` · ${driver.shiftLabel}` : ''}
+                {driverOptionLabel({ name: driver.name, active: true, activeOrders: driver.activeOrders, status: driver.status, accessPending: driver.accessPending })}
               </option>
             ))}
           </Select>
@@ -551,10 +437,6 @@ function AssignModal({
   );
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
 /**
  * Como timeAgo(), mas contra o "agora" fixado na renderização.
  *
@@ -575,6 +457,6 @@ function agoFrom(value: string | null, now: number): string {
 }
 
 function availabilityTone(driver: DispatchDriver) {
-  const state = driverAvailability({ active: true, activeOrders: driver.activeOrders, onShift: driver.onShift });
+  const state = driverAvailability({ active: true, activeOrders: driver.activeOrders, status: driver.status, accessPending: driver.accessPending });
   return state === 'AVAILABLE' ? 'green' : state === 'BUSY' ? 'yellow' : 'neutral';
 }

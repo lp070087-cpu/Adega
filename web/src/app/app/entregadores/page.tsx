@@ -45,20 +45,13 @@ export default async function DriversPage() {
     shiftLabel: driver.shiftLabel,
     deliveredTotal: driver.deliveredTotal,
     deliveredToday: driver.deliveredToday,
-    lastLocation: driver.lastLocation
-      ? {
-          latitude: driver.lastLocation.latitude,
-          longitude: driver.lastLocation.longitude,
-          createdAt: driver.lastLocation.createdAt.toISOString(),
-        }
-      : null,
   }));
 
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-[1.05rem] font-extrabold text-ink-900">Entregadores</h2>
-        <p className="text-[0.8rem] text-ink-500">Colaboradores logísticos vinculados à loja, com acesso próprio ao app do entregador.</p>
+        <p className="text-[0.8rem] text-ink-500">Equipe de entrega, escala semanal e acesso ao aplicativo do entregador.</p>
       </div>
       <DriversManager
         drivers={drivers}
@@ -71,8 +64,8 @@ export default async function DriversPage() {
         }}
         canManage={can(ctx.role, 'MANAGE_DRIVERS')}
         linkUrl={linkUrl}
+        scheduleSlot={<DriverScheduleManager drivers={drivers} schedules={Object.fromEntries(drivers.map(driver => [driver.id, readDriverSchedule(settings, driver.id)]))} />}
       />
-      <DriverScheduleManager drivers={drivers} schedules={Object.fromEntries(drivers.map(driver => [driver.id, readDriverSchedule(settings, driver.id)]))} />
     </div>
   );
 }

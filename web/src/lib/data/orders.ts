@@ -8,11 +8,11 @@ import { onlyDigits } from '@/lib/utils';
 import { normalizeSchedule, storeOpenState } from '@/lib/schedule';
 import { deductOrderStock, restoreOrderStock } from '@/lib/data/inventory';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
+import { readAutoAccept } from '@/lib/order-flow';
 import { portalVerifiedFilter } from '@/lib/customer-portal/mail';
 import { registerOrderInCash } from '@/lib/data/cash';
 import { canTransition } from '@/lib/validations/order';
 import { getCommercialAccess } from '@/lib/platform/access';
-import { assertDriverOnShift } from '@/lib/data/driver-schedules';
 import { syncOrderLoyalty, applyCampaignBenefit } from '@/lib/data/growth';
 import {
   calculateDeliveryFee,
@@ -486,6 +486,8 @@ export async function createOrderFromCheckout(
   // que não cobre o pedido. Barra aqui em vez de gravar um número que a
   // operação leria como "leve R$ 20 de troco para uma conta de R$ 80".
 
+  let created = false;
+  let autoAccept = false;
   const order = await prisma.$transaction(async (tx) => {
     // Tenant lock serializes numbering and duplicate checkout requests.
     await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId} FOR UPDATE`;
@@ -516,6 +518,10 @@ export async function createOrderFromCheckout(
       throw new CheckoutError('O valor informado para troco é menor que o total do pedido.', 'changeFor');
     }
 
+    created = true;
+    // Aceitação automática: só pedido novo da loja própria, sem pagamento
+    // online pendente. O pagamento nunca é confirmado aqui.
+    autoAccept = readAutoAccept(fresh.settings) && (customer.source ?? 'OWN_STORE') === 'OWN_STORE' && customer.paymentMethod !== 'ONLINE';
     return tx.order.create({
       data: {
         organizationId,
@@ -571,13 +577,22 @@ export async function createOrderFromCheckout(
     });
   });
 
+  // Aceita pelo mesmo caminho do botão Aceitar (baixa de estoque e regras).
+  // Se alguma regra recusar, o pedido continua Novo para aceite manual.
+  let accepted = false;
+  let acceptError: string | null = null;
+  if (created && autoAccept) {
+    try { await updateOrderStatus(organizationId, order.id, 'CONFIRMED'); accepted = true; }
+    catch (error) { acceptError = error instanceof Error ? error.message : 'regra da loja'; }
+  }
+
   // Avisa a operação. Não bloqueia o pedido se falhar.
   await prisma.notification
     .create({
       data: {
         organizationId,
         type: 'ORDER',
-        title: `Novo pedido #${order.displayId}`,
+        title: accepted ? `Novo pedido #${order.displayId} aceito automaticamente` : acceptError ? `Novo pedido #${order.displayId} aguarda aceite (${acceptError})` : `Novo pedido #${order.displayId}`,
         message: `${customer.customerName} — R$ ${Number(order.total).toFixed(2).replace('.', ',')}`,
         href: `/app/pedidos?pedido=${order.id}`,
       },
@@ -824,7 +839,6 @@ export async function assignDriver(
   });
   if (!driver) throw new OperationError('Entregador não encontrado.');
   if(driver.user&&(!driver.user.active||driver.user.mustChangePassword||!driver.user.organizations.length))throw new OperationError('O acesso deste entregador está inativo ou aguarda ativação.');
-  await assertDriverOnShift(tx, organizationId, driverId);
 
   const order = await tx.order.findFirst({
     where: { id: orderId, organizationId },
@@ -835,11 +849,12 @@ export async function assignDriver(
   if (!['READY', 'WAITING_DRIVER'].includes(order.status) || order.driverId) {
     throw new OperationError('O pedido já foi atribuído ou não está pronto para despacho.');
   }
+  // Online (ligou no app) recebe pedidos, inclusive mais de um por rota.
+  // A escala semanal é só organizacional e não bloqueia a atribuição.
   const activeOrders = await tx.order.count({ where: {
     organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
   } });
-  // Availability is derived (active, access ready, on shift — checked above — and no delivery in progress); no manual switch.
-  if (activeOrders) throw new OperationError('Entregador em outra entrega. Atualize a expedição.');
+  if (!activeOrders && driver.status === 'OFFLINE') throw new OperationError(`${driver.name} está offline. Peça para ficar online no aplicativo do entregador.`);
 
     await tx.order.update({
       where: { id: orderId },

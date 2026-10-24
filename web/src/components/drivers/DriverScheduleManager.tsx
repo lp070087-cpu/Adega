@@ -2,7 +2,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
-import { DRIVER_DAYS, EMPTY_DRIVER_SCHEDULE, driverScheduleSchema, driverDaySummary, type DriverSchedule } from '@/lib/driver-schedule';
+import { DRIVER_DAYS, EMPTY_DRIVER_SCHEDULE, driverScheduleSchema, driverDaySummary, driverLocalDate, type DriverSchedule } from '@/lib/driver-schedule';
 import { saveDriverScheduleAction, refreshDriverRemindersAction } from '@/app/actions/drivers';
 import { Modal, Button } from '@/components/ui';
 
@@ -14,6 +14,12 @@ export function DriverScheduleManager({ drivers, schedules }: { drivers: { id: s
   const [pending, start] = useTransition();
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  // Calculado no navegador (depende do relógio), depois da montagem.
+  const [today, setToday] = useState<{ weekday: number; list: Array<{ id: string; name: string; summary: string }> } | null>(null);
+  useEffect(() => {
+    const weekday = driverLocalDate(new Date(), 'America/Sao_Paulo').weekday;
+    setToday({ weekday, list: drivers.filter(d => d.active && schedules[d.id]?.enabled && schedules[d.id].shifts.some(s => s.day === weekday)).map(d => ({ id: d.id, name: d.name, summary: driverDaySummary(schedules[d.id], weekday) })) });
+  }, [drivers, schedules]);
   useEffect(() => {
     const refresh = () => { if (!document.hidden && navigator.onLine) void refreshDriverRemindersAction(); };
     refresh(); const timer = window.setInterval(refresh, 60000); document.addEventListener('visibilitychange', refresh);
@@ -31,13 +37,14 @@ export function DriverScheduleManager({ drivers, schedules }: { drivers: { id: s
     });
   }
   return <section className="rounded-xl border border-ink-200 bg-white p-4">
-    <h3 className="font-semibold text-ink-900">Escalas semanais</h3><p className="mt-1 text-sm text-ink-500">Horários de Brasília. A escala controla novas atribuições; entregas em andamento continuam disponíveis.</p>
+    <h3 className="font-semibold text-ink-900">Escalas semanais</h3><p className="mt-1 text-sm text-ink-500">Horários de Brasília. A escala organiza quem trabalha em cada dia; ela não impede o entregador online de receber pedidos.</p>
+    <div className="mt-3 rounded-lg border border-ink-100 bg-ink-50 p-3" data-testid="scheduled-today"><p className="text-[0.78rem] font-bold text-ink-800">Escalados hoje{today ? ` · ${DRIVER_DAYS[today.weekday]}` : ''}</p>{today && (today.list.length ? <ul className="mt-1.5 space-y-1">{today.list.map(item => <li key={item.id} className="text-[0.8rem] text-ink-700"><strong>{item.name}</strong> · {item.summary}</li>)}</ul> : <p className="mt-1 text-[0.78rem] text-ink-500">Ninguém escalado para hoje.</p>)}</div>
     <div className="mt-4 flex flex-wrap gap-2">{drivers.map(driver => <button type="button" key={driver.id} className="min-h-11 max-w-full rounded-lg border border-ink-200 px-3 py-2 text-left text-sm disabled:opacity-50" disabled={!driver.active} onClick={() => { setSelected(driver.id); setForm(structuredClone(schedules[driver.id] ?? EMPTY_DRIVER_SCHEDULE)); setOpenDay(null); setMessage(''); setError(''); }}>{driver.name} · {schedules[driver.id]?.enabled ? 'Com escala' : 'Sem restrição'}</button>)}</div>
     {!drivers.length && <p className="mt-3 text-sm text-ink-500">Cadastre um entregador para configurar os turnos.</p>}
     <button type="button" disabled={pending} className="mt-4 min-h-11 font-semibold text-brand" onClick={() => start(async () => { const result = await refreshDriverRemindersAction(); setMessage(result.ok ? `${result.count} lembrete(s) de amanhã conferido(s).` : result.error); })}>Conferir lembretes de amanhã</button>
     {message && <p role="status" className="mt-2 text-sm text-ink-600">{message}</p>}
     {selected && <Modal open onClose={() => !pending && setSelected('')} title={`Escala · ${drivers.find(d => d.id === selected)?.name ?? ''}`}>
-      <div className="space-y-4"><label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={form.enabled} disabled={pending} onChange={e => setForm({ ...form, enabled: e.target.checked })}/>Restringir novas atribuições aos turnos cadastrados</label>
+      <div className="space-y-4"><label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={form.enabled} disabled={pending} onChange={e => setForm({ ...form, enabled: e.target.checked })}/>Usar escala para este entregador (organização da loja; não bloqueia pedidos)</label>
         <p className="text-xs text-ink-500">Fim anterior ao início indica virada da madrugada. Dias sem turno são folga quando a escala está habilitada.</p>
         <div className="space-y-2">{[1, 2, 3, 4, 5, 6, 0].map(day => {
           const indices = form.shifts.flatMap((s, index) => s.day === day ? [index] : []);
