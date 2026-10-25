@@ -48,7 +48,7 @@ export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: str
       if (!previous || regenerate) shownToken = token;
       await tx.organization.update({ where: { id: ctx.organizationId }, data: { settings: { ...settings, onlinePayment: { enabled, environment, ...(key ? { encrypted: sealSecrets({ apiKey: key, webhookToken: token }) } : {}) } } } });
     });
-    revalidatePath('/app/configuracoes/fiscal');
+    // Sem revalidatePath: a resposta não espera re-renderizar a página; o formulário pede o refresh.
     return { ok: true, message: enabled ? (environment === 'production' && process.env.ORDER_PAYMENTS_PRODUCTION !== 'true' ? 'Salvo. Produção continua bloqueada até a homologação ser liberada pela plataforma.' : 'Pagamento online ativo (sandbox).') : 'Pagamento online desativado.', webhookToken: shownToken };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : toActionError(error).error };

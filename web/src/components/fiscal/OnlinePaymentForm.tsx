@@ -1,10 +1,13 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { saveOnlinePaymentAction } from '@/app/actions/fiscal';
 
 export function OnlinePaymentForm({ enabled, environment, configured, usable, webhookUrl }: { enabled: boolean; environment: 'sandbox' | 'production'; configured: boolean; usable: boolean; webhookUrl: string }) {
   const [state, action, pending] = useActionState(saveOnlinePaymentAction, null);
+  const router = useRouter();
+  useEffect(() => { if (state?.ok) router.refresh(); }, [state, router]);
   return (
     <form action={action} className="space-y-3" data-testid="online-payment-form">
       <div className="flex flex-wrap items-center justify-between gap-2">
