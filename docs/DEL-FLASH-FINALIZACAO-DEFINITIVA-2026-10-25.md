@@ -10,7 +10,16 @@
   - menu inferior com exatamente **Entregas, Rotas, Histórico e Perfil**;
   - o botão "Ficar online" foi removido: abrir o app já deixa o entregador disponível, e sair do app (logout) o deixa offline;
   - a escala só organiza, não bloqueia. O seletor do painel mostra quem está escalado hoje, em entrega ou online; os demais são gerenciados em Entregadores.
-- **Biblioteca Unitrix:** não estava acessível nesta sessão na nuvem (pasta de anexos vazia, nenhum repositório com esse nome). O redesign seguiu a identidade azul do Del Flash e os padrões já existentes. Nenhum arquivo da biblioteca foi tocado.
+- **Biblioteca Unitrix** (`unitrix-hub` e `unitrix-pay-`): usada só como referência visual (cartões brancos, borda fina, selos tingidos, números tabulares). Nenhum arquivo dela foi alterado.
+- **Cards de produto da loja pública:**
+  - foto em quadrado, sem corte (contain) e com leve zoom no hover;
+  - altura uniforme; nome em até 2 linhas; preço e botão sempre na mesma linha;
+  - selos sobre a foto: desconto, Combo, Esgotado/Indisponível (foto em cinza e botão desativado);
+  - variações mostram "a partir de", "N opções" e o botão "Escolher";
+  - o botão vira "Adicionado ✓" na hora, e o selo "N na sacola" aparece sobre a foto;
+  - compartilhar virou um ícone sobre a foto;
+  - grade de 4/3/2 colunas, testada a 320 px; animações respeitam "reduzir movimento";
+  - a lógica da sacola não mudou.
 
 ### Dashboard: "Produtos mais vendidos"
 - Gráfico de rosca abaixo do card Entregadores, na coluna da direita.
@@ -42,7 +51,13 @@
 
 ### WhatsApp
 - A caixa de entrada mostra se a conversa está com a IA ou com um atendente.
-- Ações disponíveis: assumir, pausar a IA, transferir, encerrar, e **Criar pedido**. Criar pedido abre o pedido manual já com nome, telefone e origem WhatsApp.
+- Ações disponíveis: assumir (pausa a IA), devolver para a IA, **transferir** para alguém da equipe (mostra o responsável e notifica a pessoa; o servidor recusa usuários de outra loja), encerrar, e **Criar pedido**. Criar pedido abre o pedido manual já com nome, telefone e origem WhatsApp.
+- Testado localmente, com a Graph API e a IA simuladas:
+  - verificação da Meta (`hub.challenge`) e assinatura `X-Hub-Signature-256`;
+  - mensagens chegam só à loja dona do número; número desconhecido é ignorado;
+  - a IA responde com o catálogo real, pausa ao assumir e volta ao devolver;
+  - a transferência funciona.
+- **Produção hoje:** nenhuma variável `WHATSAPP_*` na Vercel e 0 números conectados. O webhook responde 503 e a tela mostra "WhatsApp ainda não conectado". Nada é simulado.
 - Nenhuma conexão é simulada. Para funcionar em produção falta:
   1. variáveis na Vercel: `WHATSAPP_ASSISTANT_ENABLED=true`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_GRAPH_VERSION`, e também `OPENAI_API_KEY` e `ASSISTANT_AI_MODEL` para a IA;
   2. conectar o número oficial (WhatsApp Cloud API) em Configurações → WhatsApp. Hoje há 0 números conectados;
@@ -78,12 +93,19 @@
 - Testes e2e reais (navegador + banco local + serviços externos simulados):
   - **ops2, finalflow, driveraccess, session, drivernav, pinflow, customer, temp-nav, bcw, addrbook, cartlink, kbd, landscape:** fluxos que já existiam;
   - **payonline (10):** checkout com Pix e cartão, webhook com token errado ou ausente, evento chegando antes do pagamento, confirmação idempotente, valor divergente e uma cobrança por pedido;
+  - **cardui (12):** cards no desktop e a 320 px (Adicionado, N na sacola, Esgotado, variações, promoção, fotos quadradas, sacola intacta);
+  - **waiso (9):** WhatsApp (verificação da Meta, assinatura, isolamento por loja, IA, pausar/retomar, transferir, criar pedido);
   - **mission (13):**
     - endereço da loja: cidade inválida, Buscar CEP, localizar pelo endereço e link do Google;
     - frete: faixas sobrepostas, prévia, cotação a 0,3 km, 3,9 km e 6,7 km (fora da área);
     - dashboard: produtos mais vendidos e celular a 390 px;
     - pedido criado a partir do WhatsApp;
     - app do entregador com 4 abas, sem botão online, fonte Roboto.
+
+## Correções feitas durante os testes
+- O checkout salvava o endereço em segundo plano e uma navegação rápida podia cancelar. Agora espera a gravação, com o envio travado para não duplicar o pedido.
+- A UF do endereço era apagada quando o frete era recalculado (com `defaultValue`, o React 19 reaplica o valor a cada render). Agora o campo é controlado.
+- Salvar o pagamento online não espera mais a re-renderização da página.
 
 ## Pendências externas (dependem do dono ou da plataforma)
 1. **Loja `loja-0102` em produção:** a cidade está "5362" e a UF "16". O dono precisa usar Buscar CEP ou corrigir à mão e salvar. Nenhum dado de produção foi alterado.
