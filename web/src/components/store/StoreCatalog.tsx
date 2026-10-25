@@ -278,6 +278,7 @@ export function StoreCatalog({
     paymentError?: string;
   } | null>(null);
   const [pixCopied, setPixCopied] = React.useState(false);
+  const [deliveryUf, setDeliveryUf] = React.useState(store.state ?? '');
   const online = paymentMethod === 'ONLINE_PIX' || paymentMethod === 'ONLINE_CARD';
 
   const closed = store.openState !== 'OPEN';
@@ -1068,7 +1069,8 @@ export function StoreCatalog({
                 </Field>
               </div>
 
-              <input type="hidden" name="deliveryState" defaultValue={store.state ?? ''} />
+              {/* Controlado: com defaultValue o React 19 reaplica o valor a cada render e apagaria a UF vinda do mapa. */}
+              <input type="hidden" name="deliveryState" value={deliveryUf} readOnly />
               <DeliveryPinPicker
                 slug={store.slug}
                 onPointChange={requestQuote}
@@ -1090,8 +1092,7 @@ export function StoreCatalog({
                   put('deliveryNumber', fields.number);
                   put('deliveryDistrict', fields.district);
                   put('deliveryCity', fields.city);
-                  const uf = form.elements.namedItem('deliveryState') as HTMLInputElement | null;
-                  if (uf && fields.state) uf.value = fields.state;
+                  if (fields.state) setDeliveryUf(fields.state);
                 }}
               />
 
