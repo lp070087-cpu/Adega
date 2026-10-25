@@ -94,6 +94,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           role: membership?.role ?? null,
           organizationName: membership?.organization.name ?? null,
           organizationSlug: membership?.organization.slug ?? null,
+          ...(membership?.role!=='DRIVER'?{sessionUntil:Date.now()+(raw?.remember==='false'?12:7*24)*60*60*1000}:{}),
           ...(membership?.role==='DRIVER'&&!platformIdentity?{driverSessionStartedAt:Date.now(),driverSessionUntil:Date.now()+(raw?.remember==='true'?7*24:8)*60*60*1000}:{}),
         };
       },

@@ -37,6 +37,7 @@ export const authConfig = {
         token.role = (user as { role?: Role }).role;
         token.organizationName = (user as { organizationName?: string }).organizationName;
         token.organizationSlug = (user as { organizationSlug?: string }).organizationSlug;
+        if(typeof user.sessionUntil==='number')token.sessionUntil=user.sessionUntil;
         if(user.role==='DRIVER'&&typeof user.driverSessionStartedAt==='number'&&typeof user.driverSessionUntil==='number'){
           token.driverSessionStartedAt=user.driverSessionStartedAt??Date.now();
           token.driverSessionUntil=user.driverSessionUntil??Date.now()+8*60*60*1000;
@@ -76,6 +77,8 @@ export const authConfig = {
         session.user.driverSessionStartedAt=driverStarted;
         session.user.driverSessionUntil=driverUntil;
         if(token.role==='DRIVER'&&driverUntil&&Date.now()>=driverUntil)session.user.id='';
+        // Painel sem "Manter conectado": a sessão vale 12 h.
+        if(token.role!=='DRIVER'&&typeof token.sessionUntil==='number'&&Date.now()>=token.sessionUntil)session.user.id='';
       }
       return session;
     },

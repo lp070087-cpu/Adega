@@ -20,6 +20,7 @@ declare module 'next-auth' {
   }
 
   interface User {
+    sessionUntil?: number;
     driverSessionStartedAt?: number;
     driverSessionUntil?: number;
     organizationId?: string | null;
@@ -31,6 +32,7 @@ declare module 'next-auth' {
 
 declare module 'next-auth/jwt' {
   interface JWT {
+    sessionUntil?: number;
     driverSessionStartedAt?: number;
     driverSessionUntil?: number;
     userId?: string;

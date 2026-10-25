@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { ArrowLeft,MapPin,PackageCheck,ShieldCheck,ShoppingBag } from 'lucide-react';
 import { CustomerForm,CustomerPassword,CustomerPhoneInput,CustomerConfirmation } from './CustomerForm';
 import { PORTAL_MAIL_UNAVAILABLE } from '@/lib/customer-portal/server';
+import { DeliveryIllustration } from '@/components/auth/DeliveryIllustration';
+import '@/components/auth/auth-shell.css';
 
 type Store={slug:string;name:string;logoUrl:string|null};
 export type AuthSection='entrar'|'criar-conta'|'recuperar'|'confirmar';
@@ -20,6 +22,7 @@ export function CustomerAuthScreen({store,section,mailReady,returnTo}:{store:Sto
   <aside className="customer-auth-brand">
    <Link href={`${base}/`} className="customer-auth-store">{store.logoUrl?<img src={store.logoUrl} alt=""/>:<span className="customer-auth-initial" aria-hidden>{store.name.charAt(0).toUpperCase()}</span>}<span>{store.name}</span></Link>
    <div className="customer-auth-pitch"><p className="customer-auth-kicker">Loja de bebidas</p><h2>Sua conta em {store.name}</h2><ul>{benefits.map(([Icon,label])=><li key={label}><Icon size={20} aria-hidden/>{label}</li>)}</ul></div>
+   <DeliveryIllustration className="customer-auth-illustration"/>
    <p className="customer-auth-powered">Plataforma Del Flash</p>
   </aside>
   <section className="customer-auth-panel">

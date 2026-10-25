@@ -37,6 +37,8 @@ export async function loginAction(
     await signIn('credentials', {
       login: parsed.data.email,
       password: parsed.data.password,
+      // Sem "Manter conectado": sessão de 12 h; com: 7 dias (o padrão anterior).
+      remember: formData.get('remember') === 'on' ? 'true' : 'false',
       redirectTo,
     });
     return undefined;
@@ -211,4 +213,32 @@ export async function driverLogoutAction(){
   // Sair do app deixa o entregador offline na loja atual (sem botão manual).
   try{const { requireDriver }=await import('@/lib/auth/guards');const ctx=await requireDriver();await prisma.driver.updateMany({where:{id:ctx.driver.id,organizationId:ctx.organizationId},data:{status:'OFFLINE'}});}catch{/* sessão já encerrada */}
   await signOut({redirectTo:'/entregador/'});
+}
+
+/** Painel: pedir link de recuperação de senha. Resposta igual exista ou não a conta. */
+export async function requestOwnerResetAction(_prev: { ok?: boolean; error?: string } | undefined, formData: FormData): Promise<{ ok?: boolean; error?: string }> {
+  const email = String(formData.get('email') ?? '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return { error: 'Informe um e-mail válido.' };
+  try {
+    const { requestOwnerReset } = await import('@/lib/auth/owner-reset');
+    await requestOwnerReset(email);
+    return { ok: true };
+  } catch (error) {
+    return { error: error instanceof OperationError ? error.message : 'Não foi possível enviar agora. Tente novamente.' };
+  }
+}
+
+/** Painel: definir nova senha pelo link recebido. */
+export async function completeOwnerResetAction(_prev: { error?: string } | undefined, formData: FormData): Promise<{ error?: string }> {
+  const token = String(formData.get('token') ?? '');
+  const password = String(formData.get('password') ?? '');
+  if (password.length < 8 || password.length > 72) return { error: 'A senha precisa ter de 8 a 72 caracteres.' };
+  if (password !== String(formData.get('confirmPassword') ?? '')) return { error: 'As senhas não conferem.' };
+  try {
+    const { completeOwnerReset } = await import('@/lib/auth/owner-reset');
+    await completeOwnerReset(token, password);
+  } catch (error) {
+    return { error: error instanceof OperationError ? error.message : 'Não foi possível redefinir agora.' };
+  }
+  redirect('/login?redefinida=1');
 }

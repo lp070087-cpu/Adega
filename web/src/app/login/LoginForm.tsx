@@ -1,55 +1,30 @@
 'use client';
 
-import { useActionState } from 'react';
+import Link from 'next/link';
+import { startTransition, useActionState } from 'react';
 import { loginAction, type AuthActionState } from '@/app/actions/auth';
-import { Button, Field, Input } from '@/components/ui';
+import { PasswordField } from '@/components/auth/PasswordField';
 
 /**
- * Formulário de login. A validação de verdade acontece no servidor —
+ * Formulário de login do painel. A validação de verdade acontece no servidor —
  * aqui só marcamos o campo com erro quando o servidor devolve.
  */
 export function LoginForm({ back }: { back?: string } = {}) {
-  const [state, formAction, pending] = useActionState<AuthActionState, FormData>(
-    loginAction,
-    undefined,
-  );
-
+  const [state, formAction, pending] = useActionState<AuthActionState, FormData>(loginAction, undefined);
   return (
-    <form action={formAction} className="mt-6 text-left">
+    <form action={formAction} onSubmit={(e) => { e.preventDefault(); const data = new FormData(e.currentTarget); startTransition(() => formAction(data)); }}>
       {back && <input type="hidden" name="voltar" value={back} />}
-      {state?.error && (
-        <p
-          role="alert"
-          className="mb-4 rounded border-2 border-danger/25 bg-danger-bg px-4 py-3 text-[0.8rem] font-medium text-danger"
-        >
-          {state.error}
-        </p>
-      )}
-
-      <Field label="E-mail" required error={state?.field === 'email' ? state.error : undefined}>
-        <Input
-          name="email"
-          type="email"
-          autoComplete="email"
-          placeholder="voce@estabelecimento.com"
-          required
-          aria-invalid={state?.field === 'email'}
-        />
-      </Field>
-
-      <Field label="Senha" required error={state?.field === 'password' ? state.error : undefined}>
-        <Input
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          placeholder="••••••••"
-          required
-        />
-      </Field>
-
-      <Button type="submit" size="lg" fullWidth loading={pending} className="mt-2">
-        {pending ? 'Entrando...' : 'Entrar'}
-      </Button>
+      {state?.error && <p role="alert" className="auth-alert is-error">{state.error}</p>}
+      <div className="auth-field">
+        <label htmlFor="login-email">E-mail</label>
+        <input id="login-email" name="email" type="email" autoComplete="email" inputMode="email" placeholder="voce@estabelecimento.com" required aria-invalid={state?.field === 'email' || undefined} />
+      </div>
+      <PasswordField error={state?.field === 'password' ? state.error : undefined} />
+      <div className="auth-row">
+        <label className="auth-check"><input type="checkbox" name="remember" defaultChecked />Manter conectado</label>
+        <Link href="/login/recuperar" className="auth-link">Esqueci minha senha</Link>
+      </div>
+      <button type="submit" className="auth-submit" disabled={pending}>{pending ? 'Entrando…' : 'Entrar'}</button>
     </form>
   );
 }
