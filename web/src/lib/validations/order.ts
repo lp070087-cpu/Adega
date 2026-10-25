@@ -52,6 +52,8 @@ const orderBaseSchema = z.object({
   deliveryLongitude: z.number().min(-180).max(180).optional(),
   /** Observação para achar o ponto (escadaria, portão lateral…). Opcional com pino confirmado. */
   deliveryReference: optionalText(200),
+  onlineMethod: z.enum(['PIX', 'CREDIT_CARD']).optional(),
+  payerDocument: z.string().transform((v) => v.replace(/\D/g, '')).refine((v) => v === '' || v.length === 11 || v.length === 14, 'CPF (11 números) ou CNPJ (14).').optional(),
   paymentMethod: z.nativeEnum(PaymentMethod).default('CASH'),
   /** Troco para quanto. Só faz sentido em dinheiro — conferido abaixo. */
   changeFor: z.number().min(0).max(99999).optional(),
@@ -84,8 +86,8 @@ const deliveryChecks: Array<[(d: z.infer<typeof orderBaseSchema>) => boolean, { 
 ];
 
 export const checkoutSchema = orderBaseSchema
-  .refine((data) => ['CASH', 'PIX', 'CREDIT_CARD', 'DEBIT_CARD'].includes(data.paymentMethod), {
-    message: 'Escolha uma forma de pagamento na entrega ou retirada.', path: ['paymentMethod'],
+  .refine((data) => ['CASH', 'PIX', 'CREDIT_CARD', 'DEBIT_CARD', 'ONLINE'].includes(data.paymentMethod), {
+    message: 'Escolha uma forma de pagamento.', path: ['paymentMethod'],
   })
   .refine(orderRefinements[0], orderRefinementMessages[0])
   .refine(deliveryChecks[0][0], deliveryChecks[0][1])

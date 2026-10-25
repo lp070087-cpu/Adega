@@ -200,7 +200,7 @@ export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   PIX: 'PIX',
   CREDIT_CARD: 'Crédito',
   DEBIT_CARD: 'Débito',
-  ONLINE: 'Online',
+  ONLINE: 'Pagamento online',
   OTHER: 'Outro',
 };
 

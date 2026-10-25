@@ -12,6 +12,7 @@ import { formatBRL, formatTime } from '@/lib/utils';
 import { ORDER_SOURCE_LABEL } from '@/data/business-copy';
 import { Alert, Badge, Card, CardHeader, EmptyState, AnimatedMoney } from '@/components/ui';
 import { BreakdownBars, DonutChart, HourBars } from '@/components/charts/SimpleCharts';
+import { TopProductsCard } from '@/components/dashboard/TopProductsCard';
 import { LiveRefresh } from '@/components/layout/LiveRefresh';
 
 export const metadata = { title: 'Visão Geral' };
@@ -171,6 +172,7 @@ export default async function DashboardPage() {
           )}
         </Card>
 
+        <div className="flex min-w-0 flex-col gap-4">
         <Card>
           <CardHeader title="Entregadores" action={<Link href="/app/entregadores" className="text-[0.8rem] font-semibold text-brand hover:underline">Ver todos</Link>} />
           {driverList.filter((d) => d.active).length === 0 ? (
@@ -193,6 +195,8 @@ export default async function DashboardPage() {
             </ul>
           )}
         </Card>
+          <TopProductsCard />
+        </div>
       </div>
 
       {/* ── Alertas operacionais ──────────────────────────────────── */}

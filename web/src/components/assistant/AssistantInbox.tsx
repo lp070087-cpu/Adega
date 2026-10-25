@@ -138,11 +138,12 @@ export function AssistantInbox({ threads, selectedId, messages, aiEnabled, webho
                 <Link href="/app/atendimento" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-ink-50 md:hidden" aria-label="Voltar para a lista"><ArrowLeft size={18} aria-hidden /></Link>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-ink-900">{contactLabel(selected)}</p>
-                  <p className="text-[0.72rem] text-ink-500">+{selected.contact} · {selected.status === 'BOT' ? 'Atendimento automático (IA)' : selected.status === 'HUMAN' ? 'Atendimento humano' : 'Encerrada'}</p>
+                  <p className="flex items-center gap-1.5 text-[0.72rem] text-ink-500">+{selected.contact} · <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold', selected.status === 'BOT' ? 'bg-brand-light text-brand' : selected.status === 'HUMAN' ? 'bg-warn-bg text-warn' : 'bg-ink-100 text-ink-600')} data-testid="thread-mode">{selected.status === 'BOT' ? 'IA respondendo' : selected.status === 'HUMAN' ? 'Atendente (IA pausada)' : 'Encerrada'}</span></p>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {selected.status !== 'HUMAN' && <Button size="sm" variant="secondary" disabled={pending} onClick={() => setStatus('HUMAN')}>Assumir atendimento</Button>}
                   {selected.status !== 'BOT' && <Button size="sm" variant="ghost" disabled={pending || !aiEnabled} onClick={() => setStatus('BOT')} title={aiEnabled ? undefined : 'Ative a IA na configuração do WhatsApp'}>Devolver para IA</Button>}
+                  <Link href={`/app/pedidos?novoPedido=1&origem=whatsapp&telefone=${encodeURIComponent(selected.contact.replace(/^55/, ''))}&nome=${encodeURIComponent(selected.name ?? '')}`} className="inline-flex min-h-9 items-center rounded-lg bg-brand px-3 text-[0.8rem] font-semibold text-white hover:bg-brand-dark" data-testid="create-order-from-chat">Criar pedido</Link>
                   {selected.status !== 'CLOSED' && <Button size="sm" variant="ghost" disabled={pending} onClick={() => setStatus('CLOSED')}>Encerrar</Button>}
                 </div>
               </header>

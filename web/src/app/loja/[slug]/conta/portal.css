@@ -94,3 +94,18 @@
 .customer-header img,.customer-header .customer-store-dot{box-shadow:0 0 0 2px var(--store-accent,transparent)}
 .customer-store-tag{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--store-accent,#087EA4);margin-right:8px;vertical-align:middle}
 .customer-track-contact{display:inline-flex;min-height:46px;width:100%;align-items:center;justify-content:center;margin-top:12px;border:1.5px solid #cfe3ee;border-radius:12px;background:#fff;padding:10px 16px;color:#0b1f3a;font-weight:650;text-align:center}.customer-track-contact:hover{border-color:var(--customer-brand)}@media(min-width:640px){.customer-track-contact{width:auto}}
+/* Menu da área do cliente: barra única alinhada no celular; coluna lateral fixa no desktop. */
+.customer-nav{gap:4px;padding:5px;margin-bottom:22px;background:#fff;border:1px solid #edf0f2;border-radius:16px;box-shadow:0 2px 12px #15203106;scrollbar-width:none;scroll-snap-type:x proximity}
+.customer-nav::-webkit-scrollbar{display:none}
+.customer-nav a{display:inline-flex;align-items:center;min-height:42px;padding:0 14px;border-radius:12px;background:transparent;color:#4b5563;font-weight:600;white-space:nowrap;scroll-snap-align:start;transition:background-color .15s,color .15s}
+.customer-nav a:hover{background:#f3f5f7;color:#111827}
+.customer-nav a[aria-current=page]{background:var(--store-accent,var(--customer-brand));color:#fff}
+@media(min-width:900px){
+  .customer-wrap:has(> .customer-nav){display:grid;grid-template-columns:230px minmax(0,1fr);column-gap:28px;align-items:start}
+  .customer-wrap:has(> .customer-nav) > *{grid-column:2}
+  .customer-wrap:has(> .customer-nav) > .customer-header{grid-column:1/-1}
+  .customer-wrap:has(> .customer-nav) > .customer-nav{grid-column:1;grid-row:2/span 40;position:sticky;top:20px;flex-direction:column;overflow:visible;padding:8px;margin:0}
+  .customer-wrap:has(> .customer-nav) > .customer-nav a{width:100%}
+  .customer-wrap:has(> .customer-nav) .customer-title{margin-top:0}
+}
+@media(prefers-reduced-motion:reduce){.customer-nav a{transition:none}}

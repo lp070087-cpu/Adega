@@ -1,5 +1,6 @@
 'use client';
 import {parseMoneyInput} from '@/lib/money-input';
+import { OnlineChargeBox } from '@/components/store/OnlineChargeBox';
 
 import * as React from 'react';
 import { cn, formatBRL } from '@/lib/utils';
@@ -101,6 +102,8 @@ export type StoreInfo = {
   openState: StoreOpenState;
   allowNewOrders?: boolean;
   benefitsAvailable?: boolean;
+  /** Loja com pagamento online (Pix/cartão) ativo e utilizável. */
+  onlinePayment?: boolean;
   commercialMessage?: string | null;
   address: string | null;
   district: string | null;
@@ -153,14 +156,16 @@ function effectivePrice(product: StoreProduct): number {
  *
  * Vem do mesmo vocabulário do seletor do checkout — o cliente precisa
  * reencontrar na confirmação exatamente o termo que escolheu, senão fica
- * a dúvida de se pagou a mesma coisa. Nesta fase NÃO existe pagamento
- * online: tudo é acertado na entrega ou no balcão, e o texto diz isso.
+ * a dúvida de se pagou a mesma coisa. Pagamento online só aparece quando
+ * a loja ativou sua conta de cobrança; o resto é acertado na entrega.
  */
 const PAYMENT_LABEL: Record<string, string> = {
   CASH: 'Dinheiro',
   PIX: 'PIX',
   CREDIT_CARD: 'Cartão de crédito na entrega',
   DEBIT_CARD: 'Cartão de débito na entrega',
+  ONLINE_PIX: 'Pix online (pago agora)',
+  ONLINE_CARD: 'Cartão online (pago agora)',
 };
 
 /**
@@ -269,7 +274,11 @@ export function StoreCatalog({
     changeFor?: number;
     customerName: string;
     addressLine?: string;
+    payment?: { invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; billingType: string } | null;
+    paymentError?: string;
   } | null>(null);
+  const [pixCopied, setPixCopied] = React.useState(false);
+  const online = paymentMethod === 'ONLINE_PIX' || paymentMethod === 'ONLINE_CARD';
 
   const closed = store.openState !== 'OPEN';
   const commercialBlocked = store.allowNewOrders === false;
@@ -526,6 +535,8 @@ export function StoreCatalog({
     const changeRaw = String(formData.get('changeFor') ?? '');
     const changeFor = changeRaw.trim() ? parseMoneyInput(changeRaw)??NaN : undefined;
     if(changeFor!==undefined&&!Number.isFinite(changeFor)){setError('Informe um valor de troco válido.');setSending(false);return;}
+    const payerDocument = online ? String(formData.get('payerDocument') ?? '').replace(/\D/g, '') : undefined;
+    if (online && !/^(\d{11}|\d{14})$/.test(payerDocument ?? '')) { setError('Informe o CPF (11 números) ou CNPJ (14) de quem paga.'); setSending(false); return; }
 
     // Enviado ao servidor: produto, quantidade, variação e adicionais.
     // Nenhum preço. O total é recalculado lá.
@@ -546,8 +557,10 @@ export function StoreCatalog({
       deliveryLatitude: coord(formData.get('deliveryLatitude')),
       deliveryLongitude: coord(formData.get('deliveryLongitude')),
       deliveryReference: String(formData.get('deliveryReference') ?? '').trim() || undefined,
-      paymentMethod,
-      changeFor: changeFor !== undefined && Number.isFinite(changeFor) ? changeFor : undefined,
+      paymentMethod: online ? 'ONLINE' : paymentMethod,
+      onlineMethod: online ? (paymentMethod === 'ONLINE_PIX' ? 'PIX' : 'CREDIT_CARD') : undefined,
+      payerDocument,
+      changeFor: paymentMethod === 'CASH' && changeFor !== undefined && Number.isFinite(changeFor) ? changeFor : undefined,
       notes: String(formData.get('notes') ?? '').trim() || undefined,
       couponCode: String(formData.get('couponCode') ?? '').trim() || undefined,
       items: cart.map((line) => ({
@@ -606,6 +619,8 @@ export function StoreCatalog({
       deliveryType,
       paymentMethod,
       changeFor: paymentMethod === 'CASH' ? changeFor : undefined,
+      payment: result.data?.payment ?? null,
+      paymentError: result.data?.paymentError,
       customerName: String(formData.get('customerName') ?? '').trim(),
       addressLine:
         deliveryType === 'PICKUP'
@@ -1121,8 +1136,15 @@ export function StoreCatalog({
               <option value="PIX">PIX</option>
               <option value="CREDIT_CARD">Cartão de crédito na entrega</option>
               <option value="DEBIT_CARD">Cartão de débito na entrega</option>
+              {store.onlinePayment && <option value="ONLINE_PIX">Pagar online agora (Pix)</option>}
+              {store.onlinePayment && <option value="ONLINE_CARD">Pagar online agora (cartão)</option>}
             </Select>
           </Field>
+          {online && (
+            <Field label="CPF ou CNPJ de quem paga" required hint="Exigido pelo emissor da cobrança. Os dados do cartão são digitados só na página segura do provedor.">
+              <Input name="payerDocument" inputMode="numeric" autoComplete="off" maxLength={18} placeholder="Somente números" data-testid="payer-document" />
+            </Field>
+          )}
 
           {/* Troco só em dinheiro — em PIX/cartão não existe troco a dar. */}
           {paymentMethod === 'CASH' && (
@@ -1151,8 +1173,8 @@ export function StoreCatalog({
           </Field>
 
           <p className="text-[0.72rem] leading-relaxed text-ink-400">
-            O valor final é calculado pelo sistema da loja no momento do pedido. Nenhum pagamento é
-            processado por este site — o acerto é feito direto com o estabelecimento.
+            O valor final é calculado pelo sistema da loja no momento do pedido.
+            {online ? ' A cobrança online é gerada com esse valor e confirmada automaticamente pelo provedor.' : ' O acerto é feito direto com o estabelecimento.'}
           </p>
         </form>
       </Modal>
@@ -1192,6 +1214,8 @@ export function StoreCatalog({
               </p>
             </div>
 
+            {order.payment && <OnlineChargeBox charge={order.payment} copied={pixCopied} onCopy={() => { void navigator.clipboard?.writeText(order.payment?.pixPayload ?? '').then(() => setPixCopied(true)).catch(() => undefined); }} />}
+            {order.paymentError && <p className="rounded border-2 border-warn/30 bg-warn-bg px-3 py-2 text-[0.8rem] text-ink-800" data-testid="payment-error">{order.paymentError}</p>}
             <a className="block rounded border-2 border-brand px-4 py-3 text-center font-semibold text-brand" href={`/loja/${store.slug}/pedido/${order.orderId}`}>
               Acompanhar pedido
             </a>

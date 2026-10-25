@@ -2,11 +2,12 @@
  * Operational state of a driver — one definition for every screen (driver
  * list, order assignment, dispatch, driver app).
  *
- * Online/offline is the driver's own switch in the app (Driver.status).
- * The weekly schedule is informative for the store and never blocks a
- * driver from working: an online driver receives orders inside or outside
- * the schedule, with or without one. Suspension (inactive link) and pending
- * first access still block. An online driver may carry several deliveries.
+ * Online/offline reflects whether the driver has the app open (set
+ * automatically when the app opens and on logout — there is no manual
+ * switch). The store may assign to any active driver; offline only means
+ * the driver will see the order when opening the app. The weekly schedule
+ * organizes the list and never blocks. Suspension and pending first access
+ * still block. A driver may carry several deliveries.
  */
 export type DriverAvailability = 'AVAILABLE' | 'BUSY' | 'OFFLINE' | 'INACTIVE' | 'PENDING_ACCESS';
 export type AvailabilityInput = { active: boolean; activeOrders: number; status?: string | null; accessPending?: boolean };
@@ -20,7 +21,7 @@ export function driverAvailability(driver: AvailabilityInput): DriverAvailabilit
 }
 /** Online = can receive orders (free, or already on a route). */
 export const isDriverOnline = (driver: AvailabilityInput) => ['AVAILABLE', 'BUSY'].includes(driverAvailability(driver));
-export const canReceiveOrder = isDriverOnline;
+export const canReceiveOrder = (driver: AvailabilityInput) => !['INACTIVE', 'PENDING_ACCESS'].includes(driverAvailability(driver));
 export const DRIVER_AVAILABILITY_LABEL: Record<DriverAvailability, string> = {
   AVAILABLE: 'Online',
   BUSY: 'Em entrega',

@@ -42,7 +42,7 @@ export type OrderActionResult<T = undefined> =
  * e produtos de outra loja nem aparecem na consulta.
  */
 export async function checkoutAction(input: unknown): Promise<
-  OrderActionResult<{ orderId: string; displayId: number; total: number; discount:number;deliveryFee:number }>
+  OrderActionResult<{ orderId: string; displayId: number; total: number; discount:number;deliveryFee:number; payment?: { invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; billingType: string } | null; paymentError?: string }>
 > {
   try {
     const parsed = checkoutSchema.safeParse(input);
@@ -54,6 +54,17 @@ export async function checkoutAction(input: unknown): Promise<
     const { getPublicStoreBySlug } = await import('@/lib/data/organization');
     const store = await getPublicStoreBySlug(parsed.data.slug);
     if (!store) return { ok: false, error: 'Estabelecimento não encontrado.' };
+
+    // Pagamento online: só se a loja ativou e com CPF/CNPJ do pagador (exigido pelo provedor).
+    const online = parsed.data.paymentMethod === 'ONLINE';
+    if (online) {
+      const { onlinePaymentUsable, readOnlinePayment } = await import('@/lib/order-payments');
+      const { prisma } = await import('@/lib/db');
+      const org = await prisma.organization.findUnique({ where: { id: store.id }, select: { settings: true } });
+      if (!onlinePaymentUsable(readOnlinePayment(org?.settings))) return { ok: false, error: 'Pagamento online indisponível nesta loja. Escolha pagar na entrega.', field: 'paymentMethod' };
+      const doc = parsed.data.payerDocument ?? '';
+      if (!/^(\d{11}|\d{14})$/.test(doc)) return { ok: false, error: 'Informe o CPF (11 números) ou CNPJ (14) de quem paga.', field: 'payerDocument' };
+    }
 
     const portalAccount = process.env.CUSTOMER_PORTAL_ENABLED !== 'false' ? await (await import('@/lib/customer-portal/server')).portalSession(store.slug) : null;
     const result = await orders.createOrderFromCheckout(
@@ -89,6 +100,17 @@ export async function checkoutAction(input: unknown): Promise<
 
     revalidatePath('/app/pedidos');
     revalidatePath(`/loja/${store.slug}`);
+
+    if (online) {
+      // O pedido já existe; a cobrança é criada em seguida (uma por pedido).
+      try {
+        const { createOrderCharge } = await import('@/lib/order-payments');
+        const charge = await createOrderCharge({ organizationId: store.id, orderId: result.orderId, displayId: result.displayId, total: result.total, customerName: parsed.data.customerName, customerPhone: parsed.data.customerPhone, document: parsed.data.payerDocument!, method: parsed.data.onlineMethod ?? 'PIX', storeName: store.name });
+        return { ok: true, data: { ...result, payment: { invoiceUrl: charge.invoiceUrl, pixPayload: charge.pixPayload, pixImage: charge.pixImage, billingType: charge.billingType } } };
+      } catch {
+        return { ok: true, data: { ...result, payment: null, paymentError: 'Pedido enviado, mas o pagamento online não foi gerado agora. Combine o pagamento com a loja.' } };
+      }
+    }
 
     return { ok: true, data: result };
   } catch (error) {

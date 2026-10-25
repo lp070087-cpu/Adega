@@ -799,7 +799,8 @@ export async function updateOrderStatus(
     ...(status === 'PREPARING' ? { preparingAt: now } : {}),
     ...(status === 'READY' ? { readyAt: now } : {}),
     ...(status === 'DISPATCHED' ? { dispatchedAt: now } : {}),
-    ...(status === 'DELIVERED' ? { deliveredAt: now, paymentStatus: 'PAID' } : {}),
+    // Online só fica pago pela confirmação do provedor; na entrega, os demais são cobrados na porta.
+    ...(status === 'DELIVERED' ? { deliveredAt: now, ...(order.paymentMethod === 'ONLINE' ? {} : { paymentStatus: 'PAID' as const }) } : {}),
     ...(status === 'CANCELLED'
       ? {
           cancelledAt: now,
@@ -864,12 +865,9 @@ export async function assignDriver(
   if (!['READY', 'WAITING_DRIVER'].includes(order.status) || order.driverId) {
     throw new OperationError('O pedido já foi atribuído ou não está pronto para despacho.');
   }
-  // Online (ligou no app) recebe pedidos, inclusive mais de um por rota.
-  // A escala semanal é só organizacional e não bloqueia a atribuição.
-  const activeOrders = await tx.order.count({ where: {
-    organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
-  } });
-  if (!activeOrders && driver.status === 'OFFLINE') throw new OperationError(`${driver.name} está offline. Peça para ficar online no aplicativo do entregador.`);
+  // Qualquer entregador ativo pode receber, inclusive mais de um pedido por
+  // rota. Offline só significa que ele verá o pedido ao abrir o app; a
+  // escala semanal organiza a lista e não bloqueia a atribuição.
 
     await tx.order.update({
       where: { id: orderId },

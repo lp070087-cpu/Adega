@@ -10,6 +10,8 @@ import { orderTracking } from '@/lib/order-tracking';
 import { storeTimeZone } from '@/lib/schedule';
 import { portalReady, portalSession } from '@/lib/customer-portal/server';
 import { whatsappHref } from '@/lib/whatsapp';
+import { readOrderCharge } from '@/lib/order-payments';
+import { OnlineChargeBox } from '@/components/store/OnlineChargeBox';
 import '../../conta/portal.css';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +41,7 @@ export default async function TrackOrder({ params }: {
     },
   });
   if (!order) notFound();
+  const charge = order.paymentMethod === 'ONLINE' && order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED' ? await readOrderCharge(orderId) : null;
   const store = order.organization, timeZone = storeTimeZone(store.settings);
   const tracking = orderTracking({ ...order, deliveryStatus: order.delivery?.status });
   const pickup = order.deliveryType === 'PICKUP';
@@ -100,6 +103,7 @@ export default async function TrackOrder({ params }: {
               <div><dt>Pagamento</dt><dd>{PAYMENT_METHOD_LABEL[order.paymentMethod] ?? order.paymentMethod}{order.paymentMethod === 'CASH' && order.changeFor ? ` · troco para ${formatBRL(toNumber(order.changeFor))}` : ''}{order.paymentStatus === 'PAID' ? ' · pago' : order.paymentMethod === 'ONLINE' ? ' · aguardando confirmação do pagamento' : ''}</dd></div>
               <div><dt>Status atual</dt><dd>{tracking.headline}</dd></div>
             </dl>
+            {charge && <div className="mt-3"><OnlineChargeBox charge={charge} /></div>}
             <h2 className="customer-subhead">Histórico</h2>
             <ol className="customer-history">
               {history.map((entry) => <li key={entry.label}><span>{entry.label}</span><time dateTime={entry.at.toISOString()}>{dateTime(entry.at)}</time></li>)}

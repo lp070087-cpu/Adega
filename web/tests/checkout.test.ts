@@ -34,8 +34,10 @@ test('pedidos terminais não reabrem e pedido novo não pula preparação', () =
   assert.equal(canTransition('NEW', 'CONFIRMED'), true);
 });
 
-test('pagamento online sem integração não pode criar pedido público', () => {
-  assert.equal(checkoutSchema.safeParse({ ...checkout, paymentMethod: 'ONLINE' }).success, false);
+test('pagamento online no checkout só com método e documento válidos (a loja é conferida no servidor)', () => {
+  assert.equal(checkoutSchema.safeParse({ ...checkout, paymentMethod: 'ONLINE', onlineMethod: 'PIX', payerDocument: '52998224725' }).success, true);
+  assert.equal(checkoutSchema.safeParse({ ...checkout, paymentMethod: 'ONLINE', onlineMethod: 'BOLETO' }).success, false);
+  assert.equal(checkoutSchema.safeParse({ ...checkout, paymentMethod: 'ONLINE', payerDocument: '529.982' }).success, false);
   assert.equal(checkoutSchema.safeParse({ ...checkout, paymentMethod: 'PIX' }).success, true);
 });
 

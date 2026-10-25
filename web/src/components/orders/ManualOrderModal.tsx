@@ -1,7 +1,7 @@
 'use client';
 import {CurrencyField} from '@/components/ui/CurrencyField';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createManualOrderAction } from '@/app/actions/orders';
 import { Alert, Button, Modal } from '@/components/ui';
 import { formatBRL } from '@/lib/utils';
@@ -25,6 +25,17 @@ export function ManualOrderModal({ products, onCreated }: { products: ManualProd
   const requestKey = useRef<string | null>(null);
   const locked = useRef(false);
   const field = 'field-input w-full';
+  // Aberto a partir de uma conversa do Atendimento (?novoPedido=1&nome=&telefone=):
+  // já vem com o cliente e a origem WhatsApp. Preço e estoque continuam do servidor.
+  const [prefill, setPrefill] = useState<{ name: string; phone: string; source: string } | null>(null);
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('novoPedido') !== '1') return;
+    setPrefill({ name: (url.searchParams.get('nome') ?? '').slice(0, 120), phone: (url.searchParams.get('telefone') ?? '').replace(/\D/g, '').slice(-11), source: url.searchParams.get('origem') === 'whatsapp' ? 'WHATSAPP' : 'COUNTER' });
+    setOpen(true);
+    ['novoPedido', 'nome', 'telefone', 'origem'].forEach((k) => url.searchParams.delete(k));
+    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+  }, []);
   function update(key: string, patch: Partial<Line>) {
     setLines((current) => current.map((line) => line.key === key ? { ...line, ...patch } : line));
   }
@@ -48,9 +59,9 @@ export function ManualOrderModal({ products, onCreated }: { products: ManualProd
       <form onSubmit={(e) => { e.preventDefault(); void submit(new FormData(e.currentTarget)); }} className="space-y-4">
         {error && <Alert tone="danger">{error}</Alert>}
         <div className="grid gap-3 sm:grid-cols-2">
-          <label>Nome do cliente<input name="customerName" required minLength={2} maxLength={120} className={field} autoComplete="name" /></label>
-          <label>Telefone do cliente<input name="customerPhone" required type="tel" className={field} autoComplete="tel" placeholder="DDD + número" /></label>
-          <label>Origem<select name="source" className={field}><option value="COUNTER">Balcão</option><option value="WHATSAPP">WhatsApp</option><option value="MANUAL">Outro atendimento</option></select></label>
+          <label>Nome do cliente<input name="customerName" required minLength={2} maxLength={120} className={field} autoComplete="name" defaultValue={prefill?.name} key={`n-${prefill?.name ?? ""}`} /></label>
+          <label>Telefone do cliente<input name="customerPhone" required type="tel" className={field} autoComplete="tel" placeholder="DDD + número" defaultValue={prefill?.phone} key={`p-${prefill?.phone ?? ""}`} /></label>
+          <label>Origem<select name="source" className={field} defaultValue={prefill?.source ?? "COUNTER"} key={`s-${prefill?.source ?? ""}`}><option value="COUNTER">Balcão</option><option value="WHATSAPP">WhatsApp</option><option value="MANUAL">Outro atendimento</option></select></label>
           <label>Modalidade<select name="deliveryType" value={deliveryType} onChange={(e) => setDeliveryType(e.target.value)} className={field}><option value="PICKUP">Retirada</option><option value="DELIVERY">Entrega</option></select></label>
         </div>
         {deliveryType === 'DELIVERY' && <div className="grid gap-3 sm:grid-cols-2">

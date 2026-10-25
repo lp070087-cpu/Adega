@@ -32,5 +32,12 @@ export const viewport: Viewport = {
  * ═══════════════════════════════════════════════════════════════════════
  */
 export default function DriverLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen bg-ink-50">{children}<DriverPwaBootstrap /></div>;
+  return (
+    <div className="driver-shell min-h-screen bg-ink-50">
+      {/* Fonte do app do entregador: Roboto, legível ao sol e em telas pequenas. */}
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" precedence="default" />
+      {children}
+      <DriverPwaBootstrap />
+    </div>
+  );
 }

@@ -207,4 +207,8 @@ export async function changePasswordAction(
   return { error: undefined };
 }
 
-export async function driverLogoutAction(){await signOut({redirectTo:'/entregador/'});}
+export async function driverLogoutAction(){
+  // Sair do app deixa o entregador offline na loja atual (sem botão manual).
+  try{const { requireDriver }=await import('@/lib/auth/guards');const ctx=await requireDriver();await prisma.driver.updateMany({where:{id:ctx.driver.id,organizationId:ctx.organizationId},data:{status:'OFFLINE'}});}catch{/* sessão já encerrada */}
+  await signOut({redirectTo:'/entregador/'});
+}

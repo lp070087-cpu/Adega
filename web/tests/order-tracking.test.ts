@@ -74,7 +74,7 @@ test('stock screens never use the money counter animation', () => {
   for (const file of inventory) assert.doesNotMatch(fs.readFileSync(`src/components/${file}`, 'utf8'), /AnimatedMoney/);
 });
 
-test('driver availability: online switch decides, schedule never blocks, several deliveries allowed', async () => {
+test('driver availability: status is informative, schedule never blocks, several deliveries allowed', async () => {
   const { driverAvailability, canReceiveOrder, driverOptionLabel } = await import('../src/lib/driver-availability');
   assert.equal(driverAvailability({ active: true, activeOrders: 0, status: 'ONLINE' }), 'AVAILABLE');
   assert.equal(driverAvailability({ active: true, activeOrders: 0, status: 'OFFLINE' }), 'OFFLINE');
@@ -83,7 +83,9 @@ test('driver availability: online switch decides, schedule never blocks, several
   assert.equal(driverAvailability({ active: false, activeOrders: 0, status: 'ONLINE' }), 'INACTIVE');
   assert.equal(driverAvailability({ active: true, activeOrders: 0, status: 'ONLINE', accessPending: true }), 'PENDING_ACCESS');
   assert.equal(canReceiveOrder({ active: true, activeOrders: 1, status: 'BUSY' }), true);
-  assert.equal(canReceiveOrder({ active: true, activeOrders: 0, status: 'OFFLINE' }), false);
+  assert.equal(canReceiveOrder({ active: true, activeOrders: 0, status: 'OFFLINE' }), true);
+  assert.equal(canReceiveOrder({ active: false, activeOrders: 0, status: 'ONLINE' }), false);
+  assert.equal(canReceiveOrder({ active: true, activeOrders: 0, status: 'ONLINE', accessPending: true }), false);
   assert.equal(driverOptionLabel({ name: 'Carlos', active: true, activeOrders: 0, status: 'ONLINE' }), 'Carlos — Online');
   assert.equal(driverOptionLabel({ name: 'Ana', active: true, activeOrders: 0, status: 'OFFLINE' }), 'Ana — Offline');
 });

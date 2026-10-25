@@ -28,8 +28,10 @@ test('driver reassignment composes remove/assign in one transaction and preserve
   assert.equal(h.state().order.total, 40); assert.equal(h.state().order.paymentStatus, 'PENDING'); assert.equal(h.state().order.stockDeducted, true);
   assert.match(h.state().delivery.notes, /Observação anterior/); assert.match(h.state().delivery.notes, /operator-user.*old.*next.*Troca de turno/);
 });
-test('reassignment rejects foreign/picked-up orders and invalid reason; unavailable replacement rolls back old assignment', async () => {
-  for (const options of [{ nextAvailable: false }, { pickedUp: true }, { foreign: true },{pendingAccess:true}]) {
+test('reassignment rejects foreign/picked-up orders and invalid reason; pending-access replacement rolls back old assignment', async () => {
+  // Offline não bloqueia mais: a escala organiza e o app abre disponível.
+  const offline = harness({ nextAvailable: false }); await offline.api.reassignDriver('org', 'order', 'next', 'operator-user', 'Troca de turno'); assert.equal(offline.state().order.driverId, 'next');
+  for (const options of [{ pickedUp: true }, { foreign: true },{pendingAccess:true}]) {
     const h = harness(options); const initial = structuredClone(h.state()); await assert.rejects(h.api.reassignDriver('org', 'order', 'next', 'operator-user', 'Troca de turno')); assert.deepEqual(h.state(), initial);
   }
   const h = harness(); await assert.rejects(h.api.reassignDriver('org', 'order', 'next', 'operator-user', 'x')); assert.equal(h.transactions().outerTransactions, 0);

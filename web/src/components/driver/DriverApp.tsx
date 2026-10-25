@@ -1,6 +1,6 @@
 'use client';
 
-import { Bike, Car, Footprints, MapPin, Navigation, CheckCircle2, House, Package, Map as MapIcon, History, Settings } from 'lucide-react';
+import { Bike, Car, Footprints, MapPin, Navigation, CheckCircle2, Package, Map as MapIcon, History, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { whatsappHref } from '@/lib/whatsapp';
@@ -195,7 +195,7 @@ export function DriverApp({
   const router = useRouter();
   useLiveRefresh('/api/entregador/versao', 8000);
   const [pending, startTransition] = useTransition();
-  const [tab, setTab] = useState<'inicio' | 'entregas' | 'rotas' | 'historico' | 'perfil'>('inicio');
+  const [tab, setTab] = useState<'entregas' | 'rotas' | 'historico' | 'perfil'>('entregas');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -273,7 +273,11 @@ export function DriverApp({
   // Online/offline é escolha do entregador; a escala é só informativa.
   const isOnline = active.length > 0 || driver.status !== 'OFFLINE';
   const availability = active.length > 0 ? 'Em entrega' : isOnline ? 'Online · recebendo entregas' : 'Offline';
-  const setPresence = (status: 'ONLINE' | 'OFFLINE') => run(() => setMyDriverStatusAction(status), () => setNotice(status === 'ONLINE' ? 'Você está online e pode receber entregas.' : 'Você está offline. A loja não vai atribuir novas entregas.'));
+
+  // Sem botão de online: abrir o app deixa o entregador disponível para a loja.
+  useEffect(() => {
+    if (driver.status === 'OFFLINE') void setMyDriverStatusAction('ONLINE').then(() => router.refresh()).catch(() => undefined);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderOrder = (order: DriverOrder) => (
     <OrderCard
@@ -305,8 +309,8 @@ export function DriverApp({
       <div className="sticky top-0 z-20">
         {/* ── CABEÇALHO ────────────────────────────────────────────── */}
         <header
-          className="px-4 pb-3 text-white shadow-sm"
-          style={{ background: 'linear-gradient(135deg,#087EA4,#0B1F3A)', paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+          className="border-b border-ink-100 bg-white px-4 pb-3 text-ink-900"
+          style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
         >
           <div className="flex items-center gap-3">
             {store.logoUrl ? (
@@ -314,30 +318,30 @@ export function DriverApp({
               <img
                 src={store.logoUrl}
                 alt={store.name}
-                className="h-10 w-10 flex-shrink-0 rounded object-cover ring-2 ring-white/40"
+                className="h-10 w-10 flex-shrink-0 rounded-xl object-cover"
               />
             ) : (
-              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded text-[0.95rem] font-extrabold ring-2 ring-white/30" style={{ backgroundColor: store.brandColor || 'rgba(255,255,255,.2)' }}>
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-[0.95rem] font-bold text-white" style={{ backgroundColor: store.brandColor || '#087EA4' }}>
                 {store.name.slice(0, 2).toUpperCase()}
               </span>
             )}
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[0.95rem] font-extrabold leading-tight">{driver.name}</p>
-              <p className="flex items-center gap-1.5 text-[0.72rem] text-white/85">
+              <p className="truncate text-[1rem] font-bold leading-tight">{driver.name}</p>
+              <p className="flex items-center gap-1.5 text-[0.76rem] text-ink-500">
                 <span
                   className={cn(
                     'inline-block h-1.5 w-1.5 rounded-full',
-                    isOnline ? 'bg-[#7BE495]' : 'bg-white/60',
+                    isOnline ? 'bg-success' : 'bg-ink-300',
                   )}
                 />
                 {availability}
-                <span className="text-white/50">•</span>
+                <span className="text-ink-300">•</span>
                 <span className="truncate">{store.name}</span>
               </p>
             </div>
 
-            <span className="flex-shrink-0 rounded-full bg-white/15 px-2 py-1 text-[0.72rem] font-bold">
+            <span className="flex-shrink-0 rounded-full bg-ink-100 px-2.5 py-1 text-[0.74rem] font-bold text-ink-700">
               <VehicleIcon type={driver.vehicleType} /> {driver.vehiclePlate ?? '—'}
             </span>
           </div>
@@ -354,40 +358,16 @@ export function DriverApp({
         )}
         {notice && <Alert tone="success">{notice}</Alert>}
 
-        {/* ── INÍCIO ───────────────────────────────────────────────── */}
-        {tab === 'inicio' && (
+        {/* ── MINHAS ENTREGAS ──────────────────────────────────────── */}
+        {tab === 'entregas' && (
           <>
-            <PresenceCard online={isOnline} busy={active.length > 0} disabled={pending} onChange={setPresence} />
             <DriverScheduleNotice />
             <div className="grid grid-cols-3 gap-2.5">
               <MiniStat value={String(active.length)} label="Em aberto" />
               <MiniStat value={String(doneToday)} label="Entregues hoje" />
-              <MiniStat value={String(done.length)} label="No histórico" />
+              <MiniStat value={formatBRL(active.filter((o) => o.paymentStatus === 'PENDING' && o.paymentMethod === 'CASH').reduce((acc, o) => acc + o.total, 0))} label="A cobrar" />
             </div>
-            {active.length === 0 ? (
-              <Card>
-                <EmptyState
-                  icon="🛵"
-                  title="Nenhuma entrega agora"
-                  description={isOnline ? 'Quando a loja atribuir um pedido, ele aparece aqui sozinho em poucos segundos.' : 'Fique online para a loja poder atribuir entregas a você.'}
-                />
-              </Card>
-            ) : (
-              <>
-                <div className="flex items-center justify-between px-1">
-                  <p className="text-[0.8rem] font-bold text-ink-700">Próxima entrega</p>
-                  {active.length > 1 && <button type="button" onClick={() => setTab('entregas')} className="min-h-11 text-[0.8rem] font-semibold text-brand">Ver todas ({active.length})</button>}
-                </div>
-                {renderOrder(active[0])}
-                {active.length > 1 && <Button variant="secondary" className="w-full" onClick={() => setTab('rotas')}>Organizar a rota no mapa</Button>}
-              </>
-            )}
-          </>
-        )}
-
-        {/* ── MINHAS ENTREGAS ──────────────────────────────────────── */}
-        {tab === 'entregas' && (
-          <>
+            {active.length > 1 && <Button variant="secondary" className="w-full" onClick={() => setTab('rotas')}>Organizar a sequência no mapa</Button>}
             {active.length === 0 ? (
               <Card>
                 <EmptyState
@@ -478,7 +458,6 @@ export function DriverApp({
               </div>
             </Card>
 
-            <PresenceCard online={isOnline} busy={active.length > 0} disabled={pending} onChange={setPresence} />
             <LocationSettingsCard />
 
             <DriverInstallCard />
@@ -507,14 +486,13 @@ export function DriverApp({
 
       {/* ── MENU INFERIOR (uso com uma mão) ──────────────────────── */}
       <nav aria-label="Menu do entregador" className="fixed inset-x-0 bottom-0 z-[900] border-t border-ink-100 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-        <div className="mx-auto grid max-w-xl grid-cols-5">
+        <div className="mx-auto grid max-w-xl grid-cols-4">
           {(
             [
-              ['inicio', 'Início', House, 0],
               ['entregas', 'Entregas', Package, active.length],
-              ['rotas', 'Mapa e rotas', MapIcon, 0],
+              ['rotas', 'Rotas', MapIcon, 0],
               ['historico', 'Histórico', History, 0],
-              ['perfil', 'Ajustes', Settings, 0],
+              ['perfil', 'Perfil', UserRound, 0],
             ] as const
           ).map(([key, label, Icon, count]) => (
             <button
@@ -893,31 +871,6 @@ function OrderSheet({
 }
 
 // ── DISPONIBILIDADE E LOCALIZAÇÃO ───────────────────────────────────────
-
-function PresenceCard({ online, busy, disabled, onChange }: { online: boolean; busy: boolean; disabled: boolean; onChange: (status: 'ONLINE' | 'OFFLINE') => void }) {
-  return (
-    <section
-      data-testid="driver-presence"
-      className={cn('rounded-2xl border p-4 shadow-xs transition-colors', busy ? 'border-info/30 bg-info-bg' : online ? 'border-success/30 bg-success-bg' : 'border-ink-200 bg-white')}
-    >
-      <div className="flex items-center gap-3">
-        <span className={cn('relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full', busy ? 'bg-info/15 text-info' : online ? 'bg-success/15 text-success' : 'bg-ink-100 text-ink-400')} aria-hidden>
-          <span className={cn('h-3.5 w-3.5 rounded-full', busy ? 'bg-info' : online ? 'bg-success' : 'bg-ink-300')} />
-          {online && !busy && <span className="absolute inset-0 animate-ping rounded-full bg-success/20 motion-reduce:hidden" />}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[0.95rem] font-extrabold text-ink-900">{busy ? 'Em entrega' : online ? 'Você está online' : 'Você está offline'}</p>
-          <p className="text-[0.74rem] leading-snug text-ink-600">{busy ? 'Conclua as entregas atuais para mudar a disponibilidade.' : online ? 'A loja pode atribuir entregas a você, dentro ou fora da escala.' : 'Fique online para receber entregas da loja.'}</p>
-        </div>
-      </div>
-      {!busy && (
-        <Button className="mt-3 w-full" variant={online ? 'secondary' : 'primary'} disabled={disabled} onClick={() => onChange(online ? 'OFFLINE' : 'ONLINE')}>
-          {online ? 'Ficar offline' : 'Ficar online'}
-        </Button>
-      )}
-    </section>
-  );
-}
 
 function LocationSettingsCard() {
   const [enabled, setEnabled] = useDriverLocationPref();

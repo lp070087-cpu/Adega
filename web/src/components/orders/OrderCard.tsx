@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { cn, formatBRL, timeAgo } from '@/lib/utils';
 import { SourceBadge, StatusBadge } from '@/components/ui/StatusBadge';
 import { primaryOrderAction } from '@/lib/order-flow';
-import { driverOptionLabel, isDriverOnline } from '@/lib/driver-availability';
+import { canReceiveOrder, driverOptionLabel, isDriverOnline } from '@/lib/driver-availability';
 
 /**
  * Cartão único do pedido: fica sempre no mesmo lugar e o botão principal
@@ -119,7 +119,7 @@ export function OrderCard({
             <div className="flex gap-2">
               <select value={driverId} onChange={(e) => setDriverId(e.target.value)} aria-label={`Entregador do pedido #${order.displayId}`} className="field-input min-h-11 min-w-0 flex-1 text-[0.8rem]">
                 <option value="">Escolha o entregador</option>
-                {sorted.map((d) => <option key={d.id} value={d.id} disabled={!isDriverOnline(availability(d))}>{driverOptionLabel(availability(d))}</option>)}
+                {sorted.map((d) => <option key={d.id} value={d.id} disabled={!canReceiveOrder(availability(d))}>{driverOptionLabel(availability(d))}</option>)}
               </select>
               <button type="button" disabled={pending || !driverId} onClick={() => onAssign(order, driverId)} className="min-h-11 shrink-0 rounded-xl bg-brand px-3 text-[0.8rem] font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-55">
                 Atribuir

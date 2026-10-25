@@ -1,4 +1,5 @@
 import { readBannerMeta } from '@/lib/banner-meta';
+import { onlinePaymentUsable, readOnlinePayment } from '@/lib/order-payments';
 import { readStorefrontCategories } from '@/lib/storefront-categories';
 import { StoreAvailabilitySync } from '@/components/store/StoreAvailabilitySync';
 import { storeOpeningMode, storeTimeZone } from '@/lib/schedule';
@@ -268,6 +269,7 @@ export default async function PublicStorePage({ params }: PageProps) {
             allowOwnDelivery: store.allowOwnDelivery,
             openState,
             allowNewOrders: commercial.allowNewOrders,
+            onlinePayment: onlinePaymentUsable(readOnlinePayment(store.settings)),
             benefitsAvailable: growthState(settings).loyalty.enabled || growthState(settings).campaigns.some(c=>c.status==='ACTIVE'),
             commercialMessage: commercial.allowNewOrders ? null : commercial.message,
             address: addressLine,
