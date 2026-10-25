@@ -153,18 +153,18 @@ export function LocationPicker({
         {notice && (
           <p role="status" className="absolute left-3 right-14 top-3 z-[600] mx-auto max-w-md rounded-xl bg-ink-900/90 px-3.5 py-2.5 text-center text-[0.8rem] text-white shadow-lg">{notice}</p>
         )}
-        <button type="button" onClick={useMyLocation} disabled={busy || !ready} className="absolute bottom-4 right-3 z-[600] flex min-h-11 items-center gap-1.5 rounded-full bg-white px-3.5 text-[0.8rem] font-semibold text-ink-800 shadow-md ring-1 ring-ink-100 disabled:opacity-60">
+        <button type="button" onClick={useMyLocation} disabled={busy || !ready} className="absolute bottom-4 right-3 z-[600] flex min-h-11 items-center gap-1.5 rounded-full bg-white px-3.5 [@media(max-height:520px)]:left-3 [@media(max-height:520px)]:right-auto [@media(max-height:520px)]:bottom-3 text-[0.8rem] font-semibold text-ink-800 shadow-md ring-1 ring-ink-100 disabled:opacity-60">
           <LocateFixed size={17} className="text-brand" aria-hidden /> Usar minha localização
         </button>
       </div>
 
-      <div className="z-[2] space-y-3 border-t border-ink-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3.5 shadow-[0_-8px_24px_rgba(11,31,58,.08)]">
+      <div className="z-[2] space-y-3 border-t border-ink-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3.5 shadow-[0_-8px_24px_rgba(11,31,58,.08)] [@media(max-height:520px)]:absolute [@media(max-height:520px)]:bottom-3 [@media(max-height:520px)]:right-3 [@media(max-height:520px)]:z-[700] [@media(max-height:520px)]:w-80 [@media(max-height:520px)]:space-y-2 [@media(max-height:520px)]:rounded-2xl [@media(max-height:520px)]:border [@media(max-height:520px)]:p-3 [@media(max-height:520px)]:shadow-xl">
         <div>
           <p className="text-[0.7rem] font-bold uppercase tracking-wider text-ink-400">Local da entrega</p>
-          <p className="mt-0.5 min-h-[2.6em] text-[0.92rem] font-semibold leading-snug text-ink-900" data-testid="location-picker-address" aria-live="polite">
+          <p className="mt-0.5 min-h-[2.6em] [@media(max-height:520px)]:min-h-0 [@media(max-height:520px)]:text-[0.84rem] text-[0.92rem] font-semibold leading-snug text-ink-900" data-testid="location-picker-address" aria-live="polite">
             {moving ? 'Solte o mapa no ponto exato…' : place.loading ? 'Buscando o endereço aproximado…' : place.label ?? place.error ?? 'Mova o mapa até a porta ou entrada exata.'}
           </p>
-          <p className="text-[0.74rem] text-ink-500">O endereço acima é aproximado; vale o ponto sob o pino.</p>
+          <p className="text-[0.74rem] text-ink-500 [@media(max-height:520px)]:hidden">O endereço acima é aproximado; vale o ponto sob o pino.</p>
         </div>
         <button type="button" onClick={confirm} disabled={!ready || moving} className="min-h-12 w-full rounded-xl bg-brand text-[0.95rem] font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60">
           Confirmar local

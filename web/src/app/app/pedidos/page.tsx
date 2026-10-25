@@ -3,6 +3,7 @@ import { can } from '@/lib/permissions';
 import { prisma, toNumber } from '@/lib/db';
 import { getOrders } from '@/lib/data/orders';
 import { getDrivers } from '@/lib/data/drivers';
+import { operationalDrivers } from '@/lib/driver-selection';
 import { OrdersBoard } from '@/components/orders/OrdersBoard';
 import type { DrawerOrder } from '@/components/orders/OrderDrawer';
 import { readAutoAccept } from '@/lib/order-flow';
@@ -38,6 +39,7 @@ export default async function OrdersPage() {
   ]);
 
   // Só os campos que a tela usa — nada de mandar o objeto Prisma inteiro.
+  const selection = operationalDrivers(drivers.filter((driver) => driver.active), organization?.settings);
   const serialized: DrawerOrder[] = orders.items.map((order) => ({
     id: order.id,
     displayId: order.displayId,
@@ -95,6 +97,12 @@ export default async function OrdersPage() {
         </p>
       </div>
 
+      {selection.filtered && selection.hidden > 0 && (
+        <p className="mb-3 text-[0.78rem] text-ink-500" data-testid="driver-selection-note">
+          No seletor aparecem os entregadores programados para hoje ou online ({selection.drivers.length}). Os demais ({selection.hidden}) ficam em{' '}
+          <a href="/app/entregadores" className="font-semibold text-brand underline">Entregadores</a>.
+        </p>
+      )}
       <OrdersBoard
         orders={serialized}
         products={products.map((product) => ({
@@ -102,7 +110,7 @@ export default async function OrdersPage() {
           variations: product.variations.map((v) => ({ ...v, priceAdjustment: toNumber(v.priceAdjustment) })),
           addonGroups: product.addonGroups.map((g) => ({ ...g, addons: g.addons.map((a) => ({ ...a, price: toNumber(a.price) })) })),
         }))}
-        drivers={drivers.filter((driver) => driver.active).map((driver) => ({
+        drivers={selection.drivers.map((driver) => ({
           id: driver.id,
           name: driver.name,
           status: driver.status,

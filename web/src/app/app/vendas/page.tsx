@@ -228,7 +228,7 @@ export default async function SalesPage({ searchParams }: PageProps) {
                         <span className="text-[0.76rem] text-ink-600">
                           {PAYMENT_METHOD_LABEL[order.paymentMethod] ?? order.paymentMethod}
                         </span>
-                        <PaymentStatusBadge status={order.paymentStatus ?? 'PENDING'} />
+                        <PaymentStatusBadge status={order.paymentStatus ?? 'PENDING'} method={order.paymentMethod} />
                       </div>
                     </td>
                     <td className="py-2.5 pr-4 text-right text-[0.8rem] text-ink-600">

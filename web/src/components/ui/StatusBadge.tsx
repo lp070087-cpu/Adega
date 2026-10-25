@@ -6,6 +6,7 @@ import {
   ORDER_STATUS_LABEL,
   PAYMENT_METHOD_LABEL,
   PAYMENT_STATUS_LABEL,
+  paymentStatusLabel,
   DELIVERY_STATUS_LABEL,
   STORE_STATUS_LABEL,
   type StoreStatusValue,
@@ -65,10 +66,10 @@ export function DriverStatusBadge({ status }: { status: string }) {
   );
 }
 
-export function PaymentStatusBadge({ status }: { status: string }) {
+export function PaymentStatusBadge({ status, method }: { status: string; method?: string | null }) {
   return (
     <Badge tone={PAYMENT_TONES[status] ?? 'neutral'}>
-      {PAYMENT_STATUS_LABEL[status] ?? status}
+      {paymentStatusLabel(status, method)}
     </Badge>
   );
 }

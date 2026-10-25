@@ -215,7 +215,7 @@ export function OrderDrawer({
         <StatusBadge status={order.status} deliveryType={order.deliveryType} />
         <SourceBadge source={order.source} />
         <PaymentMethodBadge method={order.paymentMethod} />
-        <PaymentStatusBadge status={order.paymentStatus} />
+        <PaymentStatusBadge status={order.paymentStatus} method={order.paymentMethod} />
       </div>
 
       {/* ── Itens ─────────────────────────────────────────────────── */}

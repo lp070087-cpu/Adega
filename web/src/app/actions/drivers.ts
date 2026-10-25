@@ -369,3 +369,19 @@ export async function getMyDriverScheduleAction() {
     return { ok: true as const, schedule, availability: driverShiftAvailability(schedule), tomorrow: tomorrowDriverShifts(schedule) };
   } catch (error) { return { ok: false as const, ...toActionError(error) }; }
 }
+
+/** Regra do seletor operacional: só programados hoje ou todos os entregadores. */
+export async function setDriverSelectionRuleAction(rule: 'scheduled' | 'all'): Promise<DriverActionResult> {
+  try {
+    const ctx = await requirePermission('MANAGE_DRIVERS');
+    if (rule !== 'scheduled' && rule !== 'all') throw new Error('Regra inválida.');
+    const { withOrganizationTransaction } = await import('@/lib/data/transaction');
+    await withOrganizationTransaction(ctx.organizationId, async (tx) => {
+      const org = await tx.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } });
+      const settings = (org?.settings ?? {}) as Record<string, unknown>;
+      await tx.organization.update({ where: { id: ctx.organizationId }, data: { settings: { ...settings, driverSelection: rule } } });
+    });
+    revalidateDrivers();
+    return { ok: true };
+  } catch (error) { return { ok: false, ...toActionError(error) }; }
+}

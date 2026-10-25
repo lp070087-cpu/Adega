@@ -1,6 +1,6 @@
 'use client';
 
-import { Bike, Car, Footprints, MapPin, Navigation, CheckCircle2 } from 'lucide-react';
+import { Bike, Car, Footprints, MapPin, Navigation, CheckCircle2, House, Package, Map as MapIcon, History, Settings } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { whatsappHref } from '@/lib/whatsapp';
@@ -195,7 +195,7 @@ export function DriverApp({
   const router = useRouter();
   useLiveRefresh('/api/entregador/versao', 8000);
   const [pending, startTransition] = useTransition();
-  const [tab, setTab] = useState<'entregas' | 'rotas' | 'historico' | 'perfil'>('entregas');
+  const [tab, setTab] = useState<'inicio' | 'entregas' | 'rotas' | 'historico' | 'perfil'>('inicio');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -242,6 +242,11 @@ export function DriverApp({
     [done],
   );
 
+  const doneToday = useMemo(() => {
+    const today = new Date().toDateString();
+    return done.filter((o) => o.deliveredAt && new Date(o.deliveredAt).toDateString() === today).length;
+  }, [done]);
+
   const openOrder = openId ? orders.find((o) => o.id === openId) ?? null : null;
 
   function run(
@@ -269,6 +274,25 @@ export function DriverApp({
   const isOnline = active.length > 0 || driver.status !== 'OFFLINE';
   const availability = active.length > 0 ? 'Em entrega' : isOnline ? 'Online · recebendo entregas' : 'Offline';
   const setPresence = (status: 'ONLINE' | 'OFFLINE') => run(() => setMyDriverStatusAction(status), () => setNotice(status === 'ONLINE' ? 'Você está online e pode receber entregas.' : 'Você está offline. A loja não vai atribuir novas entregas.'));
+
+  const renderOrder = (order: DriverOrder) => (
+    <OrderCard
+      key={order.id}
+      order={order}
+      now={now}
+      disabled={pending}
+      onOpen={() => setOpenId(order.id)}
+      onStep={(step, notes) =>
+        run(
+          () => driverStepAction({ orderId: order.id, step, notes }),
+          () => {
+            setNotice(step === 'DELIVERED' ? `Entrega do pedido #${order.displayId} confirmada.` : `Passo registrado: ${STEP_LABEL[step]}.`);
+            if (step === 'DELIVERED') setOpenId(null);
+          },
+        )
+      }
+    />
+  );
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[560px] flex-col bg-ink-50">
@@ -319,40 +343,9 @@ export function DriverApp({
           </div>
         </header>
 
-        {/* ── ABAS ─────────────────────────────────────────────────── */}
-        <nav className="flex border-b border-ink-100 bg-white">
-          {(
-            [
-              ['entregas', 'Entregas', active.length],
-              ['rotas', 'Minhas rotas', 0],
-              ['historico', 'Histórico', 0],
-              ['perfil', 'Conta', 0],
-            ] as const
-          ).map(([key, label, count]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTab(key)}
-              className={cn(
-                'flex min-h-11 flex-1 items-center justify-center gap-1 border-b-2 px-1 py-2.5 text-center text-[0.74rem] font-bold leading-tight transition-all sm:text-[0.8rem]',
-                tab === key
-                  ? 'border-brand text-brand'
-                  : 'border-transparent text-ink-500 hover:text-ink-700',
-              )}
-            >
-              {label}
-              {count > 0 && (
-                <span className="rounded-full bg-brand px-1.5 py-0.5 text-[0.65rem] font-extrabold text-white">
-                  {count}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
       </div>
 
-      <main className="flex-1 space-y-3 p-4 pb-24">
-        <DriverScheduleNotice />
+      <main className="flex-1 space-y-3 p-4 pb-28">
         {!online && <Alert tone="warn">Sem conexão. As entregas exibidas podem estar desatualizadas. Reconecte para registrar alterações.</Alert>}
         {error && (
           <Alert tone="danger" title="Não foi possível concluir">
@@ -361,10 +354,40 @@ export function DriverApp({
         )}
         {notice && <Alert tone="success">{notice}</Alert>}
 
-        {/* ── ENTREGAS ─────────────────────────────────────────────── */}
-        {tab === 'entregas' && (
+        {/* ── INÍCIO ───────────────────────────────────────────────── */}
+        {tab === 'inicio' && (
           <>
             <PresenceCard online={isOnline} busy={active.length > 0} disabled={pending} onChange={setPresence} />
+            <DriverScheduleNotice />
+            <div className="grid grid-cols-3 gap-2.5">
+              <MiniStat value={String(active.length)} label="Em aberto" />
+              <MiniStat value={String(doneToday)} label="Entregues hoje" />
+              <MiniStat value={String(done.length)} label="No histórico" />
+            </div>
+            {active.length === 0 ? (
+              <Card>
+                <EmptyState
+                  icon="🛵"
+                  title="Nenhuma entrega agora"
+                  description={isOnline ? 'Quando a loja atribuir um pedido, ele aparece aqui sozinho em poucos segundos.' : 'Fique online para a loja poder atribuir entregas a você.'}
+                />
+              </Card>
+            ) : (
+              <>
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-[0.8rem] font-bold text-ink-700">Próxima entrega</p>
+                  {active.length > 1 && <button type="button" onClick={() => setTab('entregas')} className="min-h-11 text-[0.8rem] font-semibold text-brand">Ver todas ({active.length})</button>}
+                </div>
+                {renderOrder(active[0])}
+                {active.length > 1 && <Button variant="secondary" className="w-full" onClick={() => setTab('rotas')}>Organizar a rota no mapa</Button>}
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── MINHAS ENTREGAS ──────────────────────────────────────── */}
+        {tab === 'entregas' && (
+          <>
             {active.length === 0 ? (
               <Card>
                 <EmptyState
@@ -379,28 +402,7 @@ export function DriverApp({
                 />
               </Card>
             ) : (
-              active.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  now={now}
-                  disabled={pending}
-                  onOpen={() => setOpenId(order.id)}
-                  onStep={(step, notes) =>
-                    run(
-                      () => driverStepAction({ orderId: order.id, step, notes }),
-                      () => {
-                        setNotice(
-                          step === 'DELIVERED'
-                            ? `Entrega do pedido #${order.displayId} confirmada.`
-                            : `Passo registrado: ${STEP_LABEL[step]}.`,
-                        );
-                        if (step === 'DELIVERED') setOpenId(null);
-                      },
-                    )
-                  }
-                />
-              ))
+              active.map((order) => renderOrder(order))
             )}
           </>
         )}
@@ -424,8 +426,8 @@ export function DriverApp({
             </div>
 
             <p className="px-1 text-[0.72rem] leading-relaxed text-ink-400">
-              As últimas 50 entregas atribuídas a você. Valores são dos pedidos, não repasse de
-              comissão — o cálculo de repasse ainda não existe no sistema.
+              Suas últimas 50 entregas. Os valores são dos pedidos; repasse e comissão são
+              combinados diretamente com a loja.
             </p>
 
             {done.length === 0 ? (
@@ -502,6 +504,33 @@ export function DriverApp({
           </>
         )}
       </main>
+
+      {/* ── MENU INFERIOR (uso com uma mão) ──────────────────────── */}
+      <nav aria-label="Menu do entregador" className="fixed inset-x-0 bottom-0 z-[900] border-t border-ink-100 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+        <div className="mx-auto grid max-w-xl grid-cols-5">
+          {(
+            [
+              ['inicio', 'Início', House, 0],
+              ['entregas', 'Entregas', Package, active.length],
+              ['rotas', 'Mapa e rotas', MapIcon, 0],
+              ['historico', 'Histórico', History, 0],
+              ['perfil', 'Ajustes', Settings, 0],
+            ] as const
+          ).map(([key, label, Icon, count]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              aria-current={tab === key ? 'page' : undefined}
+              className={cn('relative flex min-h-[60px] flex-col items-center justify-center gap-0.5 px-0.5 text-[0.66rem] font-bold leading-tight', tab === key ? 'text-brand' : 'text-ink-500')}
+            >
+              <span className={cn('flex h-7 w-12 items-center justify-center rounded-full transition-colors', tab === key && 'bg-brand-light')}><Icon size={19} aria-hidden /></span>
+              <span className="max-w-full text-center leading-[1.05]">{label}</span>
+              {count > 0 && <span className="absolute right-[18%] top-1.5 rounded-full bg-brand px-1.5 text-[0.6rem] font-extrabold text-white">{count}</span>}
+            </button>
+          ))}
+        </div>
+      </nav>
 
       {/* ── DETALHE DA ENTREGA ─────────────────────────────────────── */}
       {openOrder && (
@@ -581,7 +610,7 @@ function OrderCard({
 
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <Badge tone="neutral">
-          {order.items.reduce((acc, i) => acc + i.quantity, 0)} itens
+          {(() => { const n = order.items.reduce((acc, i) => acc + i.quantity, 0); return `${n} ${n === 1 ? 'item' : 'itens'}`; })()}
         </Badge>
         <Badge tone="neutral">{PAYMENT_LABEL[order.paymentMethod] ?? order.paymentMethod}</Badge>
         {cobrar !== null && <Badge tone="yellow">Cobrar {formatBRL(cobrar)}</Badge>}
@@ -669,7 +698,7 @@ function OrderSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 backdrop-blur-[2px]"
+      className="fixed inset-0 z-[950] flex items-end justify-center bg-black/45 backdrop-blur-[2px]"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

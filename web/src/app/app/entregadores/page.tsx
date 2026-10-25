@@ -7,6 +7,8 @@ import { DriverScheduleManager } from '@/components/drivers/DriverScheduleManage
 import { getDriverSchedules } from '@/lib/data/driver-schedules';
 import { readDriverSchedule } from '@/lib/driver-schedule';
 import { getOrganizationById } from '@/lib/data/organization';
+import { DriverSelectionRule } from '@/components/drivers/DriverSelectionRule';
+import { readDriverSelectionRule } from '@/lib/driver-selection';
 import { driverStorePath, publicOrigin } from '@/lib/data/driver-link';
 
 export const metadata = { title: 'Entregadores' };
@@ -64,7 +66,7 @@ export default async function DriversPage() {
         }}
         canManage={can(ctx.role, 'MANAGE_DRIVERS')}
         linkUrl={linkUrl}
-        scheduleSlot={<DriverScheduleManager drivers={drivers} schedules={Object.fromEntries(drivers.map(driver => [driver.id, readDriverSchedule(settings, driver.id)]))} />}
+        scheduleSlot={<div className="space-y-4"><DriverSelectionRule rule={readDriverSelectionRule(organization?.settings)} /><DriverScheduleManager drivers={drivers} schedules={Object.fromEntries(drivers.map(driver => [driver.id, readDriverSchedule(settings, driver.id)]))} /></div>}
       />
     </div>
   );

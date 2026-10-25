@@ -2,18 +2,30 @@ import Link from 'next/link';
 import { requireOrgPage } from '@/lib/auth/guards';
 import { getOrganizationUsage } from '@/lib/data/organization';
 import { Card, CardHeader } from '@/components/ui';
-import { Store, Users, Package, MessageCircle } from 'lucide-react';
+import { Store, Users, Package, MessageCircle, CreditCard, Receipt } from 'lucide-react';
+import { ROLE_LABEL } from '@/data/business-copy';
 import { InstallApp } from '@/components/pwa/InstallApp';
 export default async function SettingsPage() {
   const ctx = await requireOrgPage('MANAGE_SETTINGS');
   const usage = await getOrganizationUsage(ctx.organizationId);
-  return <div className="space-y-5"><h2 className="text-[1.35rem] font-extrabold tracking-tight text-ink-900">Configurações</h2><p className="break-words text-sm text-ink-500">Conta autenticada: {ctx.user.email}. Perfil neste estabelecimento: {ctx.role}.</p><div className="grid gap-4 md:grid-cols-2">
-    <Card><CardHeader title="WhatsApp" subtitle="Conexão comercial oficial e preferências do estabelecimento."/><Link className="inline-flex items-center gap-2 font-semibold text-brand" href="/app/configuracoes/whatsapp"><MessageCircle size={18}/>Configurar WhatsApp</Link></Card>
-    <Card><CardHeader title="Minha Loja" subtitle="Identidade, endereço, horários, entrega e disponibilidade."/><Link className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-3 font-semibold text-white" href="/app/configuracoes/minha-loja"><Store size={18}/>Configurar minha loja</Link></Card>
-    <Card><CardHeader title="Equipe" subtitle={`${usage.users} pessoas com acesso à operação.`}/><Link className="inline-flex items-center gap-2 font-semibold text-brand" href="/app/equipe"><Users size={18}/>Gerenciar acessos</Link></Card>
-    <Card><CardHeader title="Estoque" subtitle="Padrões iniciais e ajustes com histórico."/><Link className="inline-flex items-center gap-2 font-semibold text-brand" href="/app/estoque"><Package size={18}/>Configurar estoque</Link></Card>
-    <Card><CardHeader title="WhatsApp e IA" subtitle="Conexão oficial do número, assistente com IA e mensagens automáticas."/><div className="flex flex-wrap gap-4"><Link className="inline-flex min-h-11 items-center gap-2 font-semibold text-brand" href="/app/configuracoes/whatsapp"><MessageCircle size={18}/>Configurar WhatsApp</Link><Link className="inline-flex min-h-11 items-center font-semibold text-brand" href="/app/atendimento">Abrir Atendimento</Link></div></Card>
-    <Card><CardHeader title="Plano e assinatura" subtitle="Del Flash Completo · R$ 119,00 por mês."/><Link className="inline-flex min-h-11 items-center font-semibold text-brand" href="/app/assinatura">Consultar meu plano</Link></Card>
-    <Card><CardHeader title="Instalar aplicativo" subtitle="Painel, loja e entregador mantêm acessos independentes."/><InstallApp name="Del Flash" worker="/pwa/panel-sw.js" scope="/app/" alwaysShow/><p className="text-sm text-ink-500">Entregadores instalam o app pela aba Conta do aplicativo do entregador.</p></Card>
-  </div><p className="text-sm text-ink-500">Serviços externos e credenciais são administrados pela plataforma. Sua loja acessa apenas as opções operacionais autorizadas.</p></div>;
+  const groups: Array<{ title: string; items: Array<{ title: string; subtitle: string; href: string; cta: string; icon: React.ReactNode }> }> = [
+    { title: 'Loja', items: [
+      { title: 'Minha loja', subtitle: 'Identidade, endereço, horários, entrega e disponibilidade.', href: '/app/configuracoes/minha-loja', cta: 'Configurar minha loja', icon: <Store size={18} /> },
+      { title: 'Equipe', subtitle: `${usage.users} ${usage.users === 1 ? 'pessoa' : 'pessoas'} com acesso ao painel.`, href: '/app/equipe', cta: 'Gerenciar acessos', icon: <Users size={18} /> },
+      { title: 'Plano e assinatura', subtitle: 'Del Flash Completo · R$ 119,00 por mês.', href: '/app/assinatura', cta: 'Consultar meu plano', icon: <CreditCard size={18} /> },
+    ] },
+    { title: 'Vendas e atendimento', items: [
+      { title: 'WhatsApp e IA', subtitle: 'Conexão oficial do número, assistente com IA e mensagens automáticas.', href: '/app/configuracoes/whatsapp', cta: 'Configurar WhatsApp', icon: <MessageCircle size={18} /> },
+      { title: 'Pagamentos e documentos fiscais', subtitle: 'Formas de pagamento, situação do pagamento e cadastro para NFC-e.', href: '/app/configuracoes/fiscal', cta: 'Abrir pagamentos e fiscal', icon: <Receipt size={18} /> },
+    ] },
+    { title: 'Operação', items: [
+      { title: 'Estoque', subtitle: 'Padrões iniciais e ajustes com histórico.', href: '/app/estoque', cta: 'Configurar estoque', icon: <Package size={18} /> },
+    ] },
+  ];
+  return <div className="space-y-6"><div><h2 className="text-[1.35rem] font-extrabold tracking-tight text-ink-900">Configurações</h2><p className="mt-1 break-words text-sm text-ink-500">{ctx.user.email} · {ROLE_LABEL[ctx.role] ?? ctx.role}</p></div>
+    {groups.map((group) => <section key={group.title} className="space-y-2.5"><h3 className="text-[0.74rem] font-bold uppercase tracking-wider text-ink-400">{group.title}</h3><div className="grid gap-3 md:grid-cols-2">
+      {group.items.map((item) => <Link key={item.href} href={item.href} className="group flex items-start gap-3 rounded-2xl border border-ink-100 bg-white p-4 transition-shadow hover:shadow-md"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-light text-brand">{item.icon}</span><span className="min-w-0"><span className="block font-semibold text-ink-900">{item.title}</span><span className="block text-[0.8rem] text-ink-500">{item.subtitle}</span><span className="mt-1.5 inline-block text-[0.8rem] font-semibold text-brand group-hover:underline">{item.cta} →</span></span></Link>)}
+    </div></section>)}
+    <section className="space-y-2.5"><h3 className="text-[0.74rem] font-bold uppercase tracking-wider text-ink-400">Aplicativo</h3><Card><CardHeader title="Instalar aplicativo" subtitle="Painel, loja e entregador têm acessos independentes."/><InstallApp name="Del Flash" worker="/pwa/panel-sw.js" scope="/app/" alwaysShow/><p className="text-sm text-ink-500">Entregadores instalam o app pela aba Ajustes do aplicativo do entregador.</p></Card></section>
+    <p className="text-sm text-ink-500">Serviços externos e credenciais são administrados pela plataforma Del Flash.</p></div>;
 }

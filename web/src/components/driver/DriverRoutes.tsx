@@ -157,11 +157,11 @@ export function DriverRoutes({ orders, onOpenOrder, onOpenSettings }: { orders: 
             </p>
           ) : (
             <p className="text-[0.78rem] text-ink-600" data-testid="routes-no-route">
-              {plan?.routing ? 'Não foi possível calcular o trajeto agora.' : 'Trajeto pelas ruas não disponível no Del Flash.'} Os endereços estão numerados no mapa; use o Google Maps ou o Waze para navegar por voz.
+              {!plan?.routing ? 'Trajeto pelas ruas não disponível no Del Flash.' : !plan.startKind && ordered.length <= 1 ? 'Para traçar o trajeto até a entrega, ligue a localização em Ajustes.' : 'Não foi possível calcular o trajeto agora.'} Os endereços estão numerados no mapa; use o Google Maps ou o Waze para navegar por voz.
             </p>
           )}
         <p className="mt-1 text-[0.72rem] text-ink-500">
-          {gps === 'off' ? <>Localização desligada: o trajeto parte {plan?.startKind === 'store' ? 'da loja' : 'da 1ª parada (a loja não marcou a localização no cadastro)'}. <button type="button" onClick={onOpenSettings} className="font-semibold text-brand underline">Ativar em Conta</button></>
+          {gps === 'off' ? <>Localização desligada: o trajeto parte {plan?.startKind === 'store' ? 'da loja' : 'da 1ª parada (a loja não marcou a localização no cadastro)'}. <button type="button" onClick={onOpenSettings} className="font-semibold text-brand underline">Ativar em Ajustes</button></>
             : gps === 'denied' ? 'Localização negada pelo navegador. Permita a localização para este site nas configurações do aparelho.'
             : gps === 'unavailable' ? 'GPS indisponível neste aparelho ou conexão. O trajeto parte da loja.'
             : gps === 'waiting' ? 'Procurando sua localização…'
@@ -248,6 +248,9 @@ function RouteMap({ stops, store, me, route, selected, onSelect }: {
   const layers = useRef<{ stops?: LayerGroup; me?: CircleMarker; route?: Polyline; store?: LayerGroup }>({});
   const [ready, setReady] = useState(false);
   const framedKey = useRef('');
+  // O mapa só aparece já enquadrado nas entregas (sem piscar o Brasil inteiro).
+  const [framed, setFramed] = useState(false);
+  useEffect(() => { const t = window.setTimeout(() => setFramed(true), 2500); return () => window.clearTimeout(t); }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -300,8 +303,9 @@ function RouteMap({ stops, store, me, route, selected, onSelect }: {
     if (frame !== framedKey.current && (located.length || store)) {
       const points: Array<[number, number]> = located.map((s) => [s.stop!.latitude!, s.stop!.longitude!]);
       if (me) points.push([me.latitude, me.longitude]); else if (store) points.push([store.latitude, store.longitude]);
-      if (points.length === 1) instance.setView(points[0], 15); else if (points.length) instance.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 16 });
+      if (points.length === 1) instance.setView(points[0], 15, { animate: false }); else if (points.length) instance.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 16, animate: false });
       framedKey.current = frame;
+      setFramed(true);
     }
   }, [ready, store, route, me, key]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -315,7 +319,8 @@ function RouteMap({ stops, store, me, route, selected, onSelect }: {
 
   return (
     <div className="relative isolate h-[58dvh] min-h-[300px] overflow-hidden rounded-xl border border-ink-100 bg-ink-50">
-      <div ref={box} className="df-map absolute inset-0" aria-label="Mapa das entregas" data-testid="routes-map" />
+      <div ref={box} className={cn('df-map absolute inset-0 transition-opacity duration-300', framed ? 'opacity-100' : 'opacity-0')} aria-label="Mapa das entregas" data-testid="routes-map" />
+      {!framed && <p className="absolute inset-0 z-[400] flex items-center justify-center text-[0.8rem] text-ink-500">Carregando o mapa das entregas…</p>}
       <button type="button" onClick={center} aria-label="Enquadrar entregas" className="absolute bottom-3 right-3 z-[500] flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand shadow-lg"><Crosshair size={22} aria-hidden /></button>
     </div>
   );

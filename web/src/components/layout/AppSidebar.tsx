@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { X, ExternalLink } from 'lucide-react';
+import { X, ExternalLink, ChevronDown } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Icon } from '@/components/ui/Icon';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -32,25 +33,25 @@ export const NAV_SECTIONS: NavSection[] = [
   { title: 'Operação', items: [
     { href: '/app/dashboard', label: 'Visão geral', icon: 'dashboard', permission: 'VIEW_DASHBOARD' },
     { href: '/app/pedidos', label: 'Pedidos', icon: 'orders', permission: 'MANAGE_ORDERS', badgeKey: 'novos' },
-    { href: '/app/clientes', label: 'Clientes', icon: 'users', permission: 'VIEW_CUSTOMERS' },
-    { href: '/app/catalogo', label: 'Catálogo', icon: 'catalog', permission: 'MANAGE_PRODUCTS' },
     { href: '/app/atendimento', label: 'Atendimento', icon: 'chat', permission: 'MANAGE_SETTINGS', badgeKey: 'atendimento' },
+    { href: '/app/expedicao', label: 'Expedição', icon: 'dispatch', permission: 'MANAGE_DRIVERS' },
+    { href: '/app/entregadores', label: 'Entregadores', icon: 'drivers', permission: 'MANAGE_DRIVERS' },
+  ] },
+  { title: 'Catálogo', items: [
+    { href: '/app/catalogo', label: 'Produtos', icon: 'catalog', permission: 'MANAGE_PRODUCTS' },
+    { href: '/app/combos', label: 'Combos', icon: 'combos', permission: 'MANAGE_PRODUCTS' },
+    { href: '/app/estoque', label: 'Estoque', icon: 'stock', permission: 'MANAGE_STOCK' },
   ] },
   { title: 'Financeiro', items: [
     { href: '/app/caixa', label: 'Caixa', icon: 'cash', permission: 'MANAGE_CASH' },
     { href: '/app/vendas', label: 'Vendas', icon: 'sales', permission: 'VIEW_REPORTS' },
-    { href: '/app/estoque', label: 'Estoque', icon: 'stock', permission: 'MANAGE_STOCK' },
     { href: '/app/relatorios', label: 'Relatórios', icon: 'reports', permission: 'VIEW_REPORTS' },
   ] },
-  { title: 'Gestão', items: [
-    { href: '/app/combos', label: 'Combos', icon: 'combos', permission: 'MANAGE_PRODUCTS' },
-    { href: '/app/expedicao', label: 'Expedição', icon: 'dispatch', permission: 'MANAGE_DRIVERS' },
-    { href: '/app/entregadores', label: 'Entregadores', icon: 'drivers', permission: 'MANAGE_DRIVERS' },
-  ] },
-  { title: 'Marketing', items: [
-    { href: '/app/banners', label: 'Banners', icon: 'banners', permission: 'MANAGE_SETTINGS' },
+  { title: 'Clientes e marketing', items: [
+    { href: '/app/clientes', label: 'Clientes', icon: 'users', permission: 'VIEW_CUSTOMERS' },
     { href: '/app/campanhas', label: 'Campanhas', icon: 'campaign', permission: 'MANAGE_SETTINGS' },
     { href: '/app/fidelidade', label: 'Programa de pontos', icon: 'points', permission: 'MANAGE_SETTINGS' },
+    { href: '/app/banners', label: 'Banners da loja', icon: 'banners', permission: 'MANAGE_SETTINGS' },
   ] },
   { title: 'Sistema', items: [
     { href: '/app/configuracoes', label: 'Configurações', icon: 'settings', permission: 'MANAGE_SETTINGS' },
@@ -87,6 +88,14 @@ export function AppSidebar({
   centralAccess = false,
 }: SidebarProps) {
   const pathname = usePathname();
+  // Grupos recolhíveis: o da página atual sempre aberto; o resto lembra a escolha.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  useEffect(() => { try { setCollapsed(JSON.parse(window.localStorage.getItem('df-nav-collapsed') ?? '{}')); } catch { /* sem preferências */ } }, []);
+  const toggleGroup = (title: string) => setCollapsed((current) => {
+    const next = { ...current, [title]: !current[title] };
+    try { window.localStorage.setItem('df-nav-collapsed', JSON.stringify(next)); } catch { /* modo privativo */ }
+    return next;
+  });
 
   const allowed = (item: NavItem) => !item.permission || permissions.includes(item.permission);
 
@@ -147,16 +156,24 @@ export function AppSidebar({
           {NAV_SECTIONS.map((section, index) => {
             const visible = section.items.filter(allowed);
             if (visible.length === 0) return null;
+            const hasActive = visible.some((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+            const isCollapsed = Boolean(section.title && collapsed[section.title] && !hasActive);
 
             return (
               <div key={section.title ?? `section-${index}`}>
                 {section.title && (
-                  <p className="px-3.5 pb-1.5 pt-4 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-white/35">
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(section.title!)}
+                    aria-expanded={!isCollapsed}
+                    className="flex w-full items-center justify-between px-3.5 pb-1.5 pt-4 text-[0.62rem] font-bold uppercase tracking-[0.08em] text-white/40 hover:text-white/70"
+                  >
                     {section.title}
-                  </p>
+                    <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', isCollapsed && '-rotate-90')} aria-hidden />
+                  </button>
                 )}
 
-                {visible.map((item) => {
+                {!isCollapsed && visible.map((item) => {
                   const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const badge = item.badgeKey ? counters?.[item.badgeKey] : undefined;
 

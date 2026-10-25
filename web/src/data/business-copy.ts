@@ -207,9 +207,24 @@ export const PAYMENT_METHOD_LABEL: Record<string, string> = {
 export const PAYMENT_STATUS_LABEL: Record<string, string> = {
   PENDING: 'Pendente',
   PAID: 'Pago',
-  FAILED: 'Falhou',
+  FAILED: 'Recusado',
   REFUNDED: 'Estornado',
 };
+
+/**
+ * Situação do pagamento em linguagem de balcão. Escolher a forma de
+ * pagamento só INFORMA como o cliente vai pagar: o pedido continua pendente
+ * até a cobrança na entrega ou a confirmação do Pix/online pela loja.
+ */
+export function paymentStatusLabel(status: string, method?: string | null): string {
+  if (status === 'PENDING') {
+    if (method === 'PIX' || method === 'ONLINE') return 'Aguardando confirmação';
+    if (method === 'CASH' || method === 'CREDIT_CARD' || method === 'DEBIT_CARD') return 'A cobrar na entrega';
+    return 'Pendente';
+  }
+  if (status === 'PAID') return 'Pago';
+  return PAYMENT_STATUS_LABEL[status] ?? status;
+}
 
 export const DRIVER_STATUS_LABEL: Record<string, string> = {
   OFFLINE: 'Offline',

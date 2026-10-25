@@ -215,6 +215,7 @@ export function StoreCatalog({
 }) {
   const [search, setSearch] = React.useState('');
   const [activeCategory, setActiveCategory] = React.useState('all');
+  const [categoriesOpen, setCategoriesOpen] = React.useState(false);
   const [cart, setCart] = React.useState<CartLine[]>([]);
   const [customizing, setCustomizing] = React.useState<StoreProduct | null>(null);
   const [linkedVariation,setLinkedVariation] = React.useState<{productId:string;variationId:string}|null>(null);
@@ -661,8 +662,20 @@ export function StoreCatalog({
           />
 
           {categoryView.nav.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setCategoriesOpen(true)}
+              className="flex min-h-12 w-full items-center justify-between rounded-xl border border-ink-200 bg-white px-4 text-left sm:hidden"
+              aria-haspopup="dialog"
+              data-testid="category-menu-button"
+            >
+              <span className="min-w-0"><span className="block text-[0.7rem] font-bold uppercase tracking-wider text-ink-400">Categorias</span><span className="block truncate text-[0.92rem] font-semibold text-ink-900">{activeCategory === 'all' ? 'Mostrar todos' : categoryView.nav.find((c) => c.id === activeCategory)?.name ?? 'Mostrar todos'}</span></span>
+              <span aria-hidden className="text-ink-400">▾</span>
+            </button>
+          )}
+          {categoryView.nav.length > 1 && (
             <div
-              className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+              className="-mx-1 hidden gap-2 overflow-x-auto px-1 pb-1 sm:flex"
               role="group"
               aria-label="Filtrar por categoria"
             >
@@ -688,9 +701,9 @@ export function StoreCatalog({
         </div>
 
         <div className="store-showcase-heading">
-          <span>SELECIONADOS PARA VOCÊ</span>
-          <h2>Explore nossa vitrine</h2>
-          <p>Encontre seus favoritos e monte seu pedido.</p>
+          <span>Cardápio</span>
+          <h2>{activeCategory === 'all' ? 'Todos os produtos' : categoryView.nav.find((c) => c.id === activeCategory)?.name ?? 'Todos os produtos'}</h2>
+          <p>Preços e disponibilidade atualizados pela loja.</p>
         </div>
         {/* ── Lista de produtos ── */}
         {grouped.length === 0 ? (
@@ -781,6 +794,24 @@ export function StoreCatalog({
           </button>
         </div>
       )}
+
+      {/* ── Menu de categorias (celular) ── */}
+      <Modal open={categoriesOpen} onClose={() => setCategoriesOpen(false)} title="Categorias">
+        <div className="grid gap-1.5" role="list">
+          {[{ id: 'all', name: 'Mostrar todos' }, ...categoryView.nav].map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              role="listitem"
+              onClick={() => { setActiveCategory(category.id); setCategoriesOpen(false); document.getElementById('cardapio')?.scrollIntoView({ block: 'start' }); }}
+              className={cn('flex min-h-12 items-center justify-between rounded-xl px-4 text-left text-[0.95rem] font-semibold', activeCategory === category.id ? 'bg-brand-light text-brand' : 'text-ink-800 hover:bg-ink-50')}
+            >
+              {category.name}
+              {activeCategory === category.id && <span aria-hidden>✓</span>}
+            </button>
+          ))}
+        </div>
+      </Modal>
 
       {/* ── Personalizar produto ── */}
       {customizing && (

@@ -40,6 +40,10 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
   const [ready, setReady] = useState(false);
   const [me, setMe] = useState<(Point & { accuracy: number }) | null>(null);
   const [destination, setDestination] = useState<(Point & { approximate: boolean }) | null>(null);
+  // O mapa aparece já no destino; sem destino em 2,5 s, mostra assim mesmo.
+  const [shown, setShown] = useState(false);
+  useEffect(() => { const t = window.setTimeout(() => setShown(true), 2500); return () => window.clearTimeout(t); }, []);
+  useEffect(() => { if (destination) setShown(true); }, [destination]);
   const [route, setRoute] = useState<Route | null>(null);
   const [status, setStatus] = useState<{ tone: 'info' | 'warn' | 'error'; text: string } | null>({ tone: 'info', text: 'Carregando o mapa…' });
   const [gps, setGps] = useState<'off' | 'waiting' | 'ok' | 'denied' | 'unavailable'>(useLocation ? 'waiting' : 'off');
@@ -61,7 +65,8 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
     import('leaflet').then((L) => {
       if (disposed || !box.current) return;
       leaflet.current = L;
-      const instance = L.map(box.current, { center: [-14.235, -51.925], zoom: 4, zoomControl: true });
+      // Abre direto no destino quando ele já é conhecido (sem mostrar o Brasil inteiro).
+      const instance = L.map(box.current, { center: destination ? [destination.latitude, destination.longitude] : [-14.235, -51.925], zoom: destination ? 16 : 4, zoomControl: true });
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; colaboradores do <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' }).addTo(instance);
       instance.on('dragstart', () => setFollow(false));
       layers.current.group = L.layerGroup().addTo(instance);
@@ -120,7 +125,7 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
       const at: [number, number] = [destination.latitude, destination.longitude];
       if (!layers.current.destination) {
         layers.current.destination = L.marker(at, { icon: L.divIcon({ className: 'df-store-pin df-destination-pin', html: '<span aria-hidden="true"></span>', iconSize: [34, 44], iconAnchor: [17, 42] }), title: 'Destino da entrega', alt: 'Destino da entrega' }).addTo(group);
-        instance.setView(at, 16);
+        instance.setView(at, 16, { animate: false });
       } else layers.current.destination.setLatLng(at);
     }
     if (me) {
@@ -159,7 +164,7 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
   }
 
   const gpsText = gps === 'off'
-    ? 'Localização desligada: o trajeto parte da loja. Para ver sua posição, ative "Usar minha localização para navegação" em Conta.'
+    ? 'Localização desligada: o trajeto parte da loja. Para ver sua posição, ative "Usar minha localização para navegação" em Ajustes.'
     : gps === 'denied'
     ? 'Localização negada. Para ver sua posição, permita a localização para este site nas configurações do navegador.'
     : gps === 'unavailable' ? 'GPS indisponível neste aparelho ou conexão. O destino continua no mapa.'
@@ -181,7 +186,8 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
       </header>
 
       <div className="relative isolate min-h-0 flex-1 bg-ink-50">
-        <div ref={box} className="df-map absolute inset-0" aria-label="Mapa da rota" />
+        <div ref={box} className={`df-map absolute inset-0 transition-opacity duration-300 ${shown ? 'opacity-100' : 'opacity-0'}`} aria-label="Mapa da rota" />
+        {!shown && <p className="absolute inset-0 flex items-center justify-center text-[0.8rem] text-ink-500">Carregando o mapa…</p>}
         <button type="button" onClick={center} aria-label="Centralizar na minha localização" className="absolute bottom-4 right-4 z-[500] flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand shadow-lg"><Crosshair size={22} aria-hidden /></button>
         {status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={`absolute inset-x-3 top-3 z-[500] rounded-lg px-3 py-2 text-center text-[0.78rem] shadow ${status.tone === 'error' ? 'bg-danger-bg text-danger' : status.tone === 'warn' ? 'bg-amber-50 text-amber-900' : 'bg-white/95 text-ink-700'}`}>{status.text}</p>}
       </div>
