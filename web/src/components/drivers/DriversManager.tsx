@@ -363,9 +363,10 @@ export function DriversManager({
           <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-testid="driver-cards">
             {visible.map((driver) => (
               <li key={driver.id} data-testid="driver-card" className={`flex min-w-0 flex-col rounded-lg border border-ink-100 p-3.5 ${driver.active ? 'bg-white' : 'bg-ink-50 opacity-75'}`}>
-                <div className="flex items-start gap-3">
+                <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-light text-[0.8rem] font-extrabold text-brand" aria-hidden>{driver.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}</span>
-                  <div className="min-w-0 flex-1">
+                  {/* Nome com largura mínima: um selo longo desce para a linha de baixo em vez de espremer o nome. */}
+                  <div className="min-w-[9rem] flex-1">
                     <p className="break-words text-[0.9rem] font-semibold text-ink-900">{driver.name}</p>
                     <p className="text-[0.74rem] text-ink-500">{[driver.phone && formatPhone(driver.phone), VEHICLE_TYPE_LABEL[driver.vehicleType] ?? driver.vehicleType, driver.vehiclePlate].filter(Boolean).join(' · ')}</p>
                   </div>
