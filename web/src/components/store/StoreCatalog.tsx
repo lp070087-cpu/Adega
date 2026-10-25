@@ -590,9 +590,11 @@ export function StoreCatalog({
 
     checkoutRequest.current = null;
     // "Salvar este endereço": grava na conta depois do pedido criado; uma falha
-    // aqui não afeta a compra.
+    // aqui não afeta a compra. Aguardado antes da confirmação: sair da página
+    // (ex.: "Acompanhar pedido") cancelaria a gravação em andamento.
     if (deliveryType !== 'PICKUP' && formData.get('saveAddress') === 'on') {
-      void saveCheckoutAddressAction({
+      checkoutLocked.current = true; setSending(true);
+      await saveCheckoutAddressAction({
         slug: store.slug,
         street: String(formData.get('deliveryAddress') ?? '').trim(),
         number: noNumber ? 'S/N' : String(formData.get('deliveryNumber') ?? '').trim(),
@@ -604,6 +606,7 @@ export function StoreCatalog({
         reference: String(formData.get('deliveryReference') ?? '').trim() || undefined,
         isDefault: formData.get('saveAsDefault') === 'on',
       }).catch(() => undefined);
+      checkoutLocked.current = false; setSending(false);
     }
     // O carrinho só é limpo com o pedido REALMENTE gravado.
     setCart([]);
