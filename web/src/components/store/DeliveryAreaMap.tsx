@@ -7,6 +7,8 @@ import 'leaflet/dist/leaflet.css';
 import { Crosshair, LocateFixed, MapPin } from 'lucide-react';
 import {
   geocodeStoreAddressAction,
+  resolveMapLinkAction,
+  reverseStoreLocationAction,
   setStoreCoordinatesAction,
 } from '@/app/actions/organization';
 import { Alert, Button, Field, Input } from '@/components/ui';
@@ -48,6 +50,8 @@ type Props = {
   canManage: boolean;
   /** A loja já tem rua/cidade/estado preenchidos? Sem isso não há o que buscar. */
   addressReady: boolean;
+  /** Preenche o endereço do formulário com o endereço do ponto confirmado. */
+  onAddressFromPoint?: (fields: { street: string | null; number: string | null; district: string | null; city: string | null; state: string | null; zipCode: string | null }) => void;
 };
 
 type Point = { latitude: number; longitude: number };
@@ -69,7 +73,7 @@ export function straightKm(from: Point, to: Point) {
 }
 const formatKm = (km: number) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1).replace('.', ',')} km`);
 
-export function DeliveryAreaMap({ latitude, longitude, radiusKm, zones, canManage, addressReady }: Props) {
+export function DeliveryAreaMap({ latitude, longitude, radiusKm, zones, canManage, addressReady, onAddressFromPoint }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [locating, setLocating] = useState(false);
@@ -77,6 +81,8 @@ export function DeliveryAreaMap({ latitude, longitude, radiusKm, zones, canManag
   const [notice, setNotice] = useState<Notice | null>(null);
   const [tilesFailed, setTilesFailed] = useState(false);
   const [ready, setReady] = useState(false);
+  const [link, setLink] = useState('');
+  const [pointAddress, setPointAddress] = useState<{ label: string; fields: Parameters<NonNullable<Props['onAddressFromPoint']>>[0] } | null>(null);
 
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
@@ -89,6 +95,7 @@ export function DeliveryAreaMap({ latitude, longitude, radiusKm, zones, canManag
   // Callbacks do Leaflet leem o valor atual sem recriar o mapa.
   const manage = useRef(canManage);
   manage.current = canManage;
+  const describeRef = useRef<(p: Point) => void>(() => undefined);
 
   const point = valid(draft) ? draft : null;
   const dirty = draft.latitude !== latitude || draft.longitude !== longitude;
@@ -120,6 +127,7 @@ export function DeliveryAreaMap({ latitude, longitude, radiusKm, zones, canManag
       instance.on('click', (event) => {
         if (!manage.current) return;
         setDraft({ latitude: round(event.latlng.lat), longitude: round(event.latlng.lng) });
+        describeRef.current({ latitude: round(event.latlng.lat), longitude: round(event.latlng.lng) });
         setNotice({ tone: 'info', text: 'Marcador posicionado onde você tocou. Ajuste se precisar e salve a localização.' });
       });
       zoneLayer.current = L.layerGroup().addTo(instance);
@@ -159,6 +167,7 @@ export function DeliveryAreaMap({ latitude, longitude, radiusKm, zones, canManag
       marker.current.on('dragend', () => {
         const moved = marker.current!.getLatLng();
         setDraft({ latitude: round(moved.lat), longitude: round(moved.lng) });
+        describeRef.current({ latitude: round(moved.lat), longitude: round(moved.lng) });
         setNotice({ tone: 'info', text: 'Marcador ajustado. Salve a localização para usar este ponto no frete.' });
       });
     } else marker.current.setLatLng(at);
@@ -203,7 +212,31 @@ export function DeliveryAreaMap({ latitude, longitude, radiusKm, zones, canManag
       const next = { latitude: round(result.data.latitude), longitude: round(result.data.longitude) };
       setDraft(next);
       focus(next, 17);
+      describePoint(next);
       setNotice({ tone: 'aviso', text: `Posição aproximada encontrada para o endereço: ${result.data.displayName}. A busca pode parar no meio da rua ou no bairro — arraste o marcador até a porta da loja e salve.` });
+    });
+  }
+
+  // Endereço do ponto escolhido, para o texto da loja acompanhar o mapa.
+  function describePoint(target: Point) {
+    setPointAddress(null);
+    void reverseStoreLocationAction(target).then((result) => {
+      if (result.ok) setPointAddress({ label: result.data.label, fields: { street: result.data.street, number: result.data.number, district: result.data.district, city: result.data.city, state: result.data.state, zipCode: result.data.zipCode } });
+    }).catch(() => undefined);
+  }
+
+  describeRef.current = describePoint;
+
+  function readLink() {
+    setNotice(null);
+    startTransition(async () => {
+      const result = await resolveMapLinkAction({ url: link });
+      if (!result.ok || !result.data) { setNotice({ tone: 'erro', text: result.ok ? 'Link sem coordenadas.' : result.error }); return; }
+      const next = { latitude: round(result.data.latitude), longitude: round(result.data.longitude) };
+      setDraft(next);
+      focus(next, 18);
+      describePoint(next);
+      setNotice({ tone: 'info', text: 'Ponto lido do link. Confira no mapa, ajuste arrastando o marcador se precisar e salve a localização.' });
     });
   }
 
@@ -287,6 +320,17 @@ export function DeliveryAreaMap({ latitude, longitude, radiusKm, zones, canManag
       )}
 
       {canManage && (
+        <div className="mb-3">
+          <label className="field-label" htmlFor="store-map-link">Link da localização no mapa (opcional)</label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input id="store-map-link" value={link} onChange={(e) => setLink(e.target.value)} placeholder="Cole o link do Google Maps, OpenStreetMap, Apple Maps ou Waze" className="min-w-0 flex-1" data-testid="store-map-link" />
+            <Button type="button" size="sm" className="min-h-11 shrink-0" variant="secondary" onClick={readLink} loading={pending} disabled={!link.trim()}>Ler link</Button>
+          </div>
+          <p className="mt-1 text-[0.72rem] text-ink-500">No Google Maps: abra o local, toque em Compartilhar e copie o link. Se o link não trouxer coordenadas, marque o ponto no mapa.</p>
+        </div>
+      )}
+
+      {canManage && (
         <div className="mb-3 grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:flex lg:flex-wrap">
           <Button type="button" size="sm" className="min-h-11" variant="secondary" onClick={geocode} loading={pending} disabled={!addressReady} title={addressReady ? undefined : 'Preencha rua, cidade e estado para buscar.'}>
             <MapPin size={16} aria-hidden /> Localizar pelo endereço
@@ -326,6 +370,12 @@ export function DeliveryAreaMap({ latitude, longitude, radiusKm, zones, canManag
           <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-danger" aria-hidden />Bairro fora do raio</span>
         </>}
       </div>
+      {canManage && pointAddress && onAddressFromPoint && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md bg-ink-50 px-3 py-2 text-[0.76rem] text-ink-700" data-testid="point-address">
+          <span className="min-w-0">Endereço deste ponto: <strong>{pointAddress.label}</strong></span>
+          <Button type="button" size="sm" variant="ghost" className="min-h-10" onClick={() => { onAddressFromPoint(pointAddress.fields); setNotice({ tone: 'info', text: 'Endereço da loja atualizado com o ponto do mapa. Confira o número e salve as alterações da loja.' }); }}>Usar no endereço da loja</Button>
+        </div>
+      )}
       {point && <p className="mt-1.5 text-[0.72rem] text-ink-500" data-testid="map-point">Ponto da loja: {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}{dirty ? ' (não salvo)' : ''}</p>}
       {unpositioned.length > 0 && (
         <p className="mt-1 text-[0.7rem] text-ink-400">

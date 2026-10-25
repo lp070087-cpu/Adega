@@ -21,7 +21,7 @@ test('mobile banner reads are scoped and foreign category cannot be linked by a 
  const prisma={category:{findFirst:async(q:any)=>{calls.push(q);return null;}},storeBanner:{findMany:async(q:any)=>{calls.push(q);return [];},create:async()=>{writes++;}},organization:{findUnique:async()=>({settings:{}})}};
  const output=ts.transpileModule(readFileSync('src/lib/data/store-ops.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
  const module={exports:{} as any};
- const imports:Record<string,unknown>={'server-only':{},'@/lib/db':{prisma},'@/lib/schedule':{},'@/lib/data/delivery-fee':{},'@/lib/data/transaction':{},'@/lib/operation-error':{OperationError},'@/lib/banner-meta':{readBannerMeta:()=>({cta:null,focusX:50,focusY:50})}};
+ const imports:Record<string,unknown>={'server-only':{},'@/lib/delivery-tiers':{tierProblems:()=>[]},'@/lib/db':{prisma},'@/lib/schedule':{},'@/lib/data/delivery-fee':{},'@/lib/data/transaction':{},'@/lib/operation-error':{OperationError},'@/lib/banner-meta':{readBannerMeta:()=>({cta:null,focusX:50,focusY:50})}};
  new Function('require','module','exports',output)((key:string)=>{if(key in imports)return imports[key];throw Error(key);},module,module.exports);
  await module.exports.getPublicMobileBanners('own-org');
  assert.deepEqual(calls[0].where,{organizationId:'own-org',active:true,OR:[{placement:'hero-mobile'},{placement:{startsWith:'transition:'}}]});

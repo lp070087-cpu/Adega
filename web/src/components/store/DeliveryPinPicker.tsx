@@ -23,6 +23,7 @@ export function DeliveryPinPicker({
   storeCenter,
   readAddress,
   onFields,
+  onPointChange,
   names = { latitude: 'deliveryLatitude', longitude: 'deliveryLongitude' },
   initial = null,
   title = 'Ponto exato da entrega',
@@ -32,12 +33,15 @@ export function DeliveryPinPicker({
   readAddress: () => string;
   /** Preenche campos vazios do formulário com o endereço aproximado. */
   onFields?: (fields: PlaceFields) => void;
+  /** Avisa quando o ponto confirmado muda (ex.: recalcular a prévia do frete). */
+  onPointChange?: (point: Point | null) => void;
   names?: { latitude: string; longitude: string };
   initial?: ConfirmedPlace | null;
   title?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [confirmed, setConfirmed] = useState<ConfirmedPlace | null>(initial);
+  useEffect(() => { onPointChange?.(confirmed ? { latitude: confirmed.latitude, longitude: confirmed.longitude } : null); }, [confirmed?.latitude, confirmed?.longitude]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onPreset = (event: Event) => {

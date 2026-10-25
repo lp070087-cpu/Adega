@@ -1,4 +1,5 @@
 import 'server-only';
+import { tierProblems } from '@/lib/delivery-tiers';
 import { OperationError } from '@/lib/operation-error';
 import { prisma } from '@/lib/db';
 import type { Prisma } from '@prisma/client';
@@ -171,6 +172,8 @@ export async function saveDelivery(
   },
 ): Promise<void> {
   const sorted = [...input.deliveryTiers].sort((a, b) => a.upToKm - b.upToKm);
+  const problems = tierProblems(sorted);
+  if (problems.length) throw new OperationError(problems[0]);
 
   // Só os três modos conhecidos. Qualquer outra coisa volta a FIXED:
   // um valor estranho no banco não pode deixar a loja sem regra de frete.

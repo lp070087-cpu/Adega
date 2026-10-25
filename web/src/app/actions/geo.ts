@@ -58,3 +58,47 @@ export async function reversePlaceAction(input: { slug: string; latitude: number
     return { ok: false, error: 'Endereço aproximado indisponível agora.' };
   }
 }
+
+export type DeliveryQuote =
+  | { ok: true; fee: number; distanceKm: number | null; distanceKind: 'street' | 'straight' | null; outside: boolean; estimated: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Prévia do frete com a MESMA regra do pedido (faixas, bairro ou fixo;
+ * distância pelas ruas quando há roteamento). O valor que vale continua
+ * sendo recalculado no servidor quando o pedido é criado.
+ */
+export async function quoteDeliveryAction(input: { slug: string; latitude?: number | null; longitude?: number | null; district?: string | null }): Promise<DeliveryQuote> {
+  try {
+    const store = await storeFor(input?.slug);
+    if (!store) return { ok: false, error: 'Estabelecimento não encontrado.' };
+    if (!(await mapRequestAllowed('reverse', 30))) return { ok: false, error: BUSY };
+    const { prisma } = await import('@/lib/db');
+    const org = await prisma.organization.findUnique({ where: { slug: input.slug }, select: { id: true, baseDeliveryFee: true, extraKmFee: true, deliveryRadius: true, latitude: true, longitude: true, deliveryFeeMode: true, settings: true } });
+    if (!org) return { ok: false, error: 'Estabelecimento não encontrado.' };
+    const { explainDeliveryFee, isOutsideDeliveryArea, normalizeTiers } = await import('@/lib/data/delivery-fee');
+    const { getDeliveryZonesForFee } = await import('@/lib/data/store-ops');
+    const settings = {
+      baseDeliveryFee: Number(org.baseDeliveryFee), extraKmFee: Number(org.extraKmFee), deliveryRadius: org.deliveryRadius,
+      latitude: org.latitude, longitude: org.longitude, feeMode: org.deliveryFeeMode,
+      tiers: normalizeTiers((org.settings as Record<string, unknown> | null)?.deliveryTiers),
+      zones: await getDeliveryZonesForFee(org.id),
+    };
+    const lat = Number.isFinite(input.latitude) ? Number(input.latitude) : null;
+    const lng = Number.isFinite(input.longitude) ? Number(input.longitude) : null;
+    let roadKm: number | null = null;
+    if (lat !== null && lng !== null && org.latitude != null && org.longitude != null) {
+      const { routingConfigured, streetRoute } = await import('@/lib/maps/routing');
+      if (routingConfigured()) {
+        const route = await streetRoute({ latitude: org.latitude, longitude: org.longitude }, { latitude: lat, longitude: lng }).catch(() => null);
+        if (route?.available) roadKm = route.distanceMeters / 1000;
+      }
+    }
+    const destination = { latitude: lat, longitude: lng, district: typeof input.district === 'string' ? input.district.slice(0, 120) : null, roadKm };
+    const fee = explainDeliveryFee(settings, destination);
+    const area = isOutsideDeliveryArea(settings, destination);
+    return { ok: true, fee: fee.fee, distanceKm: fee.distanceKm, distanceKind: fee.distanceKm === null ? null : fee.distanceKind ?? 'straight', outside: area.outside, estimated: fee.estimated };
+  } catch {
+    return { ok: false, error: 'Não foi possível calcular a taxa agora.' };
+  }
+}

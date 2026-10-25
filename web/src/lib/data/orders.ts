@@ -458,11 +458,25 @@ export async function createOrderFromCheckout(
    * checagem, um pedido com coordenadas adulteradas entraria como se a
    * entrega fosse possível.
    */
+  // Distância pelas ruas a partir da loja, quando há roteamento e as duas
+  // coordenadas; sem isso o frete usa a linha reta (e diz isso).
+  let roadKm: number | null = null;
+  if (!isPickup && feeSettings.latitude != null && feeSettings.longitude != null && customer.deliveryLatitude != null && customer.deliveryLongitude != null) {
+    try {
+      const { routingConfigured, streetRoute } = await import('@/lib/maps/routing');
+      if (routingConfigured()) {
+        const route = await streetRoute({ latitude: feeSettings.latitude, longitude: feeSettings.longitude }, { latitude: customer.deliveryLatitude, longitude: customer.deliveryLongitude });
+        if (route.available) roadKm = route.distanceMeters / 1000;
+      }
+    } catch { roadKm = null; }
+  }
+
   if (!isPickup) {
     const area = isOutsideDeliveryArea(feeSettings, {
       latitude: customer.deliveryLatitude,
       longitude: customer.deliveryLongitude,
       district: customer.deliveryDistrict,
+      roadKm,
     });
     if (area.outside) {
       throw new CheckoutError(
@@ -478,6 +492,7 @@ export async function createOrderFromCheckout(
         latitude: customer.deliveryLatitude,
         longitude: customer.deliveryLongitude,
         district: customer.deliveryDistrict,
+        roadKm,
       });
 
   const total = Math.round((subtotal + deliveryFee) * 100) / 100;

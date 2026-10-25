@@ -1,3 +1,4 @@
+import { isBrUf, isCityName } from '@/lib/br-ufs';
 import { z } from 'zod';
 import { BusinessType, StoreStatus } from '@prisma/client';
 import {
@@ -304,8 +305,8 @@ export const updateOrganizationSchema = z.object({
   addressNumber: optionalText(20),
   addressComplement: optionalText(120),
   district: optionalText(120),
-  city: optionalText(120),
-  state: optionalText(2),
+  city: optionalText(120).refine((v) => !v || isCityName(v), 'Cidade inválida: use o nome da cidade (ex.: Recife).'),
+  state: optionalText(2).refine((v) => !v || isBrUf(v), 'UF inválida: use a sigla do estado (ex.: PE).'),
   zipCode: zipCodeSchema.optional(),
   openingHours: optionalText(200),
   minimumOrder: moneySchema.optional(),

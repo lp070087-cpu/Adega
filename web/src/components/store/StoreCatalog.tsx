@@ -8,6 +8,7 @@ import { Alert, Button, Field, Input, MoneyInput, Modal, Select, Textarea } from
 import { ProductThumb } from '@/components/catalog/ProductThumb';
 import { CustomerCheckoutAccess } from '@/components/customer/CustomerStoreAccess';
 import { saveCheckoutAddressAction } from '@/app/actions/customer-portal';
+import { quoteDeliveryAction, type DeliveryQuote } from '@/app/actions/geo';
 import { StoreHeader } from '@/components/store/StoreHeader';
 import { STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
 import type { BusinessType } from '@prisma/client';
@@ -425,8 +426,18 @@ export function StoreCatalog({
    * regras da organização no momento do pedido. Serve para o cliente não
    * ser surpreendido no fim, só isso.
    */
+  // Prévia do frete pela mesma regra do servidor, assim que o ponto é marcado.
+  const [quote, setQuote] = React.useState<Extract<DeliveryQuote, { ok: true }> | null>(null);
+  const quoteTicket = React.useRef(0);
+  const requestQuote = React.useCallback((point: { latitude: number; longitude: number } | null) => {
+    const ticket = ++quoteTicket.current;
+    if (!point) { setQuote(null); return; }
+    void quoteDeliveryAction({ slug: store.slug, latitude: point.latitude, longitude: point.longitude }).then((result) => {
+      if (ticket === quoteTicket.current) setQuote(result.ok ? result : null);
+    }).catch(() => undefined);
+  }, [store.slug]);
   const deliveryFee =
-    cart.length > 0 && deliveryType === 'DELIVERY' ? store.baseDeliveryFee : 0;
+    cart.length > 0 && deliveryType === 'DELIVERY' ? quote?.fee ?? store.baseDeliveryFee : 0;
   const total = subtotal + deliveryFee;
   const belowMinimum = cart.length > 0 && subtotal < store.minimumOrder;
   const missingForMinimum = Math.max(0, store.minimumOrder - subtotal);
@@ -1042,6 +1053,7 @@ export function StoreCatalog({
               <input type="hidden" name="deliveryState" defaultValue={store.state ?? ''} />
               <DeliveryPinPicker
                 slug={store.slug}
+                onPointChange={requestQuote}
                 storeCenter={store.latitude != null && store.longitude != null ? { latitude: store.latitude, longitude: store.longitude } : null}
                 readAddress={() => {
                   const form = checkoutFormRef.current;
@@ -1064,6 +1076,14 @@ export function StoreCatalog({
                   if (uf && fields.state) uf.value = fields.state;
                 }}
               />
+
+              {quote && (
+                <p role="status" data-testid="delivery-quote" className={cn('-mt-1 mb-3 rounded-lg px-3 py-2 text-[0.8rem]', quote.outside ? 'bg-danger-bg font-semibold text-danger' : 'bg-ink-50 text-ink-700')}>
+                  {quote.outside
+                    ? `Este ponto está fora da área de entrega da loja${quote.distanceKm !== null ? ` (${quote.distanceKm.toLocaleString('pt-BR')} km)` : ''}. Escolha outro endereço ou retirada.`
+                    : <>Taxa de entrega: <strong>{formatBRL(quote.fee)}</strong>{quote.distanceKm !== null ? ` · ${quote.distanceKm.toLocaleString('pt-BR')} km ${quote.distanceKind === 'street' ? 'pelas ruas' : 'em linha reta'}` : ''}</>}
+                </p>
+              )}
 
               <Field label="Observação para o entregador" hint="Opcional se você confirmou o ponto no mapa. Ex.: entrada pela escadaria, portão lateral, rua de trás, condomínio.">
                 <Textarea name="deliveryReference" rows={2} maxLength={200} placeholder="Ex.: Portão azul ao lado da padaria" />

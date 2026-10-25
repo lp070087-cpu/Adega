@@ -25,6 +25,8 @@ import 'server-only';
  * ═══════════════════════════════════════════════════════════════════════
  */
 
+import { tierForDistance } from '@/lib/delivery-tiers';
+
 const EARTH_RADIUS_KM = 6371;
 
 export type DeliveryFeeMode = 'FIXED' | 'BY_NEIGHBORHOOD' | 'BY_DISTANCE_BAND';
@@ -56,6 +58,8 @@ export type DeliveryDestination = {
   longitude?: number | null;
   /** Bairro informado pelo cliente — usado no modo por bairro. */
   district?: string | null;
+  /** Distância pelas ruas (km), quando o roteamento está disponível. */
+  roadKm?: number | null;
 };
 
 export type DeliveryFeeResult = {
@@ -64,7 +68,17 @@ export type DeliveryFeeResult = {
   /** true quando não foi possível medir a distância. */
   estimated: boolean;
   reason?: string;
+  /** Como a distância foi medida: pelas ruas ou em linha reta. */
+  distanceKind?: 'street' | 'straight';
 };
+
+/** Distância usada no frete: pelas ruas quando conhecida, senão em linha reta. */
+function measuredKm(settings: DeliveryFeeSettings, destination: DeliveryDestination): { km: number | null; kind: 'street' | 'straight' } {
+  if (typeof destination.roadKm === 'number' && Number.isFinite(destination.roadKm) && destination.roadKm >= 0) return { km: destination.roadKm, kind: 'street' };
+  const hasOrigin = typeof settings.latitude === 'number' && typeof settings.longitude === 'number';
+  const hasDestination = typeof destination.latitude === 'number' && typeof destination.longitude === 'number';
+  return { km: hasOrigin && hasDestination ? haversineKm(settings.latitude!, settings.longitude!, destination.latitude!, destination.longitude!) : null, kind: 'straight' };
+}
 
 /** Distância em km entre dois pontos (Haversine). */
 export function haversineKm(
@@ -161,12 +175,9 @@ export function explainDeliveryFee(
 
   const hasOrigin =
     typeof settings.latitude === 'number' && typeof settings.longitude === 'number';
-  const hasDestination =
-    typeof destination.latitude === 'number' && typeof destination.longitude === 'number';
-
-  const rawDistance = hasOrigin && hasDestination
-    ? haversineKm(settings.latitude!, settings.longitude!, destination.latitude!, destination.longitude!)
-    : null;
+  const measured = measuredKm(settings, destination);
+  const rawDistance = measured.km;
+  const distanceKind = measured.kind;
   const distanceKm = rawDistance === null ? null : roundKm(rawDistance);
 
   // ── POR BAIRRO ─────────────────────────────────────────────────────
@@ -198,12 +209,15 @@ export function explainDeliveryFee(
   if (mode === 'BY_DISTANCE_BAND') {
     const tiers = normalizeTiers(settings.tiers);
     if (tiers.length > 0 && rawDistance !== null) {
-      const tier = tiers.find((t) => t.upToKm >= rawDistance) ?? tiers[tiers.length - 1];
+      // Além da última faixa o endereço fica fora da área (isOutsideDeliveryArea
+      // recusa o pedido); aqui a taxa da última faixa só serve de referência.
+      const tier = tierForDistance(tiers, rawDistance).tier ?? tiers[tiers.length - 1];
       return {
         fee: round2(tier.fee),
         distanceKm,
         estimated: false,
-        reason: `Faixa de até ${tier.upToKm} km.`,
+        distanceKind,
+        reason: `Faixa de até ${tier.upToKm} km (${distanceKind === 'street' ? 'distância pelas ruas' : 'distância em linha reta'}).`,
       };
     }
     return {
@@ -236,6 +250,7 @@ export function explainDeliveryFee(
     fee: round2(fee),
     distanceKm,
     estimated: false,
+    distanceKind,
   };
 }
 
@@ -258,14 +273,7 @@ export function isOutsideDeliveryArea(
 ): { outside: boolean; distanceKm: number | null; reason?: string } {
   const mode = normalizeMode(settings.feeMode);
 
-  const hasOrigin =
-    typeof settings.latitude === 'number' && typeof settings.longitude === 'number';
-  const hasDestination =
-    typeof destination.latitude === 'number' && typeof destination.longitude === 'number';
-
-  const rawDistance = hasOrigin && hasDestination
-    ? haversineKm(settings.latitude!, settings.longitude!, destination.latitude!, destination.longitude!)
-    : null;
+  const rawDistance = measuredKm(settings, destination).km;
   const distanceKm = rawDistance === null ? null : roundKm(rawDistance);
 
   if (mode === 'BY_NEIGHBORHOOD') {
@@ -286,9 +294,13 @@ export function isOutsideDeliveryArea(
 
   if (rawDistance === null) return { outside: false, distanceKm: null };
 
+  // Por faixa: a última faixa é a distância máxima atendida.
+  const tiers = mode === 'BY_DISTANCE_BAND' ? normalizeTiers(settings.tiers) : [];
+  const limit = tiers.length ? tiers[tiers.length - 1].upToKm : settings.deliveryRadius || 0;
   return {
-    outside: rawDistance > (settings.deliveryRadius || 0),
+    outside: rawDistance > limit,
     distanceKm,
+    reason: rawDistance > limit ? `Acima de ${limit} km.` : undefined,
   };
 }
 

@@ -1,4 +1,5 @@
 'use server';
+import { isBrUf as validUf, isCityName as validCity } from '@/lib/br-ufs';
 import { setStoreOpeningModeAction } from '@/app/actions/store-opening';
 
 import { revalidatePath } from 'next/cache';
@@ -190,30 +191,38 @@ export async function geocodeStoreAddressAction(): Promise<
     const org = await orgData.getOrganizationById(organizationId);
     if (!org) return { ok: false, error: 'Estabelecimento não encontrado.' };
 
-    // Endereço montado com o que existe. Sem rua e cidade não há o que
-    // geocodificar — pedir antes evita gastar chamada do provedor à toa.
-    const parts = [
-      [org.address, org.addressNumber].filter(Boolean).join(', '),
-      org.district,
-      [org.city, org.state].filter(Boolean).join(' - '),
-      org.zipCode,
-      'Brasil',
-    ].filter((p) => p && String(p).trim() !== '');
-
-    if (!org.address || parts.length < 3) {
+    const street = (org.address ?? '').trim();
+    const number = (org.addressNumber ?? '').trim();
+    const city = validCity(org.city) ? org.city!.trim() : '';
+    const uf = validUf(org.state) ? org.state!.trim().toUpperCase() : '';
+    if (!street || !city || !uf) {
       return {
         ok: false,
-        error: 'Preencha ao menos rua, cidade e estado antes de localizar no mapa.',
-        field: 'address',
+        error: !street ? 'Preencha a rua antes de localizar no mapa.' : 'Cidade ou UF inválida no cadastro (ex.: Recife e PE). Corrija e salve antes de localizar.',
+        field: !street ? 'address' : 'city',
       };
     }
 
-    const result = await geocodeAddress(parts.join(', '));
-
-    if (!result.ok) {
-      // A mensagem do provedor já é honesta (not_configured / not_found /
-      // provider_error); repassar é melhor do que resumir para "deu erro".
-      return { ok: false, error: result.message };
+    // Do mais completo para o mais simples: o OpenStreetMap costuma falhar
+    // quando recebe tudo junto (CEP, bairro e complemento na mesma busca).
+    const attempts = [
+      [`${street}${number ? `, ${number}` : ''}`, city, uf, 'Brasil'],
+      [`${street}${number ? `, ${number}` : ''}`, org.district, city, uf, 'Brasil'],
+      [street, city, uf, 'Brasil'],
+    ].map((parts) => parts.filter((p) => p && String(p).trim()).join(', '));
+    let result: Awaited<ReturnType<typeof geocodeAddress>> | null = null;
+    for (const query of [...new Set(attempts)]) {
+      result = await geocodeAddress(query);
+      if (result.ok || result.reason !== 'not_found') break;
+    }
+    // Último recurso: o CEP (ViaCEP) confirma rua e cidade oficiais.
+    if (result && !result.ok && result.reason === 'not_found' && org.zipCode) {
+      const { lookupCep } = await import('@/lib/maps/geocoding');
+      const cep = await lookupCep(org.zipCode);
+      if (cep.ok) result = await geocodeAddress([cep.street, cep.city, cep.state, 'Brasil'].filter(Boolean).join(', '));
+    }
+    if (!result || !result.ok) {
+      return { ok: false, error: result && result.reason === 'not_found' ? 'Endereço não encontrado no mapa. Confira rua, número, cidade e UF, cole o link da localização ou toque no mapa no ponto da loja.' : 'O serviço de mapa não respondeu agora. Tente de novo, cole o link da localização ou toque no mapa.' };
     }
 
     return {
@@ -254,3 +263,60 @@ export async function validateLogoUrlAction(url: string): Promise<OrgActionResul
 }
 
 
+
+
+
+/** Coordenadas de um link de mapa (Google, OSM, Apple, Waze). Nunca inventa. */
+export async function resolveMapLinkAction(input: { url: string }): Promise<OrgActionResult<{ latitude: number; longitude: number }>> {
+  try {
+    await requirePermission('MANAGE_SETTINGS');
+    const { coordinatesFromMapLink, isShortMapLink } = await import('@/lib/maps/map-link');
+    const raw = typeof input?.url === 'string' ? input.url.trim().slice(0, 2000) : '';
+    if (!raw) return { ok: false, error: 'Cole o link da localização.' };
+    let point = coordinatesFromMapLink(raw);
+    // Link curto do Google: segue só redirecionamentos para domínios do Google.
+    let current = raw;
+    if (!point && isShortMapLink(raw)) {
+      for (let hop = 0; hop < 4 && !point; hop++) {
+        const response = await fetch(current, { redirect: 'manual', signal: AbortSignal.timeout(8000), cache: 'no-store' }).catch(() => null);
+        const next = response?.headers.get('location');
+        if (!next) break;
+        const target = new URL(next, current);
+        if (target.protocol !== 'https:' || !/(^|\.)google\.[a-z.]+$|(^|\.)goo\.gl$/.test(target.hostname)) break;
+        current = target.toString();
+        point = coordinatesFromMapLink(current);
+      }
+    }
+    if (!point) return { ok: false, error: 'Este link não traz as coordenadas do ponto. Abra o local no Google Maps, toque em Compartilhar e cole o link, ou marque o ponto direto no mapa.' };
+    return { ok: true, data: point };
+  } catch (error) {
+    return { ok: false, ...toActionError(error) };
+  }
+}
+
+/** Endereço aproximado do ponto, para manter o texto da loja coerente com o mapa. */
+export async function reverseStoreLocationAction(input: { latitude: number; longitude: number }) {
+  try {
+    await requirePermission('MANAGE_SETTINGS');
+    const { reverseGeocode } = await import('@/lib/maps/geocoding');
+    if (!Number.isFinite(input?.latitude) || !Number.isFinite(input?.longitude)) return { ok: false as const, error: 'Ponto inválido.' };
+    const found = await reverseGeocode(input.latitude, input.longitude);
+    if (!found.ok) return { ok: false as const, error: 'Não foi possível descobrir o endereço deste ponto agora.' };
+    return { ok: true as const, data: found };
+  } catch (error) {
+    return { ok: false as const, ...toActionError(error) };
+  }
+}
+
+/** CEP → rua, bairro, cidade e UF oficiais (ViaCEP). */
+export async function lookupStoreCepAction(input: { cep: string }) {
+  try {
+    await requirePermission('MANAGE_SETTINGS');
+    const { lookupCep } = await import('@/lib/maps/geocoding');
+    const found = await lookupCep(String(input?.cep ?? ''));
+    if (!found.ok) return { ok: false as const, error: found.reason === 'not_found' ? 'CEP não encontrado.' : found.reason === 'invalid' ? 'CEP inválido: use 8 números.' : 'A consulta de CEP não respondeu agora.' };
+    return { ok: true as const, data: found };
+  } catch (error) {
+    return { ok: false as const, ...toActionError(error) };
+  }
+}

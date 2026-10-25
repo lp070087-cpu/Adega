@@ -8,9 +8,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn, formatBRL } from '@/lib/utils';
 import {
+  lookupStoreCepAction,
   setStoreStatusAction,
   updateOrganizationAction,
 } from '@/app/actions/organization';
+import { BR_UFS } from '@/lib/br-ufs';
+import { maxTierKm, sortTiers, tierForDistance, tierLabel, tierProblems } from '@/lib/delivery-tiers';
 import {
   saveDeliveryAction,
   saveScheduleAction,
@@ -182,6 +185,9 @@ export function StoreSettings({
     }
   }
 
+  const [cepBusy, setCepBusy] = useState(false);
+  const [cepMessage, setCepMessage] = useState<string | null>(null);
+  const invalidAddress = Boolean((form.city && !/\p{L}/u.test(form.city)) || (form.state && !BR_UFS.includes(form.state.toUpperCase() as (typeof BR_UFS)[number])));
   function set<K extends keyof StoreFormData>(key: K, value: StoreFormData[K]) {
     setForm((current) => ({ ...current, [key]: value }));
     setSaved(false);
@@ -576,26 +582,47 @@ export function StoreSettings({
                 />
               </Field>
               <Field label="UF">
-                <Input
+                <Select
                   value={form.state ?? ''}
-                  onChange={(e) => set('state', e.target.value.toUpperCase() || null)}
-                  maxLength={2}
-                  className="uppercase"
+                  onChange={(e) => set('state', e.target.value || null)}
                   disabled={!canManage}
-                />
+                  aria-label="UF"
+                >
+                  <option value="">Selecione</option>
+                  {BR_UFS.map((uf) => <option key={uf} value={uf}>{uf}</option>)}
+                </Select>
               </Field>
             </div>
 
-            <Field label="CEP">
-              <Input
-                value={form.zipCode ?? ''}
-                onChange={(e) => set('zipCode', e.target.value || null)}
-                inputMode="numeric"
-                maxLength={9}
-                disabled={!canManage}
-                className="max-w-[180px]"
-              />
+            <Field label="CEP" hint="Buscar CEP preenche rua, bairro, cidade e UF oficiais.">
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  value={form.zipCode ?? ''}
+                  onChange={(e) => set('zipCode', e.target.value || null)}
+                  inputMode="numeric"
+                  maxLength={9}
+                  disabled={!canManage}
+                  className="max-w-[180px]"
+                  aria-label="CEP"
+                />
+                {canManage && (
+                  <Button type="button" size="sm" variant="secondary" className="min-h-11" disabled={cepBusy || (form.zipCode ?? '').replace(/\D/g, '').length !== 8} onClick={async () => {
+                    setCepBusy(true); setCepMessage(null);
+                    const result = await lookupStoreCepAction({ cep: form.zipCode ?? '' }).catch(() => ({ ok: false as const, error: 'A consulta de CEP não respondeu agora.' }));
+                    setCepBusy(false);
+                    if (!result.ok) { setCepMessage(result.error); return; }
+                    if (result.data.street) set('address', result.data.street);
+                    if (result.data.district) set('district', result.data.district);
+                    set('city', result.data.city); set('state', result.data.state);
+                    setCepMessage('Endereço preenchido pelo CEP. Confira o número e salve.');
+                  }}>Buscar CEP</Button>
+                )}
+              </div>
+              {cepMessage && <p role="status" className="mt-1 text-[0.76rem] text-ink-600">{cepMessage}</p>}
             </Field>
+            {invalidAddress && (
+              <Alert tone="warn">Cidade ou UF parecem inválidas ({form.city ?? '—'} / {form.state ?? '—'}). Use o nome da cidade e a sigla do estado (ex.: Recife / PE) — ou Buscar CEP — e salve. Sem isso a localização pelo endereço não funciona.</Alert>
+            )}
 
             <Alert tone="neutral">
               O status <strong>Aberta / Pausada / Fechada</strong> não é automático pelo horário —
@@ -753,6 +780,14 @@ export function StoreSettings({
               zones={form.deliveryZones}
               canManage={canManage}
               addressReady={Boolean(form.address && form.city && form.state)}
+              onAddressFromPoint={(fields) => {
+                if (fields.street) set('address', fields.street);
+                if (fields.number) set('addressNumber', fields.number);
+                if (fields.district) set('district', fields.district);
+                if (fields.city) set('city', fields.city);
+                if (fields.state) set('state', fields.state);
+                if (fields.zipCode) set('zipCode', fields.zipCode);
+              }}
             />
 
             <Alert tone="info">
@@ -871,81 +906,65 @@ function DeliveryTiers({
   onChange: (next: Array<{ upToKm: number; fee: number }>) => void;
   disabled?: boolean;
 }) {
+  const [previewKm, setPreviewKm] = useState('3');
+  const problems = tierProblems(tiers);
+  const sorted = sortTiers(tiers);
+  const max = maxTierKm(tiers);
+  const km = Number(previewKm.replace(',', '.'));
+  const preview = Number.isFinite(km) && km >= 0 && tiers.length ? tierForDistance(tiers, km) : null;
+  const update = (index: number, patch: Partial<{ upToKm: number; fee: number }>) => onChange(tiers.map((t, i) => (i === index ? { ...t, ...patch } : t)));
   return (
-    <div className="mt-2 rounded-lg border border-ink-200 p-3.5">
-      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-[0.84rem] font-semibold text-ink-800">Faixas por distância</p>
-          <p className="text-[0.74rem] text-ink-500">
-            Opcional. Se você não usar faixas, vale a taxa base acima.
-          </p>
+    <div className="mt-2 rounded-xl border border-ink-200 p-3.5" data-testid="delivery-tiers">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[0.88rem] font-semibold text-ink-900">Taxas por faixa de distância</p>
+          <p className="text-[0.76rem] text-ink-500">Cada faixa vale de onde a anterior termina até o limite informado. A última faixa é a distância máxima atendida.</p>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={disabled || tiers.length >= 10}
-          onClick={() => onChange([...tiers, { upToKm: tierSuggestion(tiers), fee: 0 }])}
-        >
+        <Button type="button" variant="secondary" size="sm" className="min-h-10" disabled={disabled || tiers.length >= 10} onClick={() => onChange(sortTiers([...tiers, { upToKm: tierSuggestion(sorted), fee: sorted.length ? sorted[sorted.length - 1].fee : 0 }]))}>
           + Adicionar faixa
         </Button>
       </div>
 
       {tiers.length === 0 ? (
-        <p className="py-2 text-[0.78rem] text-ink-400">
-          Nenhuma faixa. O frete é a taxa base, sem variação por distância.
-        </p>
+        <p className="rounded-lg bg-ink-50 px-3 py-3 text-[0.8rem] text-ink-500">Nenhuma faixa ainda. Até cadastrar, vale a taxa base.</p>
       ) : (
         <ul className="space-y-2">
-          {tiers.map((tier, index) => (
-            <li key={index} className="flex flex-wrap items-end gap-2">
-              <div className="w-[130px]">
-                <label className="field-label" htmlFor={`tier-km-${index}`}>
-                  Até (km)
-                </label>
-                <Input
-                  id={`tier-km-${index}`}
-                  value={String(tier.upToKm)}
-                  onChange={(e) =>
-                    onChange(
-                      tiers.map((t, i) =>
-                        i === index ? { ...t, upToKm: Number(e.target.value) || 0 } : t,
-                      ),
-                    )
-                  }
-                  inputMode="decimal"
-                  disabled={disabled}
-                  className="!py-1.5 text-[0.84rem]"
-                />
-              </div>
-              <div className="w-[150px]">
-                <label className="field-label" htmlFor={`tier-fee-${index}`}>
-                  Frete
-                </label>
-                <MoneyInput
-                  id={`tier-fee-${index}`}
-                  value={money(tier.fee)}
-                  onChange={(e) =>
-                    onChange(
-                      tiers.map((t, i) => (i === index ? { ...t, fee: parseMoney(e.target.value) } : t)),
-                    )
-                  }
-                  disabled={disabled}
-                  className="!py-1.5 text-[0.84rem]"
-                />
-              </div>
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onChange(tiers.filter((_, i) => i !== index))}
-                className="mb-0.5 rounded-sm px-2.5 py-2 text-[0.74rem] font-semibold text-ink-400 transition-all hover:bg-ink-100 hover:text-danger disabled:opacity-50"
-                aria-label={`Remover faixa de ${tier.upToKm} km`}
-              >
-                Remover
-              </button>
-            </li>
-          ))}
+          {tiers.map((tier, index) => {
+            const position = sorted.indexOf(tier);
+            return (
+              <li key={index} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2 rounded-lg bg-ink-50/60 p-2.5 sm:grid-cols-[minmax(0,1.3fr)_8rem_9rem_auto]" data-testid="tier-row">
+                <p className="col-span-3 text-[0.78rem] font-semibold text-ink-700 sm:col-span-1 sm:self-center">{position >= 0 && tier.upToKm > 0 ? tierLabel(tiers, position) : 'Faixa incompleta'}</p>
+                <div>
+                  <label className="field-label" htmlFor={`tier-km-${index}`}>Até (km)</label>
+                  <Input id={`tier-km-${index}`} value={String(tier.upToKm || '')} onChange={(e) => update(index, { upToKm: Number(e.target.value.replace(',', '.')) || 0 })} onBlur={() => onChange(sortTiers(tiers))} inputMode="decimal" disabled={disabled} className="!py-1.5 text-[0.86rem]" />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor={`tier-fee-${index}`}>Taxa</label>
+                  <MoneyInput id={`tier-fee-${index}`} value={money(tier.fee)} onChange={(e) => update(index, { fee: parseMoney(e.target.value) })} disabled={disabled} className="!py-1.5 text-[0.86rem]" />
+                </div>
+                <button type="button" disabled={disabled} onClick={() => onChange(tiers.filter((_, i) => i !== index))} className="min-h-10 rounded-lg px-2.5 text-[0.76rem] font-semibold text-ink-500 hover:bg-white hover:text-danger disabled:opacity-50" aria-label={`Remover faixa de ${tier.upToKm} km`}>
+                  Remover
+                </button>
+              </li>
+            );
+          })}
         </ul>
+      )}
+
+      {problems.length > 0 && <div className="mt-2.5"><Alert tone="danger">{problems.join(' ')}</Alert></div>}
+      {max !== null && problems.length === 0 && <p className="mt-2.5 text-[0.78rem] text-ink-600">Distância máxima atendida: <strong>{max.toLocaleString('pt-BR')} km</strong>. Endereços além disso são recusados no checkout.</p>}
+
+      {tiers.length > 0 && problems.length === 0 && (
+        <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-ink-200 p-3" data-testid="tier-preview">
+          <div className="w-32">
+            <label className="field-label" htmlFor="tier-preview-km">Testar distância (km)</label>
+            <Input id="tier-preview-km" value={previewKm} onChange={(e) => setPreviewKm(e.target.value)} inputMode="decimal" className="!py-1.5 text-[0.86rem]" />
+          </div>
+          <p className="min-w-0 flex-1 text-[0.82rem] text-ink-700" aria-live="polite">
+            {!preview ? 'Informe uma distância.' : preview.outside ? <><strong className="text-danger">Fora da área</strong> — acima de {max?.toLocaleString('pt-BR')} km.</> : <>Taxa: <strong>{formatBRL(preview.tier!.fee)}</strong> ({tierLabel(tiers, sorted.indexOf(preview.tier!)).toLowerCase()}).</>}
+          </p>
+          <p className="w-full text-[0.72rem] text-ink-500">No pedido, a distância é medida pelas ruas quando o serviço de rotas está ativo; sem ele, em linha reta a partir do ponto da loja.</p>
+        </div>
       )}
     </div>
   );
