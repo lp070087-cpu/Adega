@@ -14,7 +14,7 @@ import { StoreHeader } from '@/components/store/StoreHeader';
 import { STORE_OPEN_STATE_LABEL, type StoreOpenState } from '@/lib/schedule';
 import type { BusinessType } from '@prisma/client';
 import { groupPublishedStoreProducts } from '@/lib/store-catalog-groups';
-import { Share2 } from 'lucide-react';
+import { Check, Plus, Share2 } from 'lucide-react';
 import { storefrontCategoryView, type StorefrontCategories } from '@/lib/storefront-categories';
 import { whatsappDigits } from '@/lib/whatsapp';
 import { DeliveryPinPicker } from './DeliveryPinPicker';
@@ -185,6 +185,8 @@ function comboSeparateTotal(items: StoreComboItem[]): number {
 
 /** Loja atual, para o botão de compartilhar de cada produto. */
 const StoreShareContext = React.createContext<{ slug: string; name: string } | null>(null);
+/** Quantas unidades de cada produto já estão na sacola (para o selo do card). */
+const CartQtyContext = React.createContext<Map<string, number>>(new Map());
 
 /**
  * Compartilha o link do produto (abre direto o produto na loja). Usa o
@@ -223,6 +225,7 @@ export function StoreCatalog({
   const [activeCategory, setActiveCategory] = React.useState('all');
   const [categoriesOpen, setCategoriesOpen] = React.useState(false);
   const [cart, setCart] = React.useState<CartLine[]>([]);
+  const cartQty = React.useMemo(() => { const m = new Map<string, number>(); for (const l of cart) m.set(l.productId, (m.get(l.productId) ?? 0) + l.quantity); return m; }, [cart]);
   const [customizing, setCustomizing] = React.useState<StoreProduct | null>(null);
   const [linkedVariation,setLinkedVariation] = React.useState<{productId:string;variationId:string}|null>(null);
   React.useEffect(() => {
@@ -643,7 +646,7 @@ export function StoreCatalog({
   const whatsappHref = buildWhatsAppHref(store.whatsapp, store.name, order?.displayId);
 
   return (
-    <StoreShareContext.Provider value={shareStore}>
+    <StoreShareContext.Provider value={shareStore}><CartQtyContext.Provider value={cartQty}>
       <StoreHeader
         storeName={store.name}
         slug={store.slug}
@@ -1272,7 +1275,7 @@ export function StoreCatalog({
           </div>
         )}
       </Modal>
-    </StoreShareContext.Provider>
+    </CartQtyContext.Provider></StoreShareContext.Provider>
   );
 }
 
@@ -1377,7 +1380,7 @@ function CategoryProducts({products,categoryName,brandColor,closed,onAdd,onOpen}
   const [expanded,setExpanded]=React.useState(false);
   const id=React.useId();
   const button=React.useRef<HTMLButtonElement>(null);
-  const render=(product:StoreProduct)=><ProductCard key={product.id} product={product} categoryName={categoryName} brandColor={brandColor} closed={closed} onAdd={()=>onAdd(product)} onOpen={()=>onOpen(product)} />;
+  const render=(product:StoreProduct)=><ProductCard key={product.id} product={product} brandColor={brandColor} closed={closed} onAdd={()=>onAdd(product)} onOpen={()=>onOpen(product)} />;
   return <>
     <ul className="store-product-grid">{products.slice(0,12).map(render)}</ul>
     {products.length>12&&<>
@@ -1423,85 +1426,73 @@ function ProductCard({
   const isCombo = product.comboItems.length > 0;
   const shareStore = React.useContext(StoreShareContext);
 
+  const inCart = React.useContext(CartQtyContext).get(product.id) ?? 0;
+  const needsChoice = (product.type === 'VARIATION' && product.variations.length > 0) || product.addonGroups.length > 0;
+  const fromPrice = product.type === 'VARIATION' && product.variations.length > 0;
+  const [added, setAdded] = React.useState(false);
+  React.useEffect(() => { if (!added) return; const t = window.setTimeout(() => setAdded(false), 1400); return () => window.clearTimeout(t); }, [added]);
+  const discount = onPromo ? Math.round((1 - price / product.price) * 100) : 0;
+  const label = soldOut ? (!product.available ? 'Indisponível' : 'Esgotado') : added ? 'Adicionado' : needsChoice ? 'Escolher' : closed ? 'Adicionar para depois' : 'Adicionar';
+
   return (
-    <li className="store-product-card" style={{ '--store-brand': brandColor } as React.CSSProperties}>
-      <button type="button" onClick={onOpen} className="store-product-photo" aria-label={`Ver detalhes de ${product.name}`}>
-      {onPromo && <span className="store-product-discount">−{Math.round((1 - price / product.price) * 100)}%</span>}
-      <ProductThumb
-        customImageUrl={product.customImageUrl}
-        globalImageUrl={product.globalImageUrl}
-        basePath={product.basePath}
-        emoji={product.emoji}
-        alt={product.name}
-        size={220}
-        className="store-product-thumb"
-      />
-      </button>
+    <li className={cn('store-product-card', soldOut && 'is-soldout')} style={{ '--store-brand': brandColor } as React.CSSProperties}>
+      <div className="store-product-media">
+        <button type="button" onClick={onOpen} className="store-product-photo" aria-label={`Ver detalhes de ${product.name}`}>
+          <ProductThumb
+            customImageUrl={product.customImageUrl}
+            globalImageUrl={product.globalImageUrl}
+            basePath={product.basePath}
+            emoji={product.emoji}
+            alt={product.name}
+            size={240}
+            className="store-product-thumb"
+          />
+        </button>
+        <div className="store-product-badges" aria-hidden={soldOut ? undefined : true}>
+          {soldOut ? <span className="store-badge is-muted">{!product.available ? 'Indisponível' : 'Esgotado'}</span>
+            : <>
+              {discount > 0 && <span className="store-badge is-sale">−{discount}%</span>}
+              {isCombo && <span className="store-badge is-combo">Combo</span>}
+            </>}
+        </div>
+        {shareStore && (
+          <button type="button" onClick={() => void shareProduct(product, shareStore)} aria-label={`Compartilhar ${product.name}`} title="Compartilhar" className="store-product-share">
+            <Share2 size={15} aria-hidden />
+          </button>
+        )}
+        {inCart > 0 && <span className="store-product-incart" data-testid="card-in-cart">{inCart} na sacola</span>}
+      </div>
 
-      <div className="store-product-info min-w-0 flex-1">
+      <div className="store-product-info">
         {categoryName && <p className="store-product-category">{categoryName}</p>}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <p className="text-[0.88rem] font-bold text-ink-900"><button type="button" onClick={onOpen} className="text-left hover:underline focus-visible:underline">{product.name}</button></p>
-          {onPromo && !isCombo && (
-            <span className="rounded-full bg-danger-bg px-2 py-0.5 text-[0.62rem] font-extrabold uppercase text-danger">
-              Promoção
-            </span>
-          )}
-          {isCombo && (
-            <span className="rounded-full bg-accent-bg px-2 py-0.5 text-[0.62rem] font-extrabold uppercase text-accent">
-              Combo
-            </span>
-          )}
-        </div>
-
-        {product.description && (
-          <p className="mt-0.5 line-clamp-2 text-[0.75rem] text-ink-500">{product.description}</p>
+        <h3 className="store-product-name"><button type="button" onClick={onOpen}>{product.name}</button></h3>
+        {isCombo ? (
+          <p className="store-product-desc">{product.comboItems.map((item) => `${item.quantity}× ${item.name}`).join(' · ')}</p>
+        ) : product.description ? (
+          <p className="store-product-desc">{product.description}</p>
+        ) : (
+          <p className="store-product-desc">{fromPrice ? `${product.variations.length} opções` : ''}</p>
         )}
 
-        {isCombo && (
-          <p className="mt-1 text-[0.72rem] leading-relaxed text-ink-500">
-            {product.comboItems
-              .map((item) => `${item.quantity}× ${item.name}`)
-              .join(' · ')}
-          </p>
-        )}
-
-        <div className="store-product-price mt-1.5 flex flex-wrap items-baseline gap-2">
-          <span className="text-[0.9rem] font-extrabold text-ink-900">{formatBRL(price)}</span>
+        <div className="store-product-price">
+          <span className="store-product-from" aria-hidden={!fromPrice}>{fromPrice ? 'a partir de' : '\u00a0'}</span>
+          <span className="store-product-amount">{formatBRL(price)}</span>
           {(onPromo || (isCombo && separate > price)) && (
-            <span className="text-[0.76rem] text-ink-400 line-through">
-              {formatBRL(onPromo ? product.price : separate)}
-            </span>
+            <s className="store-product-old">{formatBRL(onPromo ? product.price : separate)}</s>
           )}
-          {isCombo && savings > 0 && (
-            <span className="text-[0.7rem] font-bold text-success">
-              economize {formatBRL(savings)}
-            </span>
-          )}
+          {isCombo && savings > 0 && <span className="store-product-save">economize {formatBRL(savings)}</span>}
         </div>
 
-        <div className="store-product-actions mt-2 flex items-center gap-2">
-          <Button
-            size="sm"
-            className="min-w-0 flex-1"
-            disabled={blocked}
-            onClick={onAdd}
-            style={!blocked ? { backgroundColor: brandColor } : undefined}
-          >
-            {soldOut ? (!product.available ? 'Produto pausado' : 'Sem estoque') : closed ? 'Adicionar para depois' : 'Adicionar'}
-          </Button>
-          {shareStore && (
-            <button
-              type="button"
-              onClick={() => void shareProduct(product, shareStore)}
-              aria-label={`Compartilhar ${product.name}`}
-              title="Compartilhar"
-              className="store-product-share inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] border border-ink-200 bg-white text-ink-600 hover:border-ink-400 hover:text-ink-900"
-            >
-              <Share2 size={16} aria-hidden />
-            </button>
-          )}
-        </div>
+        <button
+          type="button"
+          className={cn('store-product-add', added && 'is-added')}
+          disabled={blocked}
+          aria-live="polite"
+          onClick={() => { onAdd(); if (!needsChoice) setAdded(true); }}
+        >
+          {added ? <Check size={16} aria-hidden /> : !soldOut && !needsChoice ? <Plus size={16} aria-hidden /> : null}
+          <span>{label}</span>
+        </button>
       </div>
     </li>
   );
