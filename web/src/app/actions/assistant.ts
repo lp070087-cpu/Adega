@@ -41,6 +41,19 @@ export async function updateAssistantThread(input:{threadId:string;status:'BOT'|
     await withOrganizationTransaction(ctx.organizationId,async tx=>{const count=await tx.assistantThread.updateMany({where:{id:data.threadId,organizationId:ctx.organizationId},data:{status:data.status}});if(!count.count)throw new OperationError('Conversa não encontrada.');await tx.notification.create({data:{organizationId:ctx.organizationId,userId:ctx.user.id,type:'SYSTEM',title:'Status do atendimento alterado',message:`Conversa ${data.threadId}: ${data.status}.`,href:'/app/atendimento'}});});revalidatePath('/app/atendimento');return {ok:true};
   }catch(error){return {ok:false,...toActionError(error)};}
 }
+/** Transfere a conversa para outro membro ativo da loja: a IA pausa e o responsável fica registrado. */
+export async function transferAssistantThread(input:{threadId:string;userId:string}){
+  try{const ctx=await requirePermission('MANAGE_SETTINGS');const data=z.object({threadId:z.string().min(1).max(64),userId:z.string().min(1).max(64)}).parse(input);if(!await assistantReady())throw new OperationError('Atendimento indisponível.');
+    const member=await prisma.organizationUser.findFirst({where:{organizationId:ctx.organizationId,userId:data.userId,active:true},select:{user:{select:{name:true}}}});
+    if(!member)throw new OperationError('Escolha alguém da equipe desta loja.');
+    await withOrganizationTransaction(ctx.organizationId,async tx=>{const count=await tx.assistantThread.updateMany({where:{id:data.threadId,organizationId:ctx.organizationId,status:{not:'CLOSED'}},data:{status:'HUMAN'}});if(!count.count)throw new OperationError('Conversa não encontrada ou encerrada.');
+      await tx.notification.create({data:{organizationId:ctx.organizationId,userId:data.userId,type:'SYSTEM',title:'Conversa transferida para você',message:`${ctx.user.name ?? 'A equipe'} transferiu um atendimento do WhatsApp.`,href:`/app/atendimento?conversa=${data.threadId}`}});});
+    const key=`assistant-assignee:${data.threadId}`;const value={userId:data.userId,name:member.user.name,at:new Date().toISOString(),by:ctx.user.id};
+    await prisma.platformSetting.upsert({where:{key},create:{key,value},update:{value}});
+    revalidatePath('/app/atendimento');return {ok:true};
+  }catch(error){return {ok:false,...toActionError(error)};}
+}
+
 export async function processAssistantAction(){try{const ctx=await requirePermission('MANAGE_SETTINGS');const result=await processAssistantInbox(ctx.organizationId);revalidatePath('/app/atendimento');return {ok:true,...result};}catch(error){return {ok:false,...toActionError(error)};}}
 export async function retryAssistantMessage(messageId:string){
   try{const ctx=await requirePermission('MANAGE_SETTINGS');if(!await assistantReady())throw new OperationError('Atendimento indisponível.');

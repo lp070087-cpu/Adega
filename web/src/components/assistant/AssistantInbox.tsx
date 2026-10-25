@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Bot, Search, Send, User } from 'lucide-react';
-import { sendHumanReplyAction, updateAssistantThread } from '@/app/actions/assistant';
+import { sendHumanReplyAction, transferAssistantThread, updateAssistantThread } from '@/app/actions/assistant';
 import { Alert, Button } from '@/components/ui';
 import { cn, formatPhone } from '@/lib/utils';
 
@@ -30,7 +30,8 @@ function when(iso: string) {
 }
 
 /** Caixa de entrada: lista à esquerda, conversa à direita (no celular, uma de cada vez). */
-export function AssistantInbox({ threads, selectedId, messages, aiEnabled, webhookVerified }: { threads: InboxThread[]; selectedId: string | null; messages: InboxMessage[]; aiEnabled: boolean; webhookVerified: boolean }) {
+export function AssistantInbox({ threads, selectedId, messages, aiEnabled, webhookVerified, team = [], assignee = null }: { threads: InboxThread[]; selectedId: string | null; messages: InboxMessage[]; aiEnabled: boolean; webhookVerified: boolean; team?: Array<{ id: string; name: string }>; assignee?: { id: string; name: string } | null }) {
+  const [transferTo, setTransferTo] = useState('');
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState('');
@@ -146,6 +147,16 @@ export function AssistantInbox({ threads, selectedId, messages, aiEnabled, webho
                   <Link href={`/app/pedidos?novoPedido=1&origem=whatsapp&telefone=${encodeURIComponent(selected.contact.replace(/^55/, ''))}&nome=${encodeURIComponent(selected.name ?? '')}`} className="inline-flex min-h-9 items-center rounded-lg bg-brand px-3 text-[0.8rem] font-semibold text-white hover:bg-brand-dark" data-testid="create-order-from-chat">Criar pedido</Link>
                   {selected.status !== 'CLOSED' && <Button size="sm" variant="ghost" disabled={pending} onClick={() => setStatus('CLOSED')}>Encerrar</Button>}
                 </div>
+                {selected.status !== 'CLOSED' && team.length > 1 && (
+                  <div className="flex w-full flex-wrap items-center gap-1.5 text-[0.76rem]" data-testid="thread-transfer">
+                    {assignee && <span className="text-ink-600">Responsável: <strong>{assignee.name}</strong></span>}
+                    <select value={transferTo} onChange={(e) => setTransferTo(e.target.value)} aria-label="Transferir para" className="field-input !min-h-9 !w-auto !py-1 text-[0.78rem]">
+                      <option value="">Transferir para…</option>
+                      {team.filter((m) => m.id !== assignee?.id).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                    <Button size="sm" variant="secondary" disabled={pending || !transferTo} onClick={() => startTransition(async () => { const r = await transferAssistantThread({ threadId: selected.id, userId: transferTo }); if (!r.ok) setError('error' in r ? r.error : 'Não foi possível transferir.'); else { setTransferTo(''); router.refresh(); } })}>Transferir</Button>
+                  </div>
+                )}
               </header>
               <ol className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-ink-50/60 p-3" aria-live="polite">
                 {messages.length === 0 && <li className="p-6 text-center text-sm text-ink-500">Sem mensagens nesta conversa.</li>}

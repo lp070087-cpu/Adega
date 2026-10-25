@@ -69,5 +69,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
       }))
     : [];
 
-  return <AssistantInbox threads={list} selectedId={selected?.id ?? null} messages={messages} aiEnabled={aiEnabled} webhookVerified={Boolean(channel?.webhookVerifiedAt)} />;
+  const team = (await prisma.organizationUser.findMany({ where: { organizationId: ctx.organizationId, active: true }, select: { userId: true, user: { select: { name: true } } }, take: 50 })).map((m) => ({ id: m.userId, name: m.user.name ?? 'Sem nome' }));
+  const assignee = selected ? ((await prisma.platformSetting.findUnique({ where: { key: `assistant-assignee:${selected.id}` } }))?.value as { userId?: string; name?: string } | undefined) : undefined;
+  return <AssistantInbox team={team} assignee={selected?.status === 'HUMAN' && assignee?.userId ? { id: assignee.userId, name: assignee.name ?? '' } : null} threads={list} selectedId={selected?.id ?? null} messages={messages} aiEnabled={aiEnabled} webhookVerified={Boolean(channel?.webhookVerifiedAt)} />;
 }
