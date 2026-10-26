@@ -254,13 +254,23 @@ function RouteMap({ stops, store, me, route, selected, onSelect }: {
   const [framed, setFramed] = useState(false);
   useEffect(() => { const t = window.setTimeout(() => setFramed(true), 2500); return () => window.clearTimeout(t); }, []);
 
+  const [loadError, setLoadError] = useState(false);
+  const [tilesFailing, setTilesFailing] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let disposed = false;
+    setLoadError(false);
     import('leaflet').then((L) => {
       if (disposed || !box.current) return;
       leaflet.current = L;
-      const instance = L.map(box.current, { center: [-14.235, -51.925], zoom: 4 });
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; colaboradores do <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' }).addTo(instance);
+      // Começa na loja (ou no entregador) em vez do Brasil inteiro.
+      const start: [number, number] | null = store ? [store.latitude, store.longitude] : me ? [me.latitude, me.longitude] : null;
+      const instance = L.map(box.current, { center: start ?? [-14.235, -51.925], zoom: start ? 14 : 4 });
+      let tileErrors = 0;
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; colaboradores do <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' })
+        .on('tileerror', () => { tileErrors += 1; if (tileErrors >= 4) setTilesFailing(true); })
+        .on('tileload', () => { tileErrors = 0; setTilesFailing(false); })
+        .addTo(instance);
       layers.current.store = L.layerGroup().addTo(instance);
       layers.current.stops = L.layerGroup().addTo(instance);
       map.current = instance;
@@ -269,9 +279,9 @@ function RouteMap({ stops, store, me, route, selected, onSelect }: {
       observer.observe(box.current);
       instance.once('unload', () => observer.disconnect());
       setReady(true);
-    });
-    return () => { disposed = true; map.current?.remove(); map.current = null; layers.current = {}; };
-  }, []);
+    }).catch(() => { if (!disposed) { setLoadError(true); setFramed(true); } });
+    return () => { disposed = true; map.current?.remove(); map.current = null; layers.current = {}; setReady(false); };
+  }, [attempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const located = stops.filter((s) => s.stop?.latitude != null && s.stop?.longitude != null);
   const key = located.map((s) => `${s.order.id}:${s.n}`).join('|') + (selected ?? '');
@@ -323,6 +333,14 @@ function RouteMap({ stops, store, me, route, selected, onSelect }: {
     <div className="relative isolate h-[58dvh] min-h-[300px] overflow-hidden rounded-xl border border-ink-100 bg-ink-50">
       <div ref={box} className={cn('df-map absolute inset-0 transition-opacity duration-300', framed ? 'opacity-100' : 'opacity-0')} aria-label="Mapa das entregas" data-testid="routes-map" />
       {!framed && <p className="absolute inset-0 z-[400] flex items-center justify-center text-[0.8rem] text-ink-500">Carregando o mapa das entregas…</p>}
+      {loadError && (
+        <div className="absolute inset-0 z-[600] flex flex-col items-center justify-center gap-3 bg-ink-50 p-6 text-center" role="alert" data-testid="routes-map-error">
+          <p className="text-[0.86rem] font-semibold text-ink-800">Não foi possível carregar o mapa.</p>
+          <p className="text-[0.76rem] text-ink-500">Verifique a conexão. As paradas abaixo e os links do Google Maps e do Waze continuam funcionando.</p>
+          <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-11 rounded-lg bg-brand px-4 text-sm font-semibold text-white">Tentar novamente</button>
+        </div>
+      )}
+      {tilesFailing && !loadError && <p className="absolute inset-x-2 top-2 z-[500] rounded-md bg-amber-50 px-3 py-2 text-center text-[0.74rem] text-amber-900 shadow" role="status">As ruas do mapa não carregaram agora. As paradas e a navegação externa continuam disponíveis.</p>}
       <button type="button" onClick={center} aria-label="Enquadrar entregas" className="absolute bottom-3 right-3 z-[500] flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand shadow-lg"><Crosshair size={22} aria-hidden /></button>
     </div>
   );

@@ -587,11 +587,13 @@ function OrderCard({
         </div>
       </div>
 
-      <p className="mt-2.5 text-[0.8rem] leading-relaxed text-ink-600">
-        <MapPin className="inline-block" size={14} aria-hidden="true" /> {order.deliveryAddress}
-        {order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}
-        {order.deliveryDistrict ? ` — ${order.deliveryDistrict}` : ''}
-      </p>
+      <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-brand-light/60 px-3 py-2.5" data-testid="driver-order-address">
+        <MapPin className="mt-0.5 shrink-0 text-brand" size={18} aria-hidden="true" />
+        <div className="min-w-0">
+          <p className="break-words text-[0.92rem] font-bold leading-snug text-ink-900">{order.deliveryAddress}{order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}</p>
+          {(order.deliveryDistrict || order.deliveryCity) && <p className="text-[0.76rem] text-ink-600">{[order.deliveryDistrict, order.deliveryCity].filter(Boolean).join(' · ')}</p>}
+        </div>
+      </div>
 
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <Badge tone="neutral">
@@ -609,8 +611,8 @@ function OrderCard({
         </p>
       )}
 
-      <div className="mt-3 flex gap-2">
-        <Button variant="secondary" size="sm" onClick={onOpen} className="flex-1">
+      <div className="mt-3 grid grid-cols-[auto_1fr] gap-2">
+        <Button variant="secondary" onClick={onOpen} className="min-h-12 rounded-xl px-4">
           Detalhes
         </Button>
         <button
@@ -618,8 +620,8 @@ function OrderCard({
           disabled={disabled || waitingStore}
           onClick={() => onStep(step)}
           className={cn(
-            'flex-1 rounded-sm px-3.5 py-2 text-[0.78rem] font-bold text-white transition-all disabled:opacity-55',
-            isDelivery ? 'bg-success' : 'bg-brand hover:bg-brand-dark',
+            'min-h-12 rounded-xl px-4 text-[0.9rem] font-bold text-white shadow-sm transition-all active:scale-[.98] disabled:opacity-55',
+            step === 'DELIVERED' ? 'bg-success' : waitingStore ? 'bg-ink-400' : 'bg-brand hover:bg-brand-dark',
           )}
         >
           {waitingStore ? 'Aguardando a loja' : STEP_LABEL[step]}

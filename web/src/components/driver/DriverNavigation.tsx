@@ -42,6 +42,8 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
   const [destination, setDestination] = useState<(Point & { approximate: boolean }) | null>(null);
   // O mapa aparece já no destino; sem destino em 2,5 s, mostra assim mesmo.
   const [shown, setShown] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
+  const [tilesFailing, setTilesFailing] = useState(false);
   useEffect(() => { const t = window.setTimeout(() => setShown(true), 2500); return () => window.clearTimeout(t); }, []);
   useEffect(() => { if (destination) setShown(true); }, [destination]);
   const [route, setRoute] = useState<Route | null>(null);
@@ -67,7 +69,11 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
       leaflet.current = L;
       // Abre direto no destino quando ele já é conhecido (sem mostrar o Brasil inteiro).
       const instance = L.map(box.current, { center: destination ? [destination.latitude, destination.longitude] : [-14.235, -51.925], zoom: destination ? 16 : 4, zoomControl: true });
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; colaboradores do <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' }).addTo(instance);
+      let tileErrors = 0;
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; colaboradores do <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' })
+        .on('tileerror', () => { tileErrors += 1; if (tileErrors >= 4) setTilesFailing(true); })
+        .on('tileload', () => { tileErrors = 0; setTilesFailing(false); })
+        .addTo(instance);
       instance.on('dragstart', () => setFollow(false));
       layers.current.group = L.layerGroup().addTo(instance);
       map.current = instance;
@@ -77,7 +83,7 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
       const observer = new ResizeObserver(() => instance.invalidateSize());
       observer.observe(box.current);
       instance.once('unload', () => observer.disconnect());
-    });
+    }).catch(() => { if (!disposed) { setMapFailed(true); setShown(true); } });
     return () => { disposed = true; map.current?.remove(); map.current = null; layers.current = {}; };
   }, [mounted]);
 
@@ -130,6 +136,8 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
     }
     if (me) {
       const at: [number, number] = [me.latitude, me.longitude];
+      // Sem destino localizado, o mapa abre na posição do entregador (e não no Brasil inteiro).
+      if (!destination && !layers.current.me) instance.setView(at, 15, { animate: false });
       if (!layers.current.me) layers.current.me = L.circleMarker(at, { radius: 8, color: '#fff', weight: 3, fillColor: '#087ea4', fillOpacity: 1 }).addTo(group);
       else layers.current.me.setLatLng(at);
     }
@@ -188,6 +196,8 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
       <div className="relative isolate min-h-0 flex-1 bg-ink-50">
         <div ref={box} className={`df-map absolute inset-0 transition-opacity duration-300 ${shown ? 'opacity-100' : 'opacity-0'}`} aria-label="Mapa da rota" />
         {!shown && <p className="absolute inset-0 flex items-center justify-center text-[0.8rem] text-ink-500">Carregando o mapa…</p>}
+        {mapFailed && <p className="absolute inset-x-3 top-3 z-[600] rounded-md bg-white px-3 py-2 text-center text-[0.78rem] font-semibold text-ink-800 shadow" role="alert" data-testid="navigation-map-error">O mapa não carregou. Use os botões do Google Maps ou do Waze abaixo para navegar.</p>}
+        {tilesFailing && !mapFailed && <p className="absolute inset-x-3 top-3 z-[600] rounded-md bg-amber-50 px-3 py-2 text-center text-[0.74rem] text-amber-900 shadow" role="status">As ruas do mapa não carregaram agora. O destino e a navegação externa continuam disponíveis.</p>}
         <button type="button" onClick={center} aria-label="Centralizar na minha localização" className="absolute bottom-4 right-4 z-[500] flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand shadow-lg"><Crosshair size={22} aria-hidden /></button>
         {status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={`absolute inset-x-3 top-3 z-[500] rounded-lg px-3 py-2 text-center text-[0.78rem] shadow ${status.tone === 'error' ? 'bg-danger-bg text-danger' : status.tone === 'warn' ? 'bg-amber-50 text-amber-900' : 'bg-white/95 text-ink-700'}`}>{status.text}</p>}
       </div>
