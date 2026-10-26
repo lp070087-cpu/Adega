@@ -19,6 +19,10 @@ import {
 import { canTransition } from '@/lib/validations/order';
 import { nextDriverStep } from '@/lib/validations/driver-flow';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
+import type { OrderStatus as DriverActiveStatus } from '@prisma/client';
+/** Pedido com entregador conta como entrega ativa dele desde o aceite (ver src/lib/driver-statuses.ts). */
+const DRIVER_ACTIVE_STATUSES: DriverActiveStatus[] = ['CONFIRMED', 'PREPARING', 'READY', 'WAITING_DRIVER', 'DISPATCHED'];
+
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -265,8 +269,24 @@ export async function assignFromCardAction(input: { orderId: string; driverId: s
       if (!order) throw new OperationError('Pedido não encontrado.');
       if (order.deliveryType === 'PICKUP') throw new OperationError('Pedido de retirada não recebe entregador.');
       if (order.driverId) throw new OperationError('Este pedido já tem entregador. A tela mostra a situação atual.');
-      if (order.status === 'PREPARING') await orders.updateOrderStatus(organizationId, parsed.data.orderId, 'READY', { userId: user.id, transaction: tx });
       await orders.assignDriver(organizationId, parsed.data.orderId, parsed.data.driverId, tx);
+    });
+    revalidateOrders();
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, ...toActionError(error) };
+  }
+}
+
+/** Tempo padrão de separação (1 a 180 min) usado no contador dos cartões. */
+export async function setPrepMinutesAction(minutes: number): Promise<OrderActionResult> {
+  try {
+    const { organizationId } = await requirePermission('MANAGE_SETTINGS');
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 180) return { ok: false, error: 'Informe de 1 a 180 minutos.' };
+    await withOrganizationTransaction(organizationId, async (tx) => {
+      const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+      const settings = (org?.settings && typeof org.settings === 'object' && !Array.isArray(org.settings) ? org.settings : {}) as Record<string, unknown>;
+      await tx.organization.update({ where: { id: organizationId }, data: { settings: { ...settings, prepMinutes: minutes } as never } });
     });
     revalidateOrders();
     return { ok: true };
@@ -401,8 +421,12 @@ export async function driverStepAction(input: {
       include: { delivery: true },
     });
     if (!order) throw new OperationError('Pedido não encontrado ou não atribuído a você.');
-    if (!['WAITING_DRIVER', 'DISPATCHED'].includes(order.status)) {
+    if (!['CONFIRMED', 'PREPARING', 'WAITING_DRIVER', 'DISPATCHED'].includes(order.status)) {
       throw new OperationError('Este pedido não está disponível para entrega.');
+    }
+    // A retirada só acontece depois que a loja libera o pedido.
+    if ((input.step === 'PICKED_UP' || input.step === 'STARTED') && !['WAITING_DRIVER', 'DISPATCHED'].includes(order.status)) {
+      throw new OperationError('A loja ainda não liberou a retirada deste pedido.');
     }
     if (!order.delivery || order.delivery.driverId !== driver.id ||
         nextDriverStep(order.delivery) !== input.step) {
@@ -425,7 +449,7 @@ export async function driverStepAction(input: {
         ? 'DELIVERED'
         : parsed.data.step === 'STARTED' || parsed.data.step === 'ARRIVED_CUSTOMER'
           ? 'DISPATCHED'
-          : 'WAITING_DRIVER';
+          : (order.status as OrderStatus);
 
       await tx.delivery.updateMany({
         where: { orderId: order.id, organizationId: ctx.organizationId, driverId: driver.id },
@@ -443,7 +467,7 @@ export async function driverStepAction(input: {
       if (target === 'DELIVERED') {
         const remaining = await tx.order.count({ where: {
           organizationId: ctx.organizationId, driverId: driver.id,
-          status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
+          status: { in: DRIVER_ACTIVE_STATUSES },
         } });
         await tx.driver.update({ where: { id: driver.id }, data: { status: remaining ? 'BUSY' : 'ONLINE' } });
       }
@@ -493,7 +517,7 @@ export async function setMyDriverStatusAction(
       if (!driver) throw new OperationError('Entregador não encontrado.');
       const active = await tx.order.count({ where: {
         organizationId: ctx.organizationId, driverId: driver.id,
-        status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
+        status: { in: DRIVER_ACTIVE_STATUSES },
       } });
       if (active && status === 'OFFLINE') throw new OperationError('Conclua suas entregas antes de ficar offline.');
       await tx.driver.update({ where: { id: driver.id }, data: { status: active ? 'BUSY' : status } });

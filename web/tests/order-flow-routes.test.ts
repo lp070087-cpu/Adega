@@ -10,7 +10,9 @@ test('one card, one next action: delivery and pickup flows', async () => {
   const label = (o: any) => { const a = primaryOrderAction(o); return a ? `${a.kind}:${'to' in a ? a.to : ''}:${a.label}` : null; };
   assert.equal(label({ status: 'NEW', deliveryType: 'DELIVERY' }), 'advance:CONFIRMED:Aceitar');
   assert.equal(label({ status: 'CONFIRMED', deliveryType: 'DELIVERY' }), 'advance:PREPARING:Iniciar separação');
-  assert.equal(label({ status: 'PREPARING', deliveryType: 'DELIVERY' }), 'assign::Atribuir entregador');
+  assert.equal(label({ status: 'PREPARING', deliveryType: 'DELIVERY' }), 'advance:READY:Pronto para retirada');
+  assert.equal(label({ status: 'PREPARING', deliveryType: 'DELIVERY', driverId: 'd' }), 'advance:READY:Pronto · liberar retirada');
+  assert.equal(label({ status: 'READY', deliveryType: 'DELIVERY' }), 'assign::Atribuir entregador');
   assert.equal(label({ status: 'WAITING_DRIVER', deliveryType: 'DELIVERY', driverId: 'd' }), 'advance:DISPATCHED:Saiu para entrega');
   assert.equal(label({ status: 'DISPATCHED', deliveryType: 'DELIVERY', driverId: 'd' }), 'tracking::Em rota de entrega');
   assert.equal(label({ status: 'PREPARING', deliveryType: 'PICKUP' }), 'advance:READY:Pronto para retirada');
@@ -21,6 +23,21 @@ test('one card, one next action: delivery and pickup flows', async () => {
   assert.equal(readAutoAccept({ orderAutoAccept: true }), true);
   assert.equal(readAutoAccept({ orderAutoAccept: 'yes' }), false);
   assert.equal(readAutoAccept(null), false);
+});
+
+test('fluxo operacional: etapas, atribuição desde o aceite e tempo de separação', async () => {
+  const { orderStage, canAssignAt, readPrepMinutes } = await import('../src/lib/order-flow');
+  assert.deepEqual(['NEW', 'CONFIRMED', 'PREPARING'].map((s) => orderStage(s)), ['Recebido', 'Aceito', 'Em separação']);
+  assert.equal(orderStage('WAITING_DRIVER', 'ASSIGNED'), 'Aguardando retirada');
+  assert.equal(orderStage('WAITING_DRIVER', 'PICKED_UP'), 'Retirado pelo entregador');
+  assert.equal(orderStage('DISPATCHED', 'IN_TRANSIT'), 'Em entrega');
+  assert.equal(orderStage('DELIVERED'), 'Entregue');
+  assert.equal(canAssignAt('CONFIRMED', 'DELIVERY', null), true);
+  assert.equal(canAssignAt('PREPARING', 'DELIVERY', null), true);
+  assert.equal(canAssignAt('PREPARING', 'DELIVERY', 'd'), false);
+  assert.equal(canAssignAt('NEW', 'DELIVERY', null), false);
+  assert.equal(canAssignAt('PREPARING', 'PICKUP', null), false);
+  assert.equal(readPrepMinutes({}), 10); assert.equal(readPrepMinutes({ prepMinutes: 15 }), 15); assert.equal(readPrepMinutes({ prepMinutes: 0 }), 10); assert.equal(readPrepMinutes({ prepMinutes: 999 }), 10);
 });
 
 test('best stop order minimizes travel time (exact for few stops, heuristic for many)', async () => {

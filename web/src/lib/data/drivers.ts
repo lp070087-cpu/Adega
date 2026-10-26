@@ -8,6 +8,10 @@ import { getDriverSchedules } from '@/lib/data/driver-schedules';
 import { readDriverSchedule, driverShiftAvailability } from '@/lib/driver-schedule';
 import {isPlatformIdentity} from '@/lib/platform/identity';
 import { OperationError } from '@/lib/operation-error';
+import type { OrderStatus as DriverActiveStatus } from '@prisma/client';
+/** Pedido com entregador conta como entrega ativa dele desde o aceite (ver src/lib/driver-statuses.ts). */
+const DRIVER_ACTIVE_STATUSES: DriverActiveStatus[] = ['CONFIRMED', 'PREPARING', 'READY', 'WAITING_DRIVER', 'DISPATCHED'];
+
 
 /**
  * Entregadores e despacho.
@@ -41,7 +45,7 @@ export async function getDrivers(
       user: { select: { id: true, email: true, username: true, active: true,mustChangePassword:true,organizations:{select:{organizationId:true,role:true}} } },
       _count: {
         select: {
-          orders: { where: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } },
+          orders: { where: { status: { in: DRIVER_ACTIVE_STATUSES } } },
         },
       },
     },
@@ -120,7 +124,7 @@ export async function getDriverById(organizationId: string, driverId: string) {
       where: {
         organizationId,
         driverId,
-        status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
+        status: { in: DRIVER_ACTIVE_STATUSES },
       },
       select: { id: true, displayId: true, customerName: true, status: true, total: true },
       orderBy: { createdAt: 'desc' },
@@ -274,7 +278,7 @@ export async function removeDriverLink(organizationId: string, driverId: string)
   return withOrganizationTransaction(organizationId, async (tx) => {
     const driver = await tx.driver.findFirst({ where: { id: driverId, organizationId }, select: { id: true, userId: true } });
     if (!driver) throw new OperationError('Entregador não encontrado.');
-    const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
+    const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: DRIVER_ACTIVE_STATUSES } } });
     if (ongoing) throw new OperationError('Conclua ou remova as atribuições antes de remover o vínculo.');
     await tx.driver.update({ where: { id: driver.id }, data: { active: false, status: 'OFFLINE', userId: null } });
     if (driver.userId) {
@@ -302,7 +306,7 @@ export async function updateDriver(
   const current = await tx.driver.findFirst({ where: { id: driverId, organizationId }, select: { active: true, userId: true } });
   if (!current) throw new OperationError('Entregador não encontrado.');
   if (input.active === false) {
-    const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
+    const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: DRIVER_ACTIVE_STATUSES } } });
     if (ongoing) throw new OperationError('Conclua ou remova as atribuições antes de desativar o entregador.');
   }
   if (input.active === true && !current.active) await assertPlatformQuota(tx, organizationId, 'drivers');
@@ -337,7 +341,7 @@ export async function setDriverStatus(
     const driver = await tx.driver.findFirst({ where: { id: driverId, organizationId, active: true }, select: { id: true,user:{select:{active:true,mustChangePassword:true,organizations:{where:{organizationId,active:true},select:{id:true}}}} } });
     if (!driver) throw new OperationError('Entregador não encontrado ou desativado.');
     if(status==='ONLINE'&&driver.user&&(!driver.user.active||driver.user.mustChangePassword||!driver.user.organizations.length))throw new OperationError('Ative o acesso do entregador antes de disponibilizá-lo.');
-    const active = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
+    const active = await tx.order.count({ where: { organizationId, driverId, status: { in: DRIVER_ACTIVE_STATUSES } } });
     if (active) throw new OperationError('Conclua ou remova as atribuições antes de alterar a disponibilidade.');
     if (status === 'BUSY') throw new OperationError('Em entrega é definido somente pela atribuição de pedidos.');
     await tx.driver.update({ where: { id: driver.id }, data: { status } });
@@ -356,7 +360,7 @@ export async function deactivateDriver(organizationId: string, driverId: string)
     select: { id: true, userId: true },
   });
   if (!driver) throw new OperationError('Entregador não encontrado.');
-  const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
+  const ongoing = await tx.order.count({ where: { organizationId, driverId, status: { in: DRIVER_ACTIVE_STATUSES } } });
   if (ongoing) throw new OperationError('Conclua ou remova as atribuições antes de desativar o entregador.');
     await tx.driver.update({
       where: { id: driverId },
@@ -393,7 +397,7 @@ export async function setDriverEmail(organizationId:string,driverId:string,email
   if(account&&(account.organizations.some(m=>m.role!=='DRIVER'||m.organizationId!==organizationId)||!account.organizations.some(m=>m.organizationId===organizationId&&m.role==='DRIVER')))throw new OperationError('Este entregador também trabalha em outra loja. Para usar outro e-mail, remova o vínculo e cadastre o novo e-mail.');
   if(account&&await isPlatformIdentity(tx,account.id))throw new OperationError('Este acesso deve ser administrado pela plataforma.');
   if(await tx.user.findUnique({where:{email:normalized},select:{id:true}}))throw new OperationError('Este e-mail já está em uso.');
-  if(await tx.order.count({where:{organizationId,driverId,status:{in:['WAITING_DRIVER','DISPATCHED']}}}))throw new OperationError('Conclua ou remova as atribuições antes de alterar o e-mail.');
+  if(await tx.order.count({where:{organizationId,driverId,status:{in:DRIVER_ACTIVE_STATUSES}}}))throw new OperationError('Conclua ou remova as atribuições antes de alterar o e-mail.');
   const user=account?await tx.user.update({where:{id:account.id},data:{email:normalized,emailVerified:null,mustChangePassword:true}}):await tx.user.create({data:{name:driver.name,email:normalized,phone:driver.phone,mustChangePassword:true}});
   if(!account)await tx.organizationUser.create({data:{organizationId,userId:user.id,role:'DRIVER',active:driver.active,acceptedAt:new Date()}});
   await tx.driver.update({where:{id:driver.id},data:{...(!account?{userId:user.id}:{}),status:'OFFLINE'}});
@@ -414,7 +418,7 @@ export async function getDriverMap(organizationId: string) {
       vehiclePlate: true,
       user:{select:{active:true,mustChangePassword:true}},
       orders: {
-        where: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } },
+        where: { status: { in: DRIVER_ACTIVE_STATUSES } },
         select: { id: true, displayId: true, status: true, deliveryAddress: true },
       },
     },
@@ -438,8 +442,8 @@ export async function getDriverSummary(organizationId: string) {
     prisma.driver.count({ where: { organizationId } }),
     prisma.driver.count({ where: { organizationId, active: true } }),
     // Online = ligou no app (ou está em entrega); a escala não entra na conta.
-    prisma.driver.count({ where: { organizationId, AND: [ready, { OR: [{ status: { not: 'OFFLINE' } }, { orders: { some: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } } }] }] } }),
-    prisma.driver.count({ where: { organizationId, active: true, orders: { some: { status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } } } }),
+    prisma.driver.count({ where: { organizationId, AND: [ready, { OR: [{ status: { not: 'OFFLINE' } }, { orders: { some: { status: { in: DRIVER_ACTIVE_STATUSES } } } }] }] } }),
+    prisma.driver.count({ where: { organizationId, active: true, orders: { some: { status: { in: DRIVER_ACTIVE_STATUSES } } } } }),
     prisma.order.count({
       where: {
         organizationId,

@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatBRL } from '@/lib/utils';
 import { ORDER_SOURCE_LABEL } from '@/data/business-copy';
-import { advanceOrderAction, assignFromCardAction, setOrderAutoAcceptAction } from '@/app/actions/orders';
+import { advanceOrderAction, assignFromCardAction, setOrderAutoAcceptAction, setPrepMinutesAction } from '@/app/actions/orders';
 import { OrderCard, type KanbanOrder } from './OrderCard';
 import { OrderDrawer, type DrawerOrder } from './OrderDrawer';
 import { LiveRefresh } from '@/components/layout/LiveRefresh';
@@ -35,6 +35,7 @@ export function OrdersBoard({
   canManageDrivers,
   canManageSettings = false,
   autoAccept = false,
+  prepMinutes = 10,
 }: {
   products: ManualProduct[];
   orders: DrawerOrder[];
@@ -43,7 +44,9 @@ export function OrdersBoard({
   canManageDrivers: boolean;
   canManageSettings?: boolean;
   autoAccept?: boolean;
+  prepMinutes?: number;
 }) {
+  const [prepDraft, setPrepDraft] = useState(String(prepMinutes));
   const router = useRouter();
   const [view, setView] = useState<'cards' | 'tabela'>('cards');
   const [section, setSection] = useState<Section>('active');
@@ -168,6 +171,11 @@ export function OrdersBoard({
               </button>
             ) : <span className="text-[0.74rem] font-bold text-ink-500">{autoAccept ? 'Ligada' : 'Desligada'}</span>}
           </div>
+          <label className="flex min-h-11 items-center gap-2 rounded-lg border border-ink-200 bg-white px-3 text-[0.78rem] font-semibold text-ink-800" data-testid="prep-minutes">
+            Separação
+            <input type="number" min={1} max={180} value={prepDraft} disabled={!canManageSettings} onChange={(e) => setPrepDraft(e.target.value)} onBlur={() => { const n = Number(prepDraft); if (n !== prepMinutes) startAuto(async () => { const r = await setPrepMinutesAction(n); if (!r.ok) { setError(r.error ?? 'Não foi possível salvar.'); setPrepDraft(String(prepMinutes)); } router.refresh(); }); }} aria-label="Tempo de separação em minutos" className="h-8 w-14 rounded-md border border-ink-200 px-2 text-center tabular-nums" />
+            min
+          </label>
           {canManageOrders && <ManualOrderModal products={products} onCreated={() => router.refresh()} />}
         </div>
       </div>
@@ -206,7 +214,7 @@ export function OrdersBoard({
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="order-cards">
             {filtered.map((order) => (
-              <OrderCard key={order.id} order={order} drivers={drivers} pending={pendingId === order.id} canManageOrders={canManageOrders} canManageDrivers={canManageDrivers} onOpen={() => setSelected(order)} onAdvance={advance} onAssign={assign} />
+              <OrderCard key={order.id} order={order} drivers={drivers} pending={pendingId === order.id} canManageOrders={canManageOrders} canManageDrivers={canManageDrivers} onOpen={() => setSelected(order)} onAdvance={advance} onAssign={assign} prepMinutes={prepMinutes} />
             ))}
           </div>
         )

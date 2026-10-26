@@ -9,6 +9,10 @@ import * as drivers from '@/lib/data/drivers';
 import { createDriverWithLoginSchema, driverStatusSchema } from '@/lib/validations/operations';
 import { saveDriverSchedule, generateTomorrowDriverReminders } from '@/lib/data/driver-schedules';
 import { driverShiftAvailability, readDriverSchedule, tomorrowDriverShifts } from '@/lib/driver-schedule';
+import type { OrderStatus as DriverActiveStatus } from '@prisma/client';
+/** Pedido com entregador conta como entrega ativa dele desde o aceite (ver src/lib/driver-statuses.ts). */
+const DRIVER_ACTIVE_STATUSES: DriverActiveStatus[] = ['CONFIRMED', 'PREPARING', 'READY', 'WAITING_DRIVER', 'DISPATCHED'];
+
 
 /**
  * Central de Entregadores. Criar entregador com login cria também o
@@ -196,7 +200,7 @@ export async function driverNavigationAction(input: { orderId: string; from?: { 
     const ctx = await requireDriver();
     const { prisma } = await import('@/lib/db');
     const order = await prisma.order.findFirst({
-      where: { id: input.orderId, organizationId: ctx.organizationId, driverId: ctx.driver.id, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } },
+      where: { id: input.orderId, organizationId: ctx.organizationId, driverId: ctx.driver.id, status: { in: DRIVER_ACTIVE_STATUSES } },
       select: { deliveryLatitude: true, deliveryLongitude: true, deliveryAddress: true, deliveryNumber: true, deliveryDistrict: true, deliveryCity: true, organization: { select: { state: true } } },
     });
     if (!order) return { ok: false as const, error: 'Entrega não encontrada ou já concluída.' };
@@ -236,7 +240,7 @@ export async function driverRoutePlanAction(input: { sequence: string[]; from?: 
     const { prisma } = await import('@/lib/db');
     const [orders, store] = await Promise.all([
       prisma.order.findMany({
-        where: { organizationId: ctx.organizationId, driverId: ctx.driver.id, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } },
+        where: { organizationId: ctx.organizationId, driverId: ctx.driver.id, status: { in: DRIVER_ACTIVE_STATUSES } },
         select: { id: true, displayId: true, createdAt: true, deliveryLatitude: true, deliveryLongitude: true, deliveryAddress: true, deliveryNumber: true, deliveryDistrict: true, deliveryCity: true },
         orderBy: { createdAt: 'asc' },
       }),
@@ -325,7 +329,7 @@ export async function reportFailedDeliveryAction(input: { orderId: string; reaso
       } });
       const remaining = await tx.order.count({ where: {
         organizationId: ctx.organizationId, driverId: ctx.driver.id,
-        status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
+        status: { in: DRIVER_ACTIVE_STATUSES },
       } });
       await tx.driver.update({ where: { id: ctx.driver.id }, data: { status: remaining ? 'BUSY' : 'RETURNING' } });
       await tx.notification.create({ data: {

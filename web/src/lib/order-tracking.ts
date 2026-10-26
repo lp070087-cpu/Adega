@@ -124,9 +124,13 @@ export function orderTracking(input: TrackingInput): TrackingView {
     };
   }
   const failedAttempt = !pickup && input.deliveryStatus === 'FAILED' && reached === 1;
+  // Entrega: pronto e liberado → aguardando o entregador; retirado → a caminho em instantes.
+  const handoff = !pickup && input.status === 'WAITING_DRIVER'
+    ? (input.deliveryStatus === 'PICKED_UP' ? 'Retirado pelo entregador' : 'Pronto, aguardando o entregador')
+    : null;
   return {
     phase: 'progress', pickup, steps, terminal: false,
-    headline: steps[reached]?.label ?? 'Em andamento',
+    headline: handoff ?? steps[reached]?.label ?? 'Em andamento',
     notice: failedAttempt
       ? 'A última tentativa de entrega não foi concluída. A loja está reorganizando o envio do seu pedido.'
       : pickup && reached === 2 ? 'Seu pedido está pronto. Retire no estabelecimento.' : null,

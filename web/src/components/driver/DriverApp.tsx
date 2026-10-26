@@ -140,14 +140,16 @@ import { navigationUrl } from '@/lib/driver-nav-url';
  *    Sem essa checagem o app pularia "Cheguei na loja" e mandaria o
  *    entregador direto para "Retirei o pedido".
  */
+/** Atribuído durante o aceite ou a separação: a loja ainda não liberou a retirada. */
+const awaitingRelease = (order: { status: string }) => order.status === 'CONFIRMED' || order.status === 'PREPARING';
+
 function nextStep(delivery: DriverOrder['delivery']): Step {
   const status = delivery?.status ?? 'PENDING';
 
   if (status === 'DELIVERED' || status === 'FAILED') return 'DELIVERED';
 
-  if (!delivery || status === 'PENDING' || status === 'ASSIGNED') {
-    return delivery?.arrivedAt ? 'PICKED_UP' : 'ARRIVED_STORE';
-  }
+  // A retirada é o primeiro passo: a loja libera e o entregador confirma.
+  if (!delivery || status === 'PENDING' || status === 'ASSIGNED') return 'PICKED_UP';
 
   if (status === 'PICKED_UP') return 'STARTED';
   if (status === 'IN_TRANSIT') return 'ARRIVED_CUSTOMER';
@@ -157,14 +159,13 @@ function nextStep(delivery: DriverOrder['delivery']): Step {
 
 const STEP_LABEL: Record<Step, string> = {
   ARRIVED_STORE: 'Cheguei na loja',
-  PICKED_UP: 'Retirei o pedido',
-  STARTED: 'Iniciei a rota',
+  PICKED_UP: 'Confirmar retirada',
+  STARTED: 'Ir para entrega',
   ARRIVED_CUSTOMER: 'Cheguei ao cliente',
   DELIVERED: 'Confirmar entrega',
 };
 
 const ALL_STEPS: Array<{ step: Step; label: string; done: (d: DriverOrder['delivery']) => boolean }> = [
-  { step: 'ARRIVED_STORE', label: 'Na loja', done: (d) => Boolean(d?.arrivedAt) },
   {
     step: 'PICKED_UP',
     label: 'Retirado',
@@ -196,6 +197,7 @@ export function DriverApp({
   useLiveRefresh('/api/entregador/versao', 8000);
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState<'entregas' | 'rotas' | 'historico' | 'perfil'>('entregas');
+  const [navTarget, setNavTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -292,6 +294,7 @@ export function DriverApp({
           () => {
             setNotice(step === 'DELIVERED' ? `Entrega do pedido #${order.displayId} confirmada.` : `Passo registrado: ${STEP_LABEL[step]}.`);
             if (step === 'DELIVERED') setOpenId(null);
+            if (step === 'STARTED') { setOpenId(null); setNavTarget(order.id); setTab('rotas'); }
           },
         )
       }
@@ -393,6 +396,7 @@ export function DriverApp({
             orders={active.map((o) => ({ ...o, stepLabel: o.delivery ? DELIVERY_STATUS_LABEL[o.delivery.status] ?? 'Atribuída' : 'Atribuída' }))}
             onOpenOrder={(id) => setOpenId(id)}
             onOpenSettings={() => setTab('perfil')}
+            autoNavigate={navTarget}
           />
         )}
 
@@ -553,6 +557,7 @@ function OrderCard({
 }) {
   const step = nextStep(order.delivery);
   const isDelivery = order.status === 'DELIVERED';
+  const waitingStore = awaitingRelease(order);
   const cobrar =
     order.paymentMethod === 'CASH' && order.paymentStatus !== 'PAID' ? order.total : null;
 
@@ -567,9 +572,11 @@ function OrderCard({
           <p className="truncate text-[0.82rem] font-semibold text-ink-700">{order.customerName}</p>
         </div>
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
-          <Badge tone={isDelivery ? 'green' : late ? 'yellow' : 'orange'}>
+          <Badge tone={isDelivery ? 'green' : waitingStore ? 'neutral' : late ? 'yellow' : 'orange'}>
             {isDelivery
               ? 'Finalizado'
+              : waitingStore ? 'Aguardando liberação'
+              : order.status === 'WAITING_DRIVER' && order.delivery?.status === 'ASSIGNED' ? 'Pronto para retirada'
               : order.delivery
                 ? DELIVERY_STATUS_LABEL[order.delivery.status] ?? order.delivery.status
                 : 'Atribuída'}
@@ -608,14 +615,14 @@ function OrderCard({
         </Button>
         <button
           type="button"
-          disabled={disabled}
+          disabled={disabled || waitingStore}
           onClick={() => onStep(step)}
           className={cn(
             'flex-1 rounded-sm px-3.5 py-2 text-[0.78rem] font-bold text-white transition-all disabled:opacity-55',
             isDelivery ? 'bg-success' : 'bg-brand hover:bg-brand-dark',
           )}
         >
-          {STEP_LABEL[step]}
+          {waitingStore ? 'Aguardando a loja' : STEP_LABEL[step]}
         </button>
       </div>
 
@@ -846,8 +853,8 @@ function OrderSheet({
             </Button>
           </>
         ) : (
-          <Button fullWidth disabled={disabled} onClick={() => onStep(step)}>
-            {STEP_LABEL[step]}
+          <Button fullWidth disabled={disabled || awaitingRelease(order)} onClick={() => onStep(step)}>
+            {awaitingRelease(order) ? 'Aguardando a loja liberar a retirada' : STEP_LABEL[step]}
           </Button>
         )}
 

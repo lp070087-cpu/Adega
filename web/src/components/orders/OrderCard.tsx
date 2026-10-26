@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn, formatBRL, timeAgo } from '@/lib/utils';
 import { SourceBadge, StatusBadge } from '@/components/ui/StatusBadge';
-import { primaryOrderAction } from '@/lib/order-flow';
+import { canAssignAt, orderStage, primaryOrderAction } from '@/lib/order-flow';
 import { canReceiveOrder, driverOptionLabel, isDriverOnline } from '@/lib/driver-availability';
 
 /**
@@ -42,12 +42,26 @@ export type KanbanOrder = {
     options: Array<{ id: string; name: string; price: number; quantity: number }>;
   }>;
   driver: { id: string; name: string; status: string } | null;
+  preparingAt?: string | null;
+  deliveryStatus?: string | null;
 };
+
+/** Contador da separação: tempo restante do padrão da loja, ou atraso. */
+function PrepTimer({ since, minutes }: { since: string; minutes: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 1000); return () => window.clearInterval(t); }, []);
+  const left = Math.round((new Date(since).getTime() + minutes * 60000 - now) / 1000);
+  const abs = Math.abs(left), mm = String(Math.floor(abs / 60)).padStart(2, '0'), ss = String(abs % 60).padStart(2, '0');
+  const late = left < 0;
+  return <span className={cn('rounded-full px-2 py-1 text-[0.68rem] font-bold tabular-nums', late ? 'bg-danger-bg text-danger' : left < 120 ? 'bg-warn-bg text-warn' : 'bg-brand-light text-brand')} data-testid="prep-timer" title={`Tempo padrão de separação: ${minutes} min`}>⏱ {late ? `atrasado ${mm}:${ss}` : `${mm}:${ss}`}</span>;
+}
 
 export type CardDriver = { id: string; name: string; status: string; activeOrders?: number; accessPending?: boolean };
 
 const availability = (d: CardDriver) => ({ name: d.name, active: true, status: d.status, activeOrders: d.activeOrders ?? 0, accessPending: d.accessPending });
 const clock = (value?: string | null) => (value ? new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '');
+
+const isActive = (status: string) => !['DELIVERED', 'CANCELLED'].includes(status);
 
 export function OrderCard({
   order,
@@ -58,6 +72,7 @@ export function OrderCard({
   onOpen,
   onAdvance,
   onAssign,
+  prepMinutes = 10,
 }: {
   order: KanbanOrder;
   drivers: CardDriver[];
@@ -67,6 +82,7 @@ export function OrderCard({
   onOpen: () => void;
   onAdvance: (order: KanbanOrder) => void;
   onAssign: (order: KanbanOrder, driverId: string) => void;
+  prepMinutes?: number;
 }) {
   const action = primaryOrderAction({ status: order.status, deliveryType: order.deliveryType, driverId: order.driver?.id ?? null });
   const [driverId, setDriverId] = useState('');
@@ -75,6 +91,18 @@ export function OrderCard({
   const ageMinutes = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
   const late = ageMinutes > 30 && !['DELIVERED', 'CANCELLED'].includes(order.status);
   const pickup = order.deliveryType === 'PICKUP';
+  const assignable = canAssignAt(order.status, order.deliveryType, order.driver?.id ?? null);
+  const selector = canManageDrivers ? (
+    <div className="flex gap-2">
+      <select value={driverId} onChange={(e) => setDriverId(e.target.value)} aria-label={`Entregador do pedido #${order.displayId}`} className="field-input min-h-11 min-w-0 flex-1 text-[0.8rem]">
+        <option value="">Escolha o entregador</option>
+        {sorted.map((d) => <option key={d.id} value={d.id} disabled={!canReceiveOrder(availability(d))}>{driverOptionLabel(availability(d))}</option>)}
+      </select>
+      <button type="button" disabled={pending || !driverId} onClick={() => onAssign(order, driverId)} className="min-h-11 shrink-0 rounded-xl bg-brand px-3 text-[0.8rem] font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-55">
+        Atribuir
+      </button>
+    </div>
+  ) : <p className="text-[0.76rem] text-ink-500">Aguardando atribuição de entregador.</p>;
 
   return (
     <article
@@ -101,33 +129,26 @@ export function OrderCard({
           <SourceBadge source={order.source} />
           {order.paymentStatus === 'PENDING' && order.paymentMethod === 'CASH' && <span className="rounded-full bg-warn-bg px-2 py-1 text-[0.68rem] font-bold text-warn">Cobrar na entrega</span>}
           {order.driver && <span className="rounded-full bg-ink-100 px-2 py-1 text-[0.68rem] font-semibold text-ink-700">🛵 {order.driver.name.split(' ')[0]}</span>}
+          {order.status === 'PREPARING' && order.preparingAt && <PrepTimer since={order.preparingAt} minutes={prepMinutes} />}
         </div>
+        {isActive(order.status) && <p className="mt-1.5 text-[0.72rem] font-semibold text-ink-600" data-testid="order-stage">Etapa: {orderStage(order.status, order.deliveryStatus, pickup)}</p>}
         <p className={cn('mt-2 text-[0.7rem]', late ? 'font-bold text-danger' : 'text-ink-400')}>
           {order.status === 'DELIVERED' ? `Finalizado ${clock(order.deliveredAt)}` : order.status === 'CANCELLED' ? `Cancelado ${clock(order.cancelledAt)}` : timeAgo(order.createdAt)} · {itemCount} {itemCount === 1 ? 'item' : 'itens'}
         </p>
       </button>
 
-      {action && (
-        <div className="mt-3 border-t border-ink-100 pt-3">
-          {action.kind === 'advance' && (canManageOrders ? (
+      {(action || assignable) && (
+        <div className="mt-3 space-y-2 border-t border-ink-100 pt-3">
+          {assignable && action?.kind !== 'assign' && selector}
+          {action?.kind === 'advance' && (canManageOrders ? (
             <button type="button" disabled={pending} onClick={() => onAdvance(order)} className="min-h-11 w-full rounded-xl bg-brand px-3 text-[0.82rem] font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-55">
               {pending ? 'Atualizando…' : action.label}
             </button>
           ) : <p className="text-[0.76rem] text-ink-500">Próxima etapa: {action.label}</p>)}
 
-          {action.kind === 'assign' && (canManageDrivers ? (
-            <div className="flex gap-2">
-              <select value={driverId} onChange={(e) => setDriverId(e.target.value)} aria-label={`Entregador do pedido #${order.displayId}`} className="field-input min-h-11 min-w-0 flex-1 text-[0.8rem]">
-                <option value="">Escolha o entregador</option>
-                {sorted.map((d) => <option key={d.id} value={d.id} disabled={!canReceiveOrder(availability(d))}>{driverOptionLabel(availability(d))}</option>)}
-              </select>
-              <button type="button" disabled={pending || !driverId} onClick={() => onAssign(order, driverId)} className="min-h-11 shrink-0 rounded-xl bg-brand px-3 text-[0.8rem] font-bold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-55">
-                Atribuir
-              </button>
-            </div>
-          ) : <p className="text-[0.76rem] text-ink-500">Aguardando atribuição de entregador.</p>)}
+          {action?.kind === 'assign' && selector}
 
-          {action.kind === 'tracking' && (
+          {action?.kind === 'tracking' && (
             <button type="button" onClick={onOpen} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-info/30 bg-info-bg px-3 text-[0.8rem] font-semibold text-info">
               🛵 {order.driver ? `Em rota com ${order.driver.name.split(' ')[0]}` : action.label} · acompanhar
             </button>

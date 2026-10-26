@@ -10,7 +10,7 @@ export async function GET() {
     const ctx = await requireDriver();
     const rows = await prisma.$queryRaw<Array<{ v: string }>>`
       SELECT concat_ws(':',
-        (SELECT count(*) FROM "Order" WHERE "organizationId" = ${ctx.organizationId} AND "driverId" = ${ctx.driver.id} AND status IN ('WAITING_DRIVER','DISPATCHED')),
+        (SELECT count(*) FROM "Order" WHERE "organizationId" = ${ctx.organizationId} AND "driverId" = ${ctx.driver.id} AND status IN ('CONFIRMED','PREPARING','READY','WAITING_DRIVER','DISPATCHED')),
         (SELECT coalesce(extract(epoch FROM max("updatedAt")), 0) FROM "Order" WHERE "organizationId" = ${ctx.organizationId} AND "driverId" = ${ctx.driver.id}),
         (SELECT coalesce(extract(epoch FROM max("updatedAt")), 0) FROM "Delivery" WHERE "organizationId" = ${ctx.organizationId} AND "driverId" = ${ctx.driver.id})
       ) AS v`;

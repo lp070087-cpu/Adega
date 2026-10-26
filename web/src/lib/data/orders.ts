@@ -19,6 +19,10 @@ import {
   isOutsideDeliveryArea,
   normalizeTiers,
 } from '@/lib/data/delivery-fee';
+import type { OrderStatus as DriverActiveStatus } from '@prisma/client';
+/** Pedido com entregador conta como entrega ativa dele desde o aceite (ver src/lib/driver-statuses.ts). */
+const DRIVER_ACTIVE_STATUSES: DriverActiveStatus[] = ['CONFIRMED', 'PREPARING', 'READY', 'WAITING_DRIVER', 'DISPATCHED'];
+
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -673,6 +677,7 @@ export async function getOrders(
         items: { include: { options: true } },
         driver: { select: { id: true, name: true, status: true } },
         customer: { select: { id: true, name: true, phone: true } },
+        delivery: { select: { status: true, pickedUpAt: true } },
       },
     }),
     prisma.order.count({ where }),
@@ -785,6 +790,13 @@ export async function updateOrderStatus(
     select: { id: true, status: true, notes: true, displayId: true, deliveryType: true, driverId: true, total: true, paymentMethod: true },
   });
   if (!order) throw new OperationError('Pedido não encontrado.');
+  // "Pronto para retirada" com entregador já escolhido libera a retirada:
+  // o pedido vai direto para "aguardando retirada" no app do entregador.
+  if (status === 'READY' && order.driverId && order.deliveryType !== 'PICKUP') {
+    if (order.status !== 'PREPARING') throw new OperationError(order.status === 'CONFIRMED' ? 'Inicie a separação antes de liberar a retirada.' : 'Transição de pedido inválida.');
+    await tx.order.update({ where: { id: orderId }, data: { status: 'WAITING_DRIVER', readyAt: new Date() } });
+    return { ok: true, status: 'WAITING_DRIVER' as OrderStatus };
+  }
   if (order.status === status) return { ok: true, status };
   const pickupComplete = order.deliveryType === 'PICKUP' && order.status === 'READY' && status === 'DELIVERED';
   if (!pickupComplete && !canTransition(order.status, status)) throw new OperationError('Transição de pedido inválida.');
@@ -830,7 +842,7 @@ export async function updateOrderStatus(
     if (order.paymentMethod) await registerOrderInCash(organizationId, orderId, order.paymentMethod, toNumber(order.total), tx);
   }
   if (order.driverId && ['CANCELLED', 'DELIVERED'].includes(status)) {
-    const other = await tx.order.count({ where: { organizationId, driverId: order.driverId, id: { not: orderId }, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] } } });
+    const other = await tx.order.count({ where: { organizationId, driverId: order.driverId, id: { not: orderId }, status: { in: DRIVER_ACTIVE_STATUSES } } });
     if (!other) await tx.driver.updateMany({ where: { id: order.driverId, organizationId }, data: { status: 'ONLINE' } });
   }
 
@@ -862,8 +874,8 @@ export async function assignDriver(
   });
   if (!order) throw new OperationError('Pedido não encontrado.');
   if (order.deliveryType !== 'DELIVERY') throw new OperationError('Pedido de retirada não recebe entregador.');
-  if (!['READY', 'WAITING_DRIVER'].includes(order.status) || order.driverId) {
-    throw new OperationError('O pedido já foi atribuído ou não está pronto para despacho.');
+  if (!['CONFIRMED', 'PREPARING', 'READY'].includes(order.status) || order.driverId) {
+    throw new OperationError('O pedido já foi atribuído ou não pode receber entregador nesta etapa.');
   }
   // Qualquer entregador ativo pode receber, inclusive mais de um pedido por
   // rota. Offline só significa que ele verá o pedido ao abrir o app; a
@@ -871,7 +883,9 @@ export async function assignDriver(
 
     await tx.order.update({
       where: { id: orderId },
-      data: { driverId, status: 'WAITING_DRIVER' },
+      // Pronto → aguardando retirada; aceito/em separação mantém a etapa e o
+      // entregador já vê o pedido como "aguardando liberação da loja".
+      data: { driverId, ...(order.status === 'READY' ? { status: 'WAITING_DRIVER' as const } : {}) },
     });
 
     // Registro de entrega: um por pedido (orderId é unique).
@@ -913,7 +927,7 @@ export async function unassignDriver(organizationId: string, orderId: string, tr
     select: { id: true, driverId: true, status: true, delivery: { select: { status: true } } },
   });
   if (!order) throw new OperationError('Pedido não encontrado.');
-  if (order.status !== 'WAITING_DRIVER' || !order.driverId ||
+  if (!['CONFIRMED', 'PREPARING', 'WAITING_DRIVER'].includes(order.status) || !order.driverId ||
       !['PENDING', 'ASSIGNED'].includes(order.delivery?.status ?? '')) {
     throw new OperationError('Só é possível remover o entregador antes da retirada do pedido.');
   }
@@ -922,7 +936,7 @@ export async function unassignDriver(organizationId: string, orderId: string, tr
       where: { id: orderId },
       data: {
         driverId: null,
-        status: 'READY',
+        ...(order.status === 'WAITING_DRIVER' ? { status: 'READY' as const } : {}),
       },
     });
     await tx.delivery.updateMany({
@@ -932,7 +946,7 @@ export async function unassignDriver(organizationId: string, orderId: string, tr
     });
     if (order.driverId) {
       const remaining = await tx.order.count({ where: {
-        organizationId, driverId: order.driverId, status: { in: ['WAITING_DRIVER', 'DISPATCHED'] },
+        organizationId, driverId: order.driverId, status: { in: DRIVER_ACTIVE_STATUSES },
       } });
       await tx.driver.update({
         where: { id: order.driverId },
@@ -1007,7 +1021,7 @@ export async function getDriverOrders(organizationId: string, driverId: string) 
     where: {
       organizationId,
       driverId,
-      status: { in: ['WAITING_DRIVER', 'DISPATCHED', 'DELIVERED'] },
+      status: { in: ['CONFIRMED', 'PREPARING', 'WAITING_DRIVER', 'DISPATCHED', 'DELIVERED'] },
     },
     orderBy: { createdAt: 'desc' },
     take: 50,

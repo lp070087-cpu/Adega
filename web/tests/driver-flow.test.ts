@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { nextDriverStep } from '../src/lib/validations/driver-flow';
 
-test('delivery starts with arrival at the store, then pickup', () => {
-  assert.equal(nextDriverStep({ status: 'ASSIGNED' }), 'ARRIVED_STORE');
+test('delivery starts with the pickup confirmation (the store releases it first)', () => {
+  assert.equal(nextDriverStep({ status: 'ASSIGNED' }), 'PICKED_UP');
   assert.equal(nextDriverStep({ status: 'ASSIGNED', arrivedAt: new Date() }), 'PICKED_UP');
 });
 

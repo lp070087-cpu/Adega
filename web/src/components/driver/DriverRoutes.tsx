@@ -55,7 +55,7 @@ function metersBetween(a: Point, b: Point) {
 function readSeq(): string[] { try { const v = JSON.parse(window.localStorage.getItem(SEQ_KEY) ?? '[]'); return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []; } catch { return []; } }
 function writeSeq(seq: string[]) { try { window.localStorage.setItem(SEQ_KEY, JSON.stringify(seq)); } catch { /* sem armazenamento: vale nesta tela */ } }
 
-export function DriverRoutes({ orders, onOpenOrder, onOpenSettings }: { orders: RouteOrder[]; onOpenOrder: (orderId: string) => void; onOpenSettings: () => void }) {
+export function DriverRoutes({ orders, onOpenOrder, onOpenSettings, autoNavigate = null }: { orders: RouteOrder[]; onOpenOrder: (orderId: string) => void; onOpenSettings: () => void; autoNavigate?: string | null }) {
   const [useLocation] = useDriverLocationPref();
   const ids = useMemo(() => orders.map((o) => o.id), [orders]);
   const idsKey = ids.join(',');
@@ -68,6 +68,8 @@ export function DriverRoutes({ orders, onOpenOrder, onOpenSettings }: { orders: 
   const [gps, setGps] = useState<'off' | 'waiting' | 'ok' | 'denied' | 'unavailable'>('off');
   const [navigating, setNavigating] = useState<string | null>(null);
   const lastPlanFrom = useRef<{ point: Point | null; at: number } | null>(null);
+  // "Ir para entrega" abre a navegação direto no pedido escolhido.
+  useEffect(() => { if (autoNavigate && ids.includes(autoNavigate)) setNavigating(autoNavigate); }, [autoNavigate, idsKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sequência: a salva neste aparelho, sem entregas concluídas, com as novas no fim.
   useEffect(() => {

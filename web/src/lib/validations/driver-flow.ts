@@ -5,7 +5,7 @@ export function nextDriverStep(delivery: { status: string; arrivedAt?: unknown }
   if (!delivery || ['DELIVERED', 'FAILED'].includes(delivery.status)) return null;
   switch (delivery.status) {
     case 'PENDING':
-    case 'ASSIGNED': return delivery.arrivedAt ? 'PICKED_UP' : 'ARRIVED_STORE';
+    case 'ASSIGNED': return 'PICKED_UP';
     case 'PICKED_UP': return 'STARTED';
     case 'IN_TRANSIT': return 'ARRIVED_CUSTOMER';
     case 'ARRIVED': return 'DELIVERED';

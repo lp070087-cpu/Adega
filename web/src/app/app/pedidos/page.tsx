@@ -1,4 +1,5 @@
 import { requireOrgPage } from '@/lib/auth/guards';
+import { readPrepMinutes } from '@/lib/order-flow';
 import { can } from '@/lib/permissions';
 import { prisma, toNumber } from '@/lib/db';
 import { getOrders } from '@/lib/data/orders';
@@ -65,6 +66,8 @@ export default async function OrdersPage() {
     notes: order.notes,
     createdAt: (order.createdAt as Date).toISOString(),
     acceptedAt: order.acceptedAt ? (order.acceptedAt as Date).toISOString() : null,
+    preparingAt: order.preparingAt ? (order.preparingAt as Date).toISOString() : null,
+    deliveryStatus: (order as { delivery?: { status: string } | null }).delivery?.status ?? null,
     readyAt: order.readyAt ? (order.readyAt as Date).toISOString() : null,
     dispatchedAt: order.dispatchedAt ? (order.dispatchedAt as Date).toISOString() : null,
     deliveredAt: order.deliveredAt ? (order.deliveredAt as Date).toISOString() : null,
@@ -105,6 +108,7 @@ export default async function OrdersPage() {
       )}
       <OrdersBoard
         orders={serialized}
+        prepMinutes={readPrepMinutes(organization?.settings)}
         products={products.map((product) => ({
           id: product.id, name: product.name, price: toNumber(product.promotionalPrice ?? product.price),
           variations: product.variations.map((v) => ({ ...v, priceAdjustment: toNumber(v.priceAdjustment) })),
