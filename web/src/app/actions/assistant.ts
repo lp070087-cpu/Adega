@@ -94,3 +94,49 @@ export async function sendHumanReplyAction(input:{threadId:string;text:string}){
     return {ok:false as const,...toActionError(error)};
   }
 }
+
+// ── Organização das conversas (etiquetas, notas internas, leitura) ─────────
+export type ThreadMeta = { tags: string[]; notes: Array<{ id: string; text: string; by: string; at: string }>; lastReadAt?: string };
+const metaKey = (threadId: string) => `assistant-thread-meta:${threadId}`;
+async function ownThread(organizationId: string, threadId: string) {
+  if (!/^[a-z0-9]{10,40}$/i.test(threadId)) throw new OperationError('Conversa não encontrada.');
+  if (!(await prisma.assistantThread.count({ where: { id: threadId, organizationId } }))) throw new OperationError('Conversa não encontrada.');
+}
+async function readMeta(threadId: string): Promise<ThreadMeta> {
+  const row = await prisma.platformSetting.findUnique({ where: { key: metaKey(threadId) } });
+  const v = (row?.value ?? {}) as Partial<ThreadMeta>;
+  return { tags: Array.isArray(v.tags) ? v.tags : [], notes: Array.isArray(v.notes) ? v.notes : [], lastReadAt: v.lastReadAt };
+}
+async function writeMeta(threadId: string, meta: ThreadMeta) {
+  await prisma.platformSetting.upsert({ where: { key: metaKey(threadId) }, create: { key: metaKey(threadId), value: meta }, update: { value: meta } });
+}
+
+/** Marca a conversa como lida pela equipe (zera o contador de não lidas). */
+export async function markThreadReadAction(input: { threadId: string }) {
+  try { const ctx = await requirePermission('MANAGE_SETTINGS'); await ownThread(ctx.organizationId, input.threadId); const meta = await readMeta(input.threadId); await writeMeta(input.threadId, { ...meta, lastReadAt: new Date().toISOString() }); return { ok: true as const }; }
+  catch (error) { return { ok: false as const, ...toActionError(error) }; }
+}
+
+/** Etiquetas da conversa (até 6, cada uma com até 24 caracteres). */
+export async function setThreadTagsAction(input: { threadId: string; tags: string[] }) {
+  try {
+    const ctx = await requirePermission('MANAGE_SETTINGS'); await ownThread(ctx.organizationId, input.threadId);
+    const tags = [...new Set((input.tags ?? []).map((t) => String(t).trim().replace(/\s+/g, ' ')).filter(Boolean))].slice(0, 6);
+    if (tags.some((t) => t.length > 24)) throw new OperationError('Etiqueta com até 24 caracteres.');
+    const meta = await readMeta(input.threadId); await writeMeta(input.threadId, { ...meta, tags });
+    revalidatePath('/app/atendimento'); return { ok: true as const };
+  } catch (error) { return { ok: false as const, ...toActionError(error) }; }
+}
+
+/** Nota interna: só a equipe vê; nunca é enviada ao cliente. */
+export async function addThreadNoteAction(input: { threadId: string; text: string }) {
+  try {
+    const ctx = await requirePermission('MANAGE_SETTINGS'); await ownThread(ctx.organizationId, input.threadId);
+    const text = String(input.text ?? '').trim();
+    if (text.length < 2 || text.length > 500) throw new OperationError('A nota precisa ter de 2 a 500 caracteres.');
+    const meta = await readMeta(input.threadId);
+    const note = { id: Math.random().toString(36).slice(2, 10), text, by: ctx.user.name ?? 'Equipe', at: new Date().toISOString() };
+    await writeMeta(input.threadId, { ...meta, notes: [...meta.notes, note].slice(-50) });
+    revalidatePath('/app/atendimento'); return { ok: true as const };
+  } catch (error) { return { ok: false as const, ...toActionError(error) }; }
+}

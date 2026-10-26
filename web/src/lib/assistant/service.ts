@@ -2,7 +2,8 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import { decrypt } from '@/lib/crypto';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
-import { catalogReply, type AssistantProduct, type CatalogDecision, type StoreInfo } from './catalog';
+import { catalogReply, ORDER_STATUS_INTENT, orderStatusReply, type AssistantProduct, type CatalogDecision, type StoreInfo } from './catalog';
+import { orderStage } from '@/lib/order-flow';
 import { normalizeSchedule, summarizeSchedule } from '@/lib/schedule';
 import { z } from 'zod';
 import { readAssistantPreferences, assistantWithinHours } from './preferences';
@@ -90,6 +91,13 @@ export async function processAssistantInbox(organizationId?:string){
       const preferences=readAssistantPreferences((claimed.org.settings as any)?.assistant?.preferences);
       let reply: string;
       if (!assistantWithinHours(preferences)) reply=preferences.awayMessage;
+      else if (ORDER_STATUS_INTENT.test(message.body)) {
+        // Andamento do pedido vem do banco desta loja, pelo telefone da conversa.
+        const thread=await prisma.assistantThread.findFirst({where:{id:message.threadId,organizationId:message.organizationId},select:{contact:true}});
+        const local=thread?.contact.startsWith('55')?thread.contact.slice(2):thread?.contact??'';
+        const last=local?await prisma.order.findFirst({where:{organizationId:message.organizationId,customerPhone:{in:[local,thread!.contact,`+${thread!.contact}`]},createdAt:{gt:new Date(Date.now()-3*24*60*60*1000)}},orderBy:{createdAt:'desc'},select:{id:true,displayId:true,status:true,deliveryType:true,updatedAt:true,delivery:{select:{status:true}}}}):null;
+        reply=orderStatusReply(last?{id:last.id,displayId:last.displayId,stage:orderStage(last.status,last.delivery?.status,last.deliveryType==='PICKUP'),updatedAt:last.updatedAt}:null,process.env.APP_PUBLIC_URL!,claimed.org.slug);
+      }
       else {
         const history=await prisma.assistantMessage.findMany({where:{organizationId:message.organizationId,threadId:message.threadId,direction:'IN'},orderBy:{createdAt:'desc'},take:6,select:{body:true}});
         const catalog=await assistantCatalog(message.organizationId);

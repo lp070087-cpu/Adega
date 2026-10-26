@@ -42,6 +42,20 @@ export default async function WhatsAppSettings() {
         <h2 className="text-[1.35rem] font-extrabold tracking-tight text-ink-900">WhatsApp</h2>
         <Link href="/app/atendimento" className="text-sm font-semibold text-brand">Abrir Atendimento</Link>
       </div>
+      <section className="grid gap-3 sm:grid-cols-2" aria-label="Canais de atendimento" data-testid="whatsapp-channels">
+        <div className="rounded-xl border-2 border-brand/30 bg-white p-4">
+          <p className="text-[0.7rem] font-bold uppercase tracking-wide text-brand">Canal recomendado</p>
+          <p className="mt-1 font-semibold text-ink-900">API oficial da Meta</p>
+          <p className="mt-1 text-[0.78rem] text-ink-500">WhatsApp Business Platform: número verificado, webhook assinado, envio pela API oficial e sem risco de bloqueio por automação não autorizada.</p>
+          <p className="mt-2 text-[0.76rem] font-semibold text-ink-700">Status abaixo, em “Conexão oficial”.</p>
+        </div>
+        <div className="rounded-xl border bg-ink-50 p-4" data-testid="whatsapp-web-channel">
+          <p className="text-[0.7rem] font-bold uppercase tracking-wide text-ink-500">Indisponível</p>
+          <p className="mt-1 font-semibold text-ink-900">WhatsApp Web (QR Code)</p>
+          <p className="mt-1 text-[0.78rem] text-ink-500">Conectar pelo QR Code do WhatsApp Web depende de automações não oficiais, que violam os termos do WhatsApp e podem bloquear o número da loja. Por isso o Del Flash não oferece este modo. Use a API oficial ou o WhatsApp do celular para atender manualmente.</p>
+        </div>
+      </section>
+
       <section className="space-y-4 rounded-xl border bg-white p-5" data-testid="whatsapp-status">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-semibold text-ink-900">Conexão oficial (WhatsApp Business Platform)</h3>

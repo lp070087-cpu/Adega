@@ -30,7 +30,7 @@ export async function POST(request:NextRequest){
         const receivedAt=new Date(Number(message.timestamp)*1000);
         if(!Number.isFinite(receivedAt.getTime())||receivedAt.getTime()>Date.now()+5*60*1000)continue;
         const humanRequired=message.type!=='text'||typeof message.text?.body!=='string'||Date.now()-receivedAt.getTime()>23*60*60*1000;
-        const body=typeof message.text?.body==='string'?message.text.body.slice(0,2000):'[Mensagem não textual: encaminhar para atendimento humano]';
+        const body=(typeof message.text?.body==='string'?message.text.body:describeNonText(message)).slice(0,2000);
         try{
           await prisma.$transaction(async tx=>{
             const thread=await tx.assistantThread.upsert({where:{organizationId_contact:{organizationId:channel.organizationId,contact:message.from}},create:{organizationId:channel.organizationId,contact:message.from,status:humanRequired?'HUMAN':'BOT'},update:{updatedAt:new Date(),...(humanRequired?{status:'HUMAN'}:{})}});
@@ -47,4 +47,21 @@ export async function POST(request:NextRequest){
     if(received.size&&aiReady())after(async()=>{for(const organizationId of received){try{await processAssistantInbox(organizationId);}catch{/* fica na fila para nova tentativa */}}});
     return NextResponse.json({received:true});
   }catch{return NextResponse.json({error:'Falha temporária'},{status:500});}
+}
+
+/** Mensagens que não são texto viram um aviso legível; a mídia fica no WhatsApp (o atendente responde). */
+function describeNonText(message:any):string{
+  const caption=typeof message?.[message?.type]?.caption==='string'?`: ${message[message.type].caption}`:'';
+  switch(message?.type){
+    case 'image':return `[Imagem recebida${caption}]`;
+    case 'audio':return '[Áudio recebido]';
+    case 'video':return `[Vídeo recebido${caption}]`;
+    case 'document':return `[Documento recebido${typeof message.document?.filename==='string'?`: ${message.document.filename}`:''}]`;
+    case 'sticker':return '[Figurinha recebida]';
+    case 'location':return `[Localização: ${Number(message.location?.latitude).toFixed(5)}, ${Number(message.location?.longitude).toFixed(5)}${typeof message.location?.address==='string'?` · ${message.location.address}`:''}]`;
+    case 'contacts':return '[Contato compartilhado]';
+    case 'interactive':return message.interactive?.button_reply?.title??message.interactive?.list_reply?.title??'[Resposta de botão]';
+    case 'button':return typeof message.button?.text==='string'?message.button.text:'[Resposta de botão]';
+    default:return '[Mensagem não suportada: veja no WhatsApp do celular]';
+  }
 }

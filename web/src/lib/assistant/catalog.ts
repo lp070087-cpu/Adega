@@ -55,3 +55,13 @@ export function catalogReply(decision: CatalogDecision, catalog: AssistantProduc
     return `${name}${pack} — ${price.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}\n${productLink(origin,slug,p.productId ?? p.id,p.variationId)}`;
   }).join('\n\n')+'\n\nConfira a quantidade e finalize na loja. O pedido só será confirmado após o checkout.';
 }
+
+/** Pergunta sobre o andamento do pedido (detectada no servidor, sem depender da IA). */
+export const ORDER_STATUS_INTENT = /\b(meu pedido|status do pedido|cad[eê]\s+(o\s+)?(meu\s+)?pedido|onde\s+est[aá]\s+(o\s+)?(meu\s+)?pedido|pedido\s+j[aá]\s+saiu|j[aá]\s+saiu\s+para\s+entrega|previs[aã]o\s+(de\s+)?entrega|quanto\s+tempo\s+(falta|demora))\b/i;
+
+/** Resposta com a etapa real do último pedido deste número nesta loja. */
+export function orderStatusReply(order: { id: string; displayId: number; stage: string; updatedAt: Date } | null, origin: string, slug: string) {
+  if (!order) return 'Não encontrei um pedido recente feito com este número. Se você fez o pedido por outro telefone, me envie o número do pedido ou fale com a equipe da loja.';
+  const hora = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }).format(order.updatedAt);
+  return `Seu pedido #${order.displayId}: ${order.stage} (atualizado às ${hora}).\nAcompanhe em tempo real: ${new URL(`/loja/${encodeURIComponent(slug)}/pedido/${order.id}`, origin).toString()}`;
+}
