@@ -145,7 +145,9 @@ export function StoreSettings({
   publicUrl,
   canManage,
   canChangeStatus,
+  initialTab = 'identity',
 }: {
+  initialTab?: 'identity' | 'address' | 'hours' | 'delivery';
   store: StoreFormData;
   publicUrl: string;
   canManage: boolean;
@@ -162,7 +164,7 @@ export function StoreSettings({
   const [saved, setSaved] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
-  const [tab, setTab] = useState<'identity' | 'address' | 'hours' | 'delivery'>('identity');
+  const [tab, setTab] = useState<'identity' | 'address' | 'hours' | 'delivery'>(initialTab);
   const [form, setForm] = useState<StoreFormData>(store);
   const [status, setStatus] = useState<StoreOpeningMode>(store.openingMode);
   useEffect(() => setStatus(store.openingMode), [store.openingMode]);

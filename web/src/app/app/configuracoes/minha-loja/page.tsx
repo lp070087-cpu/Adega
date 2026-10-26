@@ -22,7 +22,10 @@ export const dynamic = 'force-dynamic';
  * mentir sobre onde a vitrine está publicada.
  * ═══════════════════════════════════════════════════════════════════════
  */
-export default async function MyStorePage() {
+const TABS = { identidade: 'identity', endereco: 'address', horarios: 'hours', entrega: 'delivery' } as const;
+
+export default async function MyStorePage({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
+  const { aba } = await searchParams;
   const ctx = await requireOrgPage('MANAGE_SETTINGS');
 
   const [organization, operations] = await Promise.all([
@@ -98,6 +101,8 @@ export default async function MyStorePage() {
         publicUrl={publicUrl}
         canManage={can(ctx.role, 'MANAGE_SETTINGS')}
         canChangeStatus={can(ctx.role, 'MANAGE_ORDERS')}
+        initialTab={TABS[aba as keyof typeof TABS] ?? 'identity'}
+        key={aba ?? 'identidade'}
       />
     </div>
   );

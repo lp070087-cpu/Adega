@@ -118,3 +118,27 @@
 .customer-auth-card .customer-primary{min-height:52px;border-radius:14px;background:linear-gradient(180deg,#0a8fba,var(--customer-brand));box-shadow:0 12px 24px -12px rgba(8,126,164,.7)}
 @media(max-width:899px){.customer-auth-illustration{display:none}}
 @media(prefers-reduced-motion:reduce){.customer-auth-card{animation:none}}
+
+/* Menu da conta: recolhido no celular, coluna lateral no computador. */
+.customer-menu{position:relative;margin-bottom:22px}
+.customer-menu-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;padding:8px 16px;border:1px solid #e6ecf3;border-radius:16px;background:#fff;box-shadow:0 2px 12px #15203106;text-align:left;font-weight:700;color:#111827}
+.customer-menu-toggle small{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6b7280}
+.customer-menu-toggle svg{transition:transform .2s;color:var(--store-accent,var(--customer-brand))}
+.customer-menu[data-open] .customer-menu-toggle svg{transform:rotate(180deg)}
+.customer-menu-list{display:none;list-style:none;margin:8px 0 0;padding:6px;border:1px solid #e6ecf3;border-radius:16px;background:#fff;box-shadow:0 18px 40px -18px rgba(11,31,58,.3)}
+.customer-menu[data-open] .customer-menu-list{display:grid;gap:2px;animation:auth-in .2s ease-out}
+.customer-menu-list a{display:flex;align-items:center;gap:10px;min-height:46px;padding:0 12px;border-radius:12px;color:#374151;font-weight:600}
+.customer-menu-list a svg{color:#94a3b8;flex-shrink:0}
+.customer-menu-list a:hover{background:#f3f6f9;color:#111827}
+.customer-menu-list a[aria-current=page]{background:var(--customer-brand-soft);color:var(--store-accent,var(--customer-brand))}
+.customer-menu-list a[aria-current=page] svg{color:currentColor}
+@media(min-width:900px){
+  .customer-wrap:has(> .customer-menu){display:grid;grid-template-columns:240px minmax(0,1fr);column-gap:28px;align-items:start}
+  .customer-wrap:has(> .customer-menu) > *{grid-column:2}
+  .customer-wrap:has(> .customer-menu) > .customer-header{grid-column:1/-1}
+  .customer-wrap:has(> .customer-menu) > .customer-menu{grid-column:1;grid-row:2/span 40;position:sticky;top:20px;margin:0}
+  .customer-wrap:has(> .customer-menu) .customer-title{margin-top:0}
+  .customer-menu-toggle{display:none}
+  .customer-menu-list{display:grid;gap:2px;margin:0;box-shadow:0 2px 12px #15203106}
+}
+@media(prefers-reduced-motion:reduce){.customer-menu-toggle svg{transition:none}.customer-menu[data-open] .customer-menu-list{animation:none}}

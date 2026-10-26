@@ -10,6 +10,7 @@ import { formatBRL,formatDateTime } from '@/lib/utils';
 import { CustomerForm,CustomerPassword,CustomerPhoneInput } from '@/components/customer/CustomerForm';
 import { CustomerAuthScreen,type AuthSection } from '@/components/customer/CustomerAuthScreen';
 import { OrderTracker } from '@/components/orders/OrderTracker';
+import { CustomerMenu } from '@/components/customer/CustomerMenu';
 import { OrderRefresh } from '@/components/store/OrderRefresh';
 import { portalMailReady } from '@/lib/customer-portal/mail';
 import { safeReturnPath } from '@/lib/customer-portal/policy';
@@ -17,7 +18,7 @@ import { PAYMENT_METHOD_LABEL } from '@/data/business-copy';
 import './portal.css';
 export const dynamic='force-dynamic';
 export const metadata={title:'Minha conta',robots:{index:false,follow:false},referrer:'same-origin' as const};
-const sections=[['','Visão geral'],['pedidos','Meus pedidos'],['enderecos','Meus endereços'],['dados','Meus dados'],['notificacoes','Notificações']];
+const sections=[['','Visão geral'],['pedidos','Meus pedidos'],['enderecos','Meus endereços'],['dados','Perfil e segurança'],['notificacoes','Notificações']];
 type Props={params:Promise<{slug:string;section?:string}>;searchParams:Promise<{pagina?:string;voltar?:string}>};
 export default async function CustomerPortalPage({params,searchParams}:Props){
  const {slug,section=''}=await params;if(!['','entrar','criar-conta','recuperar','confirmar','termos','pedidos','enderecos','dados','pontos','notificacoes'].includes(section))notFound();
@@ -40,7 +41,7 @@ export default async function CustomerPortalPage({params,searchParams}:Props){
  const ownOrderIds=new Set(orders.map(link=>link.orderId));const pointHistory=growth.ledger.filter(entry=>entry.orderId&&ownOrderIds.has(entry.orderId));
  return <main className="customer-shell" style={{['--store-accent' as string]:brand}}><div className="customer-wrap">
   <header className="customer-header"><Link href={`${base}/`}>{store.logoUrl?<img src={store.logoUrl} alt=""/>:<span className="customer-store-tag" aria-hidden/>}<span>{store.name}</span></Link><Link href={`${base}/#cardapio`}>Voltar à loja</Link></header>
-  {account&&<nav className="customer-nav" aria-label="Área do cliente">{[...sections,...(growth.loyalty.enabled?[['pontos','Programa de pontos']]:[])].map(([path,label])=><Link aria-current={section===path?'page':undefined} key={path} href={`${base}/conta${path?`/${path}`:''}`}>{label}</Link>)}</nav>}
+  {account&&<CustomerMenu base={base} current={section} items={[...sections,...(growth.loyalty.enabled?[['pontos','Programa de pontos']]:[])] as Array<[string,string]>}/>}
   {!ready?<section className="customer-card customer-auth"><h1 className="customer-title">Sua conta na loja</h1><p className="customer-muted">As contas de cliente ainda não estão disponíveis nesta loja. Você pode comprar sem cadastro e acompanhar o pedido pelo link recebido ao finalizar.</p><div className="customer-auth-links"><Link href={`${base}/#cardapio`}>Continuar comprando</Link></div></section>:account&&<>
     <h1 className="customer-title">{section===''?`Olá, ${account.firstName.split(' ')[0]}`:sections.find(([path])=>path===section)?.[1]??'Programa de pontos'}</h1>
     {section===''&&<p className="customer-muted">Acompanhe seus pedidos e organize seus dados em um só lugar.</p>}

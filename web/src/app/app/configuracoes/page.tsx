@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { requireOrgPage } from '@/lib/auth/guards';
 import { getOrganizationUsage } from '@/lib/data/organization';
 import { Card, CardHeader } from '@/components/ui';
-import { Store, Users, Package, MessageCircle, CreditCard, Receipt } from 'lucide-react';
+import { Store, Users, Package, MessageCircle, CreditCard, Receipt, Truck } from 'lucide-react';
 import { ROLE_LABEL } from '@/data/business-copy';
 import { InstallApp } from '@/components/pwa/InstallApp';
 export default async function SettingsPage() {
@@ -10,13 +10,15 @@ export default async function SettingsPage() {
   const usage = await getOrganizationUsage(ctx.organizationId);
   const groups: Array<{ title: string; items: Array<{ title: string; subtitle: string; href: string; cta: string; icon: React.ReactNode }> }> = [
     { title: 'Loja', items: [
-      { title: 'Minha loja', subtitle: 'Identidade, endereço, horários, entrega e disponibilidade.', href: '/app/configuracoes/minha-loja', cta: 'Configurar minha loja', icon: <Store size={18} /> },
+      { title: 'Minha loja', subtitle: 'Identidade, endereço, horários e disponibilidade.', href: '/app/configuracoes/minha-loja', cta: 'Configurar minha loja', icon: <Store size={18} /> },
+      { title: 'Entregas e frete', subtitle: 'Faixas de distância, raio, bairros e localização da loja no mapa.', href: '/app/configuracoes/minha-loja?aba=entrega', cta: 'Configurar entregas', icon: <Truck size={18} /> },
       { title: 'Equipe', subtitle: `${usage.users} ${usage.users === 1 ? 'pessoa' : 'pessoas'} com acesso ao painel.`, href: '/app/equipe', cta: 'Gerenciar acessos', icon: <Users size={18} /> },
       { title: 'Plano e assinatura', subtitle: 'Del Flash Completo · R$ 119,00 por mês.', href: '/app/assinatura', cta: 'Consultar meu plano', icon: <CreditCard size={18} /> },
     ] },
     { title: 'Vendas e atendimento', items: [
       { title: 'WhatsApp e IA', subtitle: 'Conexão oficial do número, assistente com IA e mensagens automáticas.', href: '/app/configuracoes/whatsapp', cta: 'Configurar WhatsApp', icon: <MessageCircle size={18} /> },
-      { title: 'Pagamentos e documentos fiscais', subtitle: 'Formas de pagamento, situação do pagamento e cadastro para NFC-e.', href: '/app/configuracoes/fiscal', cta: 'Abrir pagamentos e fiscal', icon: <Receipt size={18} /> },
+      { title: 'Pagamentos', subtitle: 'Formas aceitas, situação do pagamento e pagamento online (Pix e cartão).', href: '/app/configuracoes/pagamentos', cta: 'Configurar pagamentos', icon: <CreditCard size={18} /> },
+      { title: 'Documentos fiscais', subtitle: 'Cadastro tributário e emissão de NFC-e/NF-e por provedor homologado.', href: '/app/configuracoes/fiscal', cta: 'Abrir fiscal', icon: <Receipt size={18} /> },
     ] },
     { title: 'Operação', items: [
       { title: 'Estoque', subtitle: 'Padrões iniciais e ajustes com histórico.', href: '/app/estoque', cta: 'Configurar estoque', icon: <Package size={18} /> },
