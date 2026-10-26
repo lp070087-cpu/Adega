@@ -270,6 +270,7 @@ export default async function PublicStorePage({ params }: PageProps) {
             openState,
             allowNewOrders: commercial.allowNewOrders,
             onlinePayment: onlinePaymentUsable(readOnlinePayment(store.settings)),
+            onlinePaymentProvider: readOnlinePayment(store.settings).provider,
             benefitsAvailable: growthState(settings).loyalty.enabled || growthState(settings).campaigns.some(c=>c.status==='ACTIVE'),
             commercialMessage: commercial.allowNewOrders ? null : commercial.message,
             address: addressLine,

@@ -104,6 +104,7 @@ export type StoreInfo = {
   benefitsAvailable?: boolean;
   /** Loja com pagamento online (Pix/cartão) ativo e utilizável. */
   onlinePayment?: boolean;
+  onlinePaymentProvider?: 'asaas' | 'mercadopago';
   commercialMessage?: string | null;
   address: string | null;
   district: string | null;
@@ -564,6 +565,7 @@ export function StoreCatalog({
       paymentMethod: online ? 'ONLINE' : paymentMethod,
       onlineMethod: online ? (paymentMethod === 'ONLINE_PIX' ? 'PIX' : 'CREDIT_CARD') : undefined,
       payerDocument,
+      payerEmail: online ? String(formData.get('payerEmail') ?? '').trim() || undefined : undefined,
       changeFor: paymentMethod === 'CASH' && changeFor !== undefined && Number.isFinite(changeFor) ? changeFor : undefined,
       notes: String(formData.get('notes') ?? '').trim() || undefined,
       couponCode: String(formData.get('couponCode') ?? '').trim() || undefined,
@@ -1150,6 +1152,11 @@ export function StoreCatalog({
           {online && (
             <Field label="CPF ou CNPJ de quem paga" required hint="Exigido pelo emissor da cobrança. Os dados do cartão são digitados só na página segura do provedor.">
               <Input name="payerDocument" inputMode="numeric" autoComplete="off" maxLength={18} placeholder="Somente números" data-testid="payer-document" />
+            </Field>
+          )}
+          {online && (
+            <Field label="E-mail de quem paga" required={store.onlinePaymentProvider === 'mercadopago'} hint="Para o comprovante do pagamento.">
+              <Input name="payerEmail" type="email" inputMode="email" autoComplete="email" maxLength={254} placeholder="voce@exemplo.com" data-testid="payer-email" required={store.onlinePaymentProvider === 'mercadopago'} />
             </Field>
           )}
 

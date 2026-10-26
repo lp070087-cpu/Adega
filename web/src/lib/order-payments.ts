@@ -2,6 +2,7 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import { decryptJson, encryptJson } from '@/lib/crypto';
 import { AsaasError, authenticateAsaasWebhook } from '@/lib/platform/asaas-client';
+import { createCardPreference, createPixPayment, fetchPayment, mapStatus, verifySignature, type MpSecrets } from '@/lib/payments/mercadopago';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -17,9 +18,10 @@ import { AsaasError, authenticateAsaasWebhook } from '@/lib/platform/asaas-clien
  *   idempotente: PENDING → PAID uma única vez.
  * ═══════════════════════════════════════════════════════════════════════
  */
-export type OnlinePaymentConfig = { enabled: boolean; environment: 'sandbox' | 'production'; encrypted?: string };
+export type PaymentProvider = 'asaas' | 'mercadopago';
+export type OnlinePaymentConfig = { enabled: boolean; environment: 'sandbox' | 'production'; provider: PaymentProvider; encrypted?: string };
 type Secrets = { apiKey: string; webhookToken: string };
-export type OrderCharge = { environment: 'sandbox' | 'production'; paymentId: string; billingType: 'PIX' | 'CREDIT_CARD'; invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; value: number; createdAt: string };
+export type OrderCharge = { provider?: PaymentProvider; preferenceId?: string; environment: 'sandbox' | 'production'; paymentId: string; billingType: 'PIX' | 'CREDIT_CARD'; invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; value: number; createdAt: string };
 
 const bases = { sandbox: 'https://api-sandbox.asaas.com/v3', production: 'https://api.asaas.com/v3' } as const;
 const chargeKey = (orderId: string) => `order-payment:${orderId}`;
@@ -27,7 +29,7 @@ const chargeKey = (orderId: string) => `order-payment:${orderId}`;
 export function readOnlinePayment(settings: unknown): OnlinePaymentConfig {
   const root = settings && typeof settings === 'object' ? (settings as Record<string, any>) : {};
   const raw = root.onlinePayment ?? {};
-  return { enabled: raw.enabled === true && typeof raw.encrypted === 'string', environment: raw.environment === 'production' ? 'production' : 'sandbox', encrypted: typeof raw.encrypted === 'string' ? raw.encrypted : undefined };
+  return { enabled: raw.enabled === true && typeof raw.encrypted === 'string', environment: raw.environment === 'production' ? 'production' : 'sandbox', provider: raw.provider === 'mercadopago' ? 'mercadopago' : 'asaas', encrypted: typeof raw.encrypted === 'string' ? raw.encrypted : undefined };
 }
 
 /** Pronto para cobrar? Produção exige liberação explícita do servidor. */
@@ -36,7 +38,7 @@ export function onlinePaymentUsable(config: OnlinePaymentConfig) {
   return config.environment === 'sandbox' || process.env.ORDER_PAYMENTS_PRODUCTION === 'true';
 }
 
-export function sealSecrets(secrets: Secrets) { return encryptJson(secrets); }
+export function sealSecrets(secrets: Secrets | MpSecrets) { return encryptJson(secrets); }
 function secretsOf(config: OnlinePaymentConfig): Secrets { return decryptJson<Secrets>(config.encrypted!); }
 
 function client(config: OnlinePaymentConfig) {
@@ -70,14 +72,14 @@ export async function readOrderCharge(orderId: string): Promise<OrderCharge | nu
  * Cria a cobrança de um pedido já gravado. Uma cobrança por pedido: a chave
  * é reservada antes da chamada externa, então repetir não duplica.
  */
-export async function createOrderCharge(input: { organizationId: string; orderId: string; displayId: number; total: number; customerName: string; customerPhone: string; document: string; method: 'PIX' | 'CREDIT_CARD'; storeName: string }): Promise<OrderCharge> {
-  const org = await prisma.organization.findUnique({ where: { id: input.organizationId }, select: { settings: true } });
+export async function createOrderCharge(input: { organizationId: string; orderId: string; displayId: number; total: number; customerName: string; customerPhone: string; document: string; email?: string; method: 'PIX' | 'CREDIT_CARD'; storeName: string }): Promise<OrderCharge> {
+  const org = await prisma.organization.findUnique({ where: { id: input.organizationId }, select: { settings: true, slug: true } });
   const config = readOnlinePayment(org?.settings);
   if (!onlinePaymentUsable(config)) throw new Error('Pagamento online indisponível nesta loja.');
   const existing = await readOrderCharge(input.orderId);
   if (existing) return existing;
   await prisma.platformSetting.create({ data: { key: `${chargeKey(input.orderId)}:lock`, value: { at: new Date().toISOString() } } }).catch(() => { throw new Error('Cobrança deste pedido já está sendo criada.'); });
-  try { return await issueCharge(config, input); }
+  try { return config.provider === 'mercadopago' ? await issueMercadoPago(config, input, org!.slug) : await issueCharge(config, input); }
   catch (error) {
     // Falhou antes de gravar: libera a reserva para uma nova tentativa.
     await prisma.platformSetting.delete({ where: { key: `${chargeKey(input.orderId)}:lock` } }).catch(() => undefined);
@@ -103,6 +105,59 @@ async function issueCharge(config: OnlinePaymentConfig, input: Parameters<typeof
   return charge;
 }
 
+async function issueMercadoPago(config: OnlinePaymentConfig, input: Parameters<typeof createOrderCharge>[0], slug: string): Promise<OrderCharge> {
+  const secrets = decryptJson<MpSecrets>(config.encrypted!);
+  const app = process.env.APP_PUBLIC_URL ?? 'https://adega-nine.vercel.app';
+  const notificationUrl = `${app}/api/webhooks/pedidos/mercadopago/${slug}`;
+  if (!input.email) throw new Error('E-mail de quem paga é obrigatório para o Mercado Pago.');
+  const base = { provider: 'mercadopago' as const, environment: config.environment, billingType: input.method, value: input.total, createdAt: new Date().toISOString() };
+  let charge: OrderCharge;
+  if (input.method === 'PIX') {
+    const pix = await createPixPayment(secrets, { orderId: input.orderId, amount: input.total, description: `Pedido #${input.displayId} · ${input.storeName}`, notificationUrl, email: input.email, firstName: input.customerName.split(' ')[0] || input.customerName, document: input.document });
+    charge = { ...base, paymentId: pix.paymentId, invoiceUrl: pix.invoiceUrl, pixPayload: pix.pixPayload, pixImage: pix.pixImage };
+  } else {
+    const pref = await createCardPreference(secrets, { orderId: input.orderId, amount: input.total, title: `Pedido #${input.displayId} · ${input.storeName}`, notificationUrl, backUrl: `${app}/loja/${slug}/pedido/${input.orderId}`, email: input.email, sandbox: config.environment === 'sandbox' });
+    charge = { ...base, paymentId: '', preferenceId: pref.preferenceId, invoiceUrl: pref.invoiceUrl, pixPayload: null, pixImage: null };
+  }
+  await prisma.platformSetting.upsert({ where: { key: chargeKey(input.orderId) }, create: { key: chargeKey(input.orderId), value: charge }, update: { value: charge } });
+  return charge;
+}
+
+/**
+ * Webhook do Mercado Pago da loja: assinatura x-signature, releitura do
+ * pagamento na API e conferência de pedido, loja, provedor e valor. Cada
+ * transição acontece uma única vez (updateMany com o status de origem).
+ */
+export async function handleMercadoPagoWebhook(slug: string, headers: { signature: string | null; requestId: string | null }, dataId: string | null, payload: unknown): Promise<{ status: number; result: string }> {
+  const org = await prisma.organization.findUnique({ where: { slug }, select: { id: true, settings: true } });
+  if (!org) return { status: 404, result: 'loja' };
+  const config = readOnlinePayment(org.settings);
+  if (config.provider !== 'mercadopago' || !config.encrypted) return { status: 401, result: 'sem configuração' };
+  const secrets = decryptJson<MpSecrets>(config.encrypted);
+  const event = payload as { type?: string; topic?: string; action?: string; data?: { id?: string | number } };
+  const id = String(dataId ?? event?.data?.id ?? '');
+  if (!/^[A-Za-z0-9]{1,40}$/.test(id)) return { status: 200, result: 'ignorado' };
+  if (!verifySignature(secrets.webhookSecret, headers.signature, headers.requestId, id)) return { status: 401, result: 'assinatura' };
+  if ((event?.type ?? event?.topic) && (event.type ?? event.topic) !== 'payment') return { status: 200, result: 'ignorado' };
+  const payment = await fetchPayment(secrets, id);
+  const orderId = payment.external_reference ?? '';
+  const order = await prisma.order.findFirst({ where: { id: orderId, organizationId: org.id }, select: { id: true, total: true, paymentStatus: true } });
+  const charge = order ? await readOrderCharge(order.id) : null;
+  if (!order || !charge || charge.provider !== 'mercadopago') return { status: 200, result: 'sem pedido' };
+  if (charge.paymentId && charge.paymentId !== String(payment.id)) return { status: 200, result: 'pagamento de outra cobrança' };
+  if (Math.abs(Number(payment.transaction_amount) - Number(order.total)) > 0.009) return { status: 200, result: 'valor divergente' };
+  if (!charge.paymentId) await prisma.platformSetting.update({ where: { key: chargeKey(order.id) }, data: { value: { ...charge, paymentId: String(payment.id) } } });
+  const effect = mapStatus(payment.status);
+  if (effect === 'PAID') {
+    const changed = await prisma.order.updateMany({ where: { id: order.id, organizationId: org.id, paymentStatus: { in: ['PENDING', 'FAILED'] } }, data: { paymentStatus: 'PAID' } });
+    if (changed.count) await prisma.notification.create({ data: { organizationId: org.id, type: 'SYSTEM', title: 'Pagamento online confirmado', message: 'O pagamento do pedido foi confirmado pelo Mercado Pago.', href: '/app/pedidos' } }).catch(() => undefined);
+    return { status: 200, result: changed.count ? 'pago' : 'já pago' };
+  }
+  if (effect === 'REFUNDED') { await prisma.order.updateMany({ where: { id: order.id, organizationId: org.id, paymentStatus: 'PAID' }, data: { paymentStatus: 'REFUNDED' } }); return { status: 200, result: 'estornado' }; }
+  if (effect === 'FAILED') { await prisma.order.updateMany({ where: { id: order.id, organizationId: org.id, paymentStatus: 'PENDING' }, data: { paymentStatus: 'FAILED' } }); return { status: 200, result: 'recusado' }; }
+  return { status: 200, result: 'pendente' };
+}
+
 const PAID = new Set(['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH']);
 const REFUNDED = new Set(['REFUNDED', 'REFUND_REQUESTED', 'CHARGEBACK_REQUESTED']);
 
@@ -111,7 +166,7 @@ export async function handleOrderPaymentWebhook(slug: string, token: string | nu
   const org = await prisma.organization.findUnique({ where: { slug }, select: { id: true, settings: true } });
   if (!org) return { status: 404, result: 'loja' };
   const config = readOnlinePayment(org.settings);
-  if (!config.encrypted) return { status: 401, result: 'sem configuração' };
+  if (!config.encrypted || config.provider !== 'asaas') return { status: 401, result: 'sem configuração' };
   if (!authenticateAsaasWebhook(secretsOf(config).webhookToken, token)) return { status: 401, result: 'token' };
   const event = payload as { id?: string; event?: string; payment?: { id?: string } };
   const paymentId = event?.payment?.id;

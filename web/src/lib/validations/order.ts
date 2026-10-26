@@ -53,6 +53,7 @@ const orderBaseSchema = z.object({
   /** Observação para achar o ponto (escadaria, portão lateral…). Opcional com pino confirmado. */
   deliveryReference: optionalText(200),
   onlineMethod: z.enum(['PIX', 'CREDIT_CARD']).optional(),
+  payerEmail: z.string().trim().toLowerCase().email('E-mail inválido.').max(254).optional().or(z.literal('').transform(() => undefined)),
   payerDocument: z.string().transform((v) => v.replace(/\D/g, '')).refine((v) => v === '' || v.length === 11 || v.length === 14, 'CPF (11 números) ou CNPJ (14).').optional(),
   paymentMethod: z.nativeEnum(PaymentMethod).default('CASH'),
   /** Troco para quanto. Só faz sentido em dinheiro — conferido abaixo. */

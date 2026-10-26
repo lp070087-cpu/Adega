@@ -12,6 +12,7 @@ export default async function PaymentsSettingsPage() {
   const organization = await getOrganizationById(ctx.organizationId);
   const online = readOnlinePayment(organization?.settings);
   const methods = ['PIX', 'CASH', 'DEBIT_CARD', 'CREDIT_CARD'] as const;
+  const app = process.env.APP_PUBLIC_URL ?? 'https://adega-nine.vercel.app';
   return (
     <div className="max-w-3xl space-y-5">
       <h2 className="text-[1.35rem] font-extrabold tracking-tight text-ink-900">Pagamentos</h2>
@@ -25,7 +26,7 @@ export default async function PaymentsSettingsPage() {
           <ul className="mt-1 list-disc space-y-0.5 pl-5">
             <li><strong>A cobrar na entrega</strong>: dinheiro ou cartão informado pelo cliente; vira <strong>Pago</strong> quando a entrega é concluída.</li>
             <li><strong>Aguardando confirmação</strong>: Pix informado na entrega; confira o recebimento antes de entregar. Ao concluir a entrega, o pedido é registrado como pago e lançado no caixa.</li>
-            <li><strong>Pagamento online</strong>: fica pago só quando o Asaas confirma pelo webhook.</li>
+            <li><strong>Pagamento online</strong>: fica pago só quando o provedor (Mercado Pago ou Asaas) confirma pelo webhook assinado.</li>
             <li><strong>Recusado</strong> e <strong>Estornado</strong> são registrados pela equipe no pedido.</li>
             <li>Escolher a forma de pagamento nunca marca o pedido como pago.</li>
           </ul>
@@ -34,11 +35,7 @@ export default async function PaymentsSettingsPage() {
       </section>
 
       <section className="rounded-xl border bg-white p-5">
-        <OnlinePaymentForm enabled={online.enabled} environment={online.environment} configured={Boolean(online.encrypted)} usable={onlinePaymentUsable(online)} webhookUrl={`${process.env.APP_PUBLIC_URL ?? 'https://adega-nine.vercel.app'}/api/webhooks/pedidos/asaas/${organization?.slug ?? ''}`} />
-      </section>
-
-      <section className="rounded-xl border bg-white p-5">
-        <OnlinePaymentForm enabled={online.enabled} environment={online.environment} configured={Boolean(online.encrypted)} usable={onlinePaymentUsable(online)} webhookUrl={`${process.env.APP_PUBLIC_URL ?? 'https://adega-nine.vercel.app'}/api/webhooks/pedidos/asaas/${organization?.slug ?? ''}`} />
+        <OnlinePaymentForm enabled={online.enabled} environment={online.environment} provider={online.provider} configured={Boolean(online.encrypted)} usable={onlinePaymentUsable(online)} webhookUrls={{ asaas: `${app}/api/webhooks/pedidos/asaas/${organization?.slug ?? ''}`, mercadopago: `${app}/api/webhooks/pedidos/mercadopago/${organization?.slug ?? ''}` }} />
       </section>
     </div>
   );

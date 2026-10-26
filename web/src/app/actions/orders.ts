@@ -68,6 +68,7 @@ export async function checkoutAction(input: unknown): Promise<
       if (!onlinePaymentUsable(readOnlinePayment(org?.settings))) return { ok: false, error: 'Pagamento online indisponível nesta loja. Escolha pagar na entrega.', field: 'paymentMethod' };
       const doc = parsed.data.payerDocument ?? '';
       if (!/^(\d{11}|\d{14})$/.test(doc)) return { ok: false, error: 'Informe o CPF (11 números) ou CNPJ (14) de quem paga.', field: 'payerDocument' };
+      if (readOnlinePayment(org?.settings).provider === 'mercadopago' && !parsed.data.payerEmail) return { ok: false, error: 'Informe o e-mail de quem paga (exigido pelo Mercado Pago).', field: 'payerEmail' };
     }
 
     const portalAccount = process.env.CUSTOMER_PORTAL_ENABLED !== 'false' ? await (await import('@/lib/customer-portal/server')).portalSession(store.slug) : null;
@@ -109,7 +110,7 @@ export async function checkoutAction(input: unknown): Promise<
       // O pedido já existe; a cobrança é criada em seguida (uma por pedido).
       try {
         const { createOrderCharge } = await import('@/lib/order-payments');
-        const charge = await createOrderCharge({ organizationId: store.id, orderId: result.orderId, displayId: result.displayId, total: result.total, customerName: parsed.data.customerName, customerPhone: parsed.data.customerPhone, document: parsed.data.payerDocument!, method: parsed.data.onlineMethod ?? 'PIX', storeName: store.name });
+        const charge = await createOrderCharge({ organizationId: store.id, orderId: result.orderId, displayId: result.displayId, total: result.total, customerName: parsed.data.customerName, customerPhone: parsed.data.customerPhone, document: parsed.data.payerDocument!, email: parsed.data.payerEmail, method: parsed.data.onlineMethod ?? 'PIX', storeName: store.name });
         return { ok: true, data: { ...result, payment: { invoiceUrl: charge.invoiceUrl, pixPayload: charge.pixPayload, pixImage: charge.pixImage, billingType: charge.billingType } } };
       } catch {
         return { ok: true, data: { ...result, payment: null, paymentError: 'Pedido enviado, mas o pagamento online não foi gerado agora. Combine o pagamento com a loja.' } };
