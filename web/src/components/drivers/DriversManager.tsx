@@ -550,23 +550,32 @@ function AccessInfo({ driver }: { driver: DriverRow }) {
   return (
     <span className="block min-w-0 break-words text-[0.74rem] text-ink-500">{driver.hasLogin && 'Acesso: '}
       {driver.hasLogin ? (driver.email ?? (driver.username ? `@${driver.username}` : 'Com acesso')) : <Badge tone="neutral">Sem acesso ao aplicativo</Badge>}
-      {driver.hasLogin && driver.accessPending && <span className="mt-1 block font-semibold text-amber-700">Aguardando primeiro acesso</span>}
       {!driver.active && <span className="mt-1 block text-[0.68rem] font-semibold text-danger">Suspenso</span>}
     </span>
   );
 }
 
 function RowActions({ driver, onEdit, onConfirm, onReactivate, onIssue, pending, wide }: { driver: DriverRow; onEdit: (driver: DriverRow) => void; onConfirm: (kind: 'suspend' | 'remove') => void; onReactivate: () => void; onIssue: () => void; pending: boolean; wide?: boolean }) {
+  const canIssue = driver.active && driver.canIssueTemp;
+  const item = 'block w-full rounded-lg px-3 py-2 text-left text-[0.8rem] font-semibold disabled:opacity-50';
   return (
-    <div className={wide ? 'flex flex-wrap gap-2' : 'flex flex-wrap justify-end gap-1.5'}>
+    <div className={wide ? 'flex flex-wrap items-center gap-2' : 'flex flex-wrap justify-end gap-1.5'}>
       <Button size="sm" variant="secondary" onClick={() => onEdit(driver)}>Editar</Button>
       {driver.active ? (
         <Button size="sm" variant="ghost" onClick={() => onConfirm('suspend')}>Suspender</Button>
       ) : (
         <Button size="sm" variant="ghost" disabled={pending} onClick={onReactivate}>Reativar</Button>
       )}
-      {driver.active && driver.canIssueTemp && <Button size="sm" variant="ghost" disabled={pending} onClick={onIssue}>Nova senha temporária</Button>}
-      {driver.hasLogin && <Button size="sm" variant="ghost" onClick={() => onConfirm('remove')}>Remover vínculo</Button>}
+      {/* Ações raras ficam num menu para o cartão não virar uma lista de botões. */}
+      {(canIssue || driver.hasLogin) && (
+        <details className="relative ml-auto" data-testid="driver-more">
+          <summary className="flex min-h-9 cursor-pointer list-none items-center whitespace-nowrap rounded-sm px-3 text-[0.8rem] font-semibold text-ink-600 hover:bg-ink-100 [&::-webkit-details-marker]:hidden" aria-label={`Mais ações de ${driver.name}`}>Mais ▾</summary>
+          <div className="absolute right-0 z-20 mt-1 w-56 rounded-xl border border-ink-100 bg-white p-1 shadow-lg" onClick={(e) => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute('open')}>
+            {canIssue && <button type="button" className={`${item} text-ink-700 hover:bg-ink-50`} disabled={pending} onClick={onIssue}>Nova senha temporária</button>}
+            {driver.hasLogin && <button type="button" className={`${item} text-danger hover:bg-danger-bg`} onClick={() => onConfirm('remove')}>Remover vínculo</button>}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

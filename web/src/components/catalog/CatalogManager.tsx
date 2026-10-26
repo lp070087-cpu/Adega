@@ -250,7 +250,8 @@ export function CatalogManager({
     }
 
     const ACTION =
-      'rounded-sm px-2.5 py-1.5 text-[0.74rem] font-semibold transition-all disabled:opacity-50';
+      'rounded-lg px-2.5 py-1.5 text-[0.76rem] font-semibold transition-all disabled:opacity-50';
+    const MENU_ITEM = 'w-full rounded-lg px-3 py-2 text-left text-[0.8rem] font-semibold text-ink-700 hover:bg-ink-50 disabled:opacity-50';
 
     return (
       <>
@@ -282,62 +283,62 @@ export function CatalogManager({
         >
           Editar
         </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() =>
-            run(() =>
-              toggleProductAction({ productId: product.id, field: 'active', value: !product.active }),
-            )
-          }
-          className={cn(ACTION, 'text-ink-600 hover:bg-ink-100 hover:text-ink-900')}
-        >
-          {product.active ? 'Desativar' : 'Ativar'}
-        </button>
-        {/*
-          Disponível/Indisponível é diferente de ativo/inativo: ativo
-          mantém a ficha na vitrine, indisponível avisa "acabou hoje" sem
-          sumir com o produto. É o botão que o lojista usa no meio do
-          turno, no celular, com pressa.
-        */}
-        <button
-          type="button"
-          disabled={pending}
-          title={
-            product.available
-              ? 'Marcar como indisponível (some do cardápio, mas continua ativo)'
-              : 'Voltar a vender este item'
-          }
-          onClick={() =>
-            run(() =>
-              setAvailabilityAction({ productId: product.id, available: !product.available }),
-            )
-          }
-          className={cn(
-            ACTION,
-            product.available
-              ? 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
-              : 'text-accent hover:bg-accent-bg',
-          )}
-        >
-          {product.available ? 'Indisponível' : 'Disponível'}
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => run(() => duplicateProductAction(product.id), 'Produto duplicado (nasce inativo).')}
-          className={cn(ACTION, 'text-ink-600 hover:bg-ink-100 hover:text-ink-900')}
-        >
-          Duplicar
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => setConfirmDelete(product)}
-          className={cn(ACTION, 'text-danger hover:bg-danger-bg')}
-        >
-          Excluir
-        </button>
+        <details className="relative" data-testid="product-more">
+          <summary className={cn(ACTION, 'cursor-pointer list-none whitespace-nowrap text-ink-600 hover:bg-ink-100 hover:text-ink-900 [&::-webkit-details-marker]:hidden')} aria-label={`Mais ações de ${product.name}`}>Mais ▾</summary>
+          <div className="absolute right-0 z-20 mt-1 flex w-48 flex-col rounded-xl border border-ink-100 bg-white p-1 shadow-lg" onClick={(e) => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute('open')}>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() =>
+                run(() =>
+                  toggleProductAction({ productId: product.id, field: 'active', value: !product.active }),
+                )
+              }
+              className={MENU_ITEM}
+            >
+              {product.active ? 'Desativar' : 'Ativar'}
+            </button>
+            {/*
+              Disponível/Indisponível é diferente de ativo/inativo: ativo
+              mantém a ficha na vitrine, indisponível avisa "acabou hoje" sem
+              sumir com o produto. É o botão que o lojista usa no meio do
+              turno, no celular, com pressa.
+            */}
+            <button
+              type="button"
+              disabled={pending}
+              title={
+                product.available
+                  ? 'Marcar como indisponível (some do cardápio, mas continua ativo)'
+                  : 'Voltar a vender este item'
+              }
+              onClick={() =>
+                run(() =>
+                  setAvailabilityAction({ productId: product.id, available: !product.available }),
+                )
+              }
+    className={cn(MENU_ITEM, !product.available && 'text-accent')}
+            >
+              {product.available ? 'Indisponível' : 'Disponível'}
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => run(() => duplicateProductAction(product.id), 'Produto duplicado (nasce inativo).')}
+              className={MENU_ITEM}
+            >
+              Duplicar
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => setConfirmDelete(product)}
+              className={cn(MENU_ITEM, 'text-danger hover:bg-danger-bg')}
+            >
+              Excluir
+            </button>
+          </div>
+        </details>
       </>
     );
   }
@@ -390,27 +391,15 @@ export function CatalogManager({
     const out = product.trackStock && product.stock === 0;
     return (
       <>
-        <Badge tone="neutral">Cadastrado</Badge>
-        <Badge tone={product.active ? 'green' : 'neutral'}>{product.active ? 'Ativo' : 'Inativo'}</Badge>
-        {!product.available && <Badge tone="purple">Indisponível</Badge>}
-        {product.featured && <Badge tone="orange">Destaque</Badge>}
-        {out && <Badge tone="red">Sem estoque</Badge>}
+        {/* Uma situação principal (o que o cliente vê) + avisos de estoque e destaque. */}
+        {!product.active ? <Badge tone="neutral">Inativo</Badge>
+          : !product.available ? <Badge tone="purple">Pausado</Badge>
+          : out ? <Badge tone="red">Sem estoque</Badge>
+          : <Badge tone="green">Na vitrine</Badge>}
         {low && <Badge tone="yellow">Repor</Badge>}
+        {product.featured && product.active && <Badge tone="orange">Destaque</Badge>}
       </>
     );
-  }
-
-  /**
-   * Publicação é independente do saldo. Produtos ativos ficam visíveis;
-   * disponibilidade e estoque determinam se a compra pode ser realizada.
-   */
-  function publicState(product: CatalogProduct): { tone: 'green' | 'red' | 'yellow'; label: string } {
-    const out = product.trackStock && product.stock === 0;
-    if (!product.active) return { tone: 'red', label: 'Fora da vitrine (inativo)' };
-    if (!product.available) return { tone: 'yellow', label: 'Na vitrine · compra pausada' };
-    if (out) return { tone: 'yellow', label: 'Na vitrine · aguardando reposição' };
-    if (product.featured) return { tone: 'yellow', label: 'Na vitrine · em destaque' };
-    return { tone: 'green', label: 'Na vitrine' };
   }
 
   return (
@@ -581,8 +570,8 @@ export function CatalogManager({
       ) : (
         <>
       {/* ── Barra de ações ────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-ink-100 bg-white p-3.5">
-        <div className="min-w-[200px] flex-1">
+      <div className="grid gap-2 rounded-xl border border-ink-100 bg-white p-3.5 md:grid-cols-[minmax(0,1fr)_200px_190px] md:items-center">
+        <div className="min-w-0">
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -594,7 +583,7 @@ export function CatalogManager({
         <Select
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
-          className="w-auto min-w-[150px]"
+          className="w-full"
           aria-label="Filtrar por categoria"
         >
           <option value="all">Todas as categorias</option>
@@ -609,7 +598,7 @@ export function CatalogManager({
         <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-          className="w-auto min-w-[140px]"
+          className="w-full"
           aria-label="Filtrar por situação"
         >
           <option value="all">Todas as situações</option>
@@ -622,7 +611,7 @@ export function CatalogManager({
         </Select>
 
         {canManage && (
-          <div className="ml-auto flex flex-wrap gap-2">
+          <div className="flex flex-wrap justify-end gap-2 md:col-span-3">
             <Button
               variant="secondary"
               onClick={() => setLibraryOpen(true)}
@@ -715,12 +704,6 @@ export function CatalogManager({
                         </span>
                       )}
                     </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      {(() => {
-                        const state = publicState(product);
-                        return <Badge tone={state.tone}>{state.label}</Badge>;
-                      })()}
-                    </div>
                   </div>
                 </div>
 
@@ -739,7 +722,7 @@ export function CatalogManager({
                   <Th className="w-[150px]">Preço</Th>
                   <Th className="w-[110px]">Estoque</Th>
                   <Th className="w-[120px]">Situação</Th>
-                  <Th className="w-[240px] text-right">Ações</Th>
+                  <Th className="w-[170px] text-right">Ações</Th>
                 </tr>
               </thead>
               <tbody>
@@ -757,7 +740,7 @@ export function CatalogManager({
                             globalImageUrl={product.globalImageUrl}
                             emoji={product.emoji}
                             alt={product.name}
-                            size={36}
+                            size={44}
                           />
                           <span className="min-w-0">
                             <span className="block truncate text-[0.86rem] font-semibold text-ink-800">
@@ -798,12 +781,6 @@ export function CatalogManager({
 
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1.5">{productBadges(product)}</div>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {(() => {
-                            const state = publicState(product);
-                            return <Badge tone={state.tone}>{state.label}</Badge>;
-                          })()}
-                        </div>
                       </td>
 
                       <td className="px-4 py-3">
