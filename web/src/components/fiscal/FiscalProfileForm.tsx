@@ -21,6 +21,13 @@ export function FiscalProfileForm({ profile }: { profile: FiscalProfile }) {
           <option value="NFE">NF-e (venda para empresas)</option>
         </select>
       </label>
+      <p className="text-[0.76rem] font-semibold text-ink-700 sm:col-span-2">Tributação padrão dos itens <span className="font-normal text-ink-500">— confirme com o contador; vale para os produtos sem cadastro próprio.</span></p>
+      <label><span className="field-label">NCM padrão</span><input name="defaultNcm" defaultValue={profile.defaultNcm} inputMode="numeric" maxLength={10} placeholder="Ex.: 22030000 (cerveja)" className="field-input" /></label>
+      <label><span className="field-label">CFOP</span><input name="defaultCfop" defaultValue={profile.defaultCfop} inputMode="numeric" maxLength={4} placeholder="5102" className="field-input" /></label>
+      <label><span className="field-label">CSOSN / CST do ICMS</span><input name="icmsCode" defaultValue={profile.icmsCode} inputMode="numeric" maxLength={3} placeholder="Ex.: 102 (Simples)" className="field-input" /></label>
+      <label><span className="field-label">Origem da mercadoria</span>
+        <select name="origin" defaultValue={profile.origin} className="field-input"><option value="0">0 · Nacional</option><option value="1">1 · Estrangeira (importação direta)</option><option value="2">2 · Estrangeira (mercado interno)</option></select>
+      </label>
       <label className="sm:col-span-2"><span className="field-label">Observações para o contador</span><textarea name="notes" defaultValue={profile.notes} maxLength={500} rows={2} className="field-input" /></label>
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
         <button type="submit" disabled={pending} className="min-h-11 rounded-xl bg-brand px-5 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-60">{pending ? 'Salvando…' : 'Salvar cadastro fiscal'}</button>

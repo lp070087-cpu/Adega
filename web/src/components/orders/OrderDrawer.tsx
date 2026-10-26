@@ -1,5 +1,6 @@
 'use client';
 import { whatsappHref } from '@/lib/whatsapp';
+import { FiscalInvoicePanel } from '@/components/fiscal/FiscalInvoicePanel';
 
 import { useEffect, useState, useTransition } from 'react';
 import { formatBRL, formatDateTime, onlyDigits } from '@/lib/utils';
@@ -62,7 +63,9 @@ export function OrderDrawer({
   canManageOrders,
   canManageDrivers,
   onChanged,
+  fiscal = null,
 }: {
+  fiscal?: { environment: 'homologacao' | 'producao' } | null;
   order: DrawerOrder | null;
   open: boolean;
   onClose: () => void;
@@ -217,6 +220,8 @@ export function OrderDrawer({
         <PaymentMethodBadge method={order.paymentMethod} />
         <PaymentStatusBadge status={order.paymentStatus} method={order.paymentMethod} />
       </div>
+
+      {fiscal && order.status !== 'CANCELLED' && <FiscalInvoicePanel key={order.id} orderId={order.id} paid={order.paymentStatus === 'PAID'} environment={fiscal.environment} />}
 
       {/* ── Itens ─────────────────────────────────────────────────── */}
       <section className="mb-5">

@@ -12,6 +12,7 @@ export async function saveFiscalProfileAction(_prev: { ok: boolean; message: str
     const profile = fiscalProfileSchema.parse({
       legalName: form.get('legalName') ?? '', cnpj: form.get('cnpj') ?? '', stateRegistration: form.get('stateRegistration') ?? '',
       regime: form.get('regime') ?? '', documentType: form.get('documentType') ?? 'NONE', notes: form.get('notes') ?? '',
+      defaultNcm: form.get('defaultNcm') ?? '', defaultCfop: form.get('defaultCfop') ?? '5102', icmsCode: form.get('icmsCode') ?? '', origin: form.get('origin') ?? '0',
     });
     await withOrganizationTransaction(ctx.organizationId, async (tx) => {
       const org = await tx.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } });
@@ -19,7 +20,7 @@ export async function saveFiscalProfileAction(_prev: { ok: boolean; message: str
       await tx.organization.update({ where: { id: ctx.organizationId }, data: { settings: { ...settings, fiscal: profile } } });
     });
     revalidatePath('/app/configuracoes/fiscal');
-    return { ok: true, message: 'Cadastro fiscal salvo. A emissão continua desativada até a integração com um provedor.' };
+    return { ok: true, message: 'Cadastro fiscal salvo.' };
   } catch (error) {
     return { ok: false, message: error instanceof z.ZodError ? error.issues[0]?.message ?? 'Confira os campos.' : toActionError(error).error };
   }
@@ -69,4 +70,54 @@ export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: str
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : toActionError(error).error };
   }
+}
+
+/** Provedor fiscal (Focus NFe): token write-only e ambiente. Produção depende de liberação da plataforma. */
+export async function saveFiscalProviderAction(_prev: { ok: boolean; message: string } | null, form: FormData) {
+  try {
+    const ctx = await requirePermission('MANAGE_SETTINGS');
+    const { readFiscalProvider, sealFiscalToken } = await import('@/lib/fiscal-provider');
+    const token = String(form.get('token') ?? '').trim();
+    const environment = form.get('environment') === 'producao' ? 'producao' : 'homologacao';
+    if (token && !/^[A-Za-z0-9]{16,128}$/.test(token)) throw new Error('Token do provedor inválido.');
+    await withOrganizationTransaction(ctx.organizationId, async (tx) => {
+      const org = await tx.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } });
+      const settings = (org?.settings ?? {}) as Record<string, unknown>;
+      const current = readFiscalProvider(settings);
+      const encrypted = token ? sealFiscalToken(token) : current.encrypted;
+      if (!encrypted) throw new Error('Informe o token do provedor fiscal.');
+      await tx.organization.update({ where: { id: ctx.organizationId }, data: { settings: { ...settings, fiscalProvider: { provider: 'focusnfe', environment, encrypted } } } });
+    });
+    revalidatePath('/app/configuracoes/fiscal');
+    return { ok: true, message: environment === 'producao' && process.env.FISCAL_PRODUCTION !== 'true' ? 'Salvo. A emissão em produção continua bloqueada até a liberação da plataforma.' : 'Provedor salvo (homologação: notas sem valor fiscal).' };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : toActionError(error).error };
+  }
+}
+
+type InvoiceResult = { ok: true; doc: import('@/lib/fiscal-provider').FiscalDocument | null } | { ok: false; error: string };
+
+export async function getInvoiceAction(input: { orderId: string }): Promise<InvoiceResult> {
+  try {
+    const ctx = await requirePermission('MANAGE_ORDERS');
+    const { readFiscalDocument } = await import('@/lib/fiscal-provider');
+    const { prisma } = await import('@/lib/db');
+    if (!(await prisma.order.count({ where: { id: input.orderId, organizationId: ctx.organizationId } }))) return { ok: false, error: 'Pedido não encontrado.' };
+    return { ok: true, doc: await readFiscalDocument(input.orderId) };
+  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : toActionError(error).error }; }
+}
+
+export async function emitInvoiceAction(input: { orderId: string }): Promise<InvoiceResult> {
+  try { const ctx = await requirePermission('MANAGE_ORDERS'); const { emitNfce } = await import('@/lib/fiscal-provider'); return { ok: true, doc: await emitNfce(ctx.organizationId, String(input.orderId)) }; }
+  catch (error) { return { ok: false, error: error instanceof Error ? error.message : toActionError(error).error }; }
+}
+
+export async function consultInvoiceAction(input: { orderId: string }): Promise<InvoiceResult> {
+  try { const ctx = await requirePermission('MANAGE_ORDERS'); const { consultNfce } = await import('@/lib/fiscal-provider'); return { ok: true, doc: await consultNfce(ctx.organizationId, String(input.orderId)) }; }
+  catch (error) { return { ok: false, error: error instanceof Error ? error.message : toActionError(error).error }; }
+}
+
+export async function cancelInvoiceAction(input: { orderId: string; reason: string }): Promise<InvoiceResult> {
+  try { const ctx = await requirePermission('MANAGE_SETTINGS'); const { cancelNfce } = await import('@/lib/fiscal-provider'); return { ok: true, doc: await cancelNfce(ctx.organizationId, String(input.orderId), String(input.reason ?? '')) }; }
+  catch (error) { return { ok: false, error: error instanceof Error ? error.message : toActionError(error).error }; }
 }

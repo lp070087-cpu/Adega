@@ -1,4 +1,5 @@
 import { requireOrgPage } from '@/lib/auth/guards';
+import { fiscalEmissionAllowed, readFiscalProvider } from '@/lib/fiscal-provider';
 import { readPrepMinutes } from '@/lib/order-flow';
 import { can } from '@/lib/permissions';
 import { prisma, toNumber } from '@/lib/db';
@@ -20,6 +21,9 @@ export const dynamic = 'force-dynamic';
  * mudança de status é uma server action que revalida tudo: permissão,
  * transição válida e vínculo do entregador.
  */
+/** Painel de NFC-e no pedido só quando há provedor fiscal configurado e liberado. */
+function fiscalPanel(settings: unknown) { const c = readFiscalProvider(settings); return fiscalEmissionAllowed(c) ? { environment: c.environment } : null; }
+
 export default async function OrdersPage() {
   const ctx = await requireOrgPage('MANAGE_ORDERS');
 
@@ -109,6 +113,7 @@ export default async function OrdersPage() {
       <OrdersBoard
         orders={serialized}
         prepMinutes={readPrepMinutes(organization?.settings)}
+        fiscal={fiscalPanel(organization?.settings)}
         products={products.map((product) => ({
           id: product.id, name: product.name, price: toNumber(product.promotionalPrice ?? product.price),
           variations: product.variations.map((v) => ({ ...v, priceAdjustment: toNumber(v.priceAdjustment) })),

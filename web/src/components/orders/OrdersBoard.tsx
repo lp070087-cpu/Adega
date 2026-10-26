@@ -36,7 +36,9 @@ export function OrdersBoard({
   canManageSettings = false,
   autoAccept = false,
   prepMinutes = 10,
+  fiscal = null,
 }: {
+  fiscal?: { environment: 'homologacao' | 'producao' } | null;
   products: ManualProduct[];
   orders: DrawerOrder[];
   drivers: Array<{ id: string; name: string; status: string; activeOrders?: number; accessPending?: boolean }>;
@@ -237,6 +239,7 @@ export function OrdersBoard({
         canManageOrders={canManageOrders}
         canManageDrivers={canManageDrivers}
         onChanged={() => router.refresh()}
+        fiscal={fiscal}
       />
     </>
   );
