@@ -263,6 +263,7 @@ export default async function PublicStorePage({ params }: PageProps) {
             openingHours: store.openingHours,
             minimumOrder: Number(store.minimumOrder),
             baseDeliveryFee: Number(store.baseDeliveryFee),
+            deliveryFeeMode: store.deliveryFeeMode,
             extraKmFee: Number(store.extraKmFee),
             averageDeliveryTime: store.averageDeliveryTime,
             allowPickup: store.allowPickup,

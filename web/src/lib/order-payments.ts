@@ -19,7 +19,7 @@ import { createCardPreference, createPixPayment, fetchPayment, mapStatus, verify
  * ═══════════════════════════════════════════════════════════════════════
  */
 export type PaymentProvider = 'asaas' | 'mercadopago';
-export type OnlinePaymentConfig = { enabled: boolean; environment: 'sandbox' | 'production'; provider: PaymentProvider; encrypted?: string };
+export type OnlinePaymentConfig = { enabled: boolean; environment: 'sandbox' | 'production'; provider: PaymentProvider; encrypted?: string; verifiedAt?: string };
 type Secrets = { apiKey: string; webhookToken: string };
 export type OrderCharge = { provider?: PaymentProvider; preferenceId?: string; environment: 'sandbox' | 'production'; paymentId: string; billingType: 'PIX' | 'CREDIT_CARD'; invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; value: number; createdAt: string };
 
@@ -29,7 +29,22 @@ const chargeKey = (orderId: string) => `order-payment:${orderId}`;
 export function readOnlinePayment(settings: unknown): OnlinePaymentConfig {
   const root = settings && typeof settings === 'object' ? (settings as Record<string, any>) : {};
   const raw = root.onlinePayment ?? {};
-  return { enabled: raw.enabled === true && typeof raw.encrypted === 'string', environment: raw.environment === 'production' ? 'production' : 'sandbox', provider: raw.provider === 'mercadopago' ? 'mercadopago' : 'asaas', encrypted: typeof raw.encrypted === 'string' ? raw.encrypted : undefined };
+  return { enabled: raw.enabled === true && typeof raw.encrypted === 'string', environment: raw.environment === 'production' ? 'production' : 'sandbox', provider: raw.provider === 'mercadopago' ? 'mercadopago' : 'asaas', encrypted: typeof raw.encrypted === 'string' ? raw.encrypted : undefined, verifiedAt: typeof raw.verifiedAt === 'string' ? raw.verifiedAt : undefined };
+}
+
+export type CredentialCheck = { status: 'valid'; detail: string } | { status: 'rejected' | 'unavailable'; detail: string };
+
+/** Pergunta ao próprio provedor se a credencial vale. É o único caminho para "verificada". */
+export async function checkPaymentCredential(provider: PaymentProvider, environment: 'sandbox' | 'production', secret: string, run: typeof fetch = fetch): Promise<CredentialCheck> {
+  const name = provider === 'mercadopago' ? 'Mercado Pago' : 'Asaas';
+  const url = provider === 'mercadopago' ? 'https://api.mercadopago.com/users/me' : `${bases[environment]}/finance/balance`;
+  const headers: Record<string, string> = provider === 'mercadopago' ? { Authorization: `Bearer ${secret}` } : { access_token: secret, 'User-Agent': 'DelFlash/1.0' };
+  let response: Response;
+  try { response = await run(url, { headers, cache: 'no-store', redirect: 'error', signal: AbortSignal.timeout(12000) }); }
+  catch { return { status: 'unavailable', detail: `${name} não respondeu.` }; }
+  if (response.ok) return { status: 'valid', detail: `Credencial aceita pelo ${name}.` };
+  if (response.status === 400 || response.status === 401 || response.status === 403) return { status: 'rejected', detail: `${name} recusou a credencial (HTTP ${response.status}).` };
+  return { status: 'unavailable', detail: `${name} respondeu HTTP ${response.status}.` };
 }
 
 /** Pronto para cobrar? Produção exige liberação explícita do servidor. */

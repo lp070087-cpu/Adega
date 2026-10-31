@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { driverLogoutAction as logoutAction } from '@/app/actions/auth';
 import { requireDriver, AuthError } from '@/lib/auth/guards';
 import { getDriverOrders } from '@/lib/data/orders';
+import { getDriverEarnings } from '@/lib/data/driver-earnings';
 import { getOrganizationById } from '@/lib/data/organization';
 import { DriverApp, type DriverOrder } from '@/components/driver/DriverApp';
 import { DriverEntry } from '@/components/driver/DriverEntry';
@@ -88,9 +89,10 @@ export default async function DriverPage() {
     throw error;
   }
 
-  const [orders, organization] = await Promise.all([
+  const [orders, organization, earnings] = await Promise.all([
     getDriverOrders(ctx.organizationId, ctx.driver.id),
     getOrganizationById(ctx.organizationId),
+    getDriverEarnings(ctx.organizationId, ctx.driver.id, 'today'),
   ]);
 
   const shift = driverShiftAvailability(readDriverSchedule(organization?.settings, ctx.driver.id));
@@ -159,6 +161,7 @@ export default async function DriverPage() {
         longitude: organization?.longitude ?? null,
       }}
       orders={serialized}
+      earnings={earnings}
     /></div>
   );
 }

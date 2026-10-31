@@ -27,7 +27,7 @@ export const saveDeliverySchema = z.object({
   extraKmFee: moneySchema.default(0),
   deliveryRadius: z.number().min(0.5).max(100).default(8),
   averageDeliveryTime: z.number().int().min(5).max(180).default(30),
-  deliveryTiers: z.array(deliveryTierSchema).max(10).default([]),
+  deliveryTiers: z.array(deliveryTierSchema).max(50).default([]),
   // Modo de taxa. Texto, igual ao banco — um enum aqui deixaria a validação
   // mais rígida que o model, e a queda para FIXED é feita no saveDelivery.
   deliveryFeeMode: z.enum(['FIXED', 'BY_NEIGHBORHOOD', 'BY_DISTANCE_BAND']).default('FIXED'),

@@ -24,6 +24,16 @@ export function whatsappPlatformChecklist() {
     { key: 'APP_PUBLIC_URL', label: 'Endereço público HTTPS do Del Flash', ok: Boolean(env.APP_PUBLIC_URL?.startsWith('https://')) },
   ];
 }
+/** Itens a mais para a loja conectar sozinha pelo Embedded Signup da Meta. */
+export function whatsappConnectChecklist() {
+  const env = process.env;
+  return [
+    ...whatsappPlatformChecklist(),
+    { key: 'WHATSAPP_APP_ID', label: 'Identificador do aplicativo Meta', ok: Boolean(env.WHATSAPP_APP_ID) },
+    { key: 'WHATSAPP_EMBEDDED_CONFIG_ID', label: 'Configuração do Embedded Signup no aplicativo Meta', ok: Boolean(env.WHATSAPP_EMBEDDED_CONFIG_ID) },
+    { key: 'TOKEN_ENCRYPTION_KEY', label: 'Chave de cifragem de credenciais', ok: (env.TOKEN_ENCRYPTION_KEY?.length ?? 0) >= 32 },
+  ];
+}
 export function aiChecklist() {
   const env = process.env;
   return [

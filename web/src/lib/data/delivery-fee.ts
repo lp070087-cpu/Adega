@@ -25,13 +25,13 @@ import 'server-only';
  * ═══════════════════════════════════════════════════════════════════════
  */
 
-import { tierForDistance } from '@/lib/delivery-tiers';
+import { tierForDistance, type DeliveryTier } from '@/lib/delivery-tiers';
+
+export type { DeliveryTier };
 
 const EARTH_RADIUS_KM = 6371;
 
 export type DeliveryFeeMode = 'FIXED' | 'BY_NEIGHBORHOOD' | 'BY_DISTANCE_BAND';
-
-export type DeliveryTier = { upToKm: number; fee: number };
 
 /** Bairro para o modo BY_NEIGHBORHOOD. Só nome e taxa entram no cálculo. */
 export type DeliveryZoneView = {
@@ -131,7 +131,8 @@ export function normalizeTiers(value: unknown): DeliveryTier[] {
     const km = typeof t.upToKm === 'number' ? t.upToKm : Number(t.upToKm);
     const fee = typeof t.fee === 'number' ? t.fee : Number(t.fee);
     if (!Number.isFinite(km) || !Number.isFinite(fee) || km <= 0 || fee < 0) continue;
-    tiers.push({ upToKm: km, fee: Math.round(fee * 100) / 100 });
+    const from = t.fromKm === undefined || t.fromKm === null ? Number.NaN : Number(t.fromKm);
+    tiers.push({ ...(Number.isFinite(from) && from >= 0 ? { fromKm: from } : {}), upToKm: km, fee: Math.round(fee * 100) / 100 });
   }
   return tiers.sort((a, b) => a.upToKm - b.upToKm);
 }
@@ -252,6 +253,20 @@ export function explainDeliveryFee(
     estimated: false,
     distanceKind,
   };
+}
+
+/**
+ * Por faixa, a taxa depende da distância: sem o ponto do endereço não há faixa
+ * a escolher. Cobrar a taxa base aqui daria um valor que a loja não configurou,
+ * então o checkout recusa e pede o ponto no mapa.
+ */
+export function needsMeasuredDistance(
+  settings: DeliveryFeeSettings,
+  destination: DeliveryDestination,
+): boolean {
+  if (normalizeMode(settings.feeMode) !== 'BY_DISTANCE_BAND') return false;
+  if (normalizeTiers(settings.tiers).length === 0) return false;
+  return measuredKm(settings, destination).km === null;
 }
 
 /**

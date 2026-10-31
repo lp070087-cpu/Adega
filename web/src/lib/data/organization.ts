@@ -48,6 +48,7 @@ export async function getPublicStoreBySlug(slug: string) {
       openingHours: true,
       minimumOrder: true,
       baseDeliveryFee: true,
+      deliveryFeeMode: true,
       extraKmFee: true,
       deliveryRadius: true,
       averageDeliveryTime: true,

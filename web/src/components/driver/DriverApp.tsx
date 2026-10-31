@@ -1,6 +1,6 @@
 'use client';
 
-import { Bike, Car, Footprints, MapPin, Navigation, CheckCircle2, Package, Map as MapIcon, History, UserRound } from 'lucide-react';
+import { Bike, Car, Footprints, MapPin, Navigation, CheckCircle2, Package, Map as MapIcon, Wallet, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { whatsappHref } from '@/lib/whatsapp';
@@ -17,6 +17,8 @@ import { DriverInstallCard } from '@/components/driver/DriverInstall';
 import { DriverScheduleNotice } from '@/components/driver/DriverScheduleNotice';
 import { DriverNavigation } from '@/components/driver/DriverNavigation';
 import { DriverRoutes } from '@/components/driver/DriverRoutes';
+import { DriverEarnings } from '@/components/driver/DriverEarnings';
+import type { EarningsSummary } from '@/lib/data/driver-earnings';
 import { useLiveRefresh } from '@/components/layout/LiveRefresh';
 import { requestDriverLocation, useDriverLocationPref } from '@/lib/driver-location-pref';
 
@@ -188,15 +190,17 @@ export function DriverApp({
   driver,
   store,
   orders,
+  earnings,
 }: {
   driver: DriverIdentity;
   store: DriverStore;
   orders: DriverOrder[];
+  earnings: EarningsSummary;
 }) {
   const router = useRouter();
   useLiveRefresh('/api/entregador/versao', 8000);
   const [pending, startTransition] = useTransition();
-  const [tab, setTab] = useState<'entregas' | 'rotas' | 'historico' | 'perfil'>('entregas');
+  const [tab, setTab] = useState<'entregas' | 'rotas' | 'ganhos' | 'perfil'>('entregas');
   const [navTarget, setNavTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -238,11 +242,6 @@ export function DriverApp({
     [orders],
   );
   const done = useMemo(() => orders.filter((o) => o.status === 'DELIVERED'), [orders]);
-
-  const totalRecebido = useMemo(
-    () => done.reduce((acc, o) => acc + o.total, 0),
-    [done],
-  );
 
   const doneToday = useMemo(() => {
     const today = new Date().toDateString();
@@ -368,7 +367,7 @@ export function DriverApp({
             <div className="grid grid-cols-3 gap-2.5">
               <MiniStat value={String(active.length)} label="Em aberto" />
               <MiniStat value={String(doneToday)} label="Entregues hoje" />
-              <MiniStat value={formatBRL(active.filter((o) => o.paymentStatus === 'PENDING' && o.paymentMethod === 'CASH').reduce((acc, o) => acc + o.total, 0))} label="A cobrar" />
+              <MiniStat value={formatBRL(active.filter((o) => o.paymentStatus === 'PENDING' && o.paymentMethod === 'CASH').reduce((acc, o) => acc + o.total, 0))} label="A cobrar do cliente" />
             </div>
             {active.length > 1 && <Button variant="secondary" className="w-full" onClick={() => setTab('rotas')}>Organizar a sequência no mapa</Button>}
             {active.length === 0 ? (
@@ -400,51 +399,8 @@ export function DriverApp({
           />
         )}
 
-        {/* ── HISTÓRICO ────────────────────────────────────────────── */}
-        {tab === 'historico' && (
-          <>
-            <div className="grid grid-cols-3 gap-2.5">
-              <MiniStat value={String(done.length)} label="Entregues" />
-              <MiniStat value={formatBRL(totalRecebido)} label="Total" />
-              <MiniStat value={String(active.length)} label="Em aberto" />
-            </div>
-
-            <p className="px-1 text-[0.72rem] leading-relaxed text-ink-400">
-              Suas últimas 50 entregas. Os valores são dos pedidos; repasse e comissão são
-              combinados diretamente com a loja.
-            </p>
-
-            {done.length === 0 ? (
-              <Card>
-                <EmptyState icon="📭" title="Nada entregue ainda" />
-              </Card>
-            ) : (
-              done.map((order) => (
-                <Card key={order.id} className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[0.86rem] font-bold text-ink-900">
-                        #{order.displayId} — {order.customerName}
-                      </p>
-                      <p className="mt-0.5 text-[0.74rem] text-ink-500">
-                        {order.deliveredAt
-                          ? new Date(order.deliveredAt).toLocaleString('pt-BR', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : '—'}
-                        {order.deliveryDistrict ? ` • ${order.deliveryDistrict}` : ''}
-                      </p>
-                    </div>
-                    <Badge tone="green">{formatBRL(order.total)}</Badge>
-                  </div>
-                </Card>
-              ))
-            )}
-          </>
-        )}
+        {/* ── GANHOS ───────────────────────────────────────────────── */}
+        {tab === 'ganhos' && <DriverEarnings key={done.length} initial={earnings} />}
 
         {/* ── PERFIL ───────────────────────────────────────────────── */}
         {tab === 'perfil' && (
@@ -495,7 +451,7 @@ export function DriverApp({
             [
               ['entregas', 'Entregas', Package, active.length],
               ['rotas', 'Rotas', MapIcon, 0],
-              ['historico', 'Histórico', History, 0],
+              ['ganhos', 'Ganhos', Wallet, 0],
               ['perfil', 'Perfil', UserRound, 0],
             ] as const
           ).map(([key, label, Icon, count]) => (

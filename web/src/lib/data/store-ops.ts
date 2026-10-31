@@ -1,5 +1,5 @@
 import 'server-only';
-import { tierProblems } from '@/lib/delivery-tiers';
+import { resolveTiers, tierProblems } from '@/lib/delivery-tiers';
 import { OperationError } from '@/lib/operation-error';
 import { prisma } from '@/lib/db';
 import type { Prisma } from '@prisma/client';
@@ -167,13 +167,13 @@ export async function saveDelivery(
     extraKmFee: number;
     deliveryRadius: number;
     averageDeliveryTime: number;
-    deliveryTiers: Array<{ upToKm: number; fee: number }>;
+    deliveryTiers: Array<{ fromKm?: number; upToKm: number; fee: number }>;
     deliveryFeeMode?: string;
   },
 ): Promise<void> {
-  const sorted = [...input.deliveryTiers].sort((a, b) => a.upToKm - b.upToKm);
-  const problems = tierProblems(sorted);
+  const problems = tierProblems(input.deliveryTiers);
   if (problems.length) throw new OperationError(problems[0]);
+  const sorted = resolveTiers(input.deliveryTiers);
 
   // Só os três modos conhecidos. Qualquer outra coisa volta a FIXED:
   // um valor estranho no banco não pode deixar a loja sem regra de frete.
@@ -181,6 +181,14 @@ export async function saveDelivery(
     input.deliveryFeeMode === 'BY_NEIGHBORHOOD' || input.deliveryFeeMode === 'BY_DISTANCE_BAND'
       ? input.deliveryFeeMode
       : 'FIXED';
+
+  // Faixa depende da distância até a loja: sem faixa ou sem o ponto da loja o
+  // modo não teria como calcular, e o checkout cairia numa taxa não configurada.
+  if (feeMode === 'BY_DISTANCE_BAND') {
+    if (!sorted.length) throw new OperationError('Cadastre ao menos uma faixa de entrega antes de usar este modo.');
+    const store = await prisma.organization.findUnique({ where: { id: organizationId }, select: { latitude: true, longitude: true } });
+    if (store?.latitude == null || store.longitude == null) throw new OperationError('Marque o ponto da loja no mapa antes de usar taxas por faixa de distância.');
+  }
 
   const result = await prisma.organization.updateMany({
     where: { id: organizationId },

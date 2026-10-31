@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { requireOrgPage } from '@/lib/auth/guards';
-import { aiChecklist, aiReady, assistantReady, whatsappPlatformChecklist } from '@/lib/assistant/service';
+import { aiChecklist, aiReady, assistantReady, whatsappConnectChecklist } from '@/lib/assistant/service';
 import { readAssistantPreferences } from '@/lib/assistant/preferences';
 import { AssistantPreferencesForm } from '@/components/assistant/AssistantPreferencesForm';
 import { AssistantAiToggle } from '@/components/assistant/AssistantAiToggle';
+import { WhatsAppConnect } from '@/components/assistant/WhatsAppConnect';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -25,13 +26,13 @@ export default async function WhatsAppSettings() {
   const receiving = Boolean(verified && channel?.webhookVerifiedAt);
   const ai = aiReady();
   const aiEnabled = Boolean(settings.assistant?.enabled);
-  const platform = whatsappPlatformChecklist();
+  const platform = whatsappConnectChecklist();
   const aiItems = aiChecklist();
   const platformOk = available && platform.every((item) => item.ok);
   const webhookUrl = `${process.env.APP_PUBLIC_URL ?? 'https://adega-nine.vercel.app'}/api/whatsapp/webhook`;
   const steps: Array<{ label: string; done: boolean; hint: string }> = [
-    { label: 'Plataforma pronta para o WhatsApp oficial', done: platformOk, hint: platformOk ? 'Chaves do aplicativo Meta configuradas no servidor.' : 'A equipe Del Flash precisa concluir a configuração do aplicativo Meta (detalhes abaixo).' },
-    { label: 'Número da loja conectado', done: verified, hint: verified ? 'Autorização do número confirmada na Meta.' : 'A equipe Del Flash vincula o número oficial da loja e testa a autorização na Meta.' },
+    { label: 'Plataforma pronta para o WhatsApp oficial', done: platformOk, hint: platformOk ? 'Aplicativo Meta configurado no servidor.' : 'A equipe Del Flash precisa concluir a configuração do aplicativo Meta. O botão abaixo mostra o que falta.' },
+    { label: 'Número da loja conectado', done: verified, hint: verified ? 'Autorização do número confirmada pela Meta.' : 'Entre na Meta pelo botão abaixo e escolha o número da loja. Ele só conta como conectado depois que a Meta confirmar.' },
     { label: 'Recebendo mensagens', done: receiving, hint: receiving ? 'A Meta já entregou mensagens desta loja.' : 'Fica ativo quando a primeira mensagem de um cliente chega pelo webhook.' },
     { label: 'Respostas automáticas com IA', done: ai && aiEnabled, hint: !ai ? 'Opcional. Depende da chave do serviço de IA na plataforma.' : aiEnabled ? 'Ativas.' : 'Disponíveis: ative abaixo quando quiser.' },
   ];
@@ -69,14 +70,16 @@ export default async function WhatsAppSettings() {
             </li>
           ))}
         </ol>
+        <WhatsAppConnect connected={Boolean(channel?.enabled && channel.verifiedAt)} />
         {!receiving && <p className="rounded-lg bg-ink-50 p-3 text-[0.8rem] text-ink-600">Nenhuma conexão é simulada: enquanto estas etapas não forem concluídas, o Atendimento não mostra conversas.</p>}
         {!platformOk && (
           <details className="rounded-lg border border-ink-100 p-3 text-[0.8rem]" data-testid="whatsapp-missing">
-            <summary className="cursor-pointer font-semibold text-ink-800">Detalhes para a equipe da plataforma</summary>
+            <summary className="cursor-pointer font-semibold text-ink-800">Instruções para a equipe da plataforma</summary>
             <ul className="mt-2 space-y-1">
               {platform.map((item) => <li key={item.key}>{item.ok ? '✓' : '✗'} {item.label} <code className="text-[0.72rem] text-ink-500">{item.key}</code></li>)}
               {aiItems.map((item) => <li key={item.key}>{item.ok ? '✓' : '○'} {item.label} (opcional) <code className="text-[0.72rem] text-ink-500">{item.key}</code></li>)}
             </ul>
+            <p className="mt-2 text-ink-500">Crie um aplicativo do tipo Empresa em developers.facebook.com, adicione o produto WhatsApp e o Login do Facebook para Empresas, crie uma configuração de Embedded Signup e copie os valores para as variáveis acima na Vercel.</p>
             <p className="mt-2 text-ink-500">URL do webhook na Meta: <code className="break-all">{webhookUrl}</code> · campo assinado: <code>messages</code>.</p>
           </details>
         )}

@@ -212,8 +212,10 @@ export const weekScheduleSchema = z
 
 /** Faixa de frete por distância (passo 3.15). */
 export const deliveryTierSchema = z.object({
-  /** Limite superior da faixa, em km. */
-  upToKm: z.number().min(0.5).max(200),
+  /** Limite inferior (exclusivo) da faixa, em km. Ausente em faixas antigas. */
+  fromKm: z.number().min(0).max(200).optional(),
+  /** Limite superior (inclusivo) da faixa, em km. */
+  upToKm: z.number().min(0.1).max(200),
   fee: moneySchema,
 });
 
@@ -269,7 +271,7 @@ export const completeOnboardingV3Schema = completeOnboardingV2Schema
     allowPickup: z.boolean().default(true),
     allowOwnDelivery: z.boolean().default(true),
     allowMarketplace: z.boolean().default(false),
-    deliveryTiers: z.array(deliveryTierSchema).max(10).default([]),
+    deliveryTiers: z.array(deliveryTierSchema).max(50).default([]),
 
     // ── Horários (3.16) ──
     schedule: weekScheduleSchema,

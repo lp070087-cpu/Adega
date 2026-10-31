@@ -10,6 +10,9 @@ import { getOrganizationById } from '@/lib/data/organization';
 import { DriverSelectionRule } from '@/components/drivers/DriverSelectionRule';
 import { readDriverSelectionRule } from '@/lib/driver-selection';
 import { driverStorePath, publicOrigin } from '@/lib/data/driver-link';
+import { getDriverEarnings } from '@/lib/data/driver-earnings';
+import { readDriverPayRule } from '@/lib/driver-earnings';
+import { DriverEarnings } from '@/components/driver/DriverEarnings';
 
 export const metadata = { title: 'Entregadores' };
 export const dynamic = 'force-dynamic';
@@ -23,10 +26,11 @@ export default async function DriversPage() {
   const [organization, origin] = await Promise.all([getOrganizationById(ctx.organizationId), publicOrigin()]);
   const linkUrl = organization && origin ? `${origin}${driverStorePath(organization.slug)}` : null;
 
-  const [driversRaw, summary, settings] = await Promise.all([
+  const [driversRaw, summary, settings, earnings] = await Promise.all([
     getDrivers(ctx.organizationId),
     getDriverSummary(ctx.organizationId),
     getDriverSchedules(ctx.organizationId),
+    getDriverEarnings(ctx.organizationId, null, 'today'),
   ]);
 
   const drivers: DriverRow[] = driversRaw.map((driver) => ({
@@ -66,6 +70,7 @@ export default async function DriversPage() {
         }}
         canManage={can(ctx.role, 'MANAGE_DRIVERS')}
         linkUrl={linkUrl}
+        earningsSlot={<DriverEarnings store initial={earnings} rule={readDriverPayRule(organization?.settings)} />}
         scheduleSlot={<div className="space-y-4"><DriverSelectionRule rule={readDriverSelectionRule(organization?.settings)} /><DriverScheduleManager drivers={drivers} schedules={Object.fromEntries(drivers.map(driver => [driver.id, readDriverSchedule(settings, driver.id)]))} /></div>}
       />
     </div>

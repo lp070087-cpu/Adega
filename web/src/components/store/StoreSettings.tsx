@@ -13,7 +13,7 @@ import {
   updateOrganizationAction,
 } from '@/app/actions/organization';
 import { BR_UFS } from '@/lib/br-ufs';
-import { maxTierKm, sortTiers, tierForDistance, tierLabel, tierProblems } from '@/lib/delivery-tiers';
+import { MAX_DELIVERY_TIERS, maxTierKm, resolveTiers, tierForDistance, tierLabel, tierProblems } from '@/lib/delivery-tiers';
 import {
   saveDeliveryAction,
   saveScheduleAction,
@@ -98,7 +98,7 @@ export type StoreFormData = {
    * que permite saber se a loja está aberta agora.
    */
   schedule: WeekdaySchedule[];
-  deliveryTiers: Array<{ upToKm: number; fee: number }>;
+  deliveryTiers: Array<{ fromKm?: number; upToKm: number; fee: number }>;
   deliveryFeeMode: 'FIXED' | 'BY_NEIGHBORHOOD' | 'BY_DISTANCE_BAND';
   deliveryZones: Array<{
     id: string;
@@ -778,7 +778,7 @@ export function StoreSettings({
             <DeliveryAreaMap
               latitude={form.latitude}
               longitude={form.longitude}
-              radiusKm={form.deliveryRadius}
+              radiusKm={form.deliveryFeeMode === 'BY_DISTANCE_BAND' ? maxTierKm(form.deliveryTiers) ?? form.deliveryRadius : form.deliveryRadius}
               zones={form.deliveryZones}
               canManage={canManage}
               addressReady={Boolean(form.address && form.city && form.state)}
@@ -811,8 +811,8 @@ export function StoreSettings({
               )}
               {form.deliveryFeeMode === 'BY_DISTANCE_BAND' && (
                 <>
-                  O frete sai da faixa que alcança a distância do endereço. Sem faixas cadastradas,
-                  vale a taxa base.
+                  O frete sai da faixa que alcança a distância do endereço, medida a partir do
+                  ponto da loja. O cliente precisa marcar o endereço no mapa para fechar o pedido.
                 </>
               )}
             </Alert>
@@ -824,7 +824,7 @@ export function StoreSettings({
                   : 'Você ainda não definiu horários.'}
               </p>
               <Button loading={pending} onClick={saveDelivery} disabled={!canManage}>
-                Salvar entrega
+                Salvar alterações
               </Button>
             </div>
           </>
@@ -895,87 +895,128 @@ function Modality({
 /**
  * Faixas de frete por distância.
  *
- * Edição por lista, sem drag-and-drop: subir/descer e remover. A ordenação
- * final é feita no servidor (por km crescente), porque uma faixa fora de
- * ordem daria um frete errado — e o cliente não deve poder causar isso.
+ * Cada faixa é editada num formulário próprio, com texto cru nos campos: ligar
+ * o campo direto ao número impedia digitar "2,5" (o "2," virava 2). A faixa só
+ * entra na lista depois de conferida; a lista só vai ao banco em "Salvar
+ * alterações", e o servidor valida tudo de novo.
  */
+type Tier = { fromKm?: number; upToKm: number; fee: number };
+type TierDraft = { index: number | null; fromKm: string; upToKm: string; fee: string };
+
+const kmNumber = (value: string) => (value.trim() === '' ? Number.NaN : Number(value.replace(',', '.')));
+const kmField = (value: number) => String(value).replace('.', ',');
+
 function DeliveryTiers({
   tiers,
   onChange,
   disabled,
 }: {
-  tiers: Array<{ upToKm: number; fee: number }>;
-  onChange: (next: Array<{ upToKm: number; fee: number }>) => void;
+  tiers: Tier[];
+  onChange: (next: Tier[]) => void;
   disabled?: boolean;
 }) {
   const [previewKm, setPreviewKm] = useState('3');
-  const problems = tierProblems(tiers);
-  const sorted = sortTiers(tiers);
-  const max = maxTierKm(tiers);
-  const km = Number(previewKm.replace(',', '.'));
-  const preview = Number.isFinite(km) && km >= 0 && tiers.length ? tierForDistance(tiers, km) : null;
-  const update = (index: number, patch: Partial<{ upToKm: number; fee: number }>) => onChange(tiers.map((t, i) => (i === index ? { ...t, ...patch } : t)));
+  const [draft, setDraft] = useState<TierDraft | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const sorted = resolveTiers(tiers);
+  const problems = tierProblems(sorted);
+  const max = maxTierKm(sorted);
+  const km = kmNumber(previewKm);
+  const preview = Number.isFinite(km) && km >= 0 && sorted.length ? tierForDistance(sorted, km) : null;
+
+  function openNew() {
+    const last = sorted[sorted.length - 1];
+    setDraftError(null);
+    setDraft({ index: null, fromKm: last ? kmField(last.upToKm) : '0', upToKm: '', fee: '' });
+  }
+  function openEdit(index: number) {
+    const tier = sorted[index];
+    setDraftError(null);
+    setDraft({ index, fromKm: kmField(tier.fromKm), upToKm: kmField(tier.upToKm), fee: money(tier.fee) });
+  }
+  function confirmDraft() {
+    if (!draft) return;
+    const candidate = { fromKm: kmNumber(draft.fromKm), upToKm: kmNumber(draft.upToKm), fee: parseMoney(draft.fee) };
+    if (!Number.isFinite(candidate.fromKm) || !Number.isFinite(candidate.upToKm)) return setDraftError('Informe a distância mínima e a máxima em km.');
+    if (!Number.isFinite(candidate.fee)) return setDraftError('Informe o valor da taxa.');
+    const next = draft.index === null ? [...sorted, candidate] : sorted.map((tier, i) => (i === draft.index ? candidate : tier));
+    const found = tierProblems(next);
+    if (found.length) return setDraftError(found.join(' '));
+    onChange(resolveTiers(next));
+    setDraft(null);
+  }
+
   return (
     <div className="mt-2 rounded-xl border border-ink-200 p-3.5" data-testid="delivery-tiers">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-[0.88rem] font-semibold text-ink-900">Taxas por faixa de distância</p>
-          <p className="text-[0.76rem] text-ink-500">Cada faixa vale de onde a anterior termina até o limite informado. A última faixa é a distância máxima atendida.</p>
+          <p className="text-[0.76rem] text-ink-500">Cada faixa vale acima da distância mínima até a máxima, inclusive. A primeira começa em 0 km e a última é o limite atendido.</p>
         </div>
-        <Button type="button" variant="secondary" size="sm" className="min-h-10" disabled={disabled || tiers.length >= 10} onClick={() => onChange(sortTiers([...tiers, { upToKm: tierSuggestion(sorted), fee: sorted.length ? sorted[sorted.length - 1].fee : 0 }]))}>
-          + Adicionar faixa
+        <Button type="button" variant="secondary" size="sm" className="min-h-10" disabled={disabled || tiers.length >= MAX_DELIVERY_TIERS || draft !== null} onClick={openNew}>
+          Adicionar faixa de entrega
         </Button>
       </div>
 
-      {tiers.length === 0 ? (
-        <p className="rounded-lg bg-ink-50 px-3 py-3 text-[0.8rem] text-ink-500">Nenhuma faixa ainda. Até cadastrar, vale a taxa base.</p>
+      {sorted.length === 0 ? (
+        !draft && <p className="rounded-lg bg-ink-50 px-3 py-3 text-[0.8rem] text-ink-500">Nenhuma faixa ainda. Adicione a primeira, começando em 0 km.</p>
       ) : (
-        <ul className="space-y-2">
-          {tiers.map((tier, index) => {
-            const position = sorted.indexOf(tier);
-            return (
-              <li key={index} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2 rounded-lg bg-ink-50/60 p-2.5 sm:grid-cols-[minmax(0,1.3fr)_8rem_9rem_auto]" data-testid="tier-row">
-                <p className="col-span-3 text-[0.78rem] font-semibold text-ink-700 sm:col-span-1 sm:self-center">{position >= 0 && tier.upToKm > 0 ? tierLabel(tiers, position) : 'Faixa incompleta'}</p>
-                <div>
-                  <label className="field-label" htmlFor={`tier-km-${index}`}>Até (km)</label>
-                  <Input id={`tier-km-${index}`} value={String(tier.upToKm || '')} onChange={(e) => update(index, { upToKm: Number(e.target.value.replace(',', '.')) || 0 })} onBlur={() => onChange(sortTiers(tiers))} inputMode="decimal" disabled={disabled} className="!py-1.5 text-[0.86rem]" />
-                </div>
-                <div>
-                  <label className="field-label" htmlFor={`tier-fee-${index}`}>Taxa</label>
-                  <MoneyInput id={`tier-fee-${index}`} value={money(tier.fee)} onChange={(e) => update(index, { fee: parseMoney(e.target.value) })} disabled={disabled} className="!py-1.5 text-[0.86rem]" />
-                </div>
-                <button type="button" disabled={disabled} onClick={() => onChange(tiers.filter((_, i) => i !== index))} className="min-h-10 rounded-lg px-2.5 text-[0.76rem] font-semibold text-ink-500 hover:bg-white hover:text-danger disabled:opacity-50" aria-label={`Remover faixa de ${tier.upToKm} km`}>
-                  Remover
-                </button>
-              </li>
-            );
-          })}
+        <ul className="divide-y divide-ink-100 rounded-lg border border-ink-100">
+          {sorted.map((tier, index) => (
+            <li key={`${tier.fromKm}-${tier.upToKm}`} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2" data-testid="tier-row">
+              <span className="min-w-0 text-[0.84rem] font-semibold text-ink-800">{tierLabel(sorted, index)}</span>
+              <span className="ml-auto flex items-center gap-1">
+                <strong className="mr-1 text-[0.86rem] text-ink-900">{formatBRL(tier.fee)}</strong>
+                <button type="button" disabled={disabled || draft !== null} onClick={() => openEdit(index)} className="min-h-10 rounded-lg px-2.5 text-[0.76rem] font-semibold text-brand hover:bg-brand-light disabled:opacity-50" aria-label={`Editar faixa ${tierLabel(sorted, index)}`}>Editar</button>
+                <button type="button" disabled={disabled || draft !== null} onClick={() => onChange(sorted.filter((_, i) => i !== index))} className="min-h-10 rounded-lg px-2.5 text-[0.76rem] font-semibold text-ink-500 hover:bg-ink-50 hover:text-danger disabled:opacity-50" aria-label={`Excluir faixa ${tierLabel(sorted, index)}`}>Excluir</button>
+              </span>
+            </li>
+          ))}
         </ul>
+      )}
+
+      {draft && (
+        <div className="mt-2.5 rounded-lg bg-ink-50/70 p-3" data-testid="tier-form">
+          <p className="mb-2 text-[0.8rem] font-semibold text-ink-800">{draft.index === null ? 'Nova faixa' : 'Editar faixa'}</p>
+          <div className="grid gap-2.5 sm:grid-cols-3">
+            <div>
+              <label className="field-label" htmlFor="tier-from">Distância mínima (km)</label>
+              <Input id="tier-from" value={draft.fromKm} onChange={(e) => setDraft({ ...draft, fromKm: e.target.value })} inputMode="decimal" />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="tier-to">Distância máxima (km)</label>
+              <Input id="tier-to" value={draft.upToKm} onChange={(e) => setDraft({ ...draft, upToKm: e.target.value })} inputMode="decimal" />
+            </div>
+            <div>
+              <label className="field-label" htmlFor="tier-fee">Valor da taxa</label>
+              <MoneyInput id="tier-fee" value={draft.fee} onChange={(e) => setDraft({ ...draft, fee: e.target.value })} />
+            </div>
+          </div>
+          {draftError && <div className="mt-2.5"><Alert tone="danger">{draftError}</Alert></div>}
+          <div className="mt-2.5 flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" className="min-h-10" onClick={() => setDraft(null)}>Cancelar</Button>
+            <Button type="button" size="sm" className="min-h-10" onClick={confirmDraft}>Confirmar faixa</Button>
+          </div>
+        </div>
       )}
 
       {problems.length > 0 && <div className="mt-2.5"><Alert tone="danger">{problems.join(' ')}</Alert></div>}
       {max !== null && problems.length === 0 && <p className="mt-2.5 text-[0.78rem] text-ink-600">Distância máxima atendida: <strong>{max.toLocaleString('pt-BR')} km</strong>. Endereços além disso são recusados no checkout.</p>}
 
-      {tiers.length > 0 && problems.length === 0 && (
+      {sorted.length > 0 && problems.length === 0 && (
         <div className="mt-3 flex flex-wrap items-end gap-3 rounded-lg border border-dashed border-ink-200 p-3" data-testid="tier-preview">
           <div className="w-32">
             <label className="field-label" htmlFor="tier-preview-km">Testar distância (km)</label>
             <Input id="tier-preview-km" value={previewKm} onChange={(e) => setPreviewKm(e.target.value)} inputMode="decimal" className="!py-1.5 text-[0.86rem]" />
           </div>
           <p className="min-w-0 flex-1 text-[0.82rem] text-ink-700" aria-live="polite">
-            {!preview ? 'Informe uma distância.' : preview.outside ? <><strong className="text-danger">Fora da área</strong> — acima de {max?.toLocaleString('pt-BR')} km.</> : <>Taxa: <strong>{formatBRL(preview.tier!.fee)}</strong> ({tierLabel(tiers, sorted.indexOf(preview.tier!)).toLowerCase()}).</>}
+            {!preview ? 'Informe uma distância.' : preview.outside ? <><strong className="text-danger">Fora da área</strong> — acima de {max?.toLocaleString('pt-BR')} km.</> : <>Taxa: <strong>{formatBRL(preview.tier!.fee)}</strong> ({tierLabel(sorted, sorted.findIndex((t) => t.upToKm === preview.tier!.upToKm)).toLowerCase()}).</>}
           </p>
           <p className="w-full text-[0.72rem] text-ink-500">No pedido, a distância é medida pelas ruas quando o serviço de rotas está ativo; sem ele, em linha reta a partir do ponto da loja.</p>
         </div>
       )}
     </div>
   );
-}
-
-/** Próximo limite sugerido, para não repetir a mesma faixa. */
-function tierSuggestion(tiers: Array<{ upToKm: number }>): number {
-  const last = tiers[tiers.length - 1];
-  return last ? Math.round((last.upToKm + 2) * 10) / 10 : 3;
 }
 
 function parseMoney(value: string): number {return parseMoneyInput(value)??Number.NaN;}

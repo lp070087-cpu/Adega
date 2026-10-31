@@ -35,7 +35,7 @@ export default async function PaymentsSettingsPage() {
       </section>
 
       <section className="rounded-xl border bg-white p-5">
-        <OnlinePaymentForm enabled={online.enabled} environment={online.environment} provider={online.provider} configured={Boolean(online.encrypted)} usable={onlinePaymentUsable(online)} webhookUrls={{ asaas: `${app}/api/webhooks/pedidos/asaas/${organization?.slug ?? ''}`, mercadopago: `${app}/api/webhooks/pedidos/mercadopago/${organization?.slug ?? ''}` }} />
+        <OnlinePaymentForm enabled={online.enabled} environment={online.environment} provider={online.provider} configured={Boolean(online.encrypted)} usable={onlinePaymentUsable(online)} verified={Boolean(online.verifiedAt)} webhookUrls={{ asaas: `${app}/api/webhooks/pedidos/asaas/${organization?.slug ?? ''}`, mercadopago: `${app}/api/webhooks/pedidos/mercadopago/${organization?.slug ?? ''}` }} />
       </section>
     </div>
   );

@@ -1,6 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { maxTierKm, tierForDistance, tierLabel, tierProblems } from '../src/lib/delivery-tiers';
+import { maxTierKm, resolveTiers, tierForDistance, tierLabel, tierProblems } from '../src/lib/delivery-tiers';
+
+test('distância mínima explícita: faixas contínuas passam; buraco, sobreposição e inversão são recusados', () => {
+  const four = [{ fromKm: 0, upToKm: 2, fee: 5 }, { fromKm: 2, upToKm: 5, fee: 8 }, { fromKm: 5, upToKm: 8, fee: 12 }, { fromKm: 8, upToKm: 12, fee: 18 }];
+  assert.deepEqual(tierProblems(four), []);
+  assert.deepEqual([0, 2, 2.01, 5, 5.01, 8, 8.01, 12].map((km) => tierForDistance(four, km).tier?.fee), [5, 5, 8, 8, 12, 12, 18, 18]);
+  assert.equal(tierForDistance(four, 12.01).outside, true);
+  assert.match(tierProblems([four[0], four[2]]).join(), /Falta uma faixa entre 2 e 5 km/);
+  assert.match(tierProblems([four[0], { fromKm: 1, upToKm: 5, fee: 8 }]).join(), /sobrepõem/);
+  assert.match(tierProblems([{ fromKm: 1, upToKm: 2, fee: 5 }]).join(), /começar em 0 km/);
+  assert.match(tierProblems([{ fromKm: 0, upToKm: 2, fee: 5 }, { fromKm: 2, upToKm: 2.5, fee: 6 }, { fromKm: 4, upToKm: 3, fee: 7 }]).join(), /terminar depois de começar/);
+  assert.equal(tierProblems(Array.from({ length: 51 }, (_, i) => ({ fromKm: i, upToKm: i + 1, fee: 1 }))).length, 1);
+});
+
+test('faixas já gravadas só com o limite superior continuam valendo', () => {
+  const legacy = [{ upToKm: 5, fee: 8 }, { upToKm: 2, fee: 5 }];
+  assert.deepEqual(tierProblems(legacy), []);
+  assert.deepEqual(resolveTiers(legacy), [{ fromKm: 0, upToKm: 2, fee: 5 }, { fromKm: 2, upToKm: 5, fee: 8 }]);
+});
 
 const tiers = [{ upToKm: 4, fee: 8 }, { upToKm: 2, fee: 5 }, { upToKm: 8, fee: 16 }, { upToKm: 6, fee: 12 }];
 

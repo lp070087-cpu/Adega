@@ -40,6 +40,14 @@ async function call<T>(config: FiscalProviderConfig, path: string, init: { metho
   return { status: response.status, data };
 }
 
+/** Autentica no provedor consultando uma nota inexistente: 404 prova que o token foi aceito. */
+export async function testFiscalProvider(config: FiscalProviderConfig) {
+  if (!config.encrypted) throw new Error('Salve o token do provedor antes de testar.');
+  const { status } = await call<unknown>(config, '/v2/nfce/delflash-teste-conexao');
+  if (status >= 500) throw new Error(`O provedor fiscal respondeu HTTP ${status}.`);
+  return config.environment === 'producao' ? 'Token aceito pelo provedor em produção.' : 'Token aceito pelo provedor em homologação.';
+}
+
 export async function readFiscalDocument(orderId: string) {
   const row = await prisma.platformSetting.findUnique({ where: { key: docKey(orderId) } });
   return (row?.value as FiscalDocument | undefined) ?? null;

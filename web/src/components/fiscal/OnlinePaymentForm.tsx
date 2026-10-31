@@ -1,15 +1,24 @@
 'use client';
 
-import { startTransition, useActionState, useEffect, useState } from 'react';
+import { startTransition, useActionState, useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { saveOnlinePaymentAction } from '@/app/actions/fiscal';
+import { saveOnlinePaymentAction, testOnlinePaymentAction } from '@/app/actions/fiscal';
 
 type Provider = 'asaas' | 'mercadopago';
 
-export function OnlinePaymentForm({ enabled, environment, provider: initialProvider, configured, usable, webhookUrls }: { enabled: boolean; environment: 'sandbox' | 'production'; provider: Provider; configured: boolean; usable: boolean; webhookUrls: Record<Provider, string> }) {
+export function OnlinePaymentForm({ enabled, environment, provider: initialProvider, configured, usable, verified, webhookUrls }: { enabled: boolean; environment: 'sandbox' | 'production'; provider: Provider; configured: boolean; usable: boolean; verified: boolean; webhookUrls: Record<Provider, string> }) {
   const [state, action, pending] = useActionState(saveOnlinePaymentAction, null);
   const [provider, setProvider] = useState<Provider>(initialProvider);
   const router = useRouter();
+  const [testing, startTest] = useTransition();
+  const [test, setTest] = useState<{ ok: boolean; message: string } | null>(null);
+  const runTest = () => {
+    setTest(null);
+    startTest(async () => {
+      setTest(await testOnlinePaymentAction().catch(() => ({ ok: false, message: 'Sem resposta do servidor. Tente novamente.' })));
+      router.refresh();
+    });
+  };
   useEffect(() => { if (state?.ok) router.refresh(); }, [state, router]);
   const keep = configured && provider === initialProvider;
   const name = provider === 'mercadopago' ? 'Mercado Pago' : 'Asaas';
@@ -17,7 +26,7 @@ export function OnlinePaymentForm({ enabled, environment, provider: initialProvi
     <form action={action} onSubmit={(e) => { e.preventDefault(); const data = new FormData(e.currentTarget); startTransition(() => action(data)); }} className="space-y-3" data-testid="online-payment-form">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold text-ink-900">Pagamento online no pedido (Pix e cartão)</h3>
-        <span className={`rounded-full px-3 py-1 text-[0.74rem] font-bold ${usable ? 'bg-success-bg text-success' : 'bg-ink-100 text-ink-600'}`} data-testid="online-payment-status">{usable ? `Ativo · ${initialProvider === 'mercadopago' ? 'Mercado Pago' : 'Asaas'} · ${environment === 'sandbox' ? 'teste' : 'produção'}` : 'Desativado'}</span>
+        <span className={`rounded-full px-3 py-1 text-[0.74rem] font-bold ${usable && verified ? 'bg-success-bg text-success' : usable ? 'bg-warn-bg text-warn' : 'bg-ink-100 text-ink-600'}`} data-testid="online-payment-status">{usable ? `${verified ? 'Ativo' : 'Credencial não confirmada'} · ${initialProvider === 'mercadopago' ? 'Mercado Pago' : 'Asaas'} · ${environment === 'sandbox' ? 'teste' : 'produção'}` : 'Desativado'}</span>
       </div>
       <fieldset className="grid gap-2 sm:grid-cols-2" aria-label="Provedor de pagamento">
         {(['mercadopago', 'asaas'] as const).map((p) => (
@@ -53,7 +62,9 @@ export function OnlinePaymentForm({ enabled, environment, provider: initialProvi
       {state?.webhookToken && <p className="rounded-lg border border-warn/40 bg-warn-bg p-3 text-[0.8rem] text-ink-800" data-testid="webhook-token">Token do webhook (copie agora, ele não será exibido de novo): <code className="break-all font-mono">{state.webhookToken}</code></p>}
       <div className="flex flex-wrap items-center gap-3">
         <button type="submit" disabled={pending} className="min-h-11 rounded-xl bg-brand px-5 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-60">{pending ? 'Salvando…' : 'Salvar pagamento online'}</button>
+        {configured && <button type="button" onClick={runTest} disabled={testing || pending} className="min-h-11 rounded-xl border border-ink-200 px-5 text-sm font-bold text-ink-800 hover:bg-ink-50 disabled:opacity-60">{testing ? 'Testando…' : 'Testar conexão'}</button>}
         {state && <p role="status" className={`text-[0.8rem] ${state.ok ? 'text-success' : 'text-danger'}`}>{state.message}</p>}
+        {test && <p role="status" data-testid="online-payment-test" className={`text-[0.8rem] ${test.ok ? 'text-success' : 'text-danger'}`}>{test.message}</p>}
       </div>
     </form>
   );

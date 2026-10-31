@@ -322,6 +322,7 @@ model Organization {
   orders             Order[]
   drivers            Driver[]
   deliveries         Delivery[]
+  driverEarnings     DriverEarning[]
   employees          Employee[]
   cashRegisters      CashRegister[]
   inventoryMovements InventoryMovement[]
@@ -951,6 +952,7 @@ model Order {
   driver           Driver?           @relation(fields: [driverId], references: [id], onDelete: SetNull)
   items            OrderItem[]
   delivery         Delivery?
+  driverEarning    DriverEarning?
   cashTransactions CashTransaction[]
   portalLink       CustomerPortalOrder?
 
@@ -1023,10 +1025,34 @@ model Driver {
   locations    DriverLocation[]
   deliveries   Delivery[]
   orders       Order[]
+  earnings     DriverEarning[]
 
   @@index([organizationId, status])
   @@index([organizationId, active])
   @@unique([organizationId, userId])
+}
+
+/// Ganho do entregador por entrega concluída. Um por pedido: o índice único em
+/// orderId é o que impede lançamento duplicado. Valor e regra ficam congelados
+/// no momento da conclusão.
+model DriverEarning {
+  id               String   @id @default(cuid())
+  organizationId   String
+  driverId         String
+  orderId          String   @unique
+  amountCents      Int
+  /// Taxa cobrada do cliente naquele pedido. Referência, não é o ganho.
+  deliveryFeeCents Int
+  ruleSnapshot     Json
+  completedAt      DateTime
+  createdAt        DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  driver       Driver       @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, completedAt])
+  @@index([organizationId, driverId, completedAt])
 }
 
 /// Histórico de posições. A última linha é a posição atual do entregador

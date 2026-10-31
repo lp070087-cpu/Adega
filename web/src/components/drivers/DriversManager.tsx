@@ -82,12 +82,14 @@ export function DriversManager({
   canManage,
   linkUrl,
   scheduleSlot,
+  earningsSlot,
 }: {
   drivers: DriverRow[];
   summary: DriverSummaryView;
   canManage: boolean;
   linkUrl: string | null;
   scheduleSlot?: React.ReactNode;
+  earningsSlot?: React.ReactNode;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -102,7 +104,7 @@ export function DriversManager({
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'online' | 'offline' | 'suspended'>('all');
-  const [tab, setTab] = useState<'team' | 'schedule' | 'access'>('team');
+  const [tab, setTab] = useState<'team' | 'earnings' | 'schedule' | 'access'>('team');
 
   const [editing, setEditing] = useState<DriverRow | null>(null);
   const [creating, setCreating] = useState(false);
@@ -316,8 +318,8 @@ export function DriversManager({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="grid grid-cols-3 gap-1 rounded-lg bg-ink-100 p-1" role="tablist" aria-label="Seções de entregadores">
-          {([['team', 'Equipe'], ['schedule', 'Escala semanal'], ['access', 'Acesso ao app']] as const).map(([key, label]) => (
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-ink-100 p-1 sm:grid-cols-4" role="tablist" aria-label="Seções de entregadores">
+          {([['team', 'Equipe'], ['earnings', 'Financeiro'], ['schedule', 'Escala semanal'], ['access', 'Acesso ao app']] as const).map(([key, label]) => (
             <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={`min-h-11 rounded-md px-3 text-[0.78rem] font-bold transition-colors ${tab === key ? 'bg-white text-brand shadow-xs' : 'text-ink-600 hover:text-ink-900'}`}>{label}</button>
           ))}
         </div>
@@ -340,6 +342,7 @@ export function DriversManager({
       )}
 
       {tab === 'schedule' && scheduleSlot}
+      {tab === 'earnings' && earningsSlot}
 
       {tab === 'team' && (
       <Card>

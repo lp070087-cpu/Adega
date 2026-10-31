@@ -8,6 +8,7 @@ import { onlyDigits } from '@/lib/utils';
 import { normalizeSchedule, storeOpenState } from '@/lib/schedule';
 import { deductOrderStock, restoreOrderStock } from '@/lib/data/inventory';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
+import { recordDriverEarning } from '@/lib/data/driver-earnings';
 import { readAutoAccept } from '@/lib/order-flow';
 import { portalVerifiedFilter } from '@/lib/customer-portal/mail';
 import { registerOrderInCash } from '@/lib/data/cash';
@@ -17,6 +18,7 @@ import { syncOrderLoyalty, applyCampaignBenefit } from '@/lib/data/growth';
 import {
   calculateDeliveryFee,
   isOutsideDeliveryArea,
+  needsMeasuredDistance,
   normalizeTiers,
 } from '@/lib/data/delivery-fee';
 import type { OrderStatus as DriverActiveStatus } from '@prisma/client';
@@ -490,6 +492,15 @@ export async function createOrderFromCheckout(
     }
   }
 
+  if (!isPickup && !customer.source && needsMeasuredDistance(feeSettings, {
+    latitude: customer.deliveryLatitude,
+    longitude: customer.deliveryLongitude,
+    district: customer.deliveryDistrict,
+    roadKm,
+  })) {
+    throw new CheckoutError('Marque o endereço no mapa para calcular a taxa de entrega.', 'deliveryAddress');
+  }
+
   const deliveryFee = isPickup
     ? 0
     : calculateDeliveryFee(feeSettings, {
@@ -840,6 +851,7 @@ export async function updateOrderStatus(
   if (status === 'DELIVERED') {
     await tx.delivery.updateMany({ where: { organizationId, orderId }, data: { status: 'DELIVERED', deliveredAt: now } });
     if (order.paymentMethod) await registerOrderInCash(organizationId, orderId, order.paymentMethod, toNumber(order.total), tx);
+    await recordDriverEarning(tx, organizationId, orderId);
   }
   if (order.driverId && ['CANCELLED', 'DELIVERED'].includes(status)) {
     const other = await tx.order.count({ where: { organizationId, driverId: order.driverId, id: { not: orderId }, status: { in: DRIVER_ACTIVE_STATUSES } } });

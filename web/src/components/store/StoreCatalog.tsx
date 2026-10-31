@@ -95,6 +95,7 @@ export type StoreInfo = {
   openingHours: string | null;
   minimumOrder: number;
   baseDeliveryFee: number;
+  deliveryFeeMode?: string | null;
   extraKmFee: number;
   averageDeliveryTime: number | null;
   allowPickup: boolean;
@@ -450,8 +451,11 @@ export function StoreCatalog({
       if (ticket === quoteTicket.current) setQuote(result.ok ? result : null);
     }).catch(() => undefined);
   }, [store.slug]);
+  // Por faixa, a taxa só existe depois do ponto no mapa: a taxa base não vale aqui.
+  const feeByDistance = store.deliveryFeeMode === 'BY_DISTANCE_BAND';
+  const feeAwaitingPoint = feeByDistance && deliveryType === 'DELIVERY' && !quote;
   const deliveryFee =
-    cart.length > 0 && deliveryType === 'DELIVERY' ? quote?.fee ?? store.baseDeliveryFee : 0;
+    cart.length > 0 && deliveryType === 'DELIVERY' ? quote?.fee ?? (feeByDistance ? 0 : store.baseDeliveryFee) : 0;
   const total = subtotal + deliveryFee;
   const belowMinimum = cart.length > 0 && subtotal < store.minimumOrder;
   const missingForMinimum = Math.max(0, store.minimumOrder - subtotal);
@@ -948,9 +952,11 @@ export function StoreCatalog({
                 <dd className="font-semibold text-ink-800">
                   {deliveryType === 'PICKUP'
                     ? 'Retirada no local'
-                    : deliveryFee > 0
-                      ? formatBRL(deliveryFee)
-                      : 'a combinar'}
+                    : feeAwaitingPoint
+                      ? 'marque no mapa'
+                      : deliveryFee > 0
+                        ? formatBRL(deliveryFee)
+                        : 'a combinar'}
                 </dd>
               </div>
               <div className="flex justify-between border-t border-ink-100 pt-1.5 text-[0.92rem]">
@@ -1019,7 +1025,9 @@ export function StoreCatalog({
                   onClick={() => setDeliveryType('DELIVERY')}
                   title="Entrega"
                   hint={
-                    store.baseDeliveryFee > 0
+                    feeByDistance
+                      ? 'Taxa pela distância'
+                      : store.baseDeliveryFee > 0
                       ? `Taxa ${formatBRL(store.baseDeliveryFee)}`
                       : 'Combinada com a loja'
                   }
@@ -1100,6 +1108,8 @@ export function StoreCatalog({
                   if (fields.state) setDeliveryUf(fields.state);
                 }}
               />
+
+              {feeAwaitingPoint && <p role="status" data-testid="delivery-quote-pending" className="-mt-1 mb-3 rounded-lg bg-ink-50 px-3 py-2 text-[0.8rem] text-ink-700">Marque o endereço no mapa para calcular a taxa de entrega.</p>}
 
               {quote && (
                 <p role="status" data-testid="delivery-quote" className={cn('-mt-1 mb-3 rounded-lg px-3 py-2 text-[0.8rem]', quote.outside ? 'bg-danger-bg font-semibold text-danger' : 'bg-ink-50 text-ink-700')}>

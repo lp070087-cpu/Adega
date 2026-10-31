@@ -30,7 +30,7 @@ export async function saveFiscalProfileAction(_prev: { ok: boolean; message: str
 export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: string; webhookToken?: string } | null, form: FormData) {
   try {
     const ctx = await requirePermission('MANAGE_SETTINGS');
-    const { readOnlinePayment, sealSecrets, newWebhookToken } = await import('@/lib/order-payments');
+    const { checkPaymentCredential, readOnlinePayment, sealSecrets, newWebhookToken } = await import('@/lib/order-payments');
     const { decryptJson } = await import('@/lib/crypto');
     const enabled = form.get('enabled') === 'on';
     const environment = form.get('environment') === 'production' ? 'production' : 'sandbox';
@@ -38,11 +38,17 @@ export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: str
     const field = (name: string) => String(form.get(name) ?? '').trim();
     const regenerate = form.get('regenerate') === 'on';
     let shownToken: string | undefined;
+    // Credencial nova vai ao provedor antes de gravar: recusada não é salva.
+    const typedSecret = provider === 'mercadopago' ? field('accessToken') : field('apiKey');
+    const check = typedSecret ? await checkPaymentCredential(provider, environment, typedSecret) : null;
+    if (check?.status === 'rejected') throw new Error(`${check.detail} Nada foi salvo.`);
+    let verifiedAt: string | undefined;
     await withOrganizationTransaction(ctx.organizationId, async (tx) => {
       const org = await tx.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } });
       const settings = (org?.settings ?? {}) as Record<string, unknown>;
       const current = readOnlinePayment(settings);
       const sameProvider = current.provider === provider && current.encrypted;
+      verifiedAt = check ? (check.status === 'valid' ? new Date().toISOString() : undefined) : sameProvider ? current.verifiedAt : undefined;
       let encrypted: string | undefined;
       if (provider === 'mercadopago') {
         const previous = sameProvider ? decryptJson<{ accessToken: string; webhookSecret: string }>(current.encrypted!) : null;
@@ -63,10 +69,48 @@ export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: str
         if (key && (!previous || regenerate)) shownToken = token;
         if (key) encrypted = sealSecrets({ apiKey: key, webhookToken: token });
       }
-      await tx.organization.update({ where: { id: ctx.organizationId }, data: { settings: { ...settings, onlinePayment: { enabled, environment, provider, ...(encrypted ? { encrypted } : {}) } } } });
+      await tx.organization.update({ where: { id: ctx.organizationId }, data: { settings: { ...settings, onlinePayment: { enabled, environment, provider, ...(encrypted ? { encrypted } : {}), ...(verifiedAt ? { verifiedAt } : {}) } } } });
     });
     // Sem revalidatePath: a resposta não espera re-renderizar a página; o formulário pede o refresh.
-    return { ok: true, message: enabled ? (environment === 'production' && process.env.ORDER_PAYMENTS_PRODUCTION !== 'true' ? 'Salvo. Produção continua bloqueada até a homologação ser liberada pela plataforma.' : `Pagamento online ativo (${environment === 'sandbox' ? 'teste' : 'produção'}).`) : 'Pagamento online desativado.', webhookToken: shownToken };
+    return { ok: true, message: enabled ? (environment === 'production' && process.env.ORDER_PAYMENTS_PRODUCTION !== 'true' ? 'Salvo. Produção continua bloqueada até a homologação ser liberada pela plataforma.' : `Pagamento online ativo (${environment === 'sandbox' ? 'teste' : 'produção'}).${check?.status === 'unavailable' ? ` Salvo sem confirmação: ${check.detail}` : verifiedAt ? '' : ' Use Testar conexão para confirmar a credencial.'}`) : 'Pagamento online desativado.', webhookToken: shownToken };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : toActionError(error).error };
+  }
+}
+
+/** Testa a credencial já salva no provedor e grava o resultado. */
+export async function testOnlinePaymentAction(): Promise<{ ok: boolean; message: string }> {
+  try {
+    const ctx = await requirePermission('MANAGE_SETTINGS');
+    const { checkPaymentCredential, readOnlinePayment } = await import('@/lib/order-payments');
+    const { decryptJson } = await import('@/lib/crypto');
+    const { prisma } = await import('@/lib/db');
+    const org = await prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } });
+    const current = readOnlinePayment(org?.settings);
+    if (!current.encrypted) return { ok: false, message: 'Salve a credencial antes de testar.' };
+    const secrets = decryptJson<{ accessToken?: string; apiKey?: string }>(current.encrypted);
+    const check = await checkPaymentCredential(current.provider, current.environment, (current.provider === 'mercadopago' ? secrets.accessToken : secrets.apiKey) ?? '');
+    if (check.status !== 'unavailable') {
+      await withOrganizationTransaction(ctx.organizationId, async (tx) => {
+        const fresh = await tx.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } });
+        const settings = (fresh?.settings ?? {}) as Record<string, any>;
+        const { verifiedAt: _old, ...rest } = settings.onlinePayment ?? {};
+        await tx.organization.update({ where: { id: ctx.organizationId }, data: { settings: { ...settings, onlinePayment: { ...rest, ...(check.status === 'valid' ? { verifiedAt: new Date().toISOString() } : {}) } } } });
+      });
+    }
+    return { ok: check.status === 'valid', message: check.detail };
+  } catch (error) {
+    return { ok: false, message: toActionError(error).error };
+  }
+}
+
+export async function testFiscalProviderAction(): Promise<{ ok: boolean; message: string }> {
+  try {
+    const ctx = await requirePermission('MANAGE_SETTINGS');
+    const { readFiscalProvider, testFiscalProvider } = await import('@/lib/fiscal-provider');
+    const { prisma } = await import('@/lib/db');
+    const org = await prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } });
+    return { ok: true, message: await testFiscalProvider(readFiscalProvider(org?.settings)) };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : toActionError(error).error };
   }
