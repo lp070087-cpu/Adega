@@ -205,7 +205,7 @@ export async function toggleFeaturedAction(input: {
     await setProductFeatured(organizationId, parsed.data.productId, parsed.data.featured);
 
     revalidatePath('/app/catalogo');
-    revalidatePath('/app/minha-loja');
+    revalidatePath('/app/configuracoes/minha-loja');
     revalidatePath('/loja', 'layout');
     return { ok: true };
   } catch (error) {
@@ -218,7 +218,7 @@ export async function toggleFeaturedAction(input: {
 function revalidateCatalog() {
   revalidatePath('/app/catalogo');
   revalidatePath('/app/estoque');
-  revalidatePath('/app/minha-loja');
+  revalidatePath('/app/configuracoes/minha-loja');
   revalidatePath('/app/dashboard');
   revalidatePath('/loja', 'layout');
 }

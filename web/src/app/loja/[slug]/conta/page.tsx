@@ -22,7 +22,7 @@ const sections=[['','Visão geral'],['pedidos','Meus pedidos'],['enderecos','Meu
 type Props={params:Promise<{slug:string;section?:string}>;searchParams:Promise<{pagina?:string;voltar?:string}>};
 export default async function CustomerPortalPage({params,searchParams}:Props){
  const {slug,section=''}=await params;if(!['','entrar','criar-conta','recuperar','confirmar','termos','pedidos','enderecos','dados','pontos','notificacoes'].includes(section))notFound();
- const store=await portalStore(slug),ready=await portalReady(),base=`/loja/${store.slug}`,account=ready?await portalSession(slug):null,growth=growthState(store.settings);
+ const store=await portalStore(slug).catch(()=>null);if(!store)notFound();const ready=await portalReady(),base=`/loja/${store.slug}`,account=ready?await portalSession(slug):null,growth=growthState(store.settings);
  const query=await searchParams,returnTo=typeof query.voltar==='string'&&safeReturnPath(slug,query.voltar)!==`${base}/conta`?query.voltar:undefined;
  const publicSection=['entrar','criar-conta','recuperar','confirmar'].includes(section);
  if(ready&&!publicSection&&section!=='termos'&&!account)redirect(`${base}/conta/entrar?voltar=${encodeURIComponent(`${base}/conta${section?`/${section}`:''}`)}`);

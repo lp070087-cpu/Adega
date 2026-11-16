@@ -84,7 +84,7 @@ export const authConfig = {
     },
 
     authorized({ auth, request }) {
-      const isLoggedIn = Boolean(auth?.user);
+      const isLoggedIn = Boolean(auth?.user?.id);
       const { pathname } = request.nextUrl;
 
       // Área da plataforma exige sessão. /entregador fica fora do matcher

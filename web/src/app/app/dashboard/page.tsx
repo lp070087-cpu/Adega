@@ -14,6 +14,7 @@ import { Alert, Badge, Card, CardHeader, EmptyState, AnimatedMoney } from '@/com
 import { BreakdownBars, DonutChart, HourBars } from '@/components/charts/SimpleCharts';
 import { TopProductsCard } from '@/components/dashboard/TopProductsCard';
 import { LiveRefresh } from '@/components/layout/LiveRefresh';
+import { can, type Permission } from '@/lib/permissions';
 
 export const metadata = { title: 'Visão Geral' };
 export const dynamic = 'force-dynamic';
@@ -38,13 +39,15 @@ const SOURCE_COLORS: Record<string, string> = {
   MANUAL: '#999999',
 };
 
-const SHORTCUTS = [
-  { href: '/app/pedidos', label: 'Pedidos', Icon: ClipboardList, tone: 'bg-[#e6f4fb] text-[#087EA4]' },
-  { href: '/app/catalogo', label: 'Catálogo', Icon: Boxes, tone: 'bg-[#eef0ff] text-[#4f5bd5]' },
-  { href: '/app/caixa', label: 'Caixa', Icon: Wallet, tone: 'bg-[#e8f8ef] text-[#159a5b]' },
-  { href: '/app/entregadores', label: 'Entregadores', Icon: Truck, tone: 'bg-[#fff4e5] text-[#c27406]' },
-  { href: '/app/banners', label: 'Banners', Icon: ImageIcon, tone: 'bg-[#fdeef4] text-[#c0306b]' },
-  { href: '/app/relatorios', label: 'Relatórios', Icon: BarChart3, tone: 'bg-[#eaf1ff] text-[#2d6fd6]' },
+// Cada atalho leva a permissão da página de destino: sem ela o atalho
+// some, em vez de devolver a pessoa ao início sem explicação.
+const SHORTCUTS: Array<{ href: string; label: string; Icon: typeof ClipboardList; tone: string; permission: Permission }> = [
+  { href: '/app/pedidos', label: 'Pedidos', Icon: ClipboardList, tone: 'bg-[#e6f4fb] text-[#087EA4]', permission: 'MANAGE_ORDERS' },
+  { href: '/app/catalogo', label: 'Catálogo', Icon: Boxes, tone: 'bg-[#eef0ff] text-[#4f5bd5]', permission: 'MANAGE_PRODUCTS' },
+  { href: '/app/caixa', label: 'Caixa', Icon: Wallet, tone: 'bg-[#e8f8ef] text-[#159a5b]', permission: 'MANAGE_CASH' },
+  { href: '/app/entregadores', label: 'Entregadores', Icon: Truck, tone: 'bg-[#fff4e5] text-[#c27406]', permission: 'MANAGE_DRIVERS' },
+  { href: '/app/banners', label: 'Banners', Icon: ImageIcon, tone: 'bg-[#fdeef4] text-[#c0306b]', permission: 'MANAGE_SETTINGS' },
+  { href: '/app/relatorios', label: 'Relatórios', Icon: BarChart3, tone: 'bg-[#eaf1ff] text-[#2d6fd6]', permission: 'VIEW_REPORTS' },
 ];
 
 /** Linha de tendência compacta (SVG puro), como no cartão de vendas da referência. */
@@ -97,7 +100,7 @@ export default async function DashboardPage() {
         <Alert tone="info" title="Sua loja ainda está vazia">
           Cadastre produtos no <Link href="/app/catalogo">Catálogo</Link> — ou aplique o
           catálogo-modelo do seu segmento em um clique — e comece a receber pedidos pela{' '}
-          <Link href="/app/minha-loja">sua loja pública</Link>.
+          <Link href="/app/configuracoes/minha-loja">sua loja pública</Link>.
         </Alert>
       )}
 
@@ -138,7 +141,7 @@ export default async function DashboardPage() {
 
       {/* ── Atalhos ───────────────────────────────────────────────── */}
       <nav aria-label="Atalhos" className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-        {SHORTCUTS.map(({ href, label, Icon, tone }) => (
+        {SHORTCUTS.filter((item) => can(role, item.permission)).map(({ href, label, Icon, tone }) => (
           <Link key={href} href={href} className="group flex min-w-0 flex-col items-center gap-2 rounded-2xl border border-[#e8ebf1] bg-white px-2 py-4 text-center shadow-[0_1px_2px_rgba(16,24,40,.04)] transition-shadow hover:shadow-[0_8px_20px_-10px_rgba(16,24,40,.25)]">
             <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}><Icon size={20} aria-hidden /></span>
             <span className="w-full truncate text-[0.78rem] font-semibold text-ink-700 group-hover:text-ink-900">{label}</span>

@@ -159,13 +159,21 @@ export async function handleMercadoPagoWebhook(slug: string, headers: { signatur
   const order = await prisma.order.findFirst({ where: { id: orderId, organizationId: org.id }, select: { id: true, total: true, paymentStatus: true } });
   const charge = order ? await readOrderCharge(order.id) : null;
   if (!order || !charge || charge.provider !== 'mercadopago') return { status: 200, result: 'sem pedido' };
-  if (charge.paymentId && charge.paymentId !== String(payment.id)) return { status: 200, result: 'pagamento de outra cobrança' };
+  // Pix: um pagamento por cobrança, o id precisa bater. Checkout Pro (cartão):
+  // a mesma preferência aceita novas tentativas, cada uma com um id novo —
+  // a primeira recusada não pode descartar a segunda aprovada. O vínculo
+  // com o pedido já foi conferido acima (external_reference, loja, API).
+  const paymentId = String(payment.id);
+  const isPreference = Boolean(charge.preferenceId);
+  if (!isPreference && charge.paymentId && charge.paymentId !== paymentId) return { status: 200, result: 'pagamento de outra cobrança' };
   if (Math.abs(Number(payment.transaction_amount) - Number(order.total)) > 0.009) return { status: 200, result: 'valor divergente' };
-  if (!charge.paymentId) await prisma.platformSetting.update({ where: { key: chargeKey(order.id) }, data: { value: { ...charge, paymentId: String(payment.id) } } });
   const effect = mapStatus(payment.status);
+  if (!charge.paymentId || (isPreference && effect === 'PAID' && charge.paymentId !== paymentId)) await prisma.platformSetting.update({ where: { key: chargeKey(order.id) }, data: { value: { ...charge, paymentId } } });
+  // Estorno só vale para o pagamento que quitou o pedido.
+  if (effect === 'REFUNDED' && isPreference && charge.paymentId && charge.paymentId !== paymentId) return { status: 200, result: 'estorno de outra tentativa' };
   if (effect === 'PAID') {
     const changed = await prisma.order.updateMany({ where: { id: order.id, organizationId: org.id, paymentStatus: { in: ['PENDING', 'FAILED'] } }, data: { paymentStatus: 'PAID' } });
-    if (changed.count) await prisma.notification.create({ data: { organizationId: org.id, type: 'SYSTEM', title: 'Pagamento online confirmado', message: 'O pagamento do pedido foi confirmado pelo Mercado Pago.', href: '/app/pedidos' } }).catch(() => undefined);
+    if (changed.count) await prisma.notification.create({ data: { organizationId: org.id, type: 'SYSTEM', title: 'Pagamento online confirmado', message: 'O pagamento do pedido foi confirmado pelo Mercado Pago.', href: `/app/pedidos?pedido=${order.id}` } }).catch(() => undefined);
     return { status: 200, result: changed.count ? 'pago' : 'já pago' };
   }
   if (effect === 'REFUNDED') { await prisma.order.updateMany({ where: { id: order.id, organizationId: org.id, paymentStatus: 'PAID' }, data: { paymentStatus: 'REFUNDED' } }); return { status: 200, result: 'estornado' }; }
@@ -193,8 +201,9 @@ export async function handleOrderPaymentWebhook(slug: string, token: string | nu
   if (!order || !charge || charge.paymentId !== payment.id) return { status: 200, result: 'sem pedido' };
   if (PAID.has(payment.status)) {
     if (Math.abs(Number(payment.value) - Number(order.total)) > 0.009) return { status: 200, result: 'valor divergente' };
-    const changed = await prisma.order.updateMany({ where: { id: order.id, organizationId: org.id, paymentStatus: 'PENDING' }, data: { paymentStatus: 'PAID' } });
-    if (changed.count) await prisma.notification.create({ data: { organizationId: org.id, type: 'SYSTEM', title: 'Pagamento online confirmado', message: `O pagamento do pedido foi confirmado pelo Asaas.`, href: '/app/pedidos' } }).catch(() => undefined);
+    // Cobrança vencida (FAILED) paga depois também quita, como no Mercado Pago.
+    const changed = await prisma.order.updateMany({ where: { id: order.id, organizationId: org.id, paymentStatus: { in: ['PENDING', 'FAILED'] } }, data: { paymentStatus: 'PAID' } });
+    if (changed.count) await prisma.notification.create({ data: { organizationId: org.id, type: 'SYSTEM', title: 'Pagamento online confirmado', message: `O pagamento do pedido foi confirmado pelo Asaas.`, href: `/app/pedidos?pedido=${order.id}` } }).catch(() => undefined);
     return { status: 200, result: changed.count ? 'pago' : 'já pago' };
   }
   if (REFUNDED.has(payment.status)) {

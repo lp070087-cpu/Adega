@@ -154,3 +154,23 @@ test('install UI offers browser-specific instructions without claiming push or a
   assert.match(driver, /window\.location\.pathname/);
   assert.match(driver, /registration\.scope === legacyScope/);
 });
+
+test('middleware handler blocks requests without a valid session (authorized callback is bypassed by custom handlers)', () => {
+  let handler: any;
+  const imports: Record<string, unknown> = {
+    'next-auth': { default: () => ({ auth: (h: unknown) => { handler = h; return () => 'unused'; } }) },
+    '@/lib/auth/config': { authConfig: {} },
+    '@/lib/pwa-paths': { canonicalAppPath, requiresSessionMiddleware },
+    'next/server': { NextResponse },
+  };
+  const compiled = ts.transpileModule(readFileSync('src/middleware.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const module = { exports: {} as any };
+  new Function('require', 'module', 'exports', compiled)((name: string) => { if (!(name in imports)) throw new Error(`Unexpected import ${name}`); return imports[name]; }, module, module.exports);
+  const call = (path: string, auth: unknown) => { const r = new NextRequest(`https://adega.example${path}`) as any; r.auth = auth; return handler(r, {}); };
+  const anonymous = call('/app/pedidos', null);
+  assert.equal(anonymous.status, 307);
+  assert.equal(anonymous.headers.get('location'), 'https://adega.example/login?voltar=%2Fapp%2Fpedidos');
+  assert.equal(call('/app/caixa', { user: { id: '' } }).status, 307, 'sessão expirada (id vazio) também é barrada');
+  assert.equal(call('/onboarding', null).headers.get('location'), 'https://adega.example/login');
+  assert.equal(call('/app/pedidos', { user: { id: 'u1' } }).status, 200);
+});

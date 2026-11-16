@@ -49,7 +49,7 @@ function revalidateCatalog() {
   revalidatePath('/app/catalogo');
   revalidatePath('/app/combos');
   revalidatePath('/app/estoque');
-  revalidatePath('/app/minha-loja');
+  revalidatePath('/app/configuracoes/minha-loja');
   revalidatePath('/app/dashboard');
   revalidatePath('/loja', 'layout');
 }

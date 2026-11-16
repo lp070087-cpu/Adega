@@ -108,7 +108,7 @@ export async function updateOrganizationAction(formData: FormData): Promise<OrgA
       averageDeliveryTime: d.averageDeliveryTime,
     });
 
-    revalidatePath('/app/minha-loja');
+    revalidatePath('/app/configuracoes/minha-loja');
     revalidatePath('/app', 'layout');
     if (updated?.slug) revalidatePath(`/loja/${updated.slug}`);
 
@@ -168,7 +168,7 @@ export async function setStoreCoordinatesAction(input: {
 
     await orgData.updateOrganization(organizationId, { latitude, longitude });
 
-    revalidatePath('/app/minha-loja');
+    revalidatePath('/app/configuracoes/minha-loja');
     return { ok: true };
   } catch (error) {
     return { ok: false, ...toActionError(error) };

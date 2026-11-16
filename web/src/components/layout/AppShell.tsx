@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { PermissionNotice } from './PermissionNotice';
 import { usePathname } from 'next/navigation';
 import { AppSidebar, NAV_SECTIONS } from './AppSidebar';
 import { AppHeader } from './AppHeader';
@@ -101,7 +102,7 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <AppHeader
-          title={current?.label ?? 'Painel'}
+          title={current?.label ?? (pathname.startsWith('/app/conta') ? 'Minha conta' : 'Painel')}
           subtitle={organizationName}
           storeStatus={storeStatus}
           openingMode={openingMode}
@@ -113,7 +114,7 @@ export function AppShell({
           onOpenMenu={() => setMobileOpen(true)}
         />
 
-        <main className="panel-content min-w-0 flex-1 p-4 lg:p-7">{children}</main>
+        <main className="panel-content min-w-0 flex-1 p-4 lg:p-7"><Suspense fallback={null}><PermissionNotice /></Suspense>{children}</main>
       </div>
     </div>
   );

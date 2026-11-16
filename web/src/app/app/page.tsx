@@ -15,9 +15,11 @@ import { requireOrgPage } from '@/lib/auth/guards';
  * diferentes: a aba de entrada é /app/dashboard, e só ela.
  * ═══════════════════════════════════════════════════════════════════════
  */
-export default async function AppIndexPage() {
+export default async function AppIndexPage({ searchParams }: { searchParams: Promise<{ semPermissao?: string }> }) {
   const { role } = await requireOrgPage();
+  // Repassa o aviso de "sem permissão" para a tela de destino (AppShell).
+  const suffix = (await searchParams).semPermissao ? '?semPermissao=1' : '';
   if (role === 'DRIVER') redirect('/entregador');
-  if (role === 'KITCHEN') redirect('/app/pedidos');
-  redirect('/app/dashboard');
+  if (role === 'KITCHEN') redirect(`/app/pedidos${suffix}`);
+  redirect(`/app/dashboard${suffix}`);
 }

@@ -20,7 +20,10 @@ export default async function LoginPage({
   // Sessão de entregador neste navegador não é sessão do painel: mostra o
   // formulário para entrar com a conta da loja em vez de mandar para o app.
   const driverSession = session?.user?.role === 'DRIVER';
-  if (session?.user?.id && !driverSession) {
+  // Com `acessoRemovido` o JWT ainda é válido, mas o vínculo não existe
+  // mais: redirecionar de volta ao painel fecharia um laço infinito
+  // (painel → login → painel). Mostra o aviso e o formulário.
+  if (session?.user?.id && !driverSession && !params.acessoRemovido) {
     redirect(back ?? (session.user.organizationId ? '/app/dashboard' : '/onboarding'));
   }
 

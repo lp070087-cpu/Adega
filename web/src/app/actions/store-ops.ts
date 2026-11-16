@@ -42,10 +42,7 @@ function firstIssue(error: z.ZodError): { error: string; field?: string } {
 }
 
 function revalidateStore() {
-  revalidatePath('/app/minha-loja');
-  revalidatePath('/app/horarios');
-  revalidatePath('/app/entrega');
-  revalidatePath('/app/aparencia');
+  revalidatePath('/app/configuracoes/minha-loja');
   revalidatePath('/app/banners');
   revalidatePath('/app/dashboard');
   revalidatePath('/loja', 'layout');

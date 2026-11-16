@@ -233,7 +233,7 @@ export async function requireOrgPage(permission?: Permission): Promise<Organizat
     if (error instanceof AuthError) {
       if (error.code === 'UNAUTHENTICATED') redirect('/login');
       if (error.code === 'NO_ORGANIZATION') redirect('/onboarding');
-      if (!permission) redirect('/login?acesso=removido');
+      if (!permission) redirect('/login?acessoRemovido=1');
       // Sem permissão: volta para o dashboard em vez de tela de erro.
       redirect('/app?semPermissao=1');
     }

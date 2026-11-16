@@ -20,10 +20,14 @@ export async function publicOrigin() {
 
 export async function driverStoreBySlug(slug: string) {
   if (!/^[a-z0-9-]{1,160}$/.test(slug)) return null;
-  return prisma.organization.findUnique({
+  const store = await prisma.organization.findUnique({
     where: { slug },
-    select: { id: true, slug: true, name: true, logoUrl: true },
+    select: { id: true, slug: true, name: true, logoUrl: true, status: true },
   });
+  // Loja cancelada não recebe mais entregadores pelo link.
+  if (!store || store.status === 'CANCELLED') return null;
+  const { status: _status, ...rest } = store;
+  return rest;
 }
 
 let multiStore = false;

@@ -21,8 +21,16 @@ import { canonicalAppPath, requiresSessionMiddleware } from '@/lib/pwa-paths';
  * segurança — a fronteira está nos server actions e nas queries.
  * ═══════════════════════════════════════════════════════════════════════
  */
+// Com handler próprio o Auth.js NÃO aplica o callback `authorized`: o
+// bloqueio precisa ser feito aqui. Sessão expirada chega com id vazio.
 const authenticatedMiddleware = NextAuth(authConfig).auth(
-  (_request: NextAuthRequest, _event: NextFetchEvent) => NextResponse.next(),
+  (request: NextAuthRequest, _event: NextFetchEvent) => {
+    if (request.auth?.user?.id) return NextResponse.next();
+    const login = new URL('/login', request.url);
+    const back = request.nextUrl.pathname;
+    if (back.startsWith('/app')) login.searchParams.set('voltar', back);
+    return NextResponse.redirect(login);
+  },
 );
 export default function middleware(request: NextRequest, event: NextFetchEvent) {
   const canonical = canonicalAppPath(request.nextUrl.pathname);

@@ -215,13 +215,23 @@ export async function completeOnboardingV3Action(
 
   const userId = session.user.id;
 
-  // Quem já tem loja não cria outra por aqui — e isto é reconferido no
-  // banco, não no token: um JWT antigo pode não ter a organização.
+  // Mesmas regras da página (requireOnboardingUser), reconferidas no banco:
+  // a action pode ser chamada direto, sem passar pela tela. Só cria loja
+  // quem tem conta ativa e NENHUM vínculo — de qualquer papel, ativo ou
+  // não. Antes só o vínculo OWNER bloqueava, e um entregador ou membro da
+  // equipe conseguia abrir uma loja nova.
+  if (session.user.role === 'DRIVER') redirect('/entregador');
+  const account = await prisma.user.findUnique({ where: { id: userId }, select: { active: true } });
+  if (!account?.active) redirect('/login?acessoRemovido=1');
   const existingMembership = await prisma.organizationUser.findFirst({
-    where: { userId, role: 'OWNER', active: true },
-    select: { organizationId: true },
+    where: { userId },
+    select: { role: true, active: true },
+    orderBy: { active: 'desc' },
   });
-  if (existingMembership) redirect('/app');
+  if (existingMembership) {
+    if (!existingMembership.active) redirect('/login?acessoRemovido=1');
+    redirect(existingMembership.role === 'DRIVER' ? '/entregador' : '/app');
+  }
 
   const parsed = completeOnboardingV3Schema.safeParse({
     businessType: formData.get('businessType'),

@@ -37,7 +37,10 @@ export function OrdersBoard({
   autoAccept = false,
   prepMinutes = 10,
   fiscal = null,
+  initialOrderId = null,
 }: {
+  /** Pedido aberto ao chegar por uma notificação (`?pedido=<id>`). */
+  initialOrderId?: string | null;
   fiscal?: { environment: 'homologacao' | 'producao' } | null;
   products: ManualProduct[];
   orders: DrawerOrder[];
@@ -54,7 +57,7 @@ export function OrdersBoard({
   const [section, setSection] = useState<Section>('active');
   const [sourceFilter, setSourceFilter] = useState<string>('');
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<DrawerOrder | null>(null);
+  const [selected, setSelected] = useState<DrawerOrder | null>(() => (initialOrderId ? orders.find((order) => order.id === initialOrderId) ?? null : null));
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [autoPending, startAuto] = useTransition();

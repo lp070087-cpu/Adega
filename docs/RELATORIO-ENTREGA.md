@@ -46,7 +46,7 @@ Cada card mostra: número, origem (badge colorida), cliente, resumo, obs, tempo 
 - **Histórico** e **Perfil** (corridas, a receber, disponibilidade).
 
 ## G. Super Admin
-- Login demo: `admin@deliveryplatform.com.br` / `sa-admin-2026`.
+- Login demo: removido junto com o arquivo.
 - Visão geral com métricas agregadas de todos os tenants; gestão de tenants (status, criação), planos (Starter 97 / Profissional 197 / Premium 497), usuários e logs simulados (sem credenciais).
 
 ## H. Modelagem da stack futura
@@ -98,8 +98,8 @@ Desktop/Adega/
 |---------|-------------|
 | `plataforma.html` (Central) | tenant à escolha • perfil à escolha • senha `demo` |
 | `entregador.html` (Entregador) | tenant à escolha • entregador à escolha • senha `1234` |
-| `super-admin.html` | `admin@deliveryplatform.com.br` / `sa-admin-2026` |
-| `admin.html` (Adega legado) | `dona@adega1998.com.br` / `admin123` (mantido) |
+| `super-admin.html` | (removido — arquivo apagado) |
+| `admin.html` (Adega legado) | (removido — arquivo apagado) |
 
 > Todos os dados são demonstrativos e locais. Nenhuma credencial real de
 > marketplace foi usada ou armazenada.

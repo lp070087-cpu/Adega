@@ -235,7 +235,7 @@ export function AppHeader({
               </div>
 
               <a
-                href="/app/configuracoes"
+                href="/app/conta"
                 onClick={() => setShowUser(false)}
                 className="block rounded-sm px-2 py-2 text-[0.8rem] text-ink-700 transition-all hover:bg-ink-50"
               >
