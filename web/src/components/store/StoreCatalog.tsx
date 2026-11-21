@@ -105,7 +105,7 @@ export type StoreInfo = {
   benefitsAvailable?: boolean;
   /** Loja com pagamento online (Pix/cartão) ativo e utilizável. */
   onlinePayment?: boolean;
-  onlinePaymentProvider?: 'asaas' | 'mercadopago' | 'infinitepay';
+  onlinePaymentProvider?: 'mercadopago' | 'infinitepay' | 'asaas';
   commercialMessage?: string | null;
   address: string | null;
   district: string | null;

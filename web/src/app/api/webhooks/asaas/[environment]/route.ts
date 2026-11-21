@@ -2,6 +2,8 @@ import { configuredAsaas, reconcileAsaasPayment } from '@/lib/platform/asaas';
 import { authenticateAsaasWebhook } from '@/lib/platform/asaas-client';
 export async function POST(request: Request, context: { params: Promise<{ environment: string }> }) {
   const { environment } = await context.params;
+  // Asaas desativado na plataforma: 410 diz ao Asaas para parar de reenviar.
+  if (process.env.ASAAS_ENABLED !== 'true') return new Response('Integração desativada', { status: 410 });
   if (environment !== 'sandbox') return new Response('Ambiente indisponível', { status: 503 });
   try {
     const { credentials } = await configuredAsaas(environment);

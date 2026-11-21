@@ -75,6 +75,8 @@ export function onlinePaymentUsable(config: OnlinePaymentConfig) {
   // vai direto para a conta da loja e nada é cobrado sem o cliente pagar,
   // então não depende da liberação de produção dos outros provedores.
   if (config.provider === 'infinitepay') return config.enabled && validInfiniteTag(config.handle);
+  // Asaas não é mais oferecido: uma configuração antiga não cobra novos pedidos.
+  if (config.provider === 'asaas') return false;
   if (!config.enabled || !config.encrypted) return false;
   return config.environment === 'sandbox' || process.env.ORDER_PAYMENTS_PRODUCTION === 'true';
 }

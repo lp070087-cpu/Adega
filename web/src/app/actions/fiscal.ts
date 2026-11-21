@@ -26,7 +26,7 @@ export async function saveFiscalProfileAction(_prev: { ok: boolean; message: str
   }
 }
 
-/** Configura o pagamento online da loja (InfinitePay, Asaas ou Mercado Pago). Credenciais nunca voltam para a tela. */
+/** Configura o pagamento online da loja (InfinitePay ou Mercado Pago). Credenciais nunca voltam para a tela. */
 export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: string; webhookToken?: string } | null, form: FormData) {
   try {
     const ctx = await requirePermission('MANAGE_SETTINGS');
@@ -37,7 +37,9 @@ export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: str
     const providerRaw = form.get('provider');
     const field = (name: string) => String(form.get(name) ?? '').trim();
     if (providerRaw === 'infinitepay') return await saveInfinitePay(ctx.organizationId, enabled, field('handle'));
-    const provider = providerRaw === 'mercadopago' ? 'mercadopago' : 'asaas';
+    // Só InfinitePay e Mercado Pago: o Asaas não é mais oferecido às lojas.
+    if (providerRaw !== 'mercadopago') throw new Error('Escolha InfinitePay ou Mercado Pago.');
+    const provider = 'mercadopago' as const;
     const regenerate = form.get('regenerate') === 'on';
     let shownToken: string | undefined;
     // Credencial nova vai ao provedor antes de gravar: recusada não é salva.
