@@ -798,9 +798,16 @@ export async function updateOrderStatus(
   return withOrganizationTransaction(organizationId, async (tx) => {
   const order = await tx.order.findFirst({
     where: { id: orderId, organizationId },
-    select: { id: true, status: true, notes: true, displayId: true, deliveryType: true, driverId: true, total: true, paymentMethod: true },
+    select: { id: true, status: true, notes: true, displayId: true, deliveryType: true, driverId: true, total: true, paymentMethod: true, paymentStatus: true },
   });
   if (!order) throw new OperationError('Pedido não encontrado.');
+  // Pagamento online (InfinitePay, Mercado Pago, Asaas): o pedido pode ser
+  // aceito e separado, mas só é liberado para entrega ou retirada depois
+  // que o provedor confirma. A loja pode marcar como pago manualmente se
+  // recebeu por outro meio.
+  if (order.paymentMethod === 'ONLINE' && order.paymentStatus !== 'PAID' && ['READY', 'WAITING_DRIVER', 'DISPATCHED', 'DELIVERED'].includes(status)) {
+    throw new OperationError('Aguardando a confirmação do pagamento online. O pedido só é liberado para entrega ou retirada depois de pago.');
+  }
   // "Pronto para retirada" com entregador já escolhido libera a retirada:
   // o pedido vai direto para "aguardando retirada" no app do entregador.
   if (status === 'READY' && order.driverId && order.deliveryType !== 'PICKUP') {

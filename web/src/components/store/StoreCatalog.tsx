@@ -105,7 +105,7 @@ export type StoreInfo = {
   benefitsAvailable?: boolean;
   /** Loja com pagamento online (Pix/cartão) ativo e utilizável. */
   onlinePayment?: boolean;
-  onlinePaymentProvider?: 'asaas' | 'mercadopago';
+  onlinePaymentProvider?: 'asaas' | 'mercadopago' | 'infinitepay';
   commercialMessage?: string | null;
   address: string | null;
   district: string | null;
@@ -279,7 +279,7 @@ export function StoreCatalog({
     changeFor?: number;
     customerName: string;
     addressLine?: string;
-    payment?: { invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; billingType: string } | null;
+    payment?: { invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; billingType: string; provider?: string | null } | null;
     paymentError?: string;
   } | null>(null);
   const [pixCopied, setPixCopied] = React.useState(false);
@@ -544,8 +544,9 @@ export function StoreCatalog({
     const changeRaw = String(formData.get('changeFor') ?? '');
     const changeFor = changeRaw.trim() ? parseMoneyInput(changeRaw)??NaN : undefined;
     if(changeFor!==undefined&&!Number.isFinite(changeFor)){setError('Informe um valor de troco válido.');setSending(false);return;}
-    const payerDocument = online ? String(formData.get('payerDocument') ?? '').replace(/\D/g, '') : undefined;
-    if (online && !/^(\d{11}|\d{14})$/.test(payerDocument ?? '')) { setError('Informe o CPF (11 números) ou CNPJ (14) de quem paga.'); setSending(false); return; }
+    const infinitePay = store.onlinePaymentProvider === 'infinitepay';
+    const payerDocument = online && !infinitePay ? String(formData.get('payerDocument') ?? '').replace(/\D/g, '') : undefined;
+    if (online && !infinitePay && !/^(\d{11}|\d{14})$/.test(payerDocument ?? '')) { setError('Informe o CPF (11 números) ou CNPJ (14) de quem paga.'); setSending(false); return; }
 
     // Enviado ao servidor: produto, quantidade, variação e adicionais.
     // Nenhum preço. O total é recalculado lá.
@@ -618,6 +619,9 @@ export function StoreCatalog({
       }).catch(() => undefined);
       checkoutLocked.current = false; setSending(false);
     }
+    // InfinitePay: o cliente paga na página dela e volta pelo link de
+    // acompanhamento, onde o pagamento é conferido no servidor.
+    const infiniteCheckout = result.data?.payment?.provider === 'infinitepay' ? result.data.payment.invoiceUrl : null;
     // O carrinho só é limpo com o pedido REALMENTE gravado.
     setCart([]);
     setCheckoutOpen(false);
@@ -647,6 +651,8 @@ export function StoreCatalog({
               .filter(Boolean)
               .join(', ') || undefined,
     });
+    // A tela de confirmação fica por baixo caso o navegador bloqueie a saída.
+    if (infiniteCheckout) window.location.assign(infiniteCheckout);
   }
 
   const whatsappHref = buildWhatsAppHref(store.whatsapp, store.name, order?.displayId);
@@ -1155,16 +1161,20 @@ export function StoreCatalog({
               <option value="PIX">PIX</option>
               <option value="CREDIT_CARD">Cartão de crédito na entrega</option>
               <option value="DEBIT_CARD">Cartão de débito na entrega</option>
-              {store.onlinePayment && <option value="ONLINE_PIX">Pagar online agora (Pix)</option>}
-              {store.onlinePayment && <option value="ONLINE_CARD">Pagar online agora (cartão)</option>}
+              {store.onlinePayment && store.onlinePaymentProvider === 'infinitepay' && <option value="ONLINE_PIX">Pagar agora pela InfinitePay (Pix ou cartão)</option>}
+              {store.onlinePayment && store.onlinePaymentProvider !== 'infinitepay' && <option value="ONLINE_PIX">Pagar online agora (Pix)</option>}
+              {store.onlinePayment && store.onlinePaymentProvider !== 'infinitepay' && <option value="ONLINE_CARD">Pagar online agora (cartão)</option>}
             </Select>
           </Field>
-          {online && (
+          {online && store.onlinePaymentProvider === 'infinitepay' && (
+            <p className="mb-3 rounded-lg bg-ink-50 px-3 py-2 text-[0.8rem] text-ink-600" data-testid="infinitepay-note">Ao enviar, você vai para a página segura da InfinitePay para pagar no Pix ou no cartão. Depois volta para acompanhar o pedido, que é liberado assim que o pagamento for confirmado. Pagamento processado pela InfinitePay.</p>
+          )}
+          {online && store.onlinePaymentProvider !== 'infinitepay' && (
             <Field label="CPF ou CNPJ de quem paga" required hint="Exigido pelo emissor da cobrança. Os dados do cartão são digitados só na página segura do provedor.">
               <Input name="payerDocument" inputMode="numeric" autoComplete="off" maxLength={18} placeholder="Somente números" data-testid="payer-document" />
             </Field>
           )}
-          {online && (
+          {online && store.onlinePaymentProvider !== 'infinitepay' && (
             <Field label="E-mail de quem paga" required={store.onlinePaymentProvider === 'mercadopago'} hint="Para o comprovante do pagamento.">
               <Input name="payerEmail" type="email" inputMode="email" autoComplete="email" maxLength={254} placeholder="voce@exemplo.com" data-testid="payer-email" required={store.onlinePaymentProvider === 'mercadopago'} />
             </Field>

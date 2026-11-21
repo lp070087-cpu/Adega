@@ -46,7 +46,7 @@ export type OrderActionResult<T = undefined> =
  * e produtos de outra loja nem aparecem na consulta.
  */
 export async function checkoutAction(input: unknown): Promise<
-  OrderActionResult<{ orderId: string; displayId: number; total: number; discount:number;deliveryFee:number; payment?: { invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; billingType: string } | null; paymentError?: string }>
+  OrderActionResult<{ orderId: string; displayId: number; total: number; discount:number;deliveryFee:number; payment?: { invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; billingType: string; provider?: string | null } | null; paymentError?: string }>
 > {
   try {
     const parsed = checkoutSchema.safeParse(input);
@@ -66,8 +66,9 @@ export async function checkoutAction(input: unknown): Promise<
       const { prisma } = await import('@/lib/db');
       const org = await prisma.organization.findUnique({ where: { id: store.id }, select: { settings: true } });
       if (!onlinePaymentUsable(readOnlinePayment(org?.settings))) return { ok: false, error: 'Pagamento online indisponível nesta loja. Escolha pagar na entrega.', field: 'paymentMethod' };
+      // InfinitePay pede os dados de quem paga na própria página dela.
       const doc = parsed.data.payerDocument ?? '';
-      if (!/^(\d{11}|\d{14})$/.test(doc)) return { ok: false, error: 'Informe o CPF (11 números) ou CNPJ (14) de quem paga.', field: 'payerDocument' };
+      if (readOnlinePayment(org?.settings).provider !== 'infinitepay' && !/^(\d{11}|\d{14})$/.test(doc)) return { ok: false, error: 'Informe o CPF (11 números) ou CNPJ (14) de quem paga.', field: 'payerDocument' };
       if (readOnlinePayment(org?.settings).provider === 'mercadopago' && !parsed.data.payerEmail) return { ok: false, error: 'Informe o e-mail de quem paga (exigido pelo Mercado Pago).', field: 'payerEmail' };
     }
 
@@ -110,8 +111,8 @@ export async function checkoutAction(input: unknown): Promise<
       // O pedido já existe; a cobrança é criada em seguida (uma por pedido).
       try {
         const { createOrderCharge } = await import('@/lib/order-payments');
-        const charge = await createOrderCharge({ organizationId: store.id, orderId: result.orderId, displayId: result.displayId, total: result.total, customerName: parsed.data.customerName, customerPhone: parsed.data.customerPhone, document: parsed.data.payerDocument!, email: parsed.data.payerEmail, method: parsed.data.onlineMethod ?? 'PIX', storeName: store.name });
-        return { ok: true, data: { ...result, payment: { invoiceUrl: charge.invoiceUrl, pixPayload: charge.pixPayload, pixImage: charge.pixImage, billingType: charge.billingType } } };
+        const charge = await createOrderCharge({ organizationId: store.id, orderId: result.orderId, displayId: result.displayId, total: result.total, customerName: parsed.data.customerName, customerPhone: parsed.data.customerPhone, document: parsed.data.payerDocument ?? '', email: parsed.data.payerEmail, method: parsed.data.onlineMethod ?? 'PIX', storeName: store.name });
+        return { ok: true, data: { ...result, payment: { invoiceUrl: charge.invoiceUrl, pixPayload: charge.pixPayload, pixImage: charge.pixImage, billingType: charge.billingType, provider: charge.provider ?? null } } };
       } catch {
         return { ok: true, data: { ...result, payment: null, paymentError: 'Pedido enviado, mas o pagamento online não foi gerado agora. Combine o pagamento com a loja.' } };
       }

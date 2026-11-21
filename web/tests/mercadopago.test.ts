@@ -46,6 +46,7 @@ test('Mercado Pago Checkout Pro: tentativa recusada não descarta a aprovada seg
     'server-only': {}, '@/lib/db': { prisma: db }, '@/lib/crypto': { decryptJson: () => ({ accessToken: 'TEST-x', webhookSecret: 's' }), encryptJson: () => '' },
     '@/lib/platform/asaas-client': { AsaasError: Error, authenticateAsaasWebhook: () => false },
     '@/lib/payments/mercadopago': { mapStatus, verifySignature: () => true, fetchPayment: async (_s: unknown, id: string) => payments[id], createCardPreference: null, createPixPayment: null },
+    '@/lib/payments/infinitepay': { checkInfinitePayPayment: null, createInfinitePayLink: null, infinitePayRef: null, validInfiniteTag: () => false },
   };
   const source = ts.transpileModule(readFileSync('src/lib/order-payments.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const mod = { exports: {} as any };

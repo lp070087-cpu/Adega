@@ -26,7 +26,7 @@ export async function saveFiscalProfileAction(_prev: { ok: boolean; message: str
   }
 }
 
-/** Configura o pagamento online da loja (Asaas ou Mercado Pago). Credenciais nunca voltam para a tela. */
+/** Configura o pagamento online da loja (InfinitePay, Asaas ou Mercado Pago). Credenciais nunca voltam para a tela. */
 export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: string; webhookToken?: string } | null, form: FormData) {
   try {
     const ctx = await requirePermission('MANAGE_SETTINGS');
@@ -34,8 +34,10 @@ export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: str
     const { decryptJson } = await import('@/lib/crypto');
     const enabled = form.get('enabled') === 'on';
     const environment = form.get('environment') === 'production' ? 'production' : 'sandbox';
-    const provider = form.get('provider') === 'mercadopago' ? 'mercadopago' : 'asaas';
+    const providerRaw = form.get('provider');
     const field = (name: string) => String(form.get(name) ?? '').trim();
+    if (providerRaw === 'infinitepay') return await saveInfinitePay(ctx.organizationId, enabled, field('handle'));
+    const provider = providerRaw === 'mercadopago' ? 'mercadopago' : 'asaas';
     const regenerate = form.get('regenerate') === 'on';
     let shownToken: string | undefined;
     // Credencial nova vai ao provedor antes de gravar: recusada não é salva.
@@ -78,6 +80,32 @@ export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: str
   }
 }
 
+/**
+ * InfinitePay: só a InfiniteTag da loja (sem chave, sem sandbox). Uma tag nova
+ * é conferida na InfinitePay antes de gravar; recusada não é salva.
+ */
+async function saveInfinitePay(organizationId: string, enabled: boolean, typed: string): Promise<{ ok: boolean; message: string; webhookToken?: string }> {
+  const { checkInfiniteTag, readOnlinePayment } = await import('@/lib/order-payments');
+  const { normalizeInfiniteTag, validInfiniteTag } = await import('@/lib/payments/infinitepay');
+  const { prisma } = await import('@/lib/db');
+  const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+  const current = readOnlinePayment(org?.settings);
+  const previous = current.provider === 'infinitepay' ? current.handle : undefined;
+  const handle = typed ? normalizeInfiniteTag(typed) : previous;
+  if (typed && !validInfiniteTag(handle)) throw new Error('InfiniteTag inválida. Use só letras, números, ponto, hífen ou sublinhado, sem o cifrão.');
+  if (enabled && !handle) throw new Error('Informe a InfiniteTag da loja.');
+  const check = handle && handle !== previous ? await checkInfiniteTag(handle) : null;
+  if (check?.status === 'rejected') throw new Error(`${check.detail} Nada foi salvo.`);
+  const verifiedAt = check ? (check.status === 'valid' ? new Date().toISOString() : undefined) : current.provider === 'infinitepay' ? current.verifiedAt : undefined;
+  await withOrganizationTransaction(organizationId, async (tx) => {
+    const fresh = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+    const settings = (fresh?.settings ?? {}) as Record<string, unknown>;
+    await tx.organization.update({ where: { id: organizationId }, data: { settings: { ...settings, onlinePayment: { enabled, environment: 'production', provider: 'infinitepay', ...(handle ? { handle } : {}), ...(verifiedAt ? { verifiedAt } : {}) } } } });
+  });
+  const tag = handle ? ` (InfiniteTag ${handle})` : '';
+  return { ok: true, message: enabled ? `Pagamento pela InfinitePay ativo${tag}.${check?.status === 'unavailable' ? ` Salvo sem confirmação: ${check.detail}` : ''}` : 'Pagamento online desativado.' };
+}
+
 /** Testa a credencial já salva no provedor e grava o resultado. */
 export async function testOnlinePaymentAction(): Promise<{ ok: boolean; message: string }> {
   try {
@@ -87,9 +115,15 @@ export async function testOnlinePaymentAction(): Promise<{ ok: boolean; message:
     const { prisma } = await import('@/lib/db');
     const org = await prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } });
     const current = readOnlinePayment(org?.settings);
-    if (!current.encrypted) return { ok: false, message: 'Salve a credencial antes de testar.' };
-    const secrets = decryptJson<{ accessToken?: string; apiKey?: string }>(current.encrypted);
-    const check = await checkPaymentCredential(current.provider, current.environment, (current.provider === 'mercadopago' ? secrets.accessToken : secrets.apiKey) ?? '');
+    let check;
+    if (current.provider === 'infinitepay') {
+      if (!current.handle) return { ok: false, message: 'Salve a InfiniteTag antes de testar.' };
+      check = await (await import('@/lib/order-payments')).checkInfiniteTag(current.handle);
+    } else {
+      if (!current.encrypted) return { ok: false, message: 'Salve a credencial antes de testar.' };
+      const secrets = decryptJson<{ accessToken?: string; apiKey?: string }>(current.encrypted);
+      check = await checkPaymentCredential(current.provider, current.environment, (current.provider === 'mercadopago' ? secrets.accessToken : secrets.apiKey) ?? '');
+    }
     if (check.status !== 'unavailable') {
       await withOrganizationTransaction(ctx.organizationId, async (tx) => {
         const fresh = await tx.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } });

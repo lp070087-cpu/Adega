@@ -10,8 +10,10 @@ import { orderTracking } from '@/lib/order-tracking';
 import { storeTimeZone } from '@/lib/schedule';
 import { portalReady, portalSession } from '@/lib/customer-portal/server';
 import { whatsappHref } from '@/lib/whatsapp';
-import { readOrderCharge } from '@/lib/order-payments';
+import { confirmInfinitePayPayment, readOrderCharge } from '@/lib/order-payments';
+import { initialsFromName } from '@/data/business-copy';
 import { OnlineChargeBox } from '@/components/store/OnlineChargeBox';
+import { PaymentReturnRetry } from '@/components/store/PaymentReturnRetry';
 import '../../conta/portal.css';
 
 export const dynamic = 'force-dynamic';
@@ -21,11 +23,21 @@ export const metadata: Metadata = {
 };
 
 // The non-sequential order ID is a private capability. Never resolve by displayId.
-export default async function TrackOrder({ params }: {
+export default async function TrackOrder({ params, searchParams }: {
   params: Promise<{ slug: string; orderId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug, orderId } = await params;
   if (!/^c[a-z0-9]{20,40}$/.test(orderId)) notFound();
+  // Volta do checkout da InfinitePay: ela acrescenta transaction_nsu e slug
+  // na URL. A volta não prova nada sozinha — a confirmação é feita no
+  // servidor (payment_check), a mesma usada pelo webhook.
+  const query = await searchParams;
+  const one = (key: string) => (typeof query[key] === 'string' ? (query[key] as string) : undefined);
+  const returning = Boolean(one('transaction_nsu') && one('slug'));
+  if (returning) {
+    await confirmInfinitePayPayment(slug, { orderNsu: orderId, transactionNsu: one('transaction_nsu'), invoiceSlug: one('slug'), receiptUrl: one('receipt_url') }).catch(() => undefined);
+  }
   const order = await prisma.order.findFirst({
     where: { id: orderId, organization: { slug } },
     select: {
@@ -41,7 +53,9 @@ export default async function TrackOrder({ params }: {
     },
   });
   if (!order) notFound();
-  const charge = order.paymentMethod === 'ONLINE' && order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED' ? await readOrderCharge(orderId) : null;
+  const awaitingOnline = order.paymentMethod === 'ONLINE' && ['PENDING', 'FAILED'].includes(order.paymentStatus) && order.status !== 'CANCELLED';
+  const charge = awaitingOnline ? await readOrderCharge(orderId) : null;
+  const paidCharge = order.paymentMethod === 'ONLINE' && order.paymentStatus === 'PAID' ? await readOrderCharge(orderId) : null;
   const store = order.organization, timeZone = storeTimeZone(store.settings);
   const tracking = orderTracking({ ...order, deliveryStatus: order.delivery?.status });
   const pickup = order.deliveryType === 'PICKUP';
@@ -67,7 +81,7 @@ export default async function TrackOrder({ params }: {
     <main className="customer-shell" style={{ ['--store-accent' as string]: brand }}>
       <div className="customer-wrap customer-track-wrap">
         <header className="customer-header">
-          <Link href={`/loja/${slug}/`}>{store.logoUrl ? <img src={store.logoUrl} alt="" /> : <span className="customer-store-tag" aria-hidden />}<span>{store.name}</span></Link>
+          <Link href={`/loja/${slug}/`}>{store.logoUrl ? <img src={store.logoUrl} alt="" /> : <span className="customer-store-tag" aria-hidden>{initialsFromName(store.name)}</span>}<span>{store.name}</span></Link>
           {isOwner ? <Link href={`/loja/${slug}/conta/pedidos`}>Meus pedidos</Link> : <Link href={`/loja/${slug}/`}>Voltar à loja</Link>}
         </header>
         <section className="customer-card customer-track-hero" aria-labelledby="track-title">
@@ -75,11 +89,15 @@ export default async function TrackOrder({ params }: {
             <div><p className="customer-muted">Pedido</p><h1 id="track-title" className="customer-title">#{order.displayId}</h1></div>
             <div className="customer-track-meta"><span>{pickup ? 'Retirada na loja' : 'Entrega'}</span><time dateTime={order.createdAt.toISOString()}>{dateTime(order.createdAt)}</time></div>
           </div>
+          {order.paymentMethod === 'ONLINE' && order.paymentStatus === 'PAID' && returning && <p role="status" className="customer-success" data-testid="payment-confirmed">Pagamento confirmado! A loja já pode liberar o seu pedido.</p>}
+          {awaitingOnline && returning && <p role="status" className="customer-info" data-testid="payment-checking">Confirmando seu pagamento com a InfinitePay… Esta página atualiza sozinha. Se você já pagou, aguarde um instante.</p>}
+          {awaitingOnline && returning && <PaymentReturnRetry />}
+          {awaitingOnline && !returning && <p role="status" className="customer-info">Aguardando o pagamento online. O pedido só é liberado para {pickup ? 'retirada' : 'entrega'} depois que o pagamento for confirmado.</p>}
           <OrderTracker order={{ ...order, deliveryStatus: order.delivery?.status }} timeZone={timeZone} />
           {driverFirstName && <p className="customer-muted">Entregador responsável: <strong>{driverFirstName}</strong></p>}
           {!tracking.terminal && store.averageDeliveryTime > 0 && !pickup && <p className="customer-muted">Tempo médio de entrega informado pela loja: {store.averageDeliveryTime} min. Não é uma previsão exata deste pedido.</p>}
           {contactHref && <a className="customer-track-contact" href={contactHref} target="_blank" rel="noopener noreferrer">Falar com a loja no WhatsApp</a>}
-          <OrderRefresh terminal={tracking.terminal} statusUrl={`/api/loja/${slug}/pedido/${orderId}`} version={[order.status, order.updatedAt.toISOString(), order.delivery?.status ?? '', order.delivery?.updatedAt.toISOString() ?? ''].join('|')} />
+          <OrderRefresh terminal={tracking.terminal} statusUrl={`/api/loja/${slug}/pedido/${orderId}`} version={[order.status, order.updatedAt.toISOString(), order.delivery?.status ?? '', order.delivery?.updatedAt.toISOString() ?? '', order.paymentStatus].join('|')} />
         </section>
         <div className="customer-grid">
           <section className="customer-card">
@@ -104,6 +122,7 @@ export default async function TrackOrder({ params }: {
               <div><dt>Status atual</dt><dd>{tracking.headline}</dd></div>
             </dl>
             {charge && <div className="mt-3"><OnlineChargeBox charge={charge} /></div>}
+            {paidCharge?.receiptUrl && <a className="customer-link-small mt-2 inline-block" href={paidCharge.receiptUrl} target="_blank" rel="noopener noreferrer">Ver comprovante do pagamento</a>}
             <h2 className="customer-subhead">Histórico</h2>
             <ol className="customer-history">
               {history.map((entry) => <li key={entry.label}><span>{entry.label}</span><time dateTime={entry.at.toISOString()}>{dateTime(entry.at)}</time></li>)}

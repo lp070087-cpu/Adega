@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { decryptJson, encryptJson } from '@/lib/crypto';
 import { AsaasError, authenticateAsaasWebhook } from '@/lib/platform/asaas-client';
 import { createCardPreference, createPixPayment, fetchPayment, mapStatus, verifySignature, type MpSecrets } from '@/lib/payments/mercadopago';
+import { checkInfinitePayPayment, createInfinitePayLink, infinitePayRef, validInfiniteTag } from '@/lib/payments/infinitepay';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -18,10 +19,11 @@ import { createCardPreference, createPixPayment, fetchPayment, mapStatus, verify
  *   idempotente: PENDING → PAID uma única vez.
  * ═══════════════════════════════════════════════════════════════════════
  */
-export type PaymentProvider = 'asaas' | 'mercadopago';
-export type OnlinePaymentConfig = { enabled: boolean; environment: 'sandbox' | 'production'; provider: PaymentProvider; encrypted?: string; verifiedAt?: string };
+export type PaymentProvider = 'asaas' | 'mercadopago' | 'infinitepay';
+/** `handle`: InfiniteTag da loja (InfinitePay). Não é segredo, por isso não vai cifrado. */
+export type OnlinePaymentConfig = { enabled: boolean; environment: 'sandbox' | 'production'; provider: PaymentProvider; encrypted?: string; verifiedAt?: string; handle?: string };
 type Secrets = { apiKey: string; webhookToken: string };
-export type OrderCharge = { provider?: PaymentProvider; preferenceId?: string; environment: 'sandbox' | 'production'; paymentId: string; billingType: 'PIX' | 'CREDIT_CARD'; invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; value: number; createdAt: string };
+export type OrderCharge = { provider?: PaymentProvider; preferenceId?: string; captureMethod?: string | null; receiptUrl?: string | null; environment: 'sandbox' | 'production'; paymentId: string; billingType: 'PIX' | 'CREDIT_CARD'; invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; value: number; createdAt: string };
 
 const bases = { sandbox: 'https://api-sandbox.asaas.com/v3', production: 'https://api.asaas.com/v3' } as const;
 const chargeKey = (orderId: string) => `order-payment:${orderId}`;
@@ -29,6 +31,11 @@ const chargeKey = (orderId: string) => `order-payment:${orderId}`;
 export function readOnlinePayment(settings: unknown): OnlinePaymentConfig {
   const root = settings && typeof settings === 'object' ? (settings as Record<string, any>) : {};
   const raw = root.onlinePayment ?? {};
+  if (raw.provider === 'infinitepay') {
+    const handle = validInfiniteTag(raw.handle) ? raw.handle : undefined;
+    // Sem sandbox na InfinitePay: o ambiente é sempre o real.
+    return { enabled: raw.enabled === true && Boolean(handle), environment: 'production', provider: 'infinitepay', handle, verifiedAt: typeof raw.verifiedAt === 'string' ? raw.verifiedAt : undefined };
+  }
   return { enabled: raw.enabled === true && typeof raw.encrypted === 'string', environment: raw.environment === 'production' ? 'production' : 'sandbox', provider: raw.provider === 'mercadopago' ? 'mercadopago' : 'asaas', encrypted: typeof raw.encrypted === 'string' ? raw.encrypted : undefined, verifiedAt: typeof raw.verifiedAt === 'string' ? raw.verifiedAt : undefined };
 }
 
@@ -47,8 +54,27 @@ export async function checkPaymentCredential(provider: PaymentProvider, environm
   return { status: 'unavailable', detail: `${name} respondeu HTTP ${response.status}.` };
 }
 
+/**
+ * Confere a InfiniteTag criando um link de R$ 1,00 na conta da loja. A
+ * InfinitePay não tem sandbox nem consulta de conta: criar o link é a única
+ * prova de que a tag existe. Ninguém é cobrado; o link só fica parado lá.
+ */
+export async function checkInfiniteTag(handle: string, run: typeof fetch = fetch): Promise<CredentialCheck> {
+  try {
+    await createInfinitePayLink({ handle, orderNsu: `teste-${Date.now()}`, amountCents: 100, description: 'Teste de conexão Del Flash (não pague)', redirectUrl: `${publicApp()}/`, webhookUrl: `${publicApp()}/api/webhooks/pedidos/infinitepay/teste` }, run);
+    return { status: 'valid', detail: 'InfiniteTag aceita pela InfinitePay.' };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    return /recusou|inválida/.test(message) ? { status: 'rejected', detail: 'A InfinitePay recusou esta InfiniteTag. Confira no app (Perfil › InfiniteTag), sem o $.' } : { status: 'unavailable', detail: 'A InfinitePay não respondeu.' };
+  }
+}
+
 /** Pronto para cobrar? Produção exige liberação explícita do servidor. */
 export function onlinePaymentUsable(config: OnlinePaymentConfig) {
+  // InfinitePay: só a InfiniteTag, sem credencial e sem sandbox. O dinheiro
+  // vai direto para a conta da loja e nada é cobrado sem o cliente pagar,
+  // então não depende da liberação de produção dos outros provedores.
+  if (config.provider === 'infinitepay') return config.enabled && validInfiniteTag(config.handle);
   if (!config.enabled || !config.encrypted) return false;
   return config.environment === 'sandbox' || process.env.ORDER_PAYMENTS_PRODUCTION === 'true';
 }
@@ -94,7 +120,7 @@ export async function createOrderCharge(input: { organizationId: string; orderId
   const existing = await readOrderCharge(input.orderId);
   if (existing) return existing;
   await prisma.platformSetting.create({ data: { key: `${chargeKey(input.orderId)}:lock`, value: { at: new Date().toISOString() } } }).catch(() => { throw new Error('Cobrança deste pedido já está sendo criada.'); });
-  try { return config.provider === 'mercadopago' ? await issueMercadoPago(config, input, org!.slug) : await issueCharge(config, input); }
+  try { return config.provider === 'infinitepay' ? await issueInfinitePay(config, input, org!.slug) : config.provider === 'mercadopago' ? await issueMercadoPago(config, input, org!.slug) : await issueCharge(config, input); }
   catch (error) {
     // Falhou antes de gravar: libera a reserva para uma nova tentativa.
     await prisma.platformSetting.delete({ where: { key: `${chargeKey(input.orderId)}:lock` } }).catch(() => undefined);
@@ -118,6 +144,53 @@ async function issueCharge(config: OnlinePaymentConfig, input: Parameters<typeof
   const charge: OrderCharge = { environment: config.environment, paymentId: payment.id, billingType: input.method, invoiceUrl: payment.invoiceUrl ?? null, pixPayload, pixImage, value: input.total, createdAt: new Date().toISOString() };
   await prisma.platformSetting.upsert({ where: { key: chargeKey(input.orderId) }, create: { key: chargeKey(input.orderId), value: charge }, update: { value: charge } });
   return charge;
+}
+
+/** Endereço público usado nos links de volta e nos webhooks dos provedores. */
+function publicApp() { return (process.env.APP_PUBLIC_URL ?? 'https://adega-nine.vercel.app').replace(/\/+$/, ''); }
+
+async function issueInfinitePay(config: OnlinePaymentConfig, input: Parameters<typeof createOrderCharge>[0], slug: string): Promise<OrderCharge> {
+  const app = publicApp();
+  const phone = input.customerPhone.replace(/\D/g, '');
+  const url = await createInfinitePayLink({
+    handle: config.handle!,
+    orderNsu: input.orderId,
+    amountCents: Math.round(input.total * 100),
+    description: `Pedido #${input.displayId} · ${input.storeName}`,
+    // A InfinitePay acrescenta order_nsu, transaction_nsu, slug, receipt_url e capture_method.
+    redirectUrl: `${app}/loja/${slug}/pedido/${input.orderId}`,
+    webhookUrl: `${app}/api/webhooks/pedidos/infinitepay/${slug}`,
+    customer: { name: input.customerName, phone_number: phone.length >= 10 ? `+55${phone.slice(-11)}` : undefined, email: input.email },
+  });
+  const charge: OrderCharge = { provider: 'infinitepay', environment: 'production', paymentId: '', billingType: input.method, invoiceUrl: url, pixPayload: null, pixImage: null, value: input.total, createdAt: new Date().toISOString() };
+  await prisma.platformSetting.upsert({ where: { key: chargeKey(input.orderId) }, create: { key: chargeKey(input.orderId), value: charge }, update: { value: charge } });
+  return charge;
+}
+
+/**
+ * Confirma um pagamento da InfinitePay — no webhook e na volta do checkout.
+ * O aviso não é assinado, então ele só serve de gatilho: quem decide é o
+ * /payment_check, conferido contra pedido, loja e valor. Idempotente.
+ */
+export async function confirmInfinitePayPayment(slug: string, refs: { orderNsu: unknown; transactionNsu: unknown; invoiceSlug: unknown; receiptUrl?: unknown }, run: typeof fetch = fetch): Promise<{ status: number; result: string }> {
+  const orderNsu = infinitePayRef(refs.orderNsu), transactionNsu = infinitePayRef(refs.transactionNsu), invoiceSlug = infinitePayRef(refs.invoiceSlug);
+  if (!orderNsu || !transactionNsu || !invoiceSlug) return { status: 200, result: 'ignorado' };
+  const org = await prisma.organization.findUnique({ where: { slug }, select: { id: true, settings: true } });
+  if (!org) return { status: 404, result: 'loja' };
+  const config = readOnlinePayment(org.settings);
+  if (config.provider !== 'infinitepay' || !config.handle) return { status: 200, result: 'sem configuração' };
+  const order = await prisma.order.findFirst({ where: { id: orderNsu, organizationId: org.id }, select: { id: true, total: true, paymentStatus: true, displayId: true } });
+  const charge = order ? await readOrderCharge(order.id) : null;
+  if (!order || !charge || charge.provider !== 'infinitepay') return { status: 200, result: 'sem pedido' };
+  if (order.paymentStatus === 'PAID') return { status: 200, result: 'já pago' };
+  const check = await checkInfinitePayPayment({ handle: config.handle, orderNsu, transactionNsu, slug: invoiceSlug }, run);
+  if (!check.success || !check.paid) return { status: 200, result: 'pendente' };
+  if (check.amount < Math.round(Number(order.total) * 100)) return { status: 200, result: 'valor divergente' };
+  const changed = await prisma.order.updateMany({ where: { id: order.id, organizationId: org.id, paymentStatus: { in: ['PENDING', 'FAILED'] } }, data: { paymentStatus: 'PAID' } });
+  const receiptUrl = typeof refs.receiptUrl === 'string' && /^https:\/\/[\w.-]*infinitepay\.io\//.test(refs.receiptUrl) ? refs.receiptUrl : charge.receiptUrl ?? null;
+  await prisma.platformSetting.update({ where: { key: chargeKey(order.id) }, data: { value: { ...charge, paymentId: transactionNsu, captureMethod: check.captureMethod, receiptUrl } } }).catch(() => undefined);
+  if (changed.count) await prisma.notification.create({ data: { organizationId: org.id, type: 'SYSTEM', title: 'Pagamento online confirmado', message: `Pedido #${order.displayId} pago pela InfinitePay (${check.captureMethod === 'pix' ? 'Pix' : check.captureMethod ?? 'online'}). Já pode ser liberado para entrega.`, href: `/app/pedidos?pedido=${order.id}` } }).catch(() => undefined);
+  return { status: 200, result: changed.count ? 'pago' : 'já pago' };
 }
 
 async function issueMercadoPago(config: OnlinePaymentConfig, input: Parameters<typeof createOrderCharge>[0], slug: string): Promise<OrderCharge> {

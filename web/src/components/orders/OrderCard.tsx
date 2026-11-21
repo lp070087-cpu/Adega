@@ -128,6 +128,8 @@ export function OrderCard({
           <span className="rounded-full bg-ink-100 px-2 py-1 text-[0.68rem] font-semibold text-ink-700">{pickup ? 'Retirada' : `Entrega${order.deliveryDistrict ? ` · ${order.deliveryDistrict}` : ''}`}</span>
           <SourceBadge source={order.source} />
           {order.paymentStatus === 'PENDING' && order.paymentMethod === 'CASH' && <span className="rounded-full bg-warn-bg px-2 py-1 text-[0.68rem] font-bold text-warn">Cobrar na entrega</span>}
+          {order.paymentMethod === 'ONLINE' && order.paymentStatus === 'PAID' && <span className="rounded-full bg-success-bg px-2 py-1 text-[0.68rem] font-bold text-success" data-testid="online-paid">Pago online</span>}
+          {order.paymentMethod === 'ONLINE' && order.paymentStatus !== 'PAID' && order.status !== 'CANCELLED' && <span className="rounded-full bg-warn-bg px-2 py-1 text-[0.68rem] font-bold text-warn" data-testid="online-waiting">Aguardando pagamento online</span>}
           {order.driver && <span className="rounded-full bg-ink-100 px-2 py-1 text-[0.68rem] font-semibold text-ink-700">🛵 {order.driver.name.split(' ')[0]}</span>}
           {order.status === 'PREPARING' && order.preparingAt && <PrepTimer since={order.preparingAt} minutes={prepMinutes} />}
         </div>

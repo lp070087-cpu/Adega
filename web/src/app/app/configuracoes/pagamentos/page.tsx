@@ -26,7 +26,7 @@ export default async function PaymentsSettingsPage() {
           <ul className="mt-1 list-disc space-y-0.5 pl-5">
             <li><strong>A cobrar na entrega</strong>: dinheiro ou cartão informado pelo cliente; vira <strong>Pago</strong> quando a entrega é concluída.</li>
             <li><strong>Aguardando confirmação</strong>: Pix informado na entrega; confira o recebimento antes de entregar. Ao concluir a entrega, o pedido é registrado como pago e lançado no caixa.</li>
-            <li><strong>Pagamento online</strong>: fica pago só quando o provedor (Mercado Pago ou Asaas) confirma pelo webhook assinado.</li>
+            <li><strong>Pagamento online</strong>: fica pago só quando o provedor (InfinitePay, Mercado Pago ou Asaas) confirma. Enquanto não estiver pago, o pedido não pode ser liberado para entrega ou retirada.</li>
             <li><strong>Recusado</strong> e <strong>Estornado</strong> são registrados pela equipe no pedido.</li>
             <li>Escolher a forma de pagamento nunca marca o pedido como pago.</li>
           </ul>
@@ -35,7 +35,7 @@ export default async function PaymentsSettingsPage() {
       </section>
 
       <section className="rounded-xl border bg-white p-5">
-        <OnlinePaymentForm enabled={online.enabled} environment={online.environment} provider={online.provider} configured={Boolean(online.encrypted)} usable={onlinePaymentUsable(online)} verified={Boolean(online.verifiedAt)} webhookUrls={{ asaas: `${app}/api/webhooks/pedidos/asaas/${organization?.slug ?? ''}`, mercadopago: `${app}/api/webhooks/pedidos/mercadopago/${organization?.slug ?? ''}` }} />
+        <OnlinePaymentForm enabled={online.enabled} environment={online.environment} provider={online.provider} configured={online.provider === 'infinitepay' ? Boolean(online.handle) : Boolean(online.encrypted)} usable={onlinePaymentUsable(online)} verified={Boolean(online.verifiedAt)} handle={online.handle} webhookUrls={{ infinitepay: `${app}/api/webhooks/pedidos/infinitepay/${organization?.slug ?? ''}`, asaas: `${app}/api/webhooks/pedidos/asaas/${organization?.slug ?? ''}`, mercadopago: `${app}/api/webhooks/pedidos/mercadopago/${organization?.slug ?? ''}` }} />
       </section>
     </div>
   );

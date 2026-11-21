@@ -14,9 +14,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   if (!/^c[a-z0-9]{20,40}$/.test(orderId)) return NextResponse.json({ error: 'not_found' }, { status: 404, headers });
   const order = await prisma.order.findFirst({
     where: { id: orderId, organization: { slug } },
-    select: { status: true, updatedAt: true, delivery: { select: { status: true, updatedAt: true } } },
+    select: { status: true, updatedAt: true, paymentStatus: true, delivery: { select: { status: true, updatedAt: true } } },
   });
   if (!order) return NextResponse.json({ error: 'not_found' }, { status: 404, headers });
-  const version = [order.status, order.updatedAt.toISOString(), order.delivery?.status ?? '', order.delivery?.updatedAt.toISOString() ?? ''].join('|');
+  // O status do pagamento entra na versão: a confirmação online recarrega a página.
+  const version = [order.status, order.updatedAt.toISOString(), order.delivery?.status ?? '', order.delivery?.updatedAt.toISOString() ?? '', order.paymentStatus].join('|');
   return NextResponse.json({ version, terminal: order.status === 'DELIVERED' || order.status === 'CANCELLED' }, { headers });
 }

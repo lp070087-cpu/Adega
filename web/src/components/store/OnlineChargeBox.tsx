@@ -1,7 +1,17 @@
 'use client';
 
 /** Cobrança online do pedido: QR/copia e cola do Pix ou link da página segura. */
-export function OnlineChargeBox({ charge, copied, onCopy }: { charge: { invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; billingType: string }; copied?: boolean; onCopy?: () => void }) {
+export function OnlineChargeBox({ charge, copied, onCopy }: { charge: { invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; billingType: string; provider?: string | null }; copied?: boolean; onCopy?: () => void }) {
+  if (charge.provider === 'infinitepay') {
+    return (
+      <div className="rounded border-2 border-brand/30 bg-brand-soft px-4 py-3 text-[0.84rem] text-ink-800" data-testid="online-charge">
+        <p className="font-bold">Pague pela InfinitePay para liberar o pedido</p>
+        <p className="mt-1 text-[0.78rem] text-ink-600">Pix ou cartão na página segura da InfinitePay. O pedido é liberado assim que o pagamento for confirmado.</p>
+        {charge.invoiceUrl && <a href={charge.invoiceUrl} className="mt-3 block rounded-full bg-brand px-4 py-2.5 text-center font-bold text-white" data-testid="invoice-link">Pagar agora (Pix ou cartão)</a>}
+        <p className="mt-2 text-center text-[0.72rem] text-ink-500">Pagamento processado pela InfinitePay.</p>
+      </div>
+    );
+  }
   return (
     <div className="rounded border-2 border-brand/30 bg-brand-soft px-4 py-3 text-[0.84rem] text-ink-800" data-testid="online-charge">
       <p className="font-bold">{charge.billingType === 'PIX' ? 'Pague com Pix para confirmar' : 'Pague com cartão para confirmar'}</p>
