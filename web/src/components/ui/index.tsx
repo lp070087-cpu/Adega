@@ -23,17 +23,17 @@ type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'bg-brand text-white hover:bg-brand-dark shadow-xs',
-  secondary: 'bg-white text-ink-700 border border-ink-200 hover:border-brand hover:text-brand',
+  primary: 'bg-brand text-white hover:brightness-[1.08] shadow-[0_8px_18px_-10px_rgb(var(--brand-rgb,8_126_164)/.9)]',
+  secondary: 'bg-white text-ink-700 border border-[#e3e7ee] shadow-[0_1px_2px_rgba(16,24,40,.05)] hover:border-brand/50 hover:text-brand',
   ghost: 'bg-transparent text-ink-600 hover:bg-ink-100 hover:text-ink-900',
   danger: 'bg-danger text-white hover:brightness-95',
   success: 'bg-success text-white hover:brightness-95',
 };
 
 const BUTTON_SIZES: Record<ButtonSize, string> = {
-  sm: 'text-[0.78rem] px-3.5 py-2 rounded-sm gap-1.5',
-  md: 'text-[0.86rem] px-4 py-2.5 rounded-sm gap-2',
-  lg: 'text-[0.95rem] px-6 py-3 rounded-sm gap-2',
+  sm: 'text-[0.78rem] px-3.5 py-2 min-h-9 rounded-[10px] gap-1.5',
+  md: 'text-[0.86rem] px-4 py-2.5 min-h-11 rounded-xl gap-2',
+  lg: 'text-[0.95rem] px-6 py-3 min-h-12 rounded-xl gap-2',
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -58,7 +58,7 @@ export function Button({
       {...props}
       disabled={disabled || loading}
       className={cn(
-        'inline-flex items-center justify-center font-semibold transition-all duration-200',
+        'inline-flex items-center justify-center font-semibold tracking-[-0.005em] transition-all duration-200 active:scale-[.98]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-55 disabled:cursor-not-allowed',
         BUTTON_VARIANTS[variant],
         BUTTON_SIZES[size],
@@ -191,7 +191,7 @@ export function CardHeader({
   return (
     <div className="mb-4 flex items-start justify-between gap-3">
       <div>
-        <h3 className="text-[0.95rem] font-bold text-ink-900">{title}</h3>
+        <h3 className="text-[1rem] font-bold tracking-[-0.015em] text-ink-900">{title}</h3>
         {subtitle && <p className="mt-0.5 text-[0.76rem] text-ink-500">{subtitle}</p>}
       </div>
       {action}
@@ -284,7 +284,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        'inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-[0.7rem] font-bold',
+        'inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-[0.7rem] font-bold ring-1 ring-inset ring-black/[.04]',
         BADGE_TONES[tone],
         className,
       )}

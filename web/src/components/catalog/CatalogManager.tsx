@@ -309,7 +309,7 @@ export function CatalogManager({
               disabled={pending}
               title={
                 product.available
-                  ? 'Marcar como indisponível (some do cardápio, mas continua ativo)'
+                  ? 'Marcar como indisponível (some do catálogo, mas continua ativo)'
                   : 'Voltar a vender este item'
               }
               onClick={() =>
@@ -429,7 +429,7 @@ export function CatalogManager({
           <div className="rounded-lg border border-ink-100 bg-white p-4">
             <h3 className="mb-1 text-[0.92rem] font-bold text-ink-900">Produtos</h3>
             <p className="mb-3 text-[0.76rem] text-ink-500">
-              A ordem em que o cardápio apresenta os itens dentro de cada categoria.
+              A ordem em que o catálogo apresenta os itens dentro de cada categoria.
             </p>
             <ReorderList
               kind="product"
@@ -468,7 +468,7 @@ export function CatalogManager({
 
               {categories.length === 0 ? (
                 <p className="rounded border border-dashed border-ink-200 px-4 py-5 text-center text-[0.78rem] text-ink-500">
-                  Nenhuma categoria ainda. Crie a primeira para organizar o cardápio.
+                  Nenhuma categoria ainda. Crie a primeira para organizar o catálogo.
                 </p>
               ) : (
                 <ul className="divide-y divide-ink-100">
@@ -881,7 +881,7 @@ export function CatalogManager({
         open={Boolean(categoryForm)}
         onClose={() => setCategoryForm(null)}
         title={categoryForm?.id ? 'Editar categoria' : 'Nova categoria'}
-        subtitle="Aparece como seção no cardápio da loja."
+        subtitle="Aparece como seção no catálogo da loja."
         size="sm"
         footer={
           <>
@@ -913,7 +913,7 @@ export function CatalogManager({
               required
               minLength={2}
               maxLength={60}
-              placeholder="Ex.: Cervejas, Pizzas salgadas, Bebidas"
+              placeholder="Ex.: Cervejas, Destilados, Gelo e carvão"
               autoFocus
             />
           </Field>
@@ -961,7 +961,7 @@ export function CatalogManager({
       >
         <p className="text-[0.84rem] leading-relaxed text-ink-600">
           <strong className="text-ink-900">{confirmCategoryDelete?.name}</strong> será removida do
-          cardápio.{' '}
+          catálogo.{' '}
           {confirmCategoryDelete && confirmCategoryDelete.count > 0 ? (
             <>
               Os <strong>{confirmCategoryDelete.count}</strong> produto

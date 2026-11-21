@@ -22,8 +22,8 @@ export type BusinessCopy = {
 export const BUSINESS_COPY: Record<BusinessType, BusinessCopy> = {
   BEVERAGE: {
     noun: 'loja de bebidas',
-    headline: 'suas *bebidas* favoritas agora online',
-    description: 'Bebidas geladas, destilados e gelo entregues na sua porta.',
+    headline: 'suas *bebidas* geladas a um toque',
+    description: 'Cervejas, destilados, vinhos e gelo — retire na loja ou receba em casa.',
   },
   BURGER: {
     noun: 'hamburgueria',
@@ -245,7 +245,7 @@ export const ROLE_LABEL: Record<string, string> = {
   ADMIN: 'Administrador',
   MANAGER: 'Gerente',
   ATTENDANT: 'Atendente',
-  KITCHEN: 'Cozinha',
+  KITCHEN: 'Separação',
   DISPATCHER: 'Expedição',
   DRIVER: 'Entregador',
   PLATFORM_ADMIN: 'Administrador da plataforma',

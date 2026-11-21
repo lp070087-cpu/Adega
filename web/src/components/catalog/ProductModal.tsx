@@ -228,7 +228,7 @@ export function ProductModal({
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ex.: X-Burger Especial"
+            placeholder="Ex.: Cerveja Heineken Long Neck 330 ml"
             maxLength={160}
             autoFocus
           />

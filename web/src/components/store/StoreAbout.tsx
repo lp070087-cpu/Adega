@@ -134,7 +134,7 @@ export function StoreAbout({ store }: { store: StoreContactData }) {
  */
 export function StoreFooter({ store }: { store: { name: string; slug: string } }) {
   const links = [
-    { href: '#cardapio', label: 'Cardápio' },
+    { href: '#cardapio', label: 'Catálogo' },
     { href: '#promocoes', label: 'Promoções' },
     { href: `/loja/${store.slug}/conta`, label: 'Minha conta' },
     { href: `/loja/${store.slug}/conta/pedidos`, label: 'Meus pedidos' },

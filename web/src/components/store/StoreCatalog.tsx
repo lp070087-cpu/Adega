@@ -372,7 +372,7 @@ export function StoreCatalog({
     if (lines.length) {
       setCart(lines);
       setCartOpen(true);
-    } else setError('Os itens do link não estão mais disponíveis. Escolha no cardápio.');
+    } else setError('Os itens do link não estão mais disponíveis. Escolha no catálogo.');
   }, [hydrated, products]);
 
   React.useEffect(() => {
@@ -684,7 +684,7 @@ export function StoreCatalog({
                   : STORE_OPEN_STATE_LABEL[store.openState]
               }
             >
-              Você pode ver o cardápio inteiro e montar a sacola, mas o pedido só será aceito no
+              Você pode ver o catálogo inteiro e montar a sacola, mas o pedido só será aceito no
               horário de funcionamento{store.openingHours ? ` (${store.openingHours})` : ''}.
             </Alert>
           </div>
@@ -695,8 +695,8 @@ export function StoreCatalog({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar no cardápio..."
-            aria-label="Buscar no cardápio"
+            placeholder="Buscar no catálogo..."
+            aria-label="Buscar no catálogo"
             type="search"
           />
 
@@ -740,7 +740,7 @@ export function StoreCatalog({
         </div>
 
         <div className="store-showcase-heading">
-          <span>Cardápio</span>
+          <span>Catálogo</span>
           <h2>{activeCategory === 'all' ? 'Todos os produtos' : categoryView.nav.find((c) => c.id === activeCategory)?.name ?? 'Todos os produtos'}</h2>
           <p>Preços e disponibilidade atualizados pela loja.</p>
         </div>
@@ -774,8 +774,8 @@ export function StoreCatalog({
             </h2>
             <p className="mb-3 text-[0.78rem] text-ink-500">
               {promos.length === 1
-                ? '1 produto com desconto no cardápio'
-                : `${promos.length} produtos com desconto no cardápio`}
+                ? '1 produto com desconto no catálogo'
+                : `${promos.length} produtos com desconto no catálogo`}
             </p>
 
             <ul className="store-product-grid">

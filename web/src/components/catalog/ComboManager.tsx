@@ -409,7 +409,7 @@ export function ComboManager({
                 value={draft.name}
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                 maxLength={120}
-                placeholder="Ex.: Combo casal — 2 burgers + fritas + 2 refris"
+                placeholder="Ex.: Kit churrasco — 12 latas + gelo + carvão"
               />
             </Field>
 
@@ -439,7 +439,7 @@ export function ComboManager({
               />
             </Field>
 
-            <Field label="Categoria" hint="Onde o combo aparece no cardápio.">
+            <Field label="Categoria" hint="Onde o combo aparece no catálogo.">
               <Select
                 value={draft.categoryId}
                 onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}
@@ -566,7 +566,7 @@ export function ComboManager({
 
             <div className="mt-3 space-y-2.5 sm:col-span-2">
               <Checkbox
-                label="Ativo no cardápio"
+                label="Ativo no catálogo"
                 checked={draft.active}
                 onChange={(e) => setDraft({ ...draft, active: e.target.checked })}
               />
@@ -624,7 +624,7 @@ export function ComboManager({
         }
       >
         <p className="text-[0.84rem] leading-relaxed text-ink-700">
-          O combo <strong>{confirmDelete?.name}</strong> sai do cardápio. Os{' '}
+          O combo <strong>{confirmDelete?.name}</strong> sai do catálogo. Os{' '}
           {confirmDelete?.items.length ?? 0} produtos que fazem parte dele{' '}
           <strong>continuam no seu catálogo</strong>, com preço e estoque intactos.
         </p>

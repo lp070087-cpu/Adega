@@ -245,7 +245,7 @@ export default async function DashboardPage() {
             <EmptyState
               icon="⏱️"
               title="Sem entregas concluídas hoje"
-              description="As médias de preparo e entrega aparecem assim que o primeiro pedido do dia for entregue."
+              description="As médias de separação e entrega aparecem assim que o primeiro pedido do dia for entregue."
             />
           ) : (
             <div className="space-y-3">

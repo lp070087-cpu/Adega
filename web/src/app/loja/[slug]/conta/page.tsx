@@ -14,7 +14,7 @@ import { CustomerMenu } from '@/components/customer/CustomerMenu';
 import { OrderRefresh } from '@/components/store/OrderRefresh';
 import { portalMailReady } from '@/lib/customer-portal/mail';
 import { safeReturnPath } from '@/lib/customer-portal/policy';
-import { PAYMENT_METHOD_LABEL } from '@/data/business-copy';
+import { PAYMENT_METHOD_LABEL,initialsFromName } from '@/data/business-copy';
 import './portal.css';
 export const dynamic='force-dynamic';
 export const metadata={title:'Minha conta',robots:{index:false,follow:false},referrer:'same-origin' as const};
@@ -29,7 +29,7 @@ export default async function CustomerPortalPage({params,searchParams}:Props){
  if(account&&['entrar','criar-conta','recuperar'].includes(section))redirect(safeReturnPath(slug,returnTo));
  if(section==='pontos'&&!growth.loyalty.enabled)notFound();
  const brand=/^#[0-9a-f]{6}$/i.test(store.brandColor)?store.brandColor:'#087EA4';
- if(section==='termos')return <main className="customer-shell" style={{['--store-accent' as string]:brand}}><div className="customer-wrap"><header className="customer-header"><Link href={`${base}/`}>{store.logoUrl?<img src={store.logoUrl} alt=""/>:<span className="customer-store-tag" aria-hidden/>}<span>{store.name}</span></Link><Link href={`${base}/conta/criar-conta`}>Criar conta</Link></header><TermsContent storeName={store.name}/></div></main>;
+ if(section==='termos')return <main className="customer-shell" style={{['--store-accent' as string]:brand}}><div className="customer-wrap"><header className="customer-header"><Link href={`${base}/`}>{store.logoUrl?<img src={store.logoUrl} alt=""/>:<span className="customer-store-tag" aria-hidden>{initialsFromName(store.name)}</span>}<span>{store.name}</span></Link><Link href={`${base}/conta/criar-conta`}>Criar conta</Link></header><TermsContent storeName={store.name}/></div></main>;
  if(ready&&publicSection)return <main className="customer-auth-root" style={{['--store-accent' as string]:brand}}><CustomerAuthScreen store={store} section={section as AuthSection} mailReady={portalMailReady()} returnTo={returnTo}/></main>;
  const page=Math.min(1000,Math.max(1,Math.trunc(Number(query.pagina)||1)));
  const [orders,addresses]=account?await Promise.all([
@@ -40,7 +40,7 @@ export default async function CustomerPortalPage({params,searchParams}:Props){
  const storeCenter=store.latitude!=null&&store.longitude!=null?{latitude:store.latitude,longitude:store.longitude}:null;
  const ownOrderIds=new Set(orders.map(link=>link.orderId));const pointHistory=growth.ledger.filter(entry=>entry.orderId&&ownOrderIds.has(entry.orderId));
  return <main className="customer-shell" style={{['--store-accent' as string]:brand}}><div className="customer-wrap">
-  <header className="customer-header"><Link href={`${base}/`}>{store.logoUrl?<img src={store.logoUrl} alt=""/>:<span className="customer-store-tag" aria-hidden/>}<span>{store.name}</span></Link><Link href={`${base}/#cardapio`}>Voltar à loja</Link></header>
+  <header className="customer-header"><Link href={`${base}/`}>{store.logoUrl?<img src={store.logoUrl} alt=""/>:<span className="customer-store-tag" aria-hidden>{initialsFromName(store.name)}</span>}<span>{store.name}</span></Link><Link href={`${base}/#cardapio`}>Voltar à loja</Link></header>
   {account&&<CustomerMenu base={base} current={section} items={[...sections,...(growth.loyalty.enabled?[['pontos','Programa de pontos']]:[])] as Array<[string,string]>}/>}
   {!ready?<section className="customer-card customer-auth"><h1 className="customer-title">Sua conta na loja</h1><p className="customer-muted">As contas de cliente ainda não estão disponíveis nesta loja. Você pode comprar sem cadastro e acompanhar o pedido pelo link recebido ao finalizar.</p><div className="customer-auth-links"><Link href={`${base}/#cardapio`}>Continuar comprando</Link></div></section>:account&&<>
     <h1 className="customer-title">{section===''?`Olá, ${account.firstName.split(' ')[0]}`:sections.find(([path])=>path===section)?.[1]??'Programa de pontos'}</h1>

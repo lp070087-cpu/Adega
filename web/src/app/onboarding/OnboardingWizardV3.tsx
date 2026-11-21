@@ -621,7 +621,7 @@ export function OnboardingWizardV3({
               <div className="mt-5 rounded border border-ink-100 bg-ink-50 p-4">
                 <p className="text-[0.82rem] font-bold text-ink-800">Que estilo de comida você faz?</p>
                 <p className="mt-0.5 text-[0.74rem] text-ink-500">
-                  Serve só para sugerir categorias. Não limita o seu cardápio.
+                  Serve só para sugerir categorias. Não limita o seu catálogo.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {RESTAURANT_STYLES.map((style) => (
@@ -659,7 +659,7 @@ export function OnboardingWizardV3({
                 <Input
                   value={draft.name}
                   onChange={(e) => patch({ name: e.target.value, slug: '' })}
-                  placeholder="Ex.: Burger do Zé"
+                  placeholder="Ex.: Adega do Zé"
                   autoFocus
                 />
               </Field>

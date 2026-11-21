@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft,MapPin,PackageCheck,ShieldCheck,ShoppingBag } from 'lucide-react';
 import { CustomerForm,CustomerPassword,CustomerPhoneInput,CustomerConfirmation } from './CustomerForm';
 import { PORTAL_MAIL_UNAVAILABLE } from '@/lib/customer-portal/server';
+import { initialsFromName } from '@/data/business-copy';
 import { DeliveryIllustration } from '@/components/auth/DeliveryIllustration';
 import '@/components/auth/auth-shell.css';
 
@@ -20,7 +21,7 @@ export function CustomerAuthScreen({store,section,mailReady,returnTo}:{store:Sto
  const hidden=returnTo?<input type="hidden" name="voltar" value={returnTo}/>:null;
  return <div className="customer-auth-shell">
   <aside className="customer-auth-brand">
-   <Link href={`${base}/`} className="customer-auth-store">{store.logoUrl?<img src={store.logoUrl} alt=""/>:<span className="customer-auth-initial" aria-hidden>{store.name.charAt(0).toUpperCase()}</span>}<span>{store.name}</span></Link>
+   <Link href={`${base}/`} className="customer-auth-store">{store.logoUrl?<img src={store.logoUrl} alt=""/>:<span className="customer-auth-initial" aria-hidden>{initialsFromName(store.name)}</span>}<span>{store.name}</span></Link>
    <div className="customer-auth-pitch"><p className="customer-auth-kicker">Loja de bebidas</p><h2>Sua conta em {store.name}</h2><ul>{benefits.map(([Icon,label])=><li key={label}><Icon size={20} aria-hidden/>{label}</li>)}</ul></div>
    <DeliveryIllustration className="customer-auth-illustration"/>
    <p className="customer-auth-powered">Plataforma Del Flash</p>
@@ -32,7 +33,7 @@ export function CustomerAuthScreen({store,section,mailReady,returnTo}:{store:Sto
     <p className="customer-muted customer-auth-subtitle">{copy[section].subtitle}</p>
     {checkout&&section!=='confirmar'&&<p className="customer-info" role="note">Depois de entrar, você volta à finalização com a sua sacola preservada.</p>}
     {section==='confirmar'?<CustomerConfirmation slug={store.slug}/>
-    :section==='recuperar'&&!mailReady?<div className="customer-info" role="status"><p>{PORTAL_MAIL_UNAVAILABLE}</p><p className="customer-hint">Configuração necessária na plataforma: provedor de e-mail (RESEND_API_KEY), remetente verificado (MAIL_FROM) e endereço público HTTPS (APP_PUBLIC_URL).</p></div>
+    :section==='recuperar'&&!mailReady?<div className="customer-info" role="status"><p>{PORTAL_MAIL_UNAVAILABLE}</p></div>
     :section==='entrar'?<CustomerForm slug={store.slug} action="login" submit="Entrar" pendingLabel="Entrando…">{hidden}
       <label>E-mail<input name="email" type="email" required maxLength={254} autoComplete="email" inputMode="email" placeholder="voce@exemplo.com"/></label>
       <CustomerPassword current aside={<Link href={`${base}/conta/recuperar${query}`} className="customer-link-small">Esqueci minha senha</Link>}/>

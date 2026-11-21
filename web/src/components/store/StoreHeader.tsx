@@ -1,4 +1,5 @@
 'use client';
+import { initialsFromName } from '@/data/business-copy';
 
 import * as React from 'react';
 import { CustomerStoreAccess } from '@/components/customer/CustomerStoreAccess';
@@ -245,13 +246,5 @@ export function StoreHeader({
   );
 }
 
-/** Mesma regra de iniciais do resto do sistema. */
-function initials(name: string): string {
-  const words = String(name ?? '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-  if (words.length === 0) return 'LO';
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-}
+/** Mesma regra de iniciais do resto do sistema (hero, painel, conta). */
+const initials = initialsFromName;

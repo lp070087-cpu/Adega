@@ -81,6 +81,9 @@ export type DynamicStoreHeroProps = {
     logoUrl: string | null;
     description: string | null;
     averageDeliveryTime: number | null;
+    /** Modalidades: a adega atende por entrega e/ou retirada no balcão. */
+    allowPickup?: boolean;
+    allowOwnDelivery?: boolean;
     minimumOrder: number;
     /** Estado combinado: decisão do lojista + agenda da semana. */
     openState: string;
@@ -110,7 +113,7 @@ export function DynamicStoreHero({
   featuredProducts,
   banners = [],
   mobileBanners = [],
-  ctaLabel = 'Ver cardápio',
+  ctaLabel = 'Ver catálogo',
   ctaHref = '#cardapio',
 }: DynamicStoreHeroProps) {
   /**
@@ -310,17 +313,21 @@ export function DynamicStoreHero({
 
             <h1 className="store-hero-title">{slides[activeIndex]?.title?.trim() || organization.name}</h1>
             {storeDescription && <p className="store-hero-tagline">{storeDescription}</p>}
-            <p className="store-hero-tagline store-hero-tagline-segment">{slides[activeIndex]?.subtitle?.trim() || tagline}</p>
+            {/* A frase do segmento só entra quando a loja não escreveu a dela. */}
+            {(slides[activeIndex]?.subtitle?.trim() || !storeDescription) && (
+              <p className="store-hero-tagline store-hero-tagline-segment">{slides[activeIndex]?.subtitle?.trim() || tagline}</p>
+            )}
             {slides[activeIndex]?.cta && slides[activeIndex]?.linkUrl && (
               <a className="store-hero-cta" href={slides[activeIndex]!.linkUrl!} rel="noopener noreferrer">{slides[activeIndex]!.cta}</a>
             )}
 
             <div className="store-hero-facts">
-              {organization.averageDeliveryTime ? (
+              {organization.allowOwnDelivery !== false && organization.averageDeliveryTime ? (
                 <span className="store-hero-fact">
                   Entrega em cerca de {organization.averageDeliveryTime} min
                 </span>
               ) : null}
+              {organization.allowPickup ? <span className="store-hero-fact">Retirada na loja</span> : null}
               {organization.minimumOrder > 0 ? (
                 <span className="store-hero-fact">
                   Pedido mínimo {formatBRL(organization.minimumOrder)}

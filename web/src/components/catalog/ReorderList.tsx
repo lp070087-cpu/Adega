@@ -87,7 +87,7 @@ export function ReorderList({
   const LABEL: Record<typeof kind, { empty: string; hint: string }> = {
     product: {
       empty: 'Você precisa de pelo menos 2 produtos para definir uma ordem.',
-      hint: 'Esta é a ordem em que os produtos aparecem no cardápio. A busca da vitrine não depende dela.',
+      hint: 'Esta é a ordem em que os produtos aparecem no catálogo. A busca da vitrine não depende dela.',
     },
     category: {
       empty: 'Você precisa de pelo menos 2 categorias para definir uma ordem.',
@@ -95,7 +95,7 @@ export function ReorderList({
     },
     featured: {
       empty: 'Marque produtos como destaque (★) para poder ordenar o carrossel.',
-      hint: 'Esta é a ordem do carrossel no topo da loja — independente da ordem do cardápio.',
+      hint: 'Esta é a ordem do carrossel no topo da loja — independente da ordem do catálogo.',
     },
   };
 

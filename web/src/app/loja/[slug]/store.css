@@ -123,3 +123,19 @@
   .store-product-card, .store-product-thumb img, .store-product-add, .store-cart-bar, .store-category-chip { transition:none; animation:none; }
   .store-product-card:hover, .store-product-card:hover .store-product-thumb img, .store-cart-bar:hover, .store-cart-bar:active, .store-product-add:active { transform:none; }
 }
+
+/* ── Cards da vitrine (ajuste 2026-11) ──
+   Foto em moldura própria dentro do card, borda mais leve e sombra de
+   repouso: o card lê como "produto" mesmo antes do hover. */
+.store-product-card { border-color:#eceff3; border-radius:20px; box-shadow:0 1px 2px rgba(16,24,40,.04); }
+.store-product-media { margin:8px 8px 0; border-radius:14px; overflow:hidden; background:linear-gradient(165deg,#f8fafc 0%,#eef2f7 100%); }
+.store-product-photo:focus-visible { border-radius:14px; }
+.store-product-add { border-radius:999px; box-shadow:0 8px 18px -12px color-mix(in srgb, var(--store-brand) 85%, transparent); }
+.store-product-add:disabled { box-shadow:none; }
+@media (max-width:640px) {
+  .store-product-card { border-radius:16px; }
+  .store-product-media { margin:6px 6px 0; border-radius:12px; }
+  .store-product-desc { min-height:0; }
+  .store-product-name { min-height:0; }
+}
+@media (max-width:640px) { .store-product-from[aria-hidden="true"] { display:none; } .store-product-price { padding-top:8px; } }

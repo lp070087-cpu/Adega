@@ -229,6 +229,8 @@ export default async function PublicStorePage({ params }: PageProps) {
           averageDeliveryTime: store.averageDeliveryTime,
           minimumOrder: Number(store.minimumOrder),
           openState,
+          allowPickup: store.allowPickup,
+          allowOwnDelivery: store.allowOwnDelivery,
         }}
         businessType={store.businessType}
         mobileBanners={mobileBanners.filter(b=>b.placement==='hero-mobile')}

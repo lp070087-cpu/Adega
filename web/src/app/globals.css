@@ -213,11 +213,11 @@ textarea {
 .panel-shell .field-input { min-width:0; max-width:100%; }
 [role='dialog'] { overflow-wrap:anywhere; }
 .panel-content h2, .panel-content h3 { letter-spacing: -.025em; }
-.panel-shell .ui-card, .panel-shell .ui-stat { border-color: #e8ebf1; border-radius: 16px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 4px 16px -8px rgba(16,24,40,.08); }
+.panel-shell .ui-card, .panel-shell .ui-stat { border-color: #e8ebf1; border-radius: 18px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 10px 28px -18px rgba(16,24,40,.16); }
 .panel-shell .ui-stat > div:first-child > span:first-child { width: 34px; height: 34px; border-radius: 8px; background: #f6f7f9; color: #667184; }
 .panel-shell .ui-stat > p:nth-of-type(2) { font-variant-numeric: tabular-nums; letter-spacing: -.04em; font-weight: 650; }
-.panel-shell .field-input { border: 1px solid #dce0e6; border-radius: 7px; background: white; padding: 10px 12px; font-size: .84rem; }
-.panel-shell .field-input:focus { border-color: #168fe5; box-shadow: 0 0 0 3px #087ea414; }
+.panel-shell .field-input { border: 1px solid #dce0e6; border-radius: 11px; background: white; padding: 10px 12px; font-size: .84rem; transition: border-color .15s, box-shadow .15s; }
+.panel-shell .field-input:focus { border-color: rgb(var(--brand-rgb, 8 126 164)); box-shadow: 0 0 0 4px rgb(var(--brand-rgb, 8 126 164) / .12); }
 .panel-shell .field-label { color: #4b5563; font-size: .77rem; }
 .panel-shell table { border-collapse: separate; border-spacing: 0; font-size: .8rem; }
 .panel-shell thead { background: #f8f9fb; }

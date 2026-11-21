@@ -74,7 +74,7 @@ const ROLE_HINT: Record<string, string> = {
   ADMIN: 'Gestão da loja e da equipe.',
   MANAGER: 'Gestão da operação, sem administrar a equipe.',
   ATTENDANT: 'Pedidos, clientes e caixa.',
-  KITCHEN: 'Somente pedidos, para o preparo.',
+  KITCHEN: 'Somente pedidos, para separar e embalar.',
   DISPATCHER: 'Pedidos e entregadores.',
   DRIVER: 'Só o app do entregador, com os próprios pedidos.',
 };

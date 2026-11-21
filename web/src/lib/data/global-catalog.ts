@@ -43,11 +43,20 @@ export type GlobalCategoryNode = {
  * ativos em cada nó. É o que popula a navegação lateral do seletor de
  * biblioteca.
  */
+/**
+ * Nicho da plataforma: adega e depósito de bebidas. A biblioteca global
+ * ainda guarda itens de outros segmentos (pizza, hambúrguer, porções), mas
+ * só o que serve a uma loja de bebidas — bebidas e conveniência (gelo,
+ * carvão, petiscos, tabacaria) — aparece para o lojista.
+ */
+export const NICHE_BUSINESS_TYPES: BusinessType[] = ['BEVERAGE', 'CONVENIENCE'];
+const nicheProducts = { active: true, businessTypes: { some: { businessType: { in: NICHE_BUSINESS_TYPES } } } } satisfies Prisma.GlobalProductWhereInput;
+
 export async function getGlobalCategoryTree(): Promise<GlobalCategoryNode[]> {
   const rows = await prisma.globalCategory.findMany({
     where: { active: true },
     orderBy: [{ position: 'asc' }, { name: 'asc' }],
-    include: { _count: { select: { products: { where: { active: true } } } } },
+    include: { _count: { select: { products: { where: nicheProducts } } } },
   });
 
   const nodes = new Map<string, GlobalCategoryNode>();
@@ -80,7 +89,10 @@ export async function getGlobalCategoryTree(): Promise<GlobalCategoryNode[]> {
     root.productCount += root.children.reduce((sum, child) => sum + child.productCount, 0);
   }
 
-  return roots;
+  // Categorias sem nenhum item do nicho (Pizzas, Hambúrgueres…) somem.
+  return roots
+    .map((root) => ({ ...root, children: root.children.filter((child) => child.productCount > 0) }))
+    .filter((root) => root.productCount > 0);
 }
 
 /** Versão achatada — para selects e validação. */
@@ -90,7 +102,7 @@ export async function getGlobalCategories(onlyWithProducts = false) {
     orderBy: [{ position: 'asc' }, { name: 'asc' }],
     include: {
       parent: { select: { id: true, name: true, slug: true } },
-      _count: { select: { products: { where: { active: true } } } },
+      _count: { select: { products: { where: nicheProducts } } },
     },
   });
 
@@ -114,7 +126,7 @@ export async function getGlobalCategories(onlyWithProducts = false) {
 /** Marcas distintas da biblioteca — alimenta o filtro de marca. */
 export async function getGlobalBrands(): Promise<string[]> {
   const rows = await prisma.globalProduct.findMany({
-    where: { active: true, brand: { not: null } },
+    where: { ...nicheProducts, brand: { not: null } },
     distinct: ['brand'],
     select: { brand: true },
     orderBy: { brand: 'asc' },
@@ -185,7 +197,11 @@ export async function searchGlobalProducts(filters: GlobalProductFilters = {}) {
     ...(categoryIds ? { globalCategoryId: { in: categoryIds } } : {}),
     ...(brand ? { brand } : {}),
     ...(withImage ? { NOT: { defaultImageUrl: null } } : {}),
-    ...(businessType ? { businessTypes: { some: { businessType } } } : {}),
+    // Sempre dentro do nicho; o filtro "recomendados" afina dentro dele.
+    AND: [
+      { businessTypes: { some: { businessType: { in: NICHE_BUSINESS_TYPES } } } },
+      ...(businessType ? [{ businessTypes: { some: { businessType } } }] : []),
+    ],
     ...(search
       ? {
           OR: [
