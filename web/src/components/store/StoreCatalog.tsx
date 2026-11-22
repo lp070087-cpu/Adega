@@ -164,8 +164,8 @@ function effectivePrice(product: StoreProduct): number {
 const PAYMENT_LABEL: Record<string, string> = {
   CASH: 'Dinheiro',
   PIX: 'PIX',
-  CREDIT_CARD: 'Cartão de crédito na entrega',
-  DEBIT_CARD: 'Cartão de débito na entrega',
+  CREDIT_CARD: 'Cartão de crédito no recebimento',
+  DEBIT_CARD: 'Cartão de débito no recebimento',
   ONLINE_PIX: 'Pix online (pago agora)',
   ONLINE_CARD: 'Cartão online (pago agora)',
 };
@@ -1157,17 +1157,17 @@ export function StoreCatalog({
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
             >
-              <option value="CASH">Dinheiro</option>
-              <option value="PIX">PIX</option>
-              <option value="CREDIT_CARD">Cartão de crédito na entrega</option>
-              <option value="DEBIT_CARD">Cartão de débito na entrega</option>
-              {store.onlinePayment && store.onlinePaymentProvider === 'infinitepay' && <option value="ONLINE_PIX">Pagar agora pela InfinitePay (Pix ou cartão)</option>}
+              <option value="CASH">Dinheiro na entrega ou retirada</option>
+              <option value="PIX">Pix na entrega ou retirada</option>
+              <option value="CREDIT_CARD">Crédito na entrega ou retirada</option>
+              <option value="DEBIT_CARD">Débito na entrega ou retirada</option>
+              {store.onlinePayment && store.onlinePaymentProvider === 'infinitepay' && <option value="ONLINE_PIX">Pagar agora pela InfinitePay (Pix ou crédito)</option>}
               {store.onlinePayment && store.onlinePaymentProvider !== 'infinitepay' && <option value="ONLINE_PIX">Pagar online agora (Pix)</option>}
               {store.onlinePayment && store.onlinePaymentProvider !== 'infinitepay' && <option value="ONLINE_CARD">Pagar online agora (cartão)</option>}
             </Select>
           </Field>
           {online && store.onlinePaymentProvider === 'infinitepay' && (
-            <p className="mb-3 rounded-lg bg-ink-50 px-3 py-2 text-[0.8rem] text-ink-600" data-testid="infinitepay-note">Ao enviar, você vai para a página segura da InfinitePay para pagar no Pix ou no cartão. Depois volta para acompanhar o pedido, que é liberado assim que o pagamento for confirmado. Pagamento processado pela InfinitePay.</p>
+            <p className="mb-3 rounded-lg bg-ink-50 px-3 py-2 text-[0.8rem] text-ink-600" data-testid="infinitepay-note">Ao enviar, você vai para a página segura da InfinitePay para pagar no Pix ou crédito. Ao tocar em Continuar na InfinitePay, você volta para acompanhar o pedido, que é liberado assim que o pagamento for confirmado. Pagamento processado pela InfinitePay.</p>
           )}
           {online && store.onlinePaymentProvider !== 'infinitepay' && (
             <Field label="CPF ou CNPJ de quem paga" required hint="Exigido pelo emissor da cobrança. Os dados do cartão são digitados só na página segura do provedor.">

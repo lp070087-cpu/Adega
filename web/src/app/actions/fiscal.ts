@@ -69,7 +69,7 @@ export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: str
     const environment = form.get('environment') === 'production' ? 'production' : 'sandbox';
     const providerRaw = form.get('provider');
     const field = (name: string) => String(form.get(name) ?? '').trim();
-    if (providerRaw === 'infinitepay') return await saveInfinitePay(ctx.organizationId, enabled, field('handle'));
+    if (providerRaw === 'infinitepay') return await saveInfinitePay(ctx.organizationId, enabled, field('handle'), field('infinitePayApiKey'));
     // Só InfinitePay e Mercado Pago: o Asaas não é mais oferecido às lojas.
     if (providerRaw !== 'mercadopago') throw new Error('Escolha InfinitePay ou Mercado Pago.');
     const provider = 'mercadopago' as const;
@@ -119,8 +119,9 @@ export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: str
  * InfinitePay: só a InfiniteTag da loja (sem chave, sem sandbox). Uma tag nova
  * é conferida na InfinitePay antes de gravar; recusada não é salva.
  */
-async function saveInfinitePay(organizationId: string, enabled: boolean, typed: string): Promise<{ ok: boolean; message: string; webhookToken?: string }> {
+async function saveInfinitePay(organizationId: string, enabled: boolean, typed: string, apiKey: string): Promise<{ ok: boolean; message: string; webhookToken?: string }> {
   const { checkInfiniteTag, readOnlinePayment } = await import('@/lib/order-payments');
+  const { encryptJson } = await import('@/lib/crypto');
   const { normalizeInfiniteTag, validInfiniteTag } = await import('@/lib/payments/infinitepay');
   const { prisma } = await import('@/lib/db');
   const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
@@ -129,13 +130,17 @@ async function saveInfinitePay(organizationId: string, enabled: boolean, typed: 
   const handle = typed ? normalizeInfiniteTag(typed) : previous;
   if (typed && !validInfiniteTag(handle)) throw new Error('InfiniteTag inválida. Use só letras, números, ponto, hífen ou sublinhado, sem o cifrão.');
   if (enabled && !handle) throw new Error('Informe a InfiniteTag da loja.');
-  const check = handle && handle !== previous ? await checkInfiniteTag(handle) : null;
+  if (apiKey && !/^inchk_[A-Za-z0-9_-]{8,248}$/.test(apiKey)) throw new Error('A API Key precisa começar com inchk_.');
+  if (apiKey && !handle) throw new Error('Informe também a InfiniteTag da loja.');
+  const encrypted = apiKey ? encryptJson({ apiKey }) : current.provider === 'infinitepay' && handle === previous ? current.encrypted : undefined;
+  const check = handle && (handle !== previous || apiKey) ? await checkInfiniteTag(handle, fetch, apiKey || undefined) : null;
+  if (apiKey && check?.status !== 'valid') throw new Error(check?.detail ?? 'Não foi possível validar a API Key da InfinitePay.');
   if (check?.status === 'rejected') throw new Error(`${check.detail} Nada foi salvo.`);
   const verifiedAt = check ? (check.status === 'valid' ? new Date().toISOString() : undefined) : current.provider === 'infinitepay' ? current.verifiedAt : undefined;
   await withOrganizationTransaction(organizationId, async (tx) => {
     const fresh = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
     const settings = (fresh?.settings ?? {}) as Record<string, unknown>;
-    await tx.organization.update({ where: { id: organizationId }, data: { settings: { ...settings, onlinePayment: { enabled, environment: 'production', provider: 'infinitepay', ...(handle ? { handle } : {}), ...(verifiedAt ? { verifiedAt } : {}) } } } });
+    await tx.organization.update({ where: { id: organizationId }, data: { settings: { ...settings, onlinePayment: { enabled, environment: 'production', provider: 'infinitepay', ...(handle ? { handle } : {}), ...(encrypted ? { encrypted } : {}), ...(verifiedAt ? { verifiedAt } : {}) } } } });
   });
   const tag = handle ? ` (InfiniteTag ${handle})` : '';
   return { ok: true, message: enabled ? `Pagamento pela InfinitePay ativo${tag}.${check?.status === 'unavailable' ? ` Salvo sem confirmação: ${check.detail}` : ''}` : 'Pagamento online desativado.' };

@@ -2,6 +2,8 @@
 
 import { Bike, Car, Footprints, MapPin, Navigation, CheckCircle2, Package, Map as MapIcon, Wallet, UserRound } from 'lucide-react';
 import { useEffect, useMemo, useState, useTransition } from 'react';
+import Link from 'next/link';
+import { BrandMark } from '@/components/ui/BrandMark';
 import { useRouter } from 'next/navigation';
 import { whatsappHref } from '@/lib/whatsapp';
 import { cn, formatBRL, formatPhone } from '@/lib/utils';
@@ -191,14 +193,16 @@ export function DriverApp({
   store,
   orders,
   earnings,
+  preview = false,
 }: {
   driver: DriverIdentity;
   store: DriverStore;
   orders: DriverOrder[];
   earnings: EarningsSummary;
+  preview?: boolean;
 }) {
   const router = useRouter();
-  useLiveRefresh('/api/entregador/versao', 8000);
+  useLiveRefresh(preview ? null : '/api/entregador/versao', 8000);
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState<'entregas' | 'rotas' | 'ganhos' | 'perfil'>('entregas');
   const [navTarget, setNavTarget] = useState<string | null>(null);
@@ -254,6 +258,7 @@ export function DriverApp({
     action: () => Promise<{ ok: boolean; error?: string }>,
     onSuccess?: () => void,
   ) {
+    if (preview) return;
     setError(null);
     setNotice(null);
     startTransition(async () => {
@@ -277,7 +282,7 @@ export function DriverApp({
 
   // Sem botão de online: abrir o app deixa o entregador disponível para a loja.
   useEffect(() => {
-    if (driver.status === 'OFFLINE') void setMyDriverStatusAction('ONLINE').then(() => router.refresh()).catch(() => undefined);
+    if (!preview && driver.status === 'OFFLINE') void setMyDriverStatusAction('ONLINE').then(() => router.refresh()).catch(() => undefined);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const renderOrder = (order: DriverOrder) => (
@@ -300,8 +305,26 @@ export function DriverApp({
     />
   );
 
+  const tabs = [
+    ['entregas', 'Entregas', Package, active.length],
+    ['rotas', 'Rotas', MapIcon, 0],
+    ['ganhos', 'Ganhos', Wallet, 0],
+    ['perfil', 'Perfil', UserRound, 0],
+  ] as const;
+
   return (
-    <div className="mx-auto flex min-h-screen max-w-[560px] flex-col bg-ink-50">
+    <div className="panel-shell flex min-h-screen bg-ink-50">
+      <aside className="panel-sidebar sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col p-4 lg:flex">
+        <div className="px-2 py-2"><BrandMark tone="light" /></div>
+        <p className="mb-4 mt-3 rounded-xl bg-white/10 px-3 py-2 text-sm font-semibold text-white">{store.name}</p>
+        <nav aria-label="Seções do entregador" className="space-y-1">
+          {tabs.map(([key, label, Icon, count]) => <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}
+            className={cn('flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-semibold', tab === key ? 'bg-brand text-white' : 'text-white/70 hover:bg-white/10 hover:text-white')}>
+            <Icon size={19} aria-hidden />{label}{count > 0 && <span className="ml-auto rounded-full bg-white/20 px-2">{count}</span>}
+          </button>)}
+        </nav>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col">
       {/*
         Cabeçalho e abas grudam juntos, como um bloco só. Cada um com seu
         próprio `sticky top-*` exigiria cravar a altura do cabeçalho em
@@ -311,7 +334,7 @@ export function DriverApp({
       <div className="sticky top-0 z-20">
         {/* ── CABEÇALHO ────────────────────────────────────────────── */}
         <header
-          className="border-b border-ink-100 bg-white px-4 pb-3 text-ink-900"
+          className="panel-header border-b border-ink-100 bg-white px-4 pb-3 text-ink-900 lg:px-7"
           style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
         >
           <div className="flex items-center gap-3">
@@ -337,7 +360,7 @@ export function DriverApp({
                     isOnline ? 'bg-success' : 'bg-ink-300',
                   )}
                 />
-                {availability}
+                {preview ? 'Visão do proprietário' : availability}
                 <span className="text-ink-300">•</span>
                 <span className="truncate">{store.name}</span>
               </p>
@@ -351,7 +374,10 @@ export function DriverApp({
 
       </div>
 
-      <main className="flex-1 space-y-3 p-4 pb-28">
+      <main className="panel-content mx-auto w-full max-w-6xl flex-1 space-y-4 p-4 pb-28 lg:p-7">
+        {preview && <Alert tone="neutral" title="Visualização do motoboy">
+          Esta visão é de demonstração. O painel operacional depende do cadastro de um entregador. <Link href="/admin" className="font-semibold underline">Voltar ao Admin Central</Link>
+        </Alert>}
         {!online && <Alert tone="warn">Sem conexão. As entregas exibidas podem estar desatualizadas. Reconecte para registrar alterações.</Alert>}
         {error && (
           <Alert tone="danger" title="Não foi possível concluir">
@@ -363,7 +389,7 @@ export function DriverApp({
         {/* ── MINHAS ENTREGAS ──────────────────────────────────────── */}
         {tab === 'entregas' && (
           <>
-            <DriverScheduleNotice />
+            {!preview && <DriverScheduleNotice />}
             <div className="grid grid-cols-3 gap-2.5">
               <MiniStat value={String(active.length)} label="Em aberto" />
               <MiniStat value={String(doneToday)} label="Entregues hoje" />
@@ -400,7 +426,7 @@ export function DriverApp({
         )}
 
         {/* ── GANHOS ───────────────────────────────────────────────── */}
-        {tab === 'ganhos' && <DriverEarnings key={done.length} initial={earnings} />}
+        {tab === 'ganhos' && (preview ? <Card><EmptyState icon="💳" title="Ganhos por entrega" description="Os ganhos ficam disponíveis para o entregador cadastrado." /></Card> : <DriverEarnings key={done.length} initial={earnings} />)}
 
         {/* ── PERFIL ───────────────────────────────────────────────── */}
         {tab === 'perfil' && (
@@ -418,15 +444,15 @@ export function DriverApp({
               </div>
             </Card>
 
-            <LocationSettingsCard />
+            {!preview && <LocationSettingsCard />}
 
-            <DriverInstallCard />
+            {!preview && <DriverInstallCard />}
             <Alert tone="neutral" title="Sobre este app">
               A loja vê se você está online e o andamento das entregas, nunca a sua localização.
               Mantenha a conexão para registrar alterações.
             </Alert>
 
-            <button
+            {!preview && <button
               type="button"
               disabled={pending}
               // Mesmo logout do painel: encerra a sessão no servidor e
@@ -439,22 +465,15 @@ export function DriverApp({
               className="w-full rounded-lg border-2 border-danger/30 bg-danger-bg py-3 text-[0.86rem] font-bold text-danger transition-all hover:border-danger disabled:opacity-55"
             >
               Sair da conta
-            </button>
+            </button>}
           </>
         )}
       </main>
 
       {/* ── MENU INFERIOR (uso com uma mão) ──────────────────────── */}
-      <nav aria-label="Menu do entregador" className="fixed inset-x-0 bottom-0 z-[900] border-t border-ink-100 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+      <nav aria-label="Menu do entregador" className="fixed inset-x-0 bottom-0 z-[900] border-t border-ink-100 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         <div className="mx-auto grid max-w-xl grid-cols-4">
-          {(
-            [
-              ['entregas', 'Entregas', Package, active.length],
-              ['rotas', 'Rotas', MapIcon, 0],
-              ['ganhos', 'Ganhos', Wallet, 0],
-              ['perfil', 'Perfil', UserRound, 0],
-            ] as const
-          ).map(([key, label, Icon, count]) => (
+          {tabs.map(([key, label, Icon, count]) => (
             <button
               key={key}
               type="button"
@@ -492,6 +511,7 @@ export function DriverApp({
           }
         />
       )}
+      </div>
     </div>
   );
 }

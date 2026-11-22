@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
  * a aba, ao reconectar e ao focar a janela. Uma consulta por vez; nada roda
  * com a aba escondida ou sem internet.
  */
-export function useLiveRefresh(url: string, intervalMs = 5000) {
+export function useLiveRefresh(url: string | null, intervalMs = 5000) {
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
   const [lastSync, setLastSync] = useState<number | null>(null);
@@ -18,6 +18,7 @@ export function useLiveRefresh(url: string, intervalMs = 5000) {
   refreshingRef.current = refreshing;
 
   useEffect(() => {
+    if (!url) return;
     let disposed = false;
     const check = async () => {
       if (disposed || inFlight.current || refreshingRef.current || document.visibilityState !== 'visible' || !navigator.onLine) return;

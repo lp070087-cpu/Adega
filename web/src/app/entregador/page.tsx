@@ -8,6 +8,7 @@ import { DriverApp, type DriverOrder } from '@/components/driver/DriverApp';
 import { DriverEntry } from '@/components/driver/DriverEntry';
 import { DriverAuthCard } from '@/components/driver/DriverAuthCard';
 import { StaffSessionNotice } from '@/components/driver/StaffSessionNotice';
+import { requirePlatformOperator } from '@/lib/platform/auth';
 import { prisma } from '@/lib/db';
 import { selectDriverStoreAction } from '@/app/actions/driver-access';
 import { driverMailReady } from '@/lib/auth/driver-access';
@@ -52,6 +53,19 @@ export default async function DriverPage() {
         <DriverEntry mailReady={driverMailReady()} />
       </DriverAuthCard>
     );
+  }
+
+  const platform = await requirePlatformOperator().catch(() => null);
+  if (platform?.role === 'OWNER' && session.user.role !== 'DRIVER') {
+    const membership = await prisma.organizationUser.findFirst({
+      where: { userId: platform.userId, active: true, role: 'OWNER' },
+      orderBy: { createdAt: 'asc' },
+      select: { organization: { select: { name: true, logoUrl: true, brandColor: true } } },
+    });
+    const store = membership?.organization ?? { name: 'Del Flash', logoUrl: null, brandColor: '#087EA4' };
+    return <DriverApp preview store={{ ...store, latitude: null, longitude: null }}
+      driver={{ name: session.user.name ?? 'Proprietário', vehicleType: 'MOTORCYCLE', vehiclePlate: null, status: 'OFFLINE', onShift: true, shiftLabel: undefined }}
+      orders={[]} earnings={{ configured: false, amountCents: 0, count: 0, unpricedCount: 0, rows: [] }} />;
   }
 
   const memberships=session.user.role==='DRIVER'?await prisma.organizationUser.findMany({where:{userId:session.user.id,role:'DRIVER',active:true,organization:{drivers:{some:{userId:session.user.id,active:true}}}},select:{organizationId:true,organization:{select:{name:true}}}}):[];

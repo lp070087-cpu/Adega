@@ -4,7 +4,7 @@ import { AddressMapField } from '@/components/customer/AddressMapField';
 import Link from 'next/link';
 import { notFound,redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
-import { portalReady,portalStore,portalSession } from '@/lib/customer-portal/server';
+import { portalReady,portalStore,portalSession,canOpenOwnerCustomerAccount } from '@/lib/customer-portal/server';
 import { growthState } from '@/lib/growth';
 import { formatBRL,formatDateTime } from '@/lib/utils';
 import { CustomerForm,CustomerPassword,CustomerPhoneInput } from '@/components/customer/CustomerForm';
@@ -30,7 +30,15 @@ export default async function CustomerPortalPage({params,searchParams}:Props){
  if(section==='pontos'&&!growth.loyalty.enabled)notFound();
  const brand=/^#[0-9a-f]{6}$/i.test(store.brandColor)?store.brandColor:'#087EA4';
  if(section==='termos')return <main className="customer-shell" style={{['--store-accent' as string]:brand}}><div className="customer-wrap"><header className="customer-header"><Link href={`${base}/`}>{store.logoUrl?<img src={store.logoUrl} alt=""/>:<span className="customer-store-tag" aria-hidden>{initialsFromName(store.name)}</span>}<span>{store.name}</span></Link><Link href={`${base}/conta/criar-conta`}>Criar conta</Link></header><TermsContent storeName={store.name}/></div></main>;
- if(ready&&publicSection)return <main className="customer-auth-root" style={{['--store-accent' as string]:brand}}><CustomerAuthScreen store={store} section={section as AuthSection} mailReady={portalMailReady()} returnTo={returnTo}/></main>;
+ const proprietor = ready && section === 'entrar' && await canOpenOwnerCustomerAccount(store.id);
+ if(ready&&publicSection)return <main className="customer-auth-root" style={{['--store-accent' as string]:brand}}><CustomerAuthScreen store={store} section={section as AuthSection} mailReady={portalMailReady()} returnTo={returnTo}/>
+ {proprietor && <section className="customer-card mx-auto my-4 max-w-md">
+   <h2>Entrar como cliente da minha loja</h2>
+   <CustomerForm slug={slug} action="owner-customer" submit="Continuar com minha conta Del Flash">
+     <input type="hidden" name="voltar" value={returnTo ?? ''} />
+     <label className="customer-check"><input name="acceptTerms" type="checkbox" required /> <Link href={`${base}/conta/termos`}>Aceito os termos da conta de cliente</Link></label>
+   </CustomerForm>
+ </section>}</main>;
  const page=Math.min(1000,Math.max(1,Math.trunc(Number(query.pagina)||1)));
  const [orders,addresses]=account?await Promise.all([
    prisma.customerPortalOrder.findMany({where:{accountId:account.id,account:{organizationId:store.id},order:{organizationId:store.id}},orderBy:{createdAt:'desc'},skip:section==='pedidos'?(page-1)*20:0,take:section==='pedidos'?20:10,include:{order:{include:{items:{include:{options:true}},delivery:{select:{status:true}}}}}}),

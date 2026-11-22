@@ -16,17 +16,18 @@ function isolated(file:string,imports:Record<string,unknown>){
  new Function('require','module','exports',code)((name:string)=>{if(name in imports)return imports[name];throw Error(`Unexpected import ${name}`);},module,module.exports);
  return module.exports;
 }
-function harness(){
+function harness(owner = false){
  const calls:any[]=[];const jar=new Map<string,string>();let account:any=null;let session:any=null;let token:any=null;
  const db:any={
   $queryRaw:async()=>Array.from({length:6},()=>({name:'table'})),
+  user:{findFirst:async(q:any)=>{assert.equal(q.where.organizations.some.organizationId,'org');return owner?{id:'owner',email:'lucas@example.com',name:'Lucas Pereira'}:null;}},
   organization:{findUnique:async()=>({id:'org',slug:'shop',name:'Shop',status:'ACTIVE'})},
   customerPortalAccount:{findUnique:async()=>account,findFirst:async()=>account,create:async(q:any)=>{calls.push(['account',q]);account={id:'account',active:true,emailVerifiedAt:null,failedAttempts:0,...q.data};return account;},update:async(q:any)=>{calls.push(['update',q]);account={...account,...q.data};return account;}},
   customerPortalToken:{findFirst:async(q:any)=>q.where.tokenHash&&token?.tokenHash===q.where.tokenHash&&token.expiresAt>new Date()?token:null,create:async(q:any)=>{calls.push(['token',q]);token=q.data;return token;},deleteMany:async(q:any)=>{calls.push(['delete-token',q]);if(q.where.tokenHash){if(!token||token.tokenHash!==q.where.tokenHash||token.expiresAt<=new Date()||(q.where.account?.emailVerifiedAt===null&&account.emailVerifiedAt))return {count:0};token=null;return {count:1};}token=null;return {count:1};}},
   customerPortalSession:{findFirst:async(q:any)=>{calls.push(['session-read',q]);return session;},create:async(q:any)=>{calls.push(['session-create',q]);return q.data;},deleteMany:async(q:any)=>{calls.push(['session-delete',q]);return {count:1};}},
  };
  const policy=awaitPolicy();
- const data=isolated('src/lib/customer-portal/server.ts',{'server-only':{},'@/lib/data/driver-earnings':{recordDriverEarning:async()=>undefined},'node:crypto':crypto,'next/headers':{cookies:async()=>({get:(key:string)=>jar.has(key)?{value:jar.get(key)}:undefined,set:(key:string,value:string,options:any)=>{calls.push(['cookie',key,value,options]);jar.set(key,value);}})},'@/lib/db':{prisma:db},'@/lib/auth/password':{hashPassword:async(value:string)=>`hash:${value}`,verifyPassword:async(value:string,hash:string)=>hash===`hash:${value}`,fakeVerify:async()=>false},'@/lib/data/transaction':{withOrganizationTransaction:async(org:string,work:any)=>{assert.equal(org,'org');return work(db);}},'@/lib/operation-error':{OperationError},'./policy':policy,'./mail':portalMail});
+ const data=isolated('src/lib/customer-portal/server.ts',{'server-only':{},'@/lib/data/driver-earnings':{recordDriverEarning:async()=>undefined},'node:crypto':crypto,'next/headers':{cookies:async()=>({get:(key:string)=>jar.has(key)?{value:jar.get(key)}:undefined,set:(key:string,value:string,options:any)=>{calls.push(['cookie',key,value,options]);jar.set(key,value);}})},'@/lib/platform/auth':{requirePlatformOperator:async()=>owner?{userId:'owner',role:'OWNER'}:null},'@/lib/db':{prisma:db},'@/lib/auth/password':{hashPassword:async(value:string)=>`hash:${value}`,verifyPassword:async(value:string,hash:string)=>hash===`hash:${value}`,fakeVerify:async()=>false},'@/lib/data/transaction':{withOrganizationTransaction:async(org:string,work:any)=>{assert.equal(org,'org');return work(db);}},'@/lib/operation-error':{OperationError},'./policy':policy,'./mail':portalMail});
  return {data,db,calls,jar,setAccount:(value:any)=>{account=value;},account:()=>account,setSession:(value:any)=>{session=value;},setToken:(value:any)=>{token=value;}};
 }
 function awaitPolicy(){return {registrationSchema,addressSchema,passwordSchema,emailSchema,PORTAL_TABLES:[1,2,3,4,5],validSlug:(slug:string)=>/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)};}
@@ -154,4 +155,19 @@ test('login action redirects back to checkout only through the validated destina
  assert.equal((await actions.customerPortalAction(undefined,form('checkout'))).redirect,'/loja/shop/?finalizar=1');
  assert.equal((await actions.customerPortalAction(undefined,form('https://evil.example'))).redirect,'/loja/shop/conta');
  assert.equal(logins[0][3],true);
+});
+
+
+test('owner can open an independent customer session for the owned store without adopting an unverified account', async (t) => {
+ environment(t);
+ const stranger=harness();await assert.rejects(stranger.data.openOwnerCustomerAccount('shop',true),/Entre no painel/);
+ const owner=harness(true);await assert.rejects(owner.data.openOwnerCustomerAccount('shop',false),/Aceite os termos/);
+ owner.setAccount({id:'existing',active:true,emailVerifiedAt:null});
+ await assert.rejects(owner.data.openOwnerCustomerAccount('shop',true),/Já existe/);
+ assert.equal(owner.calls.some(([kind])=>kind==='session-create'),false);
+ owner.setAccount(null);
+ await owner.data.openOwnerCustomerAccount('shop',true);
+ assert.equal(owner.account().email,'lucas@example.com');
+ assert.ok(owner.account().emailVerifiedAt instanceof Date);
+ assert.equal(owner.calls.find(([kind])=>kind==='session-create')[1].data.accountId,'account');
 });

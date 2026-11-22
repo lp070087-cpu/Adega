@@ -33,6 +33,8 @@ export type InfinitePayLinkInput = {
   description: string;
   redirectUrl: string;
   webhookUrl: string;
+  apiKey?: string;
+  expiresAt?: string;
   customer?: { name?: string; phone_number?: string; email?: string };
 };
 
@@ -45,7 +47,7 @@ export async function createInfinitePayLink(input: InfinitePayLinkInput, run: Fe
   const customer = input.customer && Object.fromEntries(Object.entries(input.customer).filter(([, v]) => Boolean(v)));
   const response = await run(`${INFINITEPAY_API}/links`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(input.apiKey ? { 'X-Api-Key': input.apiKey } : {}) },
     cache: 'no-store',
     redirect: 'error',
     signal: AbortSignal.timeout(15000),
@@ -56,6 +58,12 @@ export async function createInfinitePayLink(input: InfinitePayLinkInput, run: Fe
       webhook_url: input.webhookUrl,
       items: [{ quantity: 1, price: input.amountCents, description: input.description.slice(0, 200) }],
       ...(customer && Object.keys(customer).length ? { customer } : {}),
+      ...(input.apiKey ? { options: {
+        single_payment: true,
+        require_delivery_address: false,
+        payment_methods_enabled: ['credit_card', 'pix'],
+        ...(input.expiresAt ? { valid_until: input.expiresAt } : {}),
+      } } : {}),
     }),
   });
   const data = (await response.json().catch(() => null)) as { url?: unknown } | null;
@@ -73,10 +81,10 @@ export type InfinitePayCheck = { success: boolean; paid: boolean; amount: number
  * voltam 200 com `success:false`; falha de rede lança erro (o webhook
  * responde 400 e a InfinitePay tenta de novo).
  */
-export async function checkInfinitePayPayment(input: { handle: string; orderNsu: string; transactionNsu: string; slug: string }, run: Fetch = fetch): Promise<InfinitePayCheck> {
+export async function checkInfinitePayPayment(input: { handle: string; orderNsu: string; transactionNsu: string; slug: string; apiKey?: string }, run: Fetch = fetch): Promise<InfinitePayCheck> {
   const response = await run(`${INFINITEPAY_API}/payment_check`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(input.apiKey ? { 'X-Api-Key': input.apiKey } : {}) },
     cache: 'no-store',
     redirect: 'error',
     signal: AbortSignal.timeout(15000),

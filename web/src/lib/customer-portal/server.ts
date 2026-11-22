@@ -1,6 +1,7 @@
 import 'server-only';
 import { randomBytes,createHash } from 'node:crypto';
 import { cookies } from 'next/headers';
+import { requirePlatformOperator } from '@/lib/platform/auth';
 import { prisma } from '@/lib/db';
 import { hashPassword,verifyPassword,fakeVerify } from '@/lib/auth/password';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
@@ -71,6 +72,41 @@ async function openPortalSession(slug:string,organizationId:string,accountId:str
   });
   (await cookies()).set(portalCookie(slug),raw,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:portalPath(slug),...(remember?{maxAge:30*24*3600}:{})});
 }
+async function platformCustomerOwner(organizationId: string) {
+  const platform = await requirePlatformOperator().catch(() => null);
+  if (platform?.role !== 'OWNER') return null;
+  return prisma.user.findFirst({
+    where: { id: platform.userId, active: true, email: { not: null }, organizations: { some: { organizationId, role: 'OWNER', active: true } } },
+    select: { id: true, email: true, name: true },
+  });
+}
+
+export async function canOpenOwnerCustomerAccount(organizationId: string) {
+  return Boolean(await platformCustomerOwner(organizationId));
+}
+
+export async function openOwnerCustomerAccount(slug: string, acceptedTerms: boolean) {
+  await requirePortalReady();
+  const store = await portalStore(slug);
+  const owner = await platformCustomerOwner(store.id);
+  if (!owner?.email) throw new OperationError('Entre no painel do estabelecimento para continuar.');
+  if (!acceptedTerms) throw new OperationError('Aceite os termos da conta de cliente para continuar.');
+  const email = emailSchema.parse(owner.email);
+  const passwordHash = await hashPassword(randomBytes(32).toString('hex'));
+  const account = await withOrganizationTransaction(store.id, async (tx) => {
+    const existing = await tx.customerPortalAccount.findUnique({ where: { organizationId_email: { organizationId: store.id, email } } });
+    if (existing) {
+      if (!existing.active || !existing.emailVerifiedAt) throw new OperationError('Já existe uma conta de cliente. Entre com a senha dela ou confirme o e-mail.');
+      return existing;
+    }
+    const now = new Date();
+    return tx.customerPortalAccount.create({ data: {
+      organizationId: store.id, firstName: owner.name, email, passwordHash, emailVerifiedAt: now, termsAcceptedAt: now,
+    } });
+  });
+  await openPortalSession(slug, store.id, account.id, account.passwordHash, false);
+}
+
 export async function loginPortalAccount(slug:string,email:string,password:string,remember:boolean){
   await requirePortalReady();const store=await portalStore(slug),normalized=emailSchema.parse(email);
   if(!password||new TextEncoder().encode(password).length>72)throw new OperationError('E-mail ou senha incorretos.');

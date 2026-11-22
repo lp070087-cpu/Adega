@@ -68,16 +68,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Usuário sem organização ainda é válido: ele vai para o onboarding
         // e cria a loja dele. Sem vínculo, organizationId fica null.
         const driverOnly=raw?.driverOnly==='true';
+        const centralEmail = process.env.PLATFORM_OWNER_EMAIL?.trim().toLowerCase();
+        const ownerPreview = driverOnly && process.env.PLATFORM_ADMIN_ENABLED === 'true' && centralEmail && user.email?.toLowerCase() === centralEmail &&
+          await prisma.platformOperator.findFirst({ where: { userId: user.id, role: 'OWNER', active: true }, select: { id: true } });
+        const operationalDriver = driverOnly && !ownerPreview;
         // Entregador em várias lojas: entra na loja do link usado, ou na
         // primeira em que tem perfil ativo. Suspenso numa loja, segue nas outras.
-        const activeDriverStores=driverOnly?new Set((await prisma.driver.findMany({where:{userId:user.id,active:true},select:{organizationId:true}})).map(d=>d.organizationId)):null;
+        const activeDriverStores=operationalDriver?new Set((await prisma.driver.findMany({where:{userId:user.id,active:true},select:{organizationId:true}})).map(d=>d.organizationId)):null;
         const preferredStore=typeof raw?.store==='string'?raw.store:'';
         const driverMemberships=user.organizations.filter(m=>m.role==='DRIVER'&&activeDriverStores?.has(m.organizationId));
-        const membership = driverOnly ? driverMemberships.find(m=>m.organization.slug===preferredStore)??driverMemberships[0] :
+        const membership = operationalDriver ? driverMemberships.find(m=>m.organization.slug===preferredStore)??driverMemberships[0] :
           user.organizations.find((m) => m.role === 'OWNER') ?? user.organizations[0];
-        if(driverOnly&&(user.organizations.some(m=>m.role!=='DRIVER')||!membership))return null;
+        if(operationalDriver&&(user.organizations.some(m=>m.role!=='DRIVER')||!membership))return null;
         const platformIdentity=membership?.role==='DRIVER'?await isPlatformIdentity(prisma,user.id):false;
-        if(driverOnly&&(platformIdentity||await isPlatformIdentity(prisma,user.id)))return null;
+        if(operationalDriver&&(platformIdentity||await isPlatformIdentity(prisma,user.id)))return null;
         if(membership?.role==='DRIVER'&&!platformIdentity&&user.mustChangePassword)return null;
 
         await prisma.user.update({

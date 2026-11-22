@@ -14,9 +14,11 @@ export async function requirePlatformOperator(): Promise<PlatformContext> {
   try {
     const ready = await prisma.$queryRaw<Array<{ ready: boolean }>>`SELECT (to_regclass('public."PlatformOperator"') IS NOT NULL AND to_regclass('public."PlatformContract"') IS NOT NULL AND to_regclass('public."SaaSCharge"') IS NOT NULL AND to_regclass('public."PlatformAudit"') IS NOT NULL AND to_regclass('public."PlatformSetting"') IS NOT NULL AND to_regclass('public."PlatformSupportCase"') IS NOT NULL) AS ready`;
     if (!ready[0]?.ready) throw new PlatformAccessError('Administração ainda não ativada.');
-    const account = await prisma.user.findUnique({ where: { id: session.user.id }, select: { active: true } });
+    const account = await prisma.user.findUnique({ where: { id: session.user.id }, select: { active: true, email: true } });
     const operator = await prisma.platformOperator.findUnique({ where: { userId: session.user.id }, select: { id: true, role: true, active: true } });
     if (!account?.active || !operator?.active || !['OWNER','ADMIN','SUPPORT','FINANCE'].includes(operator.role)) throw new PlatformAccessError('Acesso restrito.');
+    const ownerEmail = process.env.PLATFORM_OWNER_EMAIL?.trim().toLowerCase();
+    if (ownerEmail && (account.email?.toLowerCase() !== ownerEmail || operator.role !== 'OWNER')) throw new PlatformAccessError('Acesso restrito.');
     return { userId: session.user.id, operatorId: operator.id, role: operator.role as PlatformRole };
   } catch (error) {
     if (error instanceof PlatformAccessError) throw error;

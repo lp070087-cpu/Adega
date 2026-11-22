@@ -9,7 +9,7 @@ import { verifyPassword,hashPassword } from '@/lib/auth/password';
 import { toActionError } from '@/lib/auth/guards';
 import { OperationError } from '@/lib/operation-error';
 import { fullNameSchema,brazilPhoneSchema,addressSchema,passwordSchema,safeReturnPath } from '@/lib/customer-portal/policy';
-import { registerPortalAccount,loginPortalAccount,logoutPortalAccount,requestPortalReset,consumePortalToken,requireCustomerAccount,changePortalEmail } from '@/lib/customer-portal/server';
+import { registerPortalAccount,loginPortalAccount,logoutPortalAccount,requestPortalReset,consumePortalToken,requireCustomerAccount,changePortalEmail,openOwnerCustomerAccount } from '@/lib/customer-portal/server';
 
 export type CustomerPortalState={ok:boolean;message:string;redirect?:string;field?:string}|undefined;
 export async function customerPortalAction(_previous:CustomerPortalState,form:FormData):Promise<CustomerPortalState>{
@@ -18,6 +18,10 @@ export async function customerPortalAction(_previous:CustomerPortalState,form:Fo
   // Server redirect: clearing the cookie re-renders the current (protected) page, which would otherwise win the navigation.
   if(action==='logout'){await logoutPortalAccount(slug);redirect(`/loja/${slug}/`);}
   try{
+    if (action === 'owner-customer') {
+      await openOwnerCustomerAccount(slug, form.get('acceptTerms') === 'on');
+      return { ok: true, message: 'Conta de cliente conectada.', redirect: safeReturnPath(slug, value('voltar')) };
+    }
     if(action==='register'){
       const result=await registerPortalAccount(slug,{name:value('name'),email:value('email'),phone:value('phone'),password:value('password'),confirmPassword:value('confirmPassword'),acceptTerms:form.get('acceptTerms')==='on'},form.get('remember')==='on');
       if(result==='session')return {ok:true,message:'Conta criada. Você já está conectado.',redirect:safeReturnPath(slug,value('voltar'))};

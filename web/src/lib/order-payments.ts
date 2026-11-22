@@ -23,7 +23,7 @@ export type PaymentProvider = 'asaas' | 'mercadopago' | 'infinitepay';
 /** `handle`: InfiniteTag da loja (InfinitePay). Não é segredo, por isso não vai cifrado. */
 export type OnlinePaymentConfig = { enabled: boolean; environment: 'sandbox' | 'production'; provider: PaymentProvider; encrypted?: string; verifiedAt?: string; handle?: string };
 type Secrets = { apiKey: string; webhookToken: string };
-export type OrderCharge = { provider?: PaymentProvider; preferenceId?: string; captureMethod?: string | null; receiptUrl?: string | null; environment: 'sandbox' | 'production'; paymentId: string; billingType: 'PIX' | 'CREDIT_CARD'; invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; value: number; createdAt: string };
+export type OrderCharge = { infinitePayHandle?: string; infinitePayKey?: string; provider?: PaymentProvider; preferenceId?: string; captureMethod?: string | null; receiptUrl?: string | null; environment: 'sandbox' | 'production'; paymentId: string; billingType: 'PIX' | 'CREDIT_CARD'; invoiceUrl: string | null; pixPayload: string | null; pixImage: string | null; value: number; createdAt: string };
 
 const bases = { sandbox: 'https://api-sandbox.asaas.com/v3', production: 'https://api.asaas.com/v3' } as const;
 const chargeKey = (orderId: string) => `order-payment:${orderId}`;
@@ -34,7 +34,7 @@ export function readOnlinePayment(settings: unknown): OnlinePaymentConfig {
   if (raw.provider === 'infinitepay') {
     const handle = validInfiniteTag(raw.handle) ? raw.handle : undefined;
     // Sem sandbox na InfinitePay: o ambiente é sempre o real.
-    return { enabled: raw.enabled === true && Boolean(handle), environment: 'production', provider: 'infinitepay', handle, verifiedAt: typeof raw.verifiedAt === 'string' ? raw.verifiedAt : undefined };
+    return { enabled: raw.enabled === true && Boolean(handle), environment: 'production', provider: 'infinitepay', handle, encrypted: typeof raw.encrypted === 'string' ? raw.encrypted : undefined, verifiedAt: typeof raw.verifiedAt === 'string' ? raw.verifiedAt : undefined };
   }
   return { enabled: raw.enabled === true && typeof raw.encrypted === 'string', environment: raw.environment === 'production' ? 'production' : 'sandbox', provider: raw.provider === 'mercadopago' ? 'mercadopago' : 'asaas', encrypted: typeof raw.encrypted === 'string' ? raw.encrypted : undefined, verifiedAt: typeof raw.verifiedAt === 'string' ? raw.verifiedAt : undefined };
 }
@@ -59,9 +59,9 @@ export async function checkPaymentCredential(provider: PaymentProvider, environm
  * InfinitePay não tem sandbox nem consulta de conta: criar o link é a única
  * prova de que a tag existe. Ninguém é cobrado; o link só fica parado lá.
  */
-export async function checkInfiniteTag(handle: string, run: typeof fetch = fetch): Promise<CredentialCheck> {
+export async function checkInfiniteTag(handle: string, run: typeof fetch = fetch, apiKey?: string): Promise<CredentialCheck> {
   try {
-    await createInfinitePayLink({ handle, orderNsu: `teste-${Date.now()}`, amountCents: 100, description: 'Teste de conexão Del Flash (não pague)', redirectUrl: `${publicApp()}/`, webhookUrl: `${publicApp()}/api/webhooks/pedidos/infinitepay/teste` }, run);
+    await createInfinitePayLink({ handle, orderNsu: `teste-${Date.now()}`, amountCents: 100, description: 'Teste de conexão Del Flash (não pague)', ...(apiKey ? { apiKey, expiresAt: new Date(Date.now() + 300_000).toISOString() } : {}), redirectUrl: `${publicApp()}/`, webhookUrl: `${publicApp()}/api/webhooks/pedidos/infinitepay/teste` }, run);
     return { status: 'valid', detail: 'InfiniteTag aceita pela InfinitePay.' };
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
@@ -106,9 +106,16 @@ function client(config: OnlinePaymentConfig) {
   };
 }
 
-export async function readOrderCharge(orderId: string): Promise<OrderCharge | null> {
+async function loadOrderCharge(orderId: string): Promise<OrderCharge | null> {
   const row = await prisma.platformSetting.findUnique({ where: { key: chargeKey(orderId) } });
   return (row?.value as OrderCharge | undefined) ?? null;
+}
+
+export async function readOrderCharge(orderId: string) {
+  const charge = await loadOrderCharge(orderId);
+  if (!charge) return null;
+  const { infinitePayKey: _privateKey, infinitePayHandle: _merchant, ...publicCharge } = charge;
+  return publicCharge;
 }
 
 /**
@@ -119,7 +126,7 @@ export async function createOrderCharge(input: { organizationId: string; orderId
   const org = await prisma.organization.findUnique({ where: { id: input.organizationId }, select: { settings: true, slug: true } });
   const config = readOnlinePayment(org?.settings);
   if (!onlinePaymentUsable(config)) throw new Error('Pagamento online indisponível nesta loja.');
-  const existing = await readOrderCharge(input.orderId);
+  const existing = await loadOrderCharge(input.orderId);
   if (existing) return existing;
   await prisma.platformSetting.create({ data: { key: `${chargeKey(input.orderId)}:lock`, value: { at: new Date().toISOString() } } }).catch(() => { throw new Error('Cobrança deste pedido já está sendo criada.'); });
   try { return config.provider === 'infinitepay' ? await issueInfinitePay(config, input, org!.slug) : config.provider === 'mercadopago' ? await issueMercadoPago(config, input, org!.slug) : await issueCharge(config, input); }
@@ -154,8 +161,10 @@ function publicApp() { return (process.env.APP_PUBLIC_URL ?? 'https://adega-nine
 async function issueInfinitePay(config: OnlinePaymentConfig, input: Parameters<typeof createOrderCharge>[0], slug: string): Promise<OrderCharge> {
   const app = publicApp();
   const phone = input.customerPhone.replace(/\D/g, '');
+  const apiKey = config.encrypted ? decryptJson<{ apiKey: string }>(config.encrypted).apiKey : undefined;
   const url = await createInfinitePayLink({
     handle: config.handle!,
+    ...(apiKey ? { apiKey, expiresAt: new Date(Date.now() + 45 * 60_000).toISOString() } : {}),
     orderNsu: input.orderId,
     amountCents: Math.round(input.total * 100),
     description: `Pedido #${input.displayId} · ${input.storeName}`,
@@ -164,7 +173,7 @@ async function issueInfinitePay(config: OnlinePaymentConfig, input: Parameters<t
     webhookUrl: `${app}/api/webhooks/pedidos/infinitepay/${slug}`,
     customer: { name: input.customerName, phone_number: phone.length >= 10 ? `+55${phone.slice(-11)}` : undefined, email: input.email },
   });
-  const charge: OrderCharge = { provider: 'infinitepay', environment: 'production', paymentId: '', billingType: input.method, invoiceUrl: url, pixPayload: null, pixImage: null, value: input.total, createdAt: new Date().toISOString() };
+  const charge: OrderCharge = { provider: 'infinitepay', infinitePayHandle: config.handle, ...(config.encrypted ? { infinitePayKey: config.encrypted } : {}), environment: 'production', paymentId: '', billingType: input.method, invoiceUrl: url, pixPayload: null, pixImage: null, value: input.total, createdAt: new Date().toISOString() };
   await prisma.platformSetting.upsert({ where: { key: chargeKey(input.orderId) }, create: { key: chargeKey(input.orderId), value: charge }, update: { value: charge } });
   return charge;
 }
@@ -180,16 +189,25 @@ export async function confirmInfinitePayPayment(slug: string, refs: { orderNsu: 
   const org = await prisma.organization.findUnique({ where: { slug }, select: { id: true, settings: true } });
   if (!org) return { status: 404, result: 'loja' };
   const config = readOnlinePayment(org.settings);
-  if (config.provider !== 'infinitepay' || !config.handle) return { status: 200, result: 'sem configuração' };
   const order = await prisma.order.findFirst({ where: { id: orderNsu, organizationId: org.id }, select: { id: true, total: true, paymentStatus: true, displayId: true } });
-  const charge = order ? await readOrderCharge(order.id) : null;
+  const charge = order ? await loadOrderCharge(order.id) : null;
   if (!order || !charge || charge.provider !== 'infinitepay') return { status: 200, result: 'sem pedido' };
   if (order.paymentStatus === 'PAID') return { status: 200, result: 'já pago' };
-  const check = await checkInfinitePayPayment({ handle: config.handle, orderNsu, transactionNsu, slug: invoiceSlug }, run);
+  const handle = charge.infinitePayHandle ?? (config.provider === 'infinitepay' ? config.handle : undefined);
+  if (!handle) return { status: 200, result: 'sem configuração' };
+  const apiKey = charge.infinitePayKey ? decryptJson<{ apiKey: string }>(charge.infinitePayKey).apiKey : undefined;
+  const check = await checkInfinitePayPayment({ handle, ...(apiKey ? { apiKey } : {}), orderNsu, transactionNsu, slug: invoiceSlug }, run);
   if (!check.success || !check.paid) return { status: 200, result: 'pendente' };
-  if (check.amount < Math.round(Number(order.total) * 100)) return { status: 200, result: 'valor divergente' };
+  if (check.amount !== Math.round(Number(order.total) * 100) || check.paidAmount < check.amount) return { status: 200, result: 'valor divergente' };
   const changed = await prisma.order.updateMany({ where: { id: order.id, organizationId: org.id, paymentStatus: { in: ['PENDING', 'FAILED'] } }, data: { paymentStatus: 'PAID' } });
-  const receiptUrl = typeof refs.receiptUrl === 'string' && /^https:\/\/[\w.-]*infinitepay\.io\//.test(refs.receiptUrl) ? refs.receiptUrl : charge.receiptUrl ?? null;
+  let receiptUrl = charge.receiptUrl ?? null;
+  try {
+    if (typeof refs.receiptUrl === 'string') {
+      const receipt = new URL(refs.receiptUrl);
+      if (receipt.protocol === 'https:' && !receipt.username && !receipt.password &&
+          (receipt.hostname === 'infinitepay.io' || receipt.hostname.endsWith('.infinitepay.io'))) receiptUrl = receipt.href;
+    }
+  } catch { /* Keep the receipt already confirmed. */ }
   await prisma.platformSetting.update({ where: { key: chargeKey(order.id) }, data: { value: { ...charge, paymentId: transactionNsu, captureMethod: check.captureMethod, receiptUrl } } }).catch(() => undefined);
   if (changed.count) await prisma.notification.create({ data: { organizationId: org.id, type: 'SYSTEM', title: 'Pagamento online confirmado', message: `Pedido #${order.displayId} pago pela InfinitePay (${check.captureMethod === 'pix' ? 'Pix' : check.captureMethod ?? 'online'}). Já pode ser liberado para entrega.`, href: `/app/pedidos?pedido=${order.id}` } }).catch(() => undefined);
   return { status: 200, result: changed.count ? 'pago' : 'já pago' };
@@ -232,7 +250,7 @@ export async function handleMercadoPagoWebhook(slug: string, headers: { signatur
   const payment = await fetchPayment(secrets, id);
   const orderId = payment.external_reference ?? '';
   const order = await prisma.order.findFirst({ where: { id: orderId, organizationId: org.id }, select: { id: true, total: true, paymentStatus: true } });
-  const charge = order ? await readOrderCharge(order.id) : null;
+  const charge = order ? await loadOrderCharge(order.id) : null;
   if (!order || !charge || charge.provider !== 'mercadopago') return { status: 200, result: 'sem pedido' };
   // Pix: um pagamento por cobrança, o id precisa bater. Checkout Pro (cartão):
   // a mesma preferência aceita novas tentativas, cada uma com um id novo —
@@ -272,7 +290,7 @@ export async function handleOrderPaymentWebhook(slug: string, token: string | nu
   const payment = await client(config).payment(paymentId);
   const orderId = payment.externalReference ?? '';
   const order = await prisma.order.findFirst({ where: { id: orderId, organizationId: org.id }, select: { id: true, total: true, paymentStatus: true } });
-  const charge = order ? await readOrderCharge(order.id) : null;
+  const charge = order ? await loadOrderCharge(order.id) : null;
   if (!order || !charge || charge.paymentId !== payment.id) return { status: 200, result: 'sem pedido' };
   if (PAID.has(payment.status)) {
     if (Math.abs(Number(payment.value) - Number(order.total)) > 0.009) return { status: 200, result: 'valor divergente' };

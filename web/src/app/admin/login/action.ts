@@ -6,5 +6,7 @@ export async function adminLoginAction(_prev:{error:string},form:FormData):Promi
  if(process.env.PLATFORM_ADMIN_ENABLED!=='true')return {error:'Acesso administrativo indisponível.'};
  const parsed=z.object({email:z.string().email(),password:z.string().min(1).max(200)}).safeParse({email:form.get('email'),password:form.get('password')});
  if(!parsed.success)return {error:'Confira seu e-mail e senha.'};
+ const ownerEmail=process.env.PLATFORM_OWNER_EMAIL?.trim().toLowerCase();
+ if(ownerEmail&&parsed.data.email.trim().toLowerCase()!==ownerEmail)return {error:'Não foi possível entrar com estas credenciais.'};
  try{await signIn('credentials',{login:parsed.data.email,password:parsed.data.password,redirectTo:'/admin'});return {error:''};}catch(error){if(error instanceof AuthError)return {error:'Não foi possível entrar com estas credenciais.'};throw error;}
 }

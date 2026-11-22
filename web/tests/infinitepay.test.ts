@@ -98,3 +98,33 @@ test('InfinitePay: só marca pago com payment_check pago e valor certo; repetir 
   assert.equal((await m.confirmInfinitePayPayment('adega', { ...refs, orderNsu: 'cOutroPedido' }, fakeFetch([]))).result, 'sem pedido');
   assert.equal((await m.confirmInfinitePayPayment('adega', { ...refs, transactionNsu: '<script>' }, fakeFetch([]))).result, 'ignorado');
 });
+
+test('InfinitePay: checkout com API Key pede Pix, crédito, uso único e expiração', async () => {
+  let request: RequestInit | undefined;
+  const respond: typeof fetch = async (_url, options) => {
+    request = options;
+    return Response.json({ url: 'https://checkout.infinitepay.io/unitrix?lenc=abc' });
+  };
+  await createInfinitePayLink({
+    handle: 'unitrix', apiKey: 'inchk_fixture_not_a_real_token', orderNsu: 'mensalidade-123',
+    amountCents: 11900, description: 'Del Flash Completo', expiresAt: '2026-11-23T12:00:00.000Z',
+    redirectUrl: 'https://app.example/app/assinatura',
+    webhookUrl: 'https://app.example/api/webhooks/assinaturas/infinitepay',
+  }, respond);
+  const req = request!;
+  assert.equal(new Headers(req.headers).get('X-Api-Key'), 'inchk_fixture_not_a_real_token');
+  const body = JSON.parse(String(req.body));
+  assert.equal(body.items[0].price, 11900);
+  assert.equal(body.handle, 'unitrix');
+  assert.deepEqual(body.options, {
+    single_payment: true, require_delivery_address: false,
+    payment_methods_enabled: ['credit_card', 'pix'], valid_until: '2026-11-23T12:00:00.000Z',
+  });
+  assert.equal('apiKey' in body, false);
+});
+
+test('mensalidade avança um mês de calendário sem ultrapassar o fim do mês', async () => {
+  const { nextSubscriptionDue } = await import('../src/lib/platform/saas-infinitepay');
+  assert.equal(nextSubscriptionDue(new Date('2026-01-31T15:00:00Z')).toISOString(), '2026-02-28T15:00:00.000Z');
+  assert.equal(nextSubscriptionDue(new Date('2026-12-05T15:00:00Z')).toISOString(), '2027-01-05T15:00:00.000Z');
+});

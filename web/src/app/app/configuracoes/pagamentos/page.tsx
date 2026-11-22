@@ -37,7 +37,7 @@ export default async function PaymentsSettingsPage() {
       </section>
 
       <section className="rounded-xl border bg-white p-5">
-        <OnlinePaymentForm enabled={online.enabled} environment={online.environment} provider={online.provider === 'mercadopago' ? 'mercadopago' : 'infinitepay'} configured={online.provider === 'infinitepay' ? Boolean(online.handle) : Boolean(online.encrypted)} usable={onlinePaymentUsable(online)} verified={Boolean(online.verifiedAt)} handle={online.handle} webhookUrls={{ infinitepay: `${app}/api/webhooks/pedidos/infinitepay/${organization?.slug ?? ''}`, mercadopago: `${app}/api/webhooks/pedidos/mercadopago/${organization?.slug ?? ''}` }} />
+        <OnlinePaymentForm enabled={online.enabled} environment={online.environment} provider={online.provider === 'mercadopago' ? 'mercadopago' : 'infinitepay'} configured={online.provider === 'infinitepay' ? Boolean(online.handle) : Boolean(online.encrypted)} usable={onlinePaymentUsable(online)} verified={Boolean(online.verifiedAt)} handle={online.handle} infiniteKeySaved={saved.provider === 'infinitepay' && Boolean(saved.encrypted)} webhookUrls={{ infinitepay: `${app}/api/webhooks/pedidos/infinitepay/${organization?.slug ?? ''}`, mercadopago: `${app}/api/webhooks/pedidos/mercadopago/${organization?.slug ?? ''}` }} />
       </section>
     </div>
   );
