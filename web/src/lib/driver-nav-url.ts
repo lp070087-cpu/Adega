@@ -12,7 +12,7 @@ export function navigationUrl(destination: {
   address: string;
 }): { google: string; waze: string } {
   const exact = destination.latitude != null && destination.longitude != null;
-  const google = `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${
+  const google = `https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=${
     exact ? `${destination.latitude},${destination.longitude}` : encodeURIComponent(destination.address)
   }`;
   const waze = exact

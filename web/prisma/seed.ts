@@ -170,7 +170,7 @@ async function seedProducts() {
       packSize: seed.k ?? 1,
       suggestedPrice: seed.p ?? null,
       suggestedType: 'SIMPLE' as const,
-      aliases: [],
+      aliases: seed.a ?? [],
       active: true,
     };
 

@@ -74,13 +74,13 @@ export function normalizeCatalogRelativePath(raw: string): string {
 function expandRelative(relative: string): string[] {
   const clean = normalizeCatalogRelativePath(relative);
   if (!clean) return [];
-  // This legacy asset shows a 473ml package, while its filename claims 350ml.
+  const exact = CATALOG_PHOTOS[clean.split('/').pop() ?? ''];
+  if (exact && !EXTENSION_RE.test(clean)) return [exact];
+  // These archived assets show a different volume than their filename.
   // Keep the archive intact, but never advertise an incorrect package photograph.
   if (/^bebidas\/cervejas\/original-lata-350ml(?:\.[^.]+)?$/i.test(clean)) return [];
   if (/^bebidas\/cervejas\/brahma-chopp-lata-350ml(?:\.[^.]+)?$/i.test(clean)) return [];
   if (/^conveniencia\/chocolates\/chocolate-lacta-shot-40g(?:\.[^.]+)?$/i.test(clean)) return [];
-  const exact = CATALOG_PHOTOS[clean.split('/').pop() ?? ''];
-  if (exact && !EXTENSION_RE.test(clean)) return [exact];
   if (EXTENSION_RE.test(clean)) return [`${CATALOG_BASE_PATH}/${clean}`];
   return CATALOG_EXTENSIONS.map((extension) => `${CATALOG_BASE_PATH}/${clean}${extension}`);
 }

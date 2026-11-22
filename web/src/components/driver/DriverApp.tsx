@@ -1,7 +1,7 @@
 'use client';
 
 import { Bike, Car, Footprints, MapPin, Navigation, CheckCircle2, Package, Map as MapIcon, Wallet, UserRound } from 'lucide-react';
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { BrandMark } from '@/components/ui/BrandMark';
 import { useRouter } from 'next/navigation';
@@ -206,6 +206,7 @@ export function DriverApp({
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState<'entregas' | 'rotas' | 'ganhos' | 'perfil'>('entregas');
   const [navTarget, setNavTarget] = useState<string | null>(null);
+  const clearNavigationTarget = useCallback(() => setNavTarget(null), []);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -245,6 +246,10 @@ export function DriverApp({
     () => orders.filter((o) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED'),
     [orders],
   );
+  const routeOrders = useMemo(() => active.map((order) => ({
+    ...order,
+    stepLabel: order.delivery ? DELIVERY_STATUS_LABEL[order.delivery.status] ?? 'Atribuída' : 'Atribuída',
+  })), [active]);
   const done = useMemo(() => orders.filter((o) => o.status === 'DELIVERED'), [orders]);
 
   const doneToday = useMemo(() => {
@@ -334,7 +339,7 @@ export function DriverApp({
       <div className="sticky top-0 z-20">
         {/* ── CABEÇALHO ────────────────────────────────────────────── */}
         <header
-          className="panel-header border-b border-ink-100 bg-white px-4 pb-3 text-ink-900 lg:px-7"
+          className="panel-header border-b border-ink-100 bg-white px-4 pb-3 text-ink-900 shadow-sm lg:px-7"
           style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
         >
           <div className="flex items-center gap-3">
@@ -374,7 +379,7 @@ export function DriverApp({
 
       </div>
 
-      <main className="panel-content mx-auto w-full max-w-6xl flex-1 space-y-4 p-4 pb-28 lg:p-7">
+      <main className="panel-content mx-auto w-full max-w-6xl flex-1 space-y-5 px-3 pt-3 pb-28 sm:px-5 lg:px-7 lg:pt-6">
         {preview && <Alert tone="neutral" title="Visualização do motoboy">
           Esta visão é de demonstração. O painel operacional depende do cadastro de um entregador. <Link href="/admin" className="font-semibold underline">Voltar ao Admin Central</Link>
         </Alert>}
@@ -386,6 +391,17 @@ export function DriverApp({
         )}
         {notice && <Alert tone="success">{notice}</Alert>}
 
+        <DriverRoutes
+          orders={routeOrders}
+          storeOrigin={store.latitude != null && store.longitude != null ? { latitude: store.latitude, longitude: store.longitude } : null}
+          expanded={tab === 'rotas'}
+          preview={preview}
+          onOpenOrder={setOpenId}
+          onOpenRoutes={() => setTab('rotas')}
+          autoNavigate={navTarget}
+          onAutoNavigate={clearNavigationTarget}
+        />
+
         {/* ── MINHAS ENTREGAS ──────────────────────────────────────── */}
         {tab === 'entregas' && (
           <>
@@ -395,7 +411,6 @@ export function DriverApp({
               <MiniStat value={String(doneToday)} label="Entregues hoje" />
               <MiniStat value={formatBRL(active.filter((o) => o.paymentStatus === 'PENDING' && o.paymentMethod === 'CASH').reduce((acc, o) => acc + o.total, 0))} label="A cobrar do cliente" />
             </div>
-            {active.length > 1 && <Button variant="secondary" className="w-full" onClick={() => setTab('rotas')}>Organizar a sequência no mapa</Button>}
             {active.length === 0 ? (
               <Card>
                 <EmptyState
@@ -413,16 +428,6 @@ export function DriverApp({
               active.map((order) => renderOrder(order))
             )}
           </>
-        )}
-
-        {/* ── MINHAS ROTAS ─────────────────────────────────────────── */}
-        {tab === 'rotas' && (
-          <DriverRoutes
-            orders={active.map((o) => ({ ...o, stepLabel: o.delivery ? DELIVERY_STATUS_LABEL[o.delivery.status] ?? 'Atribuída' : 'Atribuída' }))}
-            onOpenOrder={(id) => setOpenId(id)}
-            onOpenSettings={() => setTab('perfil')}
-            autoNavigate={navTarget}
-          />
         )}
 
         {/* ── GANHOS ───────────────────────────────────────────────── */}
@@ -472,7 +477,7 @@ export function DriverApp({
 
       {/* ── MENU INFERIOR (uso com uma mão) ──────────────────────── */}
       <nav aria-label="Menu do entregador" className="fixed inset-x-0 bottom-0 z-[900] border-t border-ink-100 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-        <div className="mx-auto grid max-w-xl grid-cols-4">
+        <div className="mx-auto grid max-w-xl grid-cols-4 px-2">
           {tabs.map(([key, label, Icon, count]) => (
             <button
               key={key}
@@ -889,7 +894,7 @@ function LocationSettingsCard() {
 
 function MiniStat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-lg border border-ink-100 bg-white px-3 py-3 text-center">
+    <div className="rounded-xl border border-ink-100 bg-white px-2 py-3 text-center shadow-sm sm:px-3">
       <p className="text-[1.05rem] font-extrabold leading-none text-ink-900">{value}</p>
       <p className="mt-1 text-[0.68rem] font-medium text-ink-500">{label}</p>
     </div>

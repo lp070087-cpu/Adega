@@ -19,6 +19,8 @@ import { driverNavigationAction } from '@/app/actions/drivers';
  */
 
 type Point = { latitude: number; longitude: number };
+type GpsStatus = 'off' | 'waiting' | 'ok' | 'denied' | 'unavailable';
+type LiveLocation = { position: (Point & { accuracy: number }) | null; status: GpsStatus };
 type Route = { available: true; coordinates: Array<[number, number]>; distanceMeters: number; durationSeconds: number; provider: string } | { available: false; reason: 'not_configured' | 'unavailable' };
 
 const formatDistance = (meters: number) => (meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1).replace('.', ',')} km`);
@@ -29,7 +31,7 @@ function metersBetween(a: Point, b: Point) {
   return 6371000 * 2 * Math.asin(Math.sqrt(h));
 }
 
-export function DriverNavigation({ orderId, address, reference, googleUrl, wazeUrl, useLocation = true, onClose }: { orderId: string; address: string; reference?: string | null; googleUrl: string; wazeUrl: string; useLocation?: boolean; onClose: () => void }) {
+export function DriverNavigation({ orderId, address, reference, googleUrl, wazeUrl, useLocation = true, liveLocation, onClose }: { orderId: string; address: string; reference?: string | null; googleUrl: string; wazeUrl: string; useLocation?: boolean; liveLocation?: LiveLocation; onClose: () => void }) {
   const box = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -38,7 +40,7 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
   const layers = useRef<{ group?: LayerGroup; me?: CircleMarker; accuracy?: CircleMarker; destination?: Marker; route?: Polyline }>({});
   const lastRouteFrom = useRef<{ point: Point; at: number } | null>(null);
   const [ready, setReady] = useState(false);
-  const [me, setMe] = useState<(Point & { accuracy: number }) | null>(null);
+  const [ownPosition, setOwnPosition] = useState<(Point & { accuracy: number }) | null>(null);
   const [destination, setDestination] = useState<(Point & { approximate: boolean }) | null>(null);
   // O mapa aparece já no destino; sem destino em 2,5 s, mostra assim mesmo.
   const [shown, setShown] = useState(false);
@@ -48,8 +50,11 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
   useEffect(() => { if (destination) setShown(true); }, [destination]);
   const [route, setRoute] = useState<Route | null>(null);
   const [status, setStatus] = useState<{ tone: 'info' | 'warn' | 'error'; text: string } | null>({ tone: 'info', text: 'Carregando o mapa…' });
-  const [gps, setGps] = useState<'off' | 'waiting' | 'ok' | 'denied' | 'unavailable'>(useLocation ? 'waiting' : 'off');
+  const [ownGps, setOwnGps] = useState<GpsStatus>(useLocation ? 'waiting' : 'off');
   const [follow, setFollow] = useState(true);
+  const useSharedPosition = liveLocation !== undefined;
+  const me = liveLocation ? liveLocation.position : useLocation ? ownPosition : null;
+  const gps = liveLocation ? liveLocation.status : ownGps;
 
   // Fecha com Esc e trava a rolagem do fundo.
   useEffect(() => {
@@ -105,15 +110,16 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
 
   // Posição do entregador: só com a opção ligada e esta tela aberta.
   useEffect(() => {
-    if (!useLocation) { setGps('off'); return; }
-    if (typeof navigator === 'undefined' || !navigator.geolocation || !window.isSecureContext) { setGps('unavailable'); return; }
+    if (useSharedPosition) return;
+    if (!useLocation) { setOwnGps('off'); setOwnPosition(null); return; }
+    if (typeof navigator === 'undefined' || !navigator.geolocation || !window.isSecureContext) { setOwnGps('unavailable'); return; }
     const id = navigator.geolocation.watchPosition(
-      (position) => { setGps('ok'); setMe({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy }); },
-      (error) => setGps(error.code === error.PERMISSION_DENIED ? 'denied' : 'unavailable'),
+      (position) => { setOwnGps('ok'); setOwnPosition({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy }); },
+      (error) => setOwnGps(error.code === error.PERMISSION_DENIED ? 'denied' : 'unavailable'),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
     );
     return () => navigator.geolocation.clearWatch(id);
-  }, [useLocation]);
+  }, [useLocation, useSharedPosition]);
 
   // Pede nova rota ao andar ~150 m ou a cada 60 s (nunca mais de uma vez a cada 20 s).
   useEffect(() => {

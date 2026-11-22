@@ -8,9 +8,10 @@ import { useCallback, useSyncExternalStore } from 'react';
  */
 const KEY = 'df-driver-location';
 const EVENT = 'df-driver-location-change';
+let memoryPref = false;
 
 function read(): boolean {
-  try { return window.localStorage.getItem(KEY) === 'on'; } catch { return false; }
+  try { return window.localStorage.getItem(KEY) === 'on'; } catch { return memoryPref; }
 }
 function subscribe(callback: () => void) {
   window.addEventListener(EVENT, callback);
@@ -18,6 +19,7 @@ function subscribe(callback: () => void) {
   return () => { window.removeEventListener(EVENT, callback); window.removeEventListener('storage', callback); };
 }
 export function setDriverLocationPref(on: boolean) {
+  memoryPref = on;
   try { window.localStorage.setItem(KEY, on ? 'on' : 'off'); } catch { /* armazenamento bloqueado: vale só nesta tela */ }
   window.dispatchEvent(new Event(EVENT));
 }
@@ -27,11 +29,11 @@ export function useDriverLocationPref(): [boolean, (on: boolean) => void] {
 }
 
 /** Pede a permissão do navegador. Resolve com o motivo quando não dá. */
-export function requestDriverLocation(): Promise<{ ok: true } | { ok: false; reason: 'denied' | 'unavailable' }> {
+export function requestDriverLocation(): Promise<{ ok: true; position: { latitude: number; longitude: number; accuracy: number } } | { ok: false; reason: 'denied' | 'unavailable' }> {
   return new Promise((resolve) => {
     if (typeof navigator === 'undefined' || !navigator.geolocation || !window.isSecureContext) { resolve({ ok: false, reason: 'unavailable' }); return; }
     navigator.geolocation.getCurrentPosition(
-      () => resolve({ ok: true }),
+      ({ coords: { latitude, longitude, accuracy } }) => resolve({ ok: true, position: { latitude, longitude, accuracy } }),
       (error) => resolve({ ok: false, reason: error.code === error.PERMISSION_DENIED ? 'denied' : 'unavailable' }),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
     );

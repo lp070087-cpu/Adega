@@ -1,0 +1,510 @@
+{
+  "acucar-refinado-uniao-1kg": {
+    "asset": "/catalog/conveniencia/mercearia/acucar-refinado-uniao-1kg.webp",
+    "source": "https://www.supermuffato.com.br/acucar-uniao-refinado-premium-1kg-12028/p"
+  },
+  "agua-com-gas-crystal-500ml": {
+    "asset": "/catalog/bebidas/aguas/agua-com-gas-crystal-500ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/agua-mineral-crystal-com-gas-500ml"
+  },
+  "agua-de-coco-kero-1l": {
+    "asset": "/catalog/bebidas/aguas/agua-de-coco-kero-1l.webp",
+    "source": "https://www.supermuffato.com.br/agua-de-coco-kero-coco-esterelizada-1l-76641/p"
+  },
+  "agua-de-coco-sococo-200ml": {
+    "asset": "/catalog/bebidas/aguas/agua-de-coco-sococo-200ml.webp",
+    "source": "https://www.mambo.com.br/agua-de-coco-sococo-200ml/p"
+  },
+  "agua-mineral-crystal-1-5l": {
+    "asset": "/catalog/bebidas/aguas/agua-mineral-crystal-1-5l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/agua-mineral-crystal-sem-gas-1-5l"
+  },
+  "agua-mineral-crystal-500ml": {
+    "asset": "/catalog/bebidas/aguas/agua-mineral-crystal-500ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/agua-mineral-crystal-sem-gas-500ml"
+  },
+  "agua-mineral-crystal-5l": {
+    "asset": "/catalog/bebidas/aguas/agua-mineral-crystal-5l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/agua-mineral-crystal-sem-gas-5l"
+  },
+  "agua-tonica-antarctica-lata-350ml": {
+    "asset": "/catalog/bebidas/aguas/agua-tonica-antarctica-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/agua-tonica-antarctica-lata-350ml"
+  },
+  "amstel-ultra-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/amstel-ultra-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-amstel-ultra-puro-malte-350ml"
+  },
+  "antarctica-pilsen-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/antarctica-pilsen-lata-350ml.webp",
+    "source": "https://www.sondadelivery.com.br/faco/produto/cerveja-antarctica-pilsen-350ml-lata/1000008309"
+  },
+  "arroz-tio-joao-tipo-1-5kg": {
+    "asset": "/catalog/conveniencia/mercearia/arroz-tio-joao-tipo-1-5kg.webp",
+    "source": "https://www.mambo.com.br/arroz-polido-longo-e-fino-tipo-1-tio-joao-5-kg/p"
+  },
+  "bala-fini-ursinhos-80g": {
+    "asset": "/catalog/conveniencia/doces/bala-fini-ursinhos-80g.webp",
+    "source": "https://www.supernosso.com/84681-bala-de-gelatina-fini-ursinhos-80g/p"
+  },
+  "batata-pringles-original-104g": {
+    "asset": "/catalog/conveniencia/salgadinhos/batata-pringles-original-104g.webp",
+    "source": "https://www.imigrantesbebidas.com.br/batata-pringles-original-104g"
+  },
+  "batata-ruffles-original-100g": {
+    "asset": "/catalog/conveniencia/salgadinhos/batata-ruffles-original-100g.webp",
+    "source": "https://www.mambo.com.br/batata-original-ruffles-tubo-100g/p"
+  },
+  "biscoito-passatempo-130g": {
+    "asset": "/catalog/conveniencia/doces/biscoito-passatempo-130g.webp",
+    "source": "https://www.supermuffato.com.br/biscoito-nestle-passatempo-de-chocolate-130g-221151/p"
+  },
+  "biscoito-recheado-oreo-90g": {
+    "asset": "/catalog/conveniencia/doces/biscoito-recheado-oreo-90g.webp",
+    "source": "https://www.supermuffato.com.br/biscoito-recheado-oreo-original-90g-186141/p"
+  },
+  "blue-moon-355ml": {
+    "asset": "/catalog/bebidas/cervejas/blue-moon-355ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-blue-moon-clara-long-neck-355-ml"
+  },
+  "brahma-chopp-garrafa-600ml": {
+    "asset": "/catalog/bebidas/cervejas/brahma-chopp-garrafa-600ml.webp",
+    "source": "https://www.choppbrahmaexpress.com.br/cerveja-brahma-600ml/p"
+  },
+  "brahma-chopp-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/brahma-chopp-lata-350ml-confirmado.webp",
+    "source": "https://www.sondadelivery.com.br/delivery/produto/cerveja-brahma-lata-350ml/1000008317"
+  },
+  "brahma-duplo-malte-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/brahma-duplo-malte-lata-350ml.webp",
+    "source": "https://www.mambo.com.br/cerveja-puro-duplo-malte-brahma-lata-350ml/p"
+  },
+  "cachaca-51-965ml": {
+    "asset": "/catalog/bebidas/cachaca/cachaca-51-965ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cachaca-pirassununga-51-965ml"
+  },
+  "cachaca-leblon-750ml": {
+    "asset": "/catalog/bebidas/cachaca/cachaca-leblon-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cachaca-leblon-750-ml"
+  },
+  "cachaca-ypioca-ouro-965ml": {
+    "asset": "/catalog/bebidas/cachaca/cachaca-ypioca-ouro-965ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cachaca-ypioca-ouro-empalhada-965ml"
+  },
+  "cafe-torrado-melitta-500g": {
+    "asset": "/catalog/conveniencia/mercearia/cafe-torrado-melitta-500g.webp",
+    "source": "https://www.supernosso.com/cafe-torrado-e-moido-tradicional-melitta-pacote-500g/p"
+  },
+  "chocolate-bis-laka-100g": {
+    "asset": "/catalog/conveniencia/chocolates/chocolate-bis-laka-100g.webp",
+    "source": "https://www.mambo.com.br/chocolate-bis-branco-lacta-100g/p"
+  },
+  "chocolate-ferrero-rocher-3-unidades": {
+    "asset": "/catalog/conveniencia/chocolates/chocolate-ferrero-rocher-3-unidades.webp",
+    "source": "https://www.supermuffato.com.br/bombom-ferrero-rocher-3-un-28514/p"
+  },
+  "chocolate-garoto-talento-castanha-85g": {
+    "asset": "/catalog/conveniencia/chocolates/chocolate-garoto-talento-castanha-85g.webp",
+    "source": "https://www.mambo.com.br/chocolate-castanha-do-para-talento-garoto-85g/p"
+  },
+  "chocolate-kinder-ovo-20g": {
+    "asset": "/catalog/conveniencia/chocolates/chocolate-kinder-ovo-20g.webp",
+    "source": "https://www.supermuffato.com.br/choc-ferrero-kinder-ovo-menino-20g-266569/p"
+  },
+  "chocolate-lacta-diamante-negro-80g": {
+    "asset": "/catalog/conveniencia/chocolates/chocolate-lacta-diamante-negro-80g.webp",
+    "source": "https://www.supermuffato.com.br/chocolate-lacta-ao-leite-diamante-negro-80g-290901-1/p"
+  },
+  "chocolate-nestle-alpino-85g": {
+    "asset": "/catalog/conveniencia/chocolates/chocolate-nestle-alpino-85g.webp",
+    "source": "https://www.supernosso.com/221019-chocolate-alpino-85g/p"
+  },
+  "chopp-heineken-barril-5l": {
+    "asset": "/catalog/bebidas/chopp/chopp-heineken-barril-5l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-heineken-barril-5l"
+  },
+  "coca-cola-garrafa-1l": {
+    "asset": "/catalog/bebidas/refrigerantes/coca-cola-garrafa-1l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/refrigerante-coca-cola-1l"
+  },
+  "coca-cola-garrafa-2l": {
+    "asset": "/catalog/bebidas/refrigerantes/coca-cola-garrafa-2l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/refrigerante-coca-cola-2l"
+  },
+  "coca-cola-garrafa-600ml": {
+    "asset": "/catalog/bebidas/refrigerantes/coca-cola-garrafa-600ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/refrigerante-coca-cola-600ml"
+  },
+  "coca-cola-lata-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/coca-cola-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/refrigerante-coca-cola-lata-350ml"
+  },
+  "coca-cola-zero-garrafa-2l": {
+    "asset": "/catalog/bebidas/refrigerantes/coca-cola-zero-garrafa-2l.webp",
+    "source": "https://www.supermuffato.com.br/refrigerante-coca-cola-sem-acucar-2-l-112089/p"
+  },
+  "coca-cola-zero-lata-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/coca-cola-zero-lata-350ml.webp",
+    "source": "https://www.supermuffato.com.br/refrigerante-coca-cola-sem-acucar-350-ml-112102/p"
+  },
+  "colorado-appia-600ml": {
+    "asset": "/catalog/bebidas/cervejas/colorado-appia-600ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-colorado-appia-600-ml"
+  },
+  "colorado-ribeirao-lager-600ml": {
+    "asset": "/catalog/bebidas/cervejas/colorado-ribeirao-lager-600ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-colorado-ribeirao-lager-600ml"
+  },
+  "devassa-puro-malte-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/devassa-puro-malte-lata-350ml.webp",
+    "source": "https://www.supernosso.com/178559-cerveja-lager-puro-malte-tropical-devassa-lata-350ml/p"
+  },
+  "eisenbahn-pilsen-355ml": {
+    "asset": "/catalog/bebidas/cervejas/eisenbahn-pilsen-355ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-eisenbahn-pilsen-long-neck-355-ml"
+  },
+  "esfiha-de-carne": {
+    "asset": "/catalog/alimentos/salgados/esfiha-de-carne.webp",
+    "source": "https://www.supernosso.com/175529-esfiha-carne-unidade/p"
+  },
+  "espumante-chandon-brut-750ml": {
+    "asset": "/catalog/bebidas/espumantes/espumante-chandon-brut-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/espumante-chandon-reserve-brut-750ml"
+  },
+  "espumante-chandon-rose-750ml": {
+    "asset": "/catalog/bebidas/espumantes/espumante-chandon-rose-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/espumante-chandon-brut-rose-750ml"
+  },
+  "espumante-freixenet-cordon-negro-750ml": {
+    "asset": "/catalog/bebidas/espumantes/espumante-freixenet-cordon-negro-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cava-freixenet-cordon-negro-brut-750ml"
+  },
+  "espumante-miolo-brut-750ml": {
+    "asset": "/catalog/bebidas/espumantes/espumante-miolo-brut-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/espumante-miolo-cuvee-brut-750ml"
+  },
+  "espumante-perrier-jouet-750ml": {
+    "asset": "/catalog/bebidas/espumantes/espumante-perrier-jouet-750ml.webp",
+    "source": "https://www.casadabebida.com.br/champagne/perrier-jouet-grand-brut-750-ml/"
+  },
+  "espumante-prosecco-italiano-750ml": {
+    "asset": "/catalog/bebidas/espumantes/espumante-prosecco-italiano-750ml.webp",
+    "source": "https://www.mambo.com.br/espumante-italiano-prosecco-mionetto-750ml/p"
+  },
+  "espumante-salton-rose-750ml": {
+    "asset": "/catalog/bebidas/espumantes/espumante-salton-rose-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/espumante-salton-brut-rose-750ml"
+  },
+  "fanta-laranja-garrafa-2l": {
+    "asset": "/catalog/bebidas/refrigerantes/fanta-laranja-garrafa-2l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/refrigerante-fanta-laranja-2l"
+  },
+  "fanta-laranja-lata-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/fanta-laranja-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/refrigerante-fanta-laranja-lata-350ml"
+  },
+  "fanta-uva-lata-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/fanta-uva-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/refrigerante-fanta-uva-lata-350-ml"
+  },
+  "feijao-carioca-camil-1kg": {
+    "asset": "/catalog/conveniencia/mercearia/feijao-carioca-camil-1kg.webp",
+    "source": "https://www.mambo.com.br/feijao-carioca-tipo-1-camil-1kg/p"
+  },
+  "gelo-em-cubos-2kg": {
+    "asset": "/catalog/conveniencia/gelo/gelo-em-cubos-2kg.webp",
+    "source": "https://www.imigrantesbebidas.com.br/gelo-em-cubos-2kg"
+  },
+  "gelo-em-cubos-5kg": {
+    "asset": "/catalog/conveniencia/gelo/gelo-em-cubos-5kg.webp",
+    "source": "https://www.imigrantesbebidas.com.br/gelo-em-cubos-5kg"
+  },
+  "gelo-tradicional-3kg": {
+    "asset": "/catalog/conveniencia/gelo/gelo-tradicional-3kg.webp",
+    "source": "https://www.samsclub.com.br/gelo-cristal-pacote-3kg-7898026810085/p"
+  },
+  "gin-amazzoni-750ml": {
+    "asset": "/catalog/bebidas/gin/gin-amazzoni-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/gin-amazzoni-750ml"
+  },
+  "gin-beefeater-750ml": {
+    "asset": "/catalog/bebidas/gin/gin-beefeater-750ml.webp",
+    "source": "https://www.supermuffato.com.br/gin-ingles-beefeater-dry-750-ml-181834/p"
+  },
+  "gin-bombay-sapphire-750ml": {
+    "asset": "/catalog/bebidas/gin/gin-bombay-sapphire-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/gin-bombay-sapphire-dry-london-750ml"
+  },
+  "gin-bulldog-750ml": {
+    "asset": "/catalog/bebidas/gin/gin-bulldog-750ml.webp",
+    "source": "https://www.casadabebida.com.br/gin/gin-bulldog-750-ml/"
+  },
+  "gin-hendrick-s-750ml": {
+    "asset": "/catalog/bebidas/gin/gin-hendrick-s-750ml.webp",
+    "source": "https://www.samsclub.com.br/gin-hendricks-750ml-5010327755014/p"
+  },
+  "goose-island-ipa-355ml": {
+    "asset": "/catalog/bebidas/cervejas/goose-island-ipa-355ml.webp",
+    "source": "https://www.supernosso.com/173511-cerveja-goose-island-ipa--355ml--long-neck/p"
+  },
+  "guarana-jesus-lata-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/guarana-jesus-lata-350ml.webp",
+    "source": "https://www.cestadopovosenhordobonfim.com.br/produto/224802/refrigerante-guarana-jesus-350ml"
+  },
+  "guarana-kuat-lata-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/guarana-kuat-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/refrigerante-kuat-lata-350-ml"
+  },
+  "guardanapo-de-papel-50-unidades": {
+    "asset": "/catalog/conveniencia/mercearia/guardanapo-de-papel-50-unidades.webp",
+    "source": "https://www.supermuffato.com.br/guardanapo-de-papel-mili-pequeno-21x22cm-com-50-folhas-33448/p"
+  },
+  "heineken-garrafa-600ml": {
+    "asset": "/catalog/bebidas/cervejas/heineken-garrafa-600ml.webp",
+    "source": "https://www.supermuffato.com.br/cerveja-heineken-garrafa-600-ml-120275/p"
+  },
+  "ice-smirnoff-green-apple-275ml": {
+    "asset": "/catalog/bebidas/drinks-prontos/ice-smirnoff-green-apple-275ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/ice-smirnoff-green-apple-275ml"
+  },
+  "ice-smirnoff-original-275ml": {
+    "asset": "/catalog/bebidas/drinks-prontos/ice-smirnoff-original-275ml.webp",
+    "source": "https://www.casadabebida.com.br/vodka/smirnoff-ice-275ml/"
+  },
+  "itaipava-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/itaipava-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-itaipava-pilsen-lata-350ml"
+  },
+  "leite-integral-italac-1l": {
+    "asset": "/catalog/conveniencia/mercearia/leite-integral-italac-1l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/leite-italac-integral-1l-1"
+  },
+  "limonada-pronta-natural-one-900ml": {
+    "asset": "/catalog/bebidas/sucos/limonada-pronta-natural-one-900ml.webp",
+    "source": "https://www.supernosso.com/164303-suco-limonada-adocada-natural-one-refrigerado-garrafa-900ml/p"
+  },
+  "michelob-ultra-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/michelob-ultra-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-michelob-ultra-lata-350ml"
+  },
+  "monster-energy-lata-473ml": {
+    "asset": "/catalog/bebidas/energeticos/monster-energy-lata-473ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/energetico-monster-energy-lata-473ml"
+  },
+  "monster-mango-loco-473ml": {
+    "asset": "/catalog/bebidas/energeticos/monster-mango-loco-473ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/energetico-monster-energy-mango-loco-lata-473ml"
+  },
+  "monster-ultra-lata-473ml": {
+    "asset": "/catalog/bebidas/energeticos/monster-ultra-lata-473ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/energetico-monster-energy-ultra-lata-473ml"
+  },
+  "nectar-sufresh-pessego-1l": {
+    "asset": "/catalog/bebidas/sucos/nectar-sufresh-pessego-1l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/nectar-de-pessego-sufresh-1l"
+  },
+  "oleo-de-soja-liza-900ml": {
+    "asset": "/catalog/conveniencia/mercearia/oleo-de-soja-liza-900ml.webp",
+    "source": "https://www.supermuffato.com.br/oleo-de-soja-liza--900ml-23593/p"
+  },
+  "original-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/original-lata-350ml-confirmado.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-original-pilsen-lata-350ml"
+  },
+  "ovos-brancos-duzia": {
+    "asset": "/catalog/conveniencia/mercearia/ovos-brancos-duzia.webp",
+    "source": "https://www.supernosso.com/198713-ovos-brancos-mantiqueira-12-unidades/p"
+  },
+  "pao-de-forma-pullman-500g": {
+    "asset": "/catalog/conveniencia/mercearia/pao-de-forma-pullman-500g.webp",
+    "source": "https://www.supermuffato.com.br/pao-de-forma-original-pullman-artesano-pacote-500g-225044/p"
+  },
+  "pao-de-queijo": {
+    "asset": "/catalog/alimentos/salgados/pao-de-queijo.webp",
+    "source": "https://www.supernosso.com/175664-pao-de-queijo-supernosso-lanche-unidade/p"
+  },
+  "pao-de-queijo-congelado-1kg": {
+    "asset": "/catalog/alimentos/salgados/pao-de-queijo-congelado-1kg.webp",
+    "source": "https://www.supermuffato.com.br/pao-de-queijo-da-gina-1kg-84797/p"
+  },
+  "papel-higienico-neve-4-rolos": {
+    "asset": "/catalog/conveniencia/mercearia/papel-higienico-neve-4-rolos.webp",
+    "source": "https://www.supermuffato.com.br/papel-higienico-neve-ultracomfort-folha-quadrupla-4-rolos-20m-un-309961/p"
+  },
+  "patagonia-amber-lager-355ml": {
+    "asset": "/catalog/bebidas/cervejas/patagonia-amber-lager-355ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-patagonia-amber-lager-long-neck-355ml"
+  },
+  "petra-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/petra-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-petra-puro-malte-lata-350ml"
+  },
+  "pipoca-de-micro-ondas-yoki-100g": {
+    "asset": "/catalog/conveniencia/salgadinhos/pipoca-de-micro-ondas-yoki-100g.webp",
+    "source": "https://www.supermuffato.com.br/pipoca-de-micro-ondas-yoki-manteiga-100g-17039/p"
+  },
+  "salgadinho-cheetos-requeijao-140g": {
+    "asset": "/catalog/conveniencia/salgadinhos/salgadinho-cheetos-requeijao-140g.webp",
+    "source": "https://www.supernosso.com/202885-salgadinho-de-milho-onda-requeijao-elma-chips-cheetos-pacote-140g/p"
+  },
+  "salgadinho-fandangos-presunto-140g": {
+    "asset": "/catalog/conveniencia/salgadinhos/salgadinho-fandangos-presunto-140g.webp",
+    "source": "https://www.supernosso.com/202907-salgadinho-de-milho-assado-presunto-elma-chips-fandangos-pacote-140g/p"
+  },
+  "schweppes-citrus-lata-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/schweppes-citrus-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/schweppes-citrus-lata-350ml"
+  },
+  "schweppes-tonica-lata-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/schweppes-tonica-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/agua-tonica-schweppes-lata-350ml"
+  },
+  "skol-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/skol-lata-350ml.webp",
+    "source": "https://www.supermuffato.com.br/cerveja-skol-pilsen-lata-350ml-12440/p"
+  },
+  "sprite-garrafa-2l": {
+    "asset": "/catalog/bebidas/refrigerantes/sprite-garrafa-2l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/refrigerante-sprite-2l"
+  },
+  "sprite-lata-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/sprite-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/refrigerante-sprite-lata-350ml"
+  },
+  "suco-del-valle-laranja-1l": {
+    "asset": "/catalog/bebidas/sucos/suco-del-valle-laranja-1l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/nectar-de-laranja-del-valle-1l"
+  },
+  "suco-del-valle-maracuja-1l": {
+    "asset": "/catalog/bebidas/sucos/suco-del-valle-maracuja-1l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/nectar-de-maracuja-del-valle-1l"
+  },
+  "suco-del-valle-pessego-1l": {
+    "asset": "/catalog/bebidas/sucos/suco-del-valle-pessego-1l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/nectar-de-pessego-del-valle-1l"
+  },
+  "suco-del-valle-uva-1l": {
+    "asset": "/catalog/bebidas/sucos/suco-del-valle-uva-1l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/nectar-de-uva-del-valle-1l"
+  },
+  "suco-kapo-laranja-200ml": {
+    "asset": "/catalog/bebidas/sucos/suco-kapo-laranja-200ml.webp",
+    "source": "https://www.supermuffato.com.br/suco-de-laranja-kapo-200ml-27316/p"
+  },
+  "suco-maguary-maracuja-1l": {
+    "asset": "/catalog/bebidas/sucos/suco-maguary-maracuja-1l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/suco-de-maracuja-concentrado-maguary-1l"
+  },
+  "suco-natural-one-laranja-900ml": {
+    "asset": "/catalog/bebidas/sucos/suco-natural-one-laranja-900ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/suco-de-laranja-natural-one-900ml-1"
+  },
+  "suco-natural-one-limao-900ml": {
+    "asset": "/catalog/bebidas/sucos/suco-natural-one-limao-900ml.webp",
+    "source": "https://www.mambo.com.br/suco-de-limao-refrigerado-natural-one-900ml/p"
+  },
+  "suco-prats-uva-900ml": {
+    "asset": "/catalog/bebidas/sucos/suco-prats-uva-900ml.webp",
+    "source": "https://www.supermuffato.com.br/suco-prats-uva-900ml-201570/p"
+  },
+  "sukita-laranja-lata-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/sukita-laranja-lata-350ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/refrigerante-sukita-laranja-lata-350-ml"
+  },
+  "therezopolis-gold-355ml": {
+    "asset": "/catalog/bebidas/cervejas/therezopolis-gold-355ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/cerveja-therezopolis-gold-premium-lager-long-neck-355ml-1"
+  },
+  "vinho-branco-casal-garcia-750ml": {
+    "asset": "/catalog/bebidas/vinho/vinho-branco-casal-garcia-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/vinho-casal-garcia-branco-750ml"
+  },
+  "vinho-rose-miolo-750ml": {
+    "asset": "/catalog/bebidas/vinho/vinho-rose-miolo-750ml.webp",
+    "source": "https://www.supermuffato.com.br/vinho-miolo-selecao-rose-seco-750ml-262276/p"
+  },
+  "vinho-rose-periquita-750ml": {
+    "asset": "/catalog/bebidas/vinho/vinho-rose-periquita-750ml.webp",
+    "source": "https://www.casadabebida.com.br/vinho/periquita-rose-750-ml/"
+  },
+  "vinho-suave-quinta-do-morgado-750ml": {
+    "asset": "/catalog/bebidas/vinho/vinho-suave-quinta-do-morgado-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/vinho-quinta-do-morgado-tinto-suave-750-ml"
+  },
+  "vinho-suave-sangue-de-boi-750ml": {
+    "asset": "/catalog/bebidas/vinho/vinho-suave-sangue-de-boi-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/vinho-sangue-de-boi-tinto-suave-750ml"
+  },
+  "vinho-tinto-miolo-selecao-750ml": {
+    "asset": "/catalog/bebidas/vinho/vinho-tinto-miolo-selecao-750ml.webp",
+    "source": "https://www.supermuffato.com.br/vinho-miolo-selecao-tinto-750-ml-13514/p"
+  },
+  "vinho-tinto-pergola-750ml": {
+    "asset": "/catalog/bebidas/vinho/vinho-tinto-pergola-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/vinho-pergola-tinto-suave-750-ml"
+  },
+  "vinho-tinto-periquita-750ml": {
+    "asset": "/catalog/bebidas/vinho/vinho-tinto-periquita-750ml.webp",
+    "source": "https://www.supermuffato.com.br/vinho-tinto-periquita-garrafa-750-ml-12221/p"
+  },
+  "vinho-tinto-salton-talento-750ml": {
+    "asset": "/catalog/bebidas/vinho/vinho-tinto-salton-talento-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/vinho-salton-talento-750ml"
+  },
+  "vodka-ciroc-750ml": {
+    "asset": "/catalog/bebidas/vodka/vodka-ciroc-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/vodka-ciroc-750ml"
+  },
+  "vodka-grey-goose-750ml": {
+    "asset": "/catalog/bebidas/vodka/vodka-grey-goose-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/vodka-grey-goose-original-750ml"
+  },
+  "vodka-orloff-1l": {
+    "asset": "/catalog/bebidas/vodka/vodka-orloff-1l.webp",
+    "source": "https://www.casadabebida.com.br/vodka/vodka-orloff-1000-ml/"
+  },
+  "vodka-smirnoff-600ml": {
+    "asset": "/catalog/bebidas/vodka/vodka-smirnoff-600ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/vodka-smirnoff-600ml"
+  },
+  "wafer-bauducco-chocolate-140g": {
+    "asset": "/catalog/conveniencia/doces/wafer-bauducco-chocolate-140g.webp",
+    "source": "https://www.supermuffato.com.br/wafer-bauducco-chocolate-140g-165819/p"
+  },
+  "whisky-ballantines-finest-1l": {
+    "asset": "/catalog/bebidas/whisky/whisky-ballantines-finest-1l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/whisky-ballantines-finest-blended-escoces-1l"
+  },
+  "whisky-black-label-1l": {
+    "asset": "/catalog/bebidas/whisky/whisky-black-label-1l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/whisky-johnnie-walker-black-label-12-anos-1-l"
+  },
+  "whisky-black-label-750ml": {
+    "asset": "/catalog/bebidas/whisky/whisky-black-label-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/whisky-johnnie-walker-black-label-750ml"
+  },
+  "whisky-buchanan-s-deluxe-1l": {
+    "asset": "/catalog/bebidas/whisky/whisky-buchanan-s-deluxe-1l.webp",
+    "source": "https://www.supermuffato.com.br/whisky-escoces-blended-buchanans-deluxe-garrafa-1l-45965/p"
+  },
+  "whisky-chivas-regal-12-anos-1l": {
+    "asset": "/catalog/bebidas/whisky/whisky-chivas-regal-12-anos-1l.webp",
+    "source": "https://www.imigrantesbebidas.com.br/whisky-chivas-regal-12-anos-escoces-1l"
+  },
+  "whisky-jack-daniel-s-honey-1l": {
+    "asset": "/catalog/bebidas/whisky/whisky-jack-daniel-s-honey-1l.webp",
+    "source": "https://www.supermuffato.com.br/whisky-jack-daniels-honey-1-l-206753/p"
+  },
+  "whisky-jack-daniel-s-old-no-7-1l": {
+    "asset": "/catalog/bebidas/whisky/whisky-jack-daniel-s-old-no-7-1l.webp",
+    "source": "https://www.supernosso.com/89848-whisky-americano-old-no--7-jack-daniels-garrafa-1l/p"
+  },
+  "whisky-natu-nobilis-1l": {
+    "asset": "/catalog/bebidas/whisky/whisky-natu-nobilis-1l.webp",
+    "source": "https://www.casadabebida.com.br/whisky/whisky-natu-nobilis-aperitivo-1000-ml/"
+  },
+  "whisky-red-label-750ml": {
+    "asset": "/catalog/bebidas/whisky/whisky-red-label-750ml.webp",
+    "source": "https://www.imigrantesbebidas.com.br/whisky-johnnie-walker-red-label-750ml"
+  }
+}

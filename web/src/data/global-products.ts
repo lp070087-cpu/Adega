@@ -111,6 +111,8 @@ export type GlobalProductSeed = {
   n: string;
   /** Marca/fabricante. */
   b: string;
+  /** Outros nomes da mesma apresentação. */
+  a?: string[];
   /** Reserva visual enquanto não há arquivo no acervo. */
   e: string;
   /** Volume/quantidade. */
@@ -143,8 +145,7 @@ const CERVEJAS: GlobalProductSeed[] = [
   { c: 'cervejas', n: 'Brahma Chopp Garrafa 600ml', b: 'Brahma', e: '🍺', v: 600, u: 'ml', p: 8.99, s: S.BEBIDA },
   { c: 'cervejas', n: 'Brahma Duplo Malte Lata 350ml', b: 'Brahma', e: '🍺', v: 350, u: 'ml', p: 5.29, s: S.BEBIDA },
   { c: 'cervejas', n: 'Brahma Fardo 12 Latas 350ml', b: 'Brahma', e: '🍺', v: 350, u: 'ml', k: 12, p: 47.9, s: S.CONV },
-  { c: 'cervejas', n: 'Antarctica Pilsen Lata 350ml', b: 'Antarctica', e: '🍺', v: 350, u: 'ml', p: 4.29, s: S.BEBIDA },
-  { c: 'cervejas', n: 'Antarctica Boa Lata 350ml', b: 'Antarctica', e: '🍺', v: 350, u: 'ml', p: 5.49, s: S.BEBIDA },
+  { c: 'cervejas', n: 'Antarctica Pilsen Lata 350ml', b: 'Antarctica', a: ['Antarctica Boa Lata 350ml'], e: '🍺', v: 350, u: 'ml', p: 4.29, s: S.BEBIDA },
   { c: 'cervejas', n: 'Antarctica Sub Zero Lata 350ml', b: 'Antarctica', e: '🍺', v: 350, u: 'ml', p: 5.19, s: S.BEBIDA },
   { c: 'cervejas', n: 'Original Lata 350ml', b: 'Original', e: '🍺', v: 350, u: 'ml', p: 5.49, s: S.BEBIDA },
   { c: 'cervejas', n: 'Original Garrafa 600ml', b: 'Original', e: '🍺', v: 600, u: 'ml', p: 10.9, s: S.BEBIDA },
