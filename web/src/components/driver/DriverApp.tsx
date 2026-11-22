@@ -18,7 +18,8 @@ import { Alert, Badge, Button, Card, Drawer, EmptyState, Input } from '@/compone
 import { DriverInstallCard } from '@/components/driver/DriverInstall';
 import { DriverScheduleNotice } from '@/components/driver/DriverScheduleNotice';
 import { DriverRoutes } from '@/components/driver/DriverRoutes';
-import { DriverEarnings } from '@/components/driver/DriverEarnings';
+import { DriverEarnings, type PayPreviewRule } from '@/components/driver/DriverEarnings';
+import { DriverAccount, type DriverAccountDetails } from '@/components/driver/DriverAccount';
 import type { EarningsSummary } from '@/lib/data/driver-earnings';
 import { useLiveRefresh } from '@/components/layout/LiveRefresh';
 import { requestDriverLocation, useDriverLocationPref } from '@/lib/driver-location-pref';
@@ -189,12 +190,16 @@ const ALL_STEPS: Array<{ step: Step; label: string; done: (d: DriverOrder['deliv
 
 export function DriverApp({
   driver,
+  account,
+  payRule,
   store,
   orders,
   earnings,
   preview = false,
 }: {
   driver: DriverIdentity;
+  account: DriverAccountDetails;
+  payRule: PayPreviewRule | null;
   store: DriverStore;
   orders: DriverOrder[];
   earnings: EarningsSummary;
@@ -333,7 +338,7 @@ export function DriverApp({
     ['entregas', 'Entregas', Package, active.length],
     ['mapa', 'Mapa', MapIcon, 0],
     ['ganhos', 'Ganhos', Wallet, 0],
-    ['perfil', 'Perfil', UserRound, 0],
+    ['perfil', 'Minha conta', UserRound, 0],
   ] as const;
 
   return (
@@ -397,7 +402,7 @@ export function DriverApp({
 
       <main className="panel-content mx-auto w-full max-w-6xl flex-1 space-y-5 px-3 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-5 lg:px-7 lg:pt-6">
         {preview && <Alert tone="neutral" title="Visualização do motoboy">
-          Esta visão é de demonstração. O painel operacional depende do cadastro de um entregador. <Link href="/admin" className="font-semibold underline">Voltar ao Admin Central</Link>
+          Nesta demonstração você pode testar o mapa e simular ganhos. O extrato e a edição dos dados ficam disponíveis para o entregador cadastrado. <Link href="/admin" className="font-semibold underline">Voltar ao Admin Central</Link>
         </Alert>}
         {!online && <Alert tone="warn">Sem conexão. As entregas exibidas podem estar desatualizadas. Reconecte para registrar alterações.</Alert>}
         {error && (
@@ -445,25 +450,12 @@ export function DriverApp({
         )}
 
         {/* ── GANHOS ───────────────────────────────────────────────── */}
-        {tab === 'ganhos' && (preview ? <Card><EmptyState icon="💳" title="Ganhos por entrega" description="Os ganhos ficam disponíveis para o entregador cadastrado." /></Card> : <DriverEarnings key={done.length} initial={earnings} />)}
+        {tab === 'ganhos' && <DriverEarnings key={done.length} initial={earnings} preview={preview} payPreviewRule={payRule} />}
 
-        {/* ── PERFIL ───────────────────────────────────────────────── */}
         {tab === 'perfil' && (
           <>
-            <Card>
-              <div className="text-center">
-                <span className="mx-auto flex h-[74px] w-[74px] items-center justify-center rounded-full bg-brand-light text-[1.4rem] font-extrabold text-brand">
-                  {driver.name.slice(0, 2).toUpperCase()}
-                </span>
-                <p className="mt-2 text-[1.05rem] font-bold text-ink-900">{driver.name}</p>
-                <p className="text-[0.76rem] text-ink-400">
-                  <VehicleIcon type={driver.vehicleType} />{' '}
-                  {driver.vehiclePlate ?? 'sem placa cadastrada'} • {store.name}
-                </p>
-              </div>
-            </Card>
-
-            {!preview && <LocationSettingsCard />}
+            <DriverAccount name={driver.name} vehicle={driver.vehicleType} plate={driver.vehiclePlate} store={store.name} account={account} preview={preview} />
+            <LocationSettingsCard onOpenMap={() => selectSection('mapa')} />
 
             {!preview && <DriverInstallCard />}
             <Alert tone="neutral" title="Sobre este app">
@@ -859,7 +851,7 @@ function OrderSheet({
 
 // ── DISPONIBILIDADE E LOCALIZAÇÃO ───────────────────────────────────────
 
-function LocationSettingsCard() {
+function LocationSettingsCard({ onOpenMap }: { onOpenMap: () => void }) {
   const [enabled, setEnabled] = useDriverLocationPref();
   const [state, setState] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -875,15 +867,16 @@ function LocationSettingsCard() {
     <Card className="p-4" data-testid="driver-location-settings">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[0.86rem] font-bold text-ink-900">Usar minha localização para navegação</p>
+          <p className="text-[0.86rem] font-bold text-ink-900">Localização em tempo real</p>
           <p className="mt-1 text-[0.74rem] leading-relaxed text-ink-500">
-            Mostra sua posição no mapa e calcula as rotas a partir de onde você está. A posição fica neste aparelho e é usada só para navegação: a loja não vê sua localização e ela não é gravada. Atualiza com o aplicativo aberto na tela.
+            Autorize o GPS do celular para ver sua posição enquanto a aba Mapa estiver aberta. Sua posição é usada para navegação e fica fora do painel da loja.
           </p>
         </div>
         <button type="button" role="switch" aria-checked={enabled} aria-label="Usar minha localização para navegação" disabled={checking} onClick={toggle} className={cn('relative mt-0.5 inline-flex h-8 w-14 shrink-0 items-center rounded-full transition-colors disabled:opacity-60', enabled ? 'bg-brand' : 'bg-ink-300')}>
           <span className={cn('inline-block h-6 w-6 rounded-full bg-white shadow transition-transform', enabled ? 'translate-x-7' : 'translate-x-1')} />
         </button>
       </div>
+      {enabled && <Button size="sm" variant="secondary" onClick={onOpenMap} className="mt-3">Ver minha posição no mapa</Button>}
       {(state || checking) && <p className="mt-2.5 text-[0.76rem] font-semibold text-ink-700" role="status">{checking ? 'Pedindo permissão de localização…' : state}</p>}
     </Card>
   );

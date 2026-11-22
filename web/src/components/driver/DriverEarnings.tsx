@@ -3,9 +3,11 @@
 import { useState, useTransition } from 'react';
 import { loadOwnDriverEarnings, loadStoreDriverEarnings, saveDriverPayRule } from '@/app/actions/driver-earnings';
 import type { EarningsSummary } from '@/lib/data/driver-earnings';
-import type { DriverPayRule, EarningsPeriod } from '@/lib/driver-earnings';
+import { driverPayCents, MAX_PAY_CENTS, parseMoneyCents, type DriverPayRule, type EarningsPeriod } from '@/lib/driver-earnings';
 import { Alert } from '@/components/ui';
 import { formatBRL, normalizeSearchText } from '@/lib/utils';
+
+export type PayPreviewRule = Pick<DriverPayRule, 'mode' | 'amountCents' | 'percent'>;
 
 const PERIODS: Array<[EarningsPeriod, string]> = [['today', 'Hoje'], ['week', 'Semana'], ['month', 'Mês']];
 const cents = (value: number) => formatBRL(value / 100);
@@ -14,7 +16,7 @@ const cents = (value: number) => formatBRL(value / 100);
  * Ganhos por entrega, no app do entregador e na aba Entregadores da loja. Os
  * valores vêm sempre do servidor; a tela nunca soma pedidos.
  */
-export function DriverEarnings({ initial, store = false, rule = null, drivers = [] }: { initial: EarningsSummary; store?: boolean; rule?: DriverPayRule | null; drivers?: Array<{ id: string; name: string }> }) {
+export function DriverEarnings({ initial, store = false, rule = null, drivers = [], preview = false, payPreviewRule = null }: { preview?: boolean; payPreviewRule?: PayPreviewRule | null; initial: EarningsSummary; store?: boolean; rule?: DriverPayRule | null; drivers?: Array<{ id: string; name: string }> }) {
   const [data, setData] = useState(initial);
   const [period, setPeriod] = useState<EarningsPeriod>('today');
   const [pending, start] = useTransition();
@@ -34,6 +36,16 @@ export function DriverEarnings({ initial, store = false, rule = null, drivers = 
         setError('Não foi possível atualizar. Confira sua conexão e tente novamente.');
       }
     });
+  }
+
+  if (preview) {
+    return (
+      <section className="space-y-4 rounded-xl border border-ink-100 bg-white p-4">
+        <h2 className="font-bold text-ink-900">Meus ganhos</h2>
+        <p className="text-sm text-ink-600">O extrato fica disponível com o login de um entregador cadastrado.</p>
+        <DriverPayCalculator rule={payPreviewRule} />
+      </section>
+    );
   }
 
   return (
@@ -114,11 +126,43 @@ export function DriverEarnings({ initial, store = false, rule = null, drivers = 
       {data.count > data.rows.length && <p className="text-[0.74rem] text-ink-500">Exibindo as {data.rows.length} entregas mais recentes. Os totais incluem todo o período.</p>}
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
+      {!store && <DriverPayCalculator rule={payPreviewRule} />}
+
       {store && <details className="rounded-lg border border-ink-200 p-3">
         <summary className="cursor-pointer text-sm font-medium">Regra de repasse por entrega</summary>
         <PayRuleForm rule={rule} onSaved={() => choose(period)} />
       </details>}
     </section>
+  );
+}
+
+function DriverPayCalculator({ rule }: { rule: PayPreviewRule | null }) {
+  const [deliveries, setDeliveries] = useState('');
+  const [money, setMoney] = useState('');
+  const quantity = /^\d{1,4}$/.test(deliveries) ? Number(deliveries) : 0;
+  const entered = parseMoneyCents(money);
+  const validMoney = entered !== null && entered <= MAX_PAY_CENTS ? entered : null;
+  const perDelivery = rule?.mode === 'FIXED' ? driverPayCents(rule, 0)
+    : rule && validMoney !== null ? driverPayCents(rule, validMoney) : validMoney;
+  return (
+    <div className="space-y-3 rounded-xl border border-ink-200 bg-ink-50 p-4">
+      <h3 className="font-bold text-ink-900">Simular ganhos</h3>
+      {rule && <p className="text-sm text-ink-600">{rule.mode === 'FIXED'
+        ? `${cents(rule.amountCents)} por entrega pela regra da loja.`
+        : `${rule.percent.toLocaleString('pt-BR')}% sobre a taxa de cada entrega pela regra da loja.`}</p>}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1">
+          <span className="field-label">Quantidade de entregas</span>
+          <input className="field-input" inputMode="numeric" maxLength={4} value={deliveries} onChange={(event) => setDeliveries(event.target.value.replace(/\D/g, ''))} />
+        </label>
+        {rule?.mode !== 'FIXED' && <label className="grid gap-1">
+          <span className="field-label">{rule ? 'Taxa cobrada por entrega (R$)' : 'Valor previsto por entrega (R$)'}</span>
+          <input className="field-input" inputMode="decimal" maxLength={12} placeholder="0,00" value={money} onChange={(event) => setMoney(event.target.value)} />
+        </label>}
+      </div>
+      <p className="text-sm text-ink-600" aria-live="polite">Total estimado <strong className="ml-1 text-lg text-ink-900">{quantity > 0 && perDelivery !== null ? cents(quantity * perDelivery) : '—'}</strong></p>
+      <p className="text-xs text-ink-500">A simulação fica fora do extrato. O extrato usa os valores registrados nas entregas concluídas.</p>
+    </div>
   );
 }
 

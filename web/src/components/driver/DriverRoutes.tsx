@@ -65,7 +65,7 @@ export function DriverRoutes({ orders, storeOrigin, preview, onOpenOrder, autoNa
   onAutoNavigate: () => void;
 }) {
   const [locationEnabled, setLocationEnabled] = useDriverLocationPref();
-  const useLocation = locationEnabled && !preview;
+  const useLocation = locationEnabled;
   const [askingLocation, setAskingLocation] = useState(false);
   const [watchAttempt, setWatchAttempt] = useState(0);
   const ids = useMemo(() => orders.map((o) => o.id), [orders]);
@@ -224,18 +224,18 @@ export function DriverRoutes({ orders, storeOrigin, preview, onOpenOrder, autoNa
             <h2 className="text-lg font-extrabold text-ink-900">Mapa de entregas</h2>
             <p className="text-sm text-ink-500">{orders.length === 0 ? 'Aguardando pedidos da loja' : `${orders.length} ${orders.length === 1 ? 'entrega em aberto' : 'entregas em aberto'}`}</p>
           </div>
-          {!preview && (gps === 'ok'
+          {gps === 'ok'
             ? <span className="flex items-center gap-1.5 rounded-full bg-brand-light px-2.5 py-1 text-xs font-semibold text-brand"><LocateFixed size={14} aria-hidden /> GPS ativo</span>
-            : <Button size="sm" variant="secondary" disabled={askingLocation} onClick={() => void authorizeLocation()}><LocateFixed size={16} aria-hidden /> {askingLocation ? 'Aguardando GPS…' : 'Ativar localização'}</Button>)}
+            : <Button size="sm" variant="secondary" disabled={askingLocation} onClick={() => void authorizeLocation()}><LocateFixed size={16} aria-hidden /> {askingLocation ? 'Aguardando GPS…' : 'Ativar localização'}</Button>}
         </div>
         <RouteMap stops={ordered.map((o, i) => ({ order: o, stop: stopById.get(o.id), n: i + 1 }))} store={plan?.store ?? storeOrigin} me={useLocation ? me : null} route={route?.coordinates ?? null} selected={selectedId} onSelect={(id) => setFocus(id)} />
-        {!preview && <p className="px-1 text-xs text-ink-600" aria-live="polite">
+        <p className="px-1 text-xs text-ink-600" aria-live="polite">
           {gps === 'denied' ? 'Permita a localização para este site nos ajustes do celular e tente novamente.'
             : gps === 'unavailable' ? 'GPS indisponível. Confira a localização do celular e tente novamente.'
             : gps === 'waiting' ? 'Buscando sua localização…'
-            : gps === 'ok' ? 'Sua posição atualiza enquanto o painel está aberto na tela.'
+            : gps === 'ok' ? 'Sua posição atualiza enquanto o mapa está aberto na tela.'
             : 'Permita o acesso ao GPS para ver sua posição no mapa.'}
-        </p>}
+        </p>
         {chosen && chosenLinks && <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-ink-50 p-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold text-ink-500">{chosen.id === ordered[0]?.id ? 'Primeira parada' : 'Parada selecionada'}</p>

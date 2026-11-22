@@ -358,6 +358,8 @@ model User {
   /// bcrypt. NUNCA senha em texto puro.
   passwordHash String?
   phone        String?
+  /// Endereço pessoal informado pelo próprio entregador.
+  driverProfileAddress String?
   image        String?
 
   /// Existe para o Auth.js; o vínculo real com o tenant é OrganizationUser.

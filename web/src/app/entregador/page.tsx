@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { driverLogoutAction as logoutAction } from '@/app/actions/auth';
 import { requireDriver, AuthError } from '@/lib/auth/guards';
 import { getDriverOrders } from '@/lib/data/orders';
+import { readDriverPayRule } from '@/lib/driver-earnings';
 import { getDriverEarnings } from '@/lib/data/driver-earnings';
 import { getOrganizationById } from '@/lib/data/organization';
 import { DriverApp, type DriverOrder } from '@/components/driver/DriverApp';
@@ -38,6 +39,12 @@ export const metadata = { title: 'Área do Entregador' };
 // que acabou de ser atribuído.
 export const dynamic = 'force-dynamic';
 
+const profileFields = { email: true, username: true, phone: true, driverProfileAddress: true } as const;
+function previewRule(settings: unknown) {
+  const rule = readDriverPayRule(settings);
+  return rule ? { mode: rule.mode, amountCents: rule.amountCents, percent: rule.percent } : null;
+}
+
 export default async function DriverPage() {
   const session = await auth();
 
@@ -57,13 +64,15 @@ export default async function DriverPage() {
 
   const platform = await requirePlatformOperator().catch(() => null);
   if (platform?.role === 'OWNER' && session.user.role !== 'DRIVER') {
-    const membership = await prisma.organizationUser.findFirst({
+    const [membership, account] = await Promise.all([prisma.organizationUser.findFirst({
       where: { userId: platform.userId, active: true, role: 'OWNER' },
       orderBy: { createdAt: 'asc' },
-      select: { organization: { select: { name: true, logoUrl: true, brandColor: true, latitude: true, longitude: true } } },
-    });
+      select: { organization: { select: { name: true, logoUrl: true, brandColor: true, latitude: true, longitude: true, settings: true } } },
+    }), prisma.user.findUnique({ where: { id: platform.userId }, select: profileFields })]);
     const store = membership?.organization ?? { name: 'Del Flash', logoUrl: null, brandColor: '#087EA4', latitude: null, longitude: null };
-    return <DriverApp preview store={store}
+    return <DriverApp preview store={{ name: store.name, logoUrl: store.logoUrl, brandColor: store.brandColor, latitude: store.latitude, longitude: store.longitude }}
+      account={{ email: account?.email ?? null, username: account?.username ?? null, phone: account?.phone ?? '', address: account?.driverProfileAddress ?? null }}
+      payRule={previewRule(membership?.organization.settings)}
       driver={{ name: session.user.name ?? 'Proprietário', vehicleType: 'MOTORCYCLE', vehiclePlate: null, status: 'OFFLINE', onShift: true, shiftLabel: undefined }}
       orders={[]} earnings={{ configured: false, amountCents: 0, count: 0, unpricedCount: 0, rows: [] }} />;
   }
@@ -103,10 +112,11 @@ export default async function DriverPage() {
     throw error;
   }
 
-  const [orders, organization, earnings] = await Promise.all([
+  const [orders, organization, earnings, account] = await Promise.all([
     getDriverOrders(ctx.organizationId, ctx.driver.id),
     getOrganizationById(ctx.organizationId),
     getDriverEarnings(ctx.organizationId, ctx.driver.id, 'today'),
+    prisma.user.findUnique({ where: { id: ctx.user.id }, select: profileFields }),
   ]);
 
   const shift = driverShiftAvailability(readDriverSchedule(organization?.settings, ctx.driver.id));
@@ -159,6 +169,8 @@ export default async function DriverPage() {
 
   return (<div>{storeSelector}
     <DriverApp
+      account={{ email: account?.email ?? null, username: account?.username ?? null, phone: ctx.driver.phone, address: account?.driverProfileAddress ?? null }}
+      payRule={previewRule(organization?.settings)}
       driver={{
         name: ctx.driver.name,
         vehicleType: ctx.driver.vehicleType,

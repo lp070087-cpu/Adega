@@ -30,7 +30,7 @@ export function readDriverPayRule(settings: unknown): DriverPayRule | null {
 }
 
 /** Ganho de uma entrega, em centavos. Nunca recebe o total do pedido. */
-export function driverPayCents(rule: DriverPayRule, deliveryFeeCents: number): number {
+export function driverPayCents(rule: Pick<DriverPayRule, 'mode' | 'amountCents' | 'percent'>, deliveryFeeCents: number): number {
   return rule.mode === 'FIXED' ? rule.amountCents : Math.round((deliveryFeeCents * rule.percent) / 100);
 }
 
