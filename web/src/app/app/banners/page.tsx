@@ -29,13 +29,13 @@ export default async function BannersPage() {
       <div>
         <h2 className="text-[1.05rem] font-extrabold text-ink-900">Banners</h2>
         <p className="text-[0.8rem] text-ink-500">
-          O que aparece no topo da sua loja pública, na ordem em que você definir.
+          Gerencie as artes do topo e de cada categoria, por dispositivo.
         </p>
       </div>
 
       <BannerManager
         banners={banners}
-        categories={categories.map(c=>({id:c.id,name:c.name}))}
+        categories={categories.map(c=>({id:c.id,name:c.name,slug:c.slug}))}
         defaultBannerCount={defaultBannerCount}
         canManage={can(ctx.role, 'MANAGE_SETTINGS')}
         uploadConfigured={storageStatus().configured}

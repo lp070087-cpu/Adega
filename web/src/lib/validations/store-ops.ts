@@ -1,3 +1,4 @@
+import { bannerPlacement } from '@/lib/banner-placement';
 import { z } from 'zod';
 import {
   deliveryTierSchema,
@@ -88,7 +89,7 @@ export const saveVisualIdentitySchema = z.object({
 });
 
 export const storeBannerInputSchema = z.object({
-  placement: z.string().regex(/^(hero|hero-mobile|transition:[a-zA-Z0-9_-]{1,100})$/, 'Escolha uma posição válida.').default('hero'),
+  placement: z.string().refine((value) => bannerPlacement(value) !== null, 'Escolha uma posição válida.').default('hero'),
   // Título e subtítulo são opcionais: sem texto, o banner mostra só a imagem.
   title: optionalText(80),
   subtitle: optionalText(160),

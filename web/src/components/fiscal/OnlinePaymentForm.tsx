@@ -10,6 +10,7 @@ const PROVIDER_NAME: Record<Provider, string> = { infinitepay: 'InfinitePay', me
 
 export function OnlinePaymentForm({ enabled, environment, provider: initialProvider, configured, usable, verified, handle, infiniteKeySaved, webhookUrls }: { enabled: boolean; environment: 'sandbox' | 'production'; provider: Provider; configured: boolean; usable: boolean; verified: boolean; handle?: string; infiniteKeySaved?: boolean; webhookUrls: Record<Provider, string> }) {
   const [state, action, pending] = useActionState(saveOnlinePaymentAction, null);
+  const [offerOnline, setOfferOnline] = useState(enabled);
   const [provider, setProvider] = useState<Provider>(initialProvider);
   const router = useRouter();
   const [testing, startTest] = useTransition();
@@ -31,9 +32,21 @@ export function OnlinePaymentForm({ enabled, environment, provider: initialProvi
   return (
     <form action={action} onSubmit={(e) => { e.preventDefault(); const data = new FormData(e.currentTarget); startTransition(() => action(data)); }} className="space-y-3" data-testid="online-payment-form">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-semibold text-ink-900">Pagamento online no pedido (Pix e cartão)</h3>
+        <h3 className="font-semibold text-ink-900">Pagamento no checkout</h3>
         <span className={`rounded-full px-3 py-1 text-[0.74rem] font-bold ${usable && verified ? 'bg-success-bg text-success' : usable ? 'bg-warn-bg text-warn' : 'bg-ink-100 text-ink-600'}`} data-testid="online-payment-status">{statusLabel}</span>
       </div>
+      <fieldset className="grid gap-2 sm:grid-cols-2">
+        <legend className="mb-2 text-sm font-semibold">Quando o cliente pode pagar</legend>
+        <label className="flex min-h-12 items-center gap-2 rounded-xl border border-ink-200 px-3 text-sm">
+          <input type="radio" name="enabled" value="off" checked={!offerOnline} onChange={() => setOfferOnline(false)} className="accent-[var(--brand)]" />
+          Somente na entrega ou retirada
+        </label>
+        <label className="flex min-h-12 items-center gap-2 rounded-xl border border-ink-200 px-3 text-sm">
+          <input type="radio" name="enabled" value="on" checked={offerOnline} onChange={() => setOfferOnline(true)} className="accent-[var(--brand)]" />
+          Na entrega ou retirada e online
+        </label>
+      </fieldset>
+      {offerOnline && <>
       <fieldset className="grid gap-2 sm:grid-cols-2" aria-label="Provedor de pagamento">
         {(['infinitepay', 'mercadopago'] as const).map((p) => (
           <label key={p} className={`flex min-h-12 cursor-pointer items-center gap-2.5 rounded-xl border px-3 text-sm font-semibold ${provider === p ? 'border-brand bg-brand-light text-brand' : 'border-ink-200 text-ink-700'}`}>
@@ -50,7 +63,7 @@ export function OnlinePaymentForm({ enabled, environment, provider: initialProvi
       ) : (
         <p className="text-[0.8rem] text-ink-500">Usa a conta {name} da própria loja. O cliente paga no Pix (QR ou copia e cola) ou no cartão pela página segura do {name}; nenhum dado de cartão passa pelo Del Flash. O pedido só fica <strong>Pago</strong> quando o {name} confirma pelo webhook.</p>
       )}
-      <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" name="enabled" defaultChecked={enabled} className="h-4 w-4 accent-[var(--brand)]" />Oferecer pagamento online no checkout</label>
+
       {infinite ? (
         <div className="space-y-3"><label className="block"><span className="field-label">InfiniteTag da loja</span>
           <input name="handle" autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder={keep && handle ? `${handle} (mantida)` : 'Ex.: minhaadega'} className="field-input !border-red-400" data-testid="infinitepay-handle" />
@@ -111,9 +124,10 @@ export function OnlinePaymentForm({ enabled, environment, provider: initialProvi
           : <p>No painel do Mercado Pago (Suas integrações › Webhooks), cadastre a URL abaixo com o evento <strong>Pagamentos</strong> e copie a assinatura secreta para o campo acima. As notificações sem assinatura válida são recusadas.</p>}
         <p className="mt-1 break-all font-mono text-[0.74rem] text-ink-800" data-testid="webhook-url">{webhookUrls[provider]}</p>
       </div>
+      </>}
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={pending} className="min-h-11 rounded-xl bg-brand px-5 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-60">{pending ? 'Salvando…' : 'Salvar pagamento online'}</button>
-        {configured && provider === initialProvider && <button type="button" onClick={runTest} disabled={testing || pending} className="min-h-11 rounded-xl border border-ink-200 px-5 text-sm font-bold text-ink-800 hover:bg-ink-50 disabled:opacity-60">{testing ? 'Testando…' : 'Testar conexão'}</button>}
+        <button type="submit" disabled={pending} className="min-h-11 rounded-xl bg-brand px-5 text-sm font-bold text-white hover:bg-brand-dark disabled:opacity-60">{pending ? 'Salvando…' : 'Salvar formas de pagamento'}</button>
+        {offerOnline && configured && provider === initialProvider && <button type="button" onClick={runTest} disabled={testing || pending} className="min-h-11 rounded-xl border border-ink-200 px-5 text-sm font-bold text-ink-800 hover:bg-ink-50 disabled:opacity-60">{testing ? 'Testando…' : 'Testar conexão'}</button>}
         {state && <p role="status" className={`text-[0.8rem] ${state.ok ? 'text-success' : 'text-danger'}`}>{state.message}</p>}
         {test && <p role="status" data-testid="online-payment-test" className={`text-[0.8rem] ${test.ok ? 'text-success' : 'text-danger'}`}>{test.message}</p>}
       </div>

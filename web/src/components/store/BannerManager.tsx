@@ -14,6 +14,7 @@ import {
 import {
   BANNER_ACCEPT_ATTR,
   BANNER_LIBRARY,
+  bannerLibraryForPlacement,
   isBannerLibraryPath,
   validateBannerFile,
   type BannerLibraryItem,
@@ -24,13 +25,13 @@ import {
   Button,
   Card,
   CardHeader,
-  EmptyState,
   Field,
   Input,
   Modal,
   Select,
   Textarea,
 } from '@/components/ui';
+import { bannerPlacement, placementFor, type BannerDevice } from '@/lib/banner-placement';
 import type { StoreBannerView } from '@/lib/data/store-ops';
 
 /**
@@ -86,12 +87,9 @@ type Draft = {
 
 const EMPTY: Draft = { placement:'hero', id: null, title: '', subtitle: '', imagePath: '', linkUrl: '', active: true, ctaLabel: '', focusX: 50, focusY: 50 };
 type BannerTab = 'main' | 'category';
-const isMainPlacement = (placement: string) => placement === 'hero' || placement === 'hero-mobile';
 
 /** Proporção das artes do acervo aprovado; outras proporções continuam aceitas. */
-const RECOMMENDED_WIDTH = 1200;
-const RECOMMENDED_HEIGHT = 600;
-const IDEAL_RATIO = 2;
+
 
 /** Lê as dimensões reais de um arquivo de imagem no navegador. */
 function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
@@ -130,7 +128,7 @@ export function BannerManager({
   defaultBannerCount: number;
   canManage: boolean;
   uploadConfigured: boolean;
-  categories: Array<{id:string;name:string}>;
+  categories: Array<{ id: string; name: string; slug: string }>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -141,7 +139,22 @@ export function BannerManager({
   const [confirmDelete, setConfirmDelete] = useState<StoreBannerView | null>(null);
   // Banner principal e banners de categoria ficam em abas separadas.
   const [tab, setTab] = useState<BannerTab>('main');
-  const visibleBanners = banners.filter((banner) => (tab === 'main') === isMainPlacement(banner.placement));
+  const scopedBanners = banners.filter(({ placement }) => bannerPlacement(placement)?.kind === tab);
+  const draftScope = draft ? bannerPlacement(draft.placement) : null;
+  const draftCategory = draftScope?.kind === 'category' ? categories.find(({ id }) => id === draftScope.categoryId) : undefined;
+  const curatedImages = draft ? bannerLibraryForPlacement(draft.placement, draftCategory?.slug) : [];
+  const knownPaths = new Set(BANNER_LIBRARY.map(({ path }) => path));
+  const libraryImages = [...new Map([
+    ...curatedImages,
+    ...banners.flatMap((banner): BannerLibraryItem[] => {
+      const scope = bannerPlacement(banner.placement);
+      if (!scope || !draftScope || knownPaths.has(banner.imagePath) || scope.kind !== draftScope.kind) return [];
+      if (scope.kind === 'main' && scope.device !== draftScope.device) return [];
+      if (scope.kind === 'category' && (draftScope.kind !== 'category' || scope.categoryId !== draftScope.categoryId ||
+        (scope.device !== draftScope.device && scope.device !== 'both'))) return [];
+      return [{ file: banner.id, path: banner.imagePath, label: banner.title || 'Arte já usada pela loja' }];
+    }),
+  ].map((item) => [item.path, item])).values()];
 
   // Arquivo escolhido mas ainda não enviado (sobe junto com o "Salvar").
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -163,9 +176,16 @@ export function BannerManager({
     setImageError(null);
   }
 
-  function beginNew() {
+  function beginNew(device: BannerDevice) {
     resetFile();
-    setDraft({ ...EMPTY, placement: tab === 'main' ? 'hero' : `transition:${categories[0]?.id ?? ''}` });
+    setDraft({ ...EMPTY, placement: placementFor(device, tab === 'category' ? categories[0]?.id ?? '' : undefined) });
+  }
+
+  function changePlacement(placement: string) {
+    if (!draft || draft.placement === placement) return;
+    resetFile();
+    setImageError(null);
+    setDraft({ ...draft, placement, imagePath: '' });
   }
 
   function beginEdit(banner: StoreBannerView) {
@@ -317,7 +337,7 @@ export function BannerManager({
   }
 
   /** Move um banner uma posição e manda a lista inteira na ordem final. */
-  function move(index: number, direction: -1 | 1) {
+  function move(visibleBanners: StoreBannerView[], index: number, direction: -1 | 1) {
     const target = index + direction;
     if (target < 0 || target >= visibleBanners.length) return;
     const ids = banners.map((b) => b.id);
@@ -331,8 +351,11 @@ export function BannerManager({
   // rascunho serve igual para URL http(s) e para `/catalog/banners/...`.
   const previewSource = previewUrl ?? draft?.imagePath ?? null;
   const usingLibraryImage = isBannerLibraryPath(draft?.imagePath);
-  const ratioOff =
-    imageInfo && imageInfo.height > 0 && Math.abs(imageInfo.width / imageInfo.height - IDEAL_RATIO) > 1;
+  const dimensions = draftScope?.kind === 'main'
+    ? draftScope.device === 'mobile' ? { width: 1080, height: 1350 } : { width: 1600, height: 700 }
+    : draftScope?.device === 'mobile' ? { width: 1080, height: 700 } : { width: 1700, height: 500 };
+  const ratioOff = imageInfo && imageInfo.height > 0 &&
+    Math.abs((imageInfo.width / imageInfo.height) / (dimensions.width / dimensions.height) - 1) > 0.3;
 
   return (
     <div className="space-y-4">
@@ -345,51 +368,40 @@ export function BannerManager({
       <Card>
         <CardHeader
           title="Banners da vitrine"
-          subtitle={tab === 'main' ? 'Topo da vitrine, com versões para desktop e celular.' : 'Aparecem antes de cada categoria escolhida, no desktop e no celular.'}
-          action={
-            canManage ? (
-              <Button size="sm" onClick={beginNew} disabled={pending || (tab === 'category' && categories.length === 0)}>
-                {tab === 'main' ? '+ Banner principal' : '+ Banner de categoria'}
-              </Button>
-            ) : undefined
-          }
+          subtitle={tab === 'main' ? 'Artes do topo da loja por dispositivo.' : 'Artes que aparecem antes dos produtos de cada categoria.'}
         />
         <div role="tablist" aria-label="Tipo de banner" className="mb-4 grid grid-cols-2 gap-1 rounded-lg bg-ink-50 p-1 sm:inline-grid sm:w-auto">
           {([['main', 'Banner principal'], ['category', 'Banners de categorias']] as const).map(([value, label]) => (
             <button key={value} type="button" role="tab" aria-selected={tab === value} onClick={() => setTab(value)} className={cn('min-h-11 rounded-md px-4 text-[0.84rem] font-semibold transition-all', tab === value ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-800')}>
-              {label} <span className="text-ink-400">({banners.filter((banner) => (value === 'main') === isMainPlacement(banner.placement)).length})</span>
+              {label} <span className="text-ink-400">({banners.filter((banner) => bannerPlacement(banner.placement)?.kind === value).length})</span>
             </button>
           ))}
         </div>
         {tab === 'category' && categories.length === 0 && <Alert tone="info" className="mb-3">Cadastre uma categoria no catálogo para criar banners de categoria.</Alert>}
 
-        {visibleBanners.length === 0 && tab === 'category' ? (
-          <EmptyState icon="🗂️" title="Nenhum banner de categoria" description="Escolha uma categoria e uma imagem: o banner aparece logo antes dos produtos dela na vitrine." action={canManage && categories.length > 0 ? <Button onClick={beginNew}>Criar banner de categoria</Button> : undefined} />
-        ) : visibleBanners.length === 0 ? (
-          <EmptyState
-            icon="🖼️"
-            title="Você ainda não cadastrou banners"
-            description={
-              defaultBannerCount > 0
-                ? `Enquanto você não cadastrar os seus, a vitrine mostra ${defaultBannerCount} banner(s) padrão do seu segmento. Assim que o primeiro banner seu entrar no ar, os padrões saem de cena.`
-                : 'A vitrine está usando o destaque dinâmico, montado com os seus produtos marcados como destaque. Não é obrigatório ter banner.'
-            }
-            action={
-              canManage ? (
-                <Button onClick={beginNew}>Cadastrar o primeiro</Button>
-              ) : undefined
-            }
-          />
-        ) : (
+        <div className="grid grid-cols-2 items-start gap-2 sm:gap-4">
+          {(['desktop', 'mobile'] as const).map((device) => {
+            const visibleBanners = scopedBanners.filter(({ placement }) => {
+              const scope = bannerPlacement(placement);
+              return scope?.device === device || scope?.device === 'both';
+            });
+            const label = device === 'desktop' ? 'Desktop' : 'Mobile';
+            return <section key={device} aria-label={label} className="min-w-0 space-y-3 rounded-lg border border-ink-100 p-2 sm:p-3">
+              <h3 className="text-sm font-bold text-ink-900">{label} <span className="text-ink-500">({visibleBanners.length})</span></h3>
+              {canManage && <Button variant="secondary" size="sm" className="w-full min-w-0 whitespace-normal" onClick={() => beginNew(device)} disabled={pending || (tab === 'category' && !categories.length)}>+ Novo banner</Button>}
+              {visibleBanners.length === 0 && <p className="text-xs text-ink-500">
+                {device === 'desktop' && tab === 'main' && defaultBannerCount > 0
+                  ? 'A vitrine usa o banner padrão no desktop.' : 'Nenhum banner cadastrado.'}
+              </p>}
           <ul className="space-y-3">
             {visibleBanners.map((banner, index) => (
               <li
                 key={banner.id}
-                className="flex flex-col gap-3 rounded-lg border border-ink-100 p-3 sm:flex-row sm:items-center"
+                className="flex min-w-0 flex-col gap-2 rounded-lg border border-ink-100 p-2 sm:p-3"
               >
                 {/* Miniatura honesta: se o arquivo não existir, aparece o
                     aviso em vez de uma imagem quebrada. */}
-                <div className="h-[64px] w-full flex-shrink-0 overflow-hidden rounded border border-ink-100 bg-ink-50 sm:w-[140px]">
+                <div className="h-[64px] w-full flex-shrink-0 overflow-hidden rounded border border-ink-100 bg-ink-50 sm:h-28">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={banner.imagePath}
@@ -408,7 +420,10 @@ export function BannerManager({
                       {banner.active ? 'No ar' : 'Pausado'}
                     </Badge>
                     <Badge tone="neutral">#{index + 1}</Badge>
-                    <Badge tone="neutral">{banner.placement==='hero'?'Desktop':banner.placement==='hero-mobile'?'Celular':categories.find(c=>banner.placement===`transition:${c.id}`)?.name??'Categoria'}</Badge>
+                    {bannerPlacement(banner.placement)?.kind === 'category' && (
+                      <Badge tone="neutral">{categories.find(({ id }) => banner.placement.endsWith(`:${id}`))?.name ?? 'Categoria indisponível'}</Badge>
+                    )}
+                    {bannerPlacement(banner.placement)?.device === 'both' && <Badge tone="neutral">Compartilhado</Badge>}
                   </div>
                   {banner.subtitle && (
                     <p className="mt-0.5 truncate text-[0.76rem] text-ink-500">{banner.subtitle}</p>
@@ -425,7 +440,7 @@ export function BannerManager({
                     <button
                       type="button"
                       disabled={pending || index === 0}
-                      onClick={() => move(index, -1)}
+                      onClick={() => move(visibleBanners, index, -1)}
                       className="rounded-sm px-2 py-1.5 text-[0.8rem] text-ink-500 transition-all hover:bg-ink-100 disabled:opacity-30"
                       aria-label={`Mover ${banner.title || 'banner'} para cima`}
                     >
@@ -434,7 +449,7 @@ export function BannerManager({
                     <button
                       type="button"
                       disabled={pending || index === visibleBanners.length - 1}
-                      onClick={() => move(index, 1)}
+                      onClick={() => move(visibleBanners, index, 1)}
                       className="rounded-sm px-2 py-1.5 text-[0.8rem] text-ink-500 transition-all hover:bg-ink-100 disabled:opacity-30"
                       aria-label={`Mover ${banner.title || 'banner'} para baixo`}
                     >
@@ -473,13 +488,9 @@ export function BannerManager({
               </li>
             ))}
           </ul>
-        )}
-
-        <p className="mt-4 text-[0.72rem] text-ink-400">
-          Você envia o arquivo da imagem — a plataforma guarda e devolve o endereço — ou escolhe uma
-          imagem que já faz parte do acervo. Sem banner cadastrado, a vitrine usa o destaque montado
-          com os seus produtos.
-        </p>
+            </section>;
+          })}
+        </div>
       </Card>
 
       {/* ── Editor ─────────────────────────────────────────────────── */}
@@ -512,22 +523,21 @@ export function BannerManager({
       >
         {draft && (
           <>
-            {isMainPlacement(draft.placement) ? (
-              <Field label="Versão">
-                <Select value={draft.placement} onChange={event=>setDraft({...draft,placement:event.target.value})}>
-                  <option value="hero">Desktop (computador e tablet)</option>
-                  <option value="hero-mobile">Celular</option>
-                </Select>
-                <p className="mt-2 text-xs text-ink-500">Desktop: arte horizontal (ex.: 1600 × 700). Celular: prefira arte em retrato (ex.: 1080 × 1350).</p>
-              </Field>
-            ) : (
-              <Field label="Categoria">
-                <Select value={draft.placement} onChange={event=>setDraft({...draft,placement:event.target.value})}>
-                  {categories.map(category=><option key={category.id} value={`transition:${category.id}`}>{category.name}</option>)}
-                </Select>
-                <p className="mt-2 text-xs text-ink-500">Aparece logo antes dos produtos desta categoria. Arte horizontal (ex.: 1600 × 600).</p>
-              </Field>
-            )}
+            <Field label="Dispositivo">
+              <Select value={draftScope?.device ?? 'desktop'} onChange={(event) => changePlacement(
+                placementFor(event.target.value as BannerDevice | 'both', draftScope?.kind === 'category' ? draftScope.categoryId : undefined),
+              )}>
+                {draftScope?.device === 'both' && <option value="both">Desktop e mobile (compartilhado)</option>}
+                <option value="desktop">Somente desktop</option>
+                <option value="mobile">Somente mobile</option>
+              </Select>
+            </Field>
+            {draftScope?.kind === 'category' && <Field label="Categoria">
+              <Select value={draftScope.categoryId} onChange={(event) => changePlacement(placementFor(draftScope.device, event.target.value))}>
+                {!draftCategory && <option value="">Selecione uma categoria ativa</option>}
+                {categories.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+              </Select>
+            </Field>}
             <Field
               label="Título"
               hint="Opcional. Sem título, o banner mostra só a imagem."
@@ -553,7 +563,7 @@ export function BannerManager({
             <Field
               label="Imagem do banner"
               required
-              hint={`Recomendado ${RECOMMENDED_WIDTH} × ${RECOMMENDED_HEIGHT} px (proporção ${IDEAL_RATIO}:1). Formatos PNG, JPG, JPEG ou WEBP, até 5 MB.`}
+              hint={`Recomendado ${dimensions.width} × ${dimensions.height} px. Formatos PNG, JPG, JPEG ou WEBP, até 5 MB.`}
               error={imageError ?? undefined}
             >
               <label
@@ -613,25 +623,17 @@ export function BannerManager({
                   {describeRatio(imageInfo.width, imageInfo.height)}
                   {ratioOff && (
                     <span className="ml-1 font-semibold text-warn">
-                      — fica melhor em {IDEAL_RATIO}:1 (ex.: {RECOMMENDED_WIDTH} ×{' '}
-                      {RECOMMENDED_HEIGHT}).
+                      — pode precisar de recorte neste dispositivo.
                     </span>
                   )}
                 </p>
               )}
             </Field>
 
-            {/* ── Acervo da plataforma ───────────────────────────────────
-                Alternativa ao upload. A lista (`BANNER_LIBRARY`) é o único
-                lugar do código com nomes de arquivo de banner; acrescentar
-                um banner novo à pasta é acrescentar o nome lá. A validação
-                do servidor aceita qualquer
-                `/catalog/banners/<arquivo>.<ext>`, então o arquivo novo já
-                funciona mesmo antes de aparecer nesta grade. */}
-            {BANNER_LIBRARY.length > 0 && (
+            {libraryImages.length > 0 && (
               <Field
                 label="Ou use uma imagem do acervo"
-                hint="Imagens que já fazem parte da plataforma. Não precisam de upload."
+                hint="Artes da seção, categoria e dispositivo selecionados."
               >
                 <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {/* As miniaturas abaixo são a ÚNICA checagem de existência
@@ -639,7 +641,7 @@ export function BannerManager({
                       por banner deixaria a tela lenta para avisar algo que o
                       próprio <img> já mostra (miniatura vazia). A validação
                       de verdade é de forma, no servidor. */}
-                  {BANNER_LIBRARY.map((item) => {
+                  {libraryImages.map((item) => {
                     const selected = draft.imagePath === item.path;
                     return (
                       <li key={item.path}>
@@ -684,13 +686,14 @@ export function BannerManager({
             {previewSource && (
               <div className="mb-3.5">
                 <p className="mb-1 text-[0.72rem] font-semibold text-ink-500">Prévia e enquadramento</p>
-                <div className={cn('grid gap-2', isMainPlacement(draft.placement) ? 'grid-cols-1' : 'grid-cols-[2fr_1fr]')}>
-                  {(isMainPlacement(draft.placement)
-                    ? [[draft.placement === 'hero' ? 'Desktop' : 'Celular', draft.placement === 'hero' ? '16 / 7' : '4 / 5']]
-                    : [['Desktop', '3.4 / 1'], ['Celular', '1.55 / 1']]
+                <div className="grid gap-2">
+                  {(draftScope?.kind === 'main'
+                    ? [[draftScope.device === 'mobile' ? 'Mobile' : 'Desktop', draftScope.device === 'mobile' ? '4 / 5' : '16 / 7']]
+                    : draftScope?.device === 'both' ? [['Desktop', '3.4 / 1'], ['Mobile', '1.55 / 1']]
+                      : draftScope?.device === 'mobile' ? [['Mobile', '1.55 / 1']] : [['Desktop', '3.4 / 1']]
                   ).map(([label, ratio]) => (
                     <div key={label} className="min-w-0">
-                      <div className={cn('relative mx-auto overflow-hidden rounded border border-ink-100 bg-ink-900', draft.placement === 'hero-mobile' && 'max-w-[220px]')} style={{ aspectRatio: ratio }} data-testid={`banner-preview-${label}`}>
+                      <div className={cn('relative mx-auto overflow-hidden rounded border border-ink-100 bg-ink-900', label === 'Mobile' && 'max-w-[260px]')} style={{ aspectRatio: ratio }} data-testid={`banner-preview-${label}`}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={previewSource} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `${draft.focusX}% ${draft.focusY}%` }} />
                         {(draft.title.trim() || draft.subtitle.trim()) && (

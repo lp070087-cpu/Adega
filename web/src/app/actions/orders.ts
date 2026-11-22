@@ -65,7 +65,7 @@ export async function checkoutAction(input: unknown): Promise<
       const { onlinePaymentUsable, readOnlinePayment } = await import('@/lib/order-payments');
       const { prisma } = await import('@/lib/db');
       const org = await prisma.organization.findUnique({ where: { id: store.id }, select: { settings: true } });
-      if (!onlinePaymentUsable(readOnlinePayment(org?.settings))) return { ok: false, error: 'Pagamento online indisponível nesta loja. Escolha pagar na entrega.', field: 'paymentMethod' };
+      if (!onlinePaymentUsable(readOnlinePayment(org?.settings))) return { ok: false, error: 'Pagamento online indisponível nesta loja. Escolha pagar na entrega ou retirada.', field: 'paymentMethod' };
       // InfinitePay pede os dados de quem paga na própria página dela.
       const doc = parsed.data.payerDocument ?? '';
       if (readOnlinePayment(org?.settings).provider !== 'infinitepay' && !/^(\d{11}|\d{14})$/.test(doc)) return { ok: false, error: 'Informe o CPF (11 números) ou CNPJ (14) de quem paga.', field: 'payerDocument' };

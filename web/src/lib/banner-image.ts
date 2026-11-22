@@ -223,3 +223,14 @@ export function renderableBanners<T extends { imagePath: string }>(banners: read
     }
   });
 }
+
+/** Each built-in art belongs to one banner use and device. */
+export function bannerLibraryForPlacement(
+  placement: string,
+  categorySlug?: string,
+): BannerLibraryItem[] {
+  if (placement === 'hero') return BANNER_LIBRARY.filter(({ file }) => file.endsWith('.png'));
+  const match = /^transition-mobile:/.test(placement) && categorySlug
+    ? `mobile-${categorySlug}.svg` : null;
+  return match ? BANNER_LIBRARY.filter(({ file }) => file === match) : [];
+}

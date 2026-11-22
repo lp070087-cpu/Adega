@@ -1,4 +1,5 @@
 import 'server-only';
+import { bannerPlacement } from '@/lib/banner-placement';
 import { resolveTiers, tierProblems } from '@/lib/delivery-tiers';
 import { OperationError } from '@/lib/operation-error';
 import { prisma } from '@/lib/db';
@@ -468,13 +469,16 @@ export async function deleteStoreBanner(organizationId: string, bannerId: string
 }
 
 async function assertBannerCategory(organizationId:string,placement='hero') {
-  if(!/^(hero|hero-mobile|transition:[a-zA-Z0-9_-]{1,100})$/.test(placement))throw new OperationError('Posição inválida.');
-  if(placement.startsWith('transition:')&&!await prisma.category.findFirst({where:{id:placement.slice(11),organizationId},select:{id:true}}))throw new OperationError('Categoria não encontrada neste estabelecimento.');
+  const parsed = bannerPlacement(placement);
+  if (!parsed) throw new OperationError('Posição inválida.');
+  if (parsed.kind === 'category' && !await prisma.category.findFirst({
+    where: { id: parsed.categoryId, organizationId }, select: { id: true },
+  })) throw new OperationError('Categoria não encontrada neste estabelecimento.');
 }
 
 export async function getPublicMobileBanners(organizationId:string){
   const [banners,org]=await Promise.all([
-    prisma.storeBanner.findMany({where:{organizationId,active:true,OR:[{placement:'hero-mobile'},{placement:{startsWith:'transition:'}}]},orderBy:[{position:'asc'},{id:'asc'}],select:{id:true,title:true,subtitle:true,imagePath:true,linkUrl:true,placement:true}}),
+    prisma.storeBanner.findMany({where:{organizationId,active:true,OR:[{placement:'hero-mobile'},{placement:{startsWith:'transition:'}},{placement:{startsWith:'transition-desktop:'}},{placement:{startsWith:'transition-mobile:'}}]},orderBy:[{position:'asc'},{id:'asc'}],select:{id:true,title:true,subtitle:true,imagePath:true,linkUrl:true,placement:true}}),
     prisma.organization.findUnique({where:{id:organizationId},select:{settings:true}}),
   ]);
   return banners.map(banner=>({...banner,...readBannerMeta(org?.settings,banner.id)}));

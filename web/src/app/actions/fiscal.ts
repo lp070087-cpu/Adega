@@ -63,53 +63,60 @@ export async function saveProductFiscalAction(_prev: { ok: boolean; message: str
 export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: string; webhookToken?: string } | null, form: FormData) {
   try {
     const ctx = await requirePermission('MANAGE_SETTINGS');
-    const { checkPaymentCredential, readOnlinePayment, sealSecrets, newWebhookToken } = await import('@/lib/order-payments');
-    const { decryptJson } = await import('@/lib/crypto');
-    const enabled = form.get('enabled') === 'on';
+    if (form.get('enabled') !== 'on') {
+      await withOrganizationTransaction(ctx.organizationId, async (tx) => {
+        const org = await tx.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { settings: true } });
+        const settings = org.settings && typeof org.settings === 'object' && !Array.isArray(org.settings) ? org.settings : {};
+        const current = settings.onlinePayment;
+        const onlinePayment = current && typeof current === 'object' && !Array.isArray(current) ? current : {};
+        await tx.organization.update({
+          where: { id: ctx.organizationId },
+          data: { settings: { ...settings, onlinePayment: { ...onlinePayment, enabled: false } } },
+        });
+      });
+      return { ok: true, message: 'Pedidos com pagamento somente na entrega ou retirada.' };
+    }
+
     const environment = form.get('environment') === 'production' ? 'production' : 'sandbox';
-    const providerRaw = form.get('provider');
+    const provider = form.get('provider');
     const field = (name: string) => String(form.get(name) ?? '').trim();
-    if (providerRaw === 'infinitepay') return await saveInfinitePay(ctx.organizationId, enabled, field('handle'), field('infinitePayApiKey'));
-    // Só InfinitePay e Mercado Pago: o Asaas não é mais oferecido às lojas.
-    if (providerRaw !== 'mercadopago') throw new Error('Escolha InfinitePay ou Mercado Pago.');
-    const provider = 'mercadopago' as const;
-    const regenerate = form.get('regenerate') === 'on';
-    let shownToken: string | undefined;
-    // Credencial nova vai ao provedor antes de gravar: recusada não é salva.
-    const typedSecret = provider === 'mercadopago' ? field('accessToken') : field('apiKey');
-    const check = typedSecret ? await checkPaymentCredential(provider, environment, typedSecret) : null;
-    if (check?.status === 'rejected') throw new Error(`${check.detail} Nada foi salvo.`);
-    let verifiedAt: string | undefined;
+    if (provider === 'infinitepay') return await saveInfinitePay(ctx.organizationId, field('handle'), field('infinitePayApiKey'));
+    if (provider !== 'mercadopago') throw new Error('Escolha InfinitePay ou Mercado Pago.');
+
+    const { checkPaymentCredential, readOnlinePayment, sealSecrets } = await import('@/lib/order-payments');
+    const { decryptJson } = await import('@/lib/crypto');
+    const newToken = field('accessToken');
+    const newSigningSecret = field('webhookSecret');
+    const prefix = environment === 'sandbox' ? 'TEST-' : 'APP_USR-';
+    if (newToken && !/^(TEST|APP_USR)-[A-Za-z0-9-]{20,300}$/.test(newToken)) throw new Error('Access Token do Mercado Pago inválido.');
+    if (newToken && !newToken.startsWith(prefix)) throw new Error('Use as credenciais do ambiente selecionado.');
+    if (newSigningSecret && !/^[A-Za-z0-9]{16,200}$/.test(newSigningSecret)) throw new Error('Assinatura secreta do webhook inválida.');
+    const check = newToken ? await checkPaymentCredential(provider, environment, newToken) : null;
+    if (check && check.status !== 'valid') throw new Error(check.detail);
+
     await withOrganizationTransaction(ctx.organizationId, async (tx) => {
-      const org = await tx.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } });
-      const settings = (org?.settings ?? {}) as Record<string, unknown>;
+      const org = await tx.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { settings: true } });
+      const settings = (org.settings ?? {}) as Record<string, unknown>;
       const current = readOnlinePayment(settings);
-      const sameProvider = current.provider === provider && current.encrypted;
-      verifiedAt = check ? (check.status === 'valid' ? new Date().toISOString() : undefined) : sameProvider ? current.verifiedAt : undefined;
-      let encrypted: string | undefined;
-      if (provider === 'mercadopago') {
-        const previous = sameProvider ? decryptJson<{ accessToken: string; webhookSecret: string }>(current.encrypted!) : null;
-        const accessToken = field('accessToken') || previous?.accessToken;
-        const webhookSecret = field('webhookSecret') || previous?.webhookSecret;
-        if (enabled && (!accessToken || !webhookSecret)) throw new Error('Informe o Access Token e a assinatura secreta do webhook do Mercado Pago.');
-        if (field('accessToken') && !/^(TEST|APP_USR)-[A-Za-z0-9-]{20,300}$/.test(field('accessToken'))) throw new Error('Access Token do Mercado Pago inválido.');
-        if (environment === 'sandbox' && accessToken && !accessToken.startsWith('TEST-')) throw new Error('No ambiente de teste use as credenciais de teste do Mercado Pago (começam com TEST-).');
-        if (field('webhookSecret') && !/^[A-Za-z0-9]{16,200}$/.test(field('webhookSecret'))) throw new Error('Assinatura secreta do webhook inválida.');
-        if (accessToken && webhookSecret) encrypted = sealSecrets({ accessToken, webhookSecret });
-      } else {
-        const previous = sameProvider ? decryptJson<{ apiKey: string; webhookToken: string }>(current.encrypted!) : null;
-        const apiKey = field('apiKey');
-        const key = apiKey || previous?.apiKey;
-        if (enabled && !key) throw new Error('Informe a chave de API da sua conta Asaas.');
-        if (apiKey && (apiKey.length < 20 || apiKey.length > 1000 || /\s/.test(apiKey))) throw new Error('Chave de API inválida.');
-        const token = !previous || regenerate ? newWebhookToken() : previous.webhookToken;
-        if (key && (!previous || regenerate)) shownToken = token;
-        if (key) encrypted = sealSecrets({ apiKey: key, webhookToken: token });
-      }
-      await tx.organization.update({ where: { id: ctx.organizationId }, data: { settings: { ...settings, onlinePayment: { enabled, environment, provider, ...(encrypted ? { encrypted } : {}), ...(verifiedAt ? { verifiedAt } : {}) } } } });
+      const previous = current.provider === provider && current.environment === environment && current.encrypted
+        ? decryptJson<{ accessToken: string; webhookSecret: string }>(current.encrypted) : null;
+      const accessToken = newToken || previous?.accessToken;
+      const webhookSecret = newSigningSecret || previous?.webhookSecret;
+      if (!accessToken || !webhookSecret) throw new Error('Informe o Access Token e a assinatura secreta do webhook para o ambiente selecionado.');
+      if (!accessToken.startsWith(prefix)) throw new Error('Use as credenciais do ambiente selecionado.');
+      const encrypted = sealSecrets({ accessToken, webhookSecret });
+      const verifiedAt = check ? new Date().toISOString() : current.verifiedAt;
+      await tx.organization.update({
+        where: { id: ctx.organizationId },
+        data: { settings: { ...settings, onlinePayment: { enabled: true, environment, provider, encrypted, ...(verifiedAt ? { verifiedAt } : {}) } } },
+      });
     });
-    // Sem revalidatePath: a resposta não espera re-renderizar a página; o formulário pede o refresh.
-    return { ok: true, message: enabled ? (environment === 'production' && process.env.ORDER_PAYMENTS_PRODUCTION !== 'true' ? 'Salvo. Produção continua bloqueada até a homologação ser liberada pela plataforma.' : `Pagamento online ativo (${environment === 'sandbox' ? 'teste' : 'produção'}).${check?.status === 'unavailable' ? ` Salvo sem confirmação: ${check.detail}` : verifiedAt ? '' : ' Use Testar conexão para confirmar a credencial.'}`) : 'Pagamento online desativado.', webhookToken: shownToken };
+    return {
+      ok: true,
+      message: environment === 'production' && process.env.ORDER_PAYMENTS_PRODUCTION !== 'true'
+        ? 'Credenciais salvas. A cobrança em produção aguarda liberação da plataforma.'
+        : `Pagamento no local e online salvos (${environment === 'sandbox' ? 'teste' : 'produção'}).`,
+    };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : toActionError(error).error };
   }
@@ -119,7 +126,7 @@ export async function saveOnlinePaymentAction(_prev: { ok: boolean; message: str
  * InfinitePay: só a InfiniteTag da loja (sem chave, sem sandbox). Uma tag nova
  * é conferida na InfinitePay antes de gravar; recusada não é salva.
  */
-async function saveInfinitePay(organizationId: string, enabled: boolean, typed: string, apiKey: string): Promise<{ ok: boolean; message: string; webhookToken?: string }> {
+async function saveInfinitePay(organizationId: string, typed: string, apiKey: string): Promise<{ ok: boolean; message: string; webhookToken?: string }> {
   const { checkInfiniteTag, readOnlinePayment } = await import('@/lib/order-payments');
   const { encryptJson } = await import('@/lib/crypto');
   const { normalizeInfiniteTag, validInfiniteTag } = await import('@/lib/payments/infinitepay');
@@ -128,22 +135,19 @@ async function saveInfinitePay(organizationId: string, enabled: boolean, typed: 
   const current = readOnlinePayment(org?.settings);
   const previous = current.provider === 'infinitepay' ? current.handle : undefined;
   const handle = typed ? normalizeInfiniteTag(typed) : previous;
-  if (typed && !validInfiniteTag(handle)) throw new Error('InfiniteTag inválida. Use só letras, números, ponto, hífen ou sublinhado, sem o cifrão.');
-  if (enabled && !handle) throw new Error('Informe a InfiniteTag da loja.');
+  if (!handle) throw new Error('Informe a InfiniteTag da loja.');
+  if (!validInfiniteTag(handle)) throw new Error('InfiniteTag inválida. Use só letras, números, ponto, hífen ou sublinhado, sem o cifrão.');
   if (apiKey && !/^inchk_[A-Za-z0-9_-]{8,248}$/.test(apiKey)) throw new Error('A API Key precisa começar com inchk_.');
-  if (apiKey && !handle) throw new Error('Informe também a InfiniteTag da loja.');
   const encrypted = apiKey ? encryptJson({ apiKey }) : current.provider === 'infinitepay' && handle === previous ? current.encrypted : undefined;
-  const check = handle && (handle !== previous || apiKey) ? await checkInfiniteTag(handle, fetch, apiKey || undefined) : null;
-  if (apiKey && check?.status !== 'valid') throw new Error(check?.detail ?? 'Não foi possível validar a API Key da InfinitePay.');
-  if (check?.status === 'rejected') throw new Error(`${check.detail} Nada foi salvo.`);
-  const verifiedAt = check ? (check.status === 'valid' ? new Date().toISOString() : undefined) : current.provider === 'infinitepay' ? current.verifiedAt : undefined;
+  const check = handle !== previous || apiKey ? await checkInfiniteTag(handle, fetch, apiKey || undefined) : null;
+  if (check && check.status !== 'valid') throw new Error(check.detail);
+  const verifiedAt = check ? new Date().toISOString() : current.verifiedAt;
   await withOrganizationTransaction(organizationId, async (tx) => {
     const fresh = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
     const settings = (fresh?.settings ?? {}) as Record<string, unknown>;
-    await tx.organization.update({ where: { id: organizationId }, data: { settings: { ...settings, onlinePayment: { enabled, environment: 'production', provider: 'infinitepay', ...(handle ? { handle } : {}), ...(encrypted ? { encrypted } : {}), ...(verifiedAt ? { verifiedAt } : {}) } } } });
+    await tx.organization.update({ where: { id: organizationId }, data: { settings: { ...settings, onlinePayment: { enabled: true, environment: 'production', provider: 'infinitepay', handle, ...(encrypted ? { encrypted } : {}), ...(verifiedAt ? { verifiedAt } : {}) } } } });
   });
-  const tag = handle ? ` (InfiniteTag ${handle})` : '';
-  return { ok: true, message: enabled ? `Pagamento pela InfinitePay ativo${tag}.${check?.status === 'unavailable' ? ` Salvo sem confirmação: ${check.detail}` : ''}` : 'Pagamento online desativado.' };
+  return { ok: true, message: `Pagamento no local e online pela InfinitePay salvos (InfiniteTag ${handle}).` };
 }
 
 /** Testa a credencial já salva no provedor e grava o resultado. */

@@ -1,4 +1,6 @@
 'use client';
+
+import { categoryBannersForDevice } from '@/lib/banner-placement';
 import {parseMoneyInput} from '@/lib/money-input';
 import { OnlineChargeBox } from '@/components/store/OnlineChargeBox';
 
@@ -285,6 +287,7 @@ export function StoreCatalog({
   } | null>(null);
   const [pixCopied, setPixCopied] = React.useState(false);
   const [deliveryUf, setDeliveryUf] = React.useState(store.state ?? '');
+  const payAt = deliveryType === 'PICKUP' ? 'na retirada' : 'na entrega';
   const online = paymentMethod === 'ONLINE_PIX' || paymentMethod === 'ONLINE_CARD';
 
   const closed = store.openState !== 'OPEN';
@@ -766,7 +769,13 @@ export function StoreCatalog({
           <div className="space-y-7">
             {grouped.map((group) => (
               <section className="store-category-section" key={group.category.id} id={`cat-${group.category.slug}`}>
-                {transitionBanners.filter(b=>b.placement===`transition:${group.category.id}`).map(banner=><CategoryBanner key={banner.id} banner={banner} />)}
+                {(['desktop', 'mobile'] as const).map((device) => {
+                  const banners = categoryBannersForDevice(transitionBanners, group.category.id, device);
+                  if (!banners.length) return null;
+                  return <div key={device} className={device === 'desktop' ? 'hidden min-[761px]:block' : 'min-[761px]:hidden'}>
+                    {banners.map((banner) => <CategoryBanner key={banner.id} banner={banner} />)}
+                  </div>;
+                })}
                 <div className="store-category-heading">
                   <h2>{group.category.name}</h2>
                   <span>{group.items.length} {group.items.length === 1 ? 'produto' : 'produtos'}</span>
@@ -1163,10 +1172,10 @@ export function StoreCatalog({
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
             >
-              <option value="CASH">Dinheiro na entrega ou retirada</option>
-              <option value="PIX">Pix na entrega ou retirada</option>
-              <option value="CREDIT_CARD">Crédito na entrega ou retirada</option>
-              <option value="DEBIT_CARD">Débito na entrega ou retirada</option>
+              <option value="CASH">Dinheiro {payAt}</option>
+              <option value="PIX">Pix {payAt}</option>
+              <option value="CREDIT_CARD">Crédito {payAt}</option>
+              <option value="DEBIT_CARD">Débito {payAt}</option>
               {store.onlinePayment && store.onlinePaymentProvider === 'infinitepay' && <option value="ONLINE_PIX">Pagar agora pela InfinitePay (Pix ou crédito)</option>}
               {store.onlinePayment && store.onlinePaymentProvider !== 'infinitepay' && <option value="ONLINE_PIX">Pagar online agora (Pix)</option>}
               {store.onlinePayment && store.onlinePaymentProvider !== 'infinitepay' && <option value="ONLINE_CARD">Pagar online agora (cartão)</option>}

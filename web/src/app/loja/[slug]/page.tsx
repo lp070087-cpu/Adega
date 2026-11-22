@@ -253,7 +253,7 @@ export default async function PublicStorePage({ params }: PageProps) {
     <main className="storefront min-h-screen bg-white" style={{ "--store-brand": store.brandColor, "--brand": store.brandColor, "--orange": store.brandColor, "--brand-rgb": brandRgb(store.brandColor) } as React.CSSProperties}>
       <StoreAvailabilitySync slug={slug} initialState={openState} mode={storeOpeningMode(settings,store.storeStatus)} />
       <StoreCatalog
-        transitionBanners={mobileBanners.filter(b=>b.placement.startsWith('transition:'))}
+        transitionBanners={mobileBanners.filter(b=>b.placement !== 'hero-mobile')}
         hero={hero}
           store={{
             id: store.id,

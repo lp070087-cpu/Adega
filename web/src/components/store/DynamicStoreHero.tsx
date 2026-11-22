@@ -140,10 +140,10 @@ export function DynamicStoreHero({
   // organização, `placement = hero`, ordenado por `position`). Este
   // componente não conhece arquivo de banner nenhum.
   const [failedImages, setFailedImages] = React.useState<string[]>([]);
-  const [mobile,setMobile]=React.useState(false);
+  const [mobile,setMobile]=React.useState<boolean | null>(null);
   React.useEffect(()=>{const media=window.matchMedia('(max-width:760px)');const update=()=>setMobile(media.matches);update();media.addEventListener('change',update);return()=>media.removeEventListener('change',update);},[]);
   const mobileSlides=renderableBanners(mobileBanners,failedImages);
-  const slides = mobile&&mobileSlides.length ? mobileSlides : renderableBanners(banners, failedImages);
+  const slides = mobile === null ? [] : mobile ? mobileSlides : renderableBanners(banners, failedImages);
   const hasSlideshow = slides.length > 1;
 
   const [active, setActive] = React.useState(0);

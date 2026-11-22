@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import ts from 'typescript';
 import {readFileSync} from 'node:fs';
 import {storeBannerInputSchema} from '../src/lib/validations/store-ops';
-import {validateBannerImagePath} from '../src/lib/banner-image';
+import * as placement from '../src/lib/banner-placement';
+import {bannerLibraryForPlacement, validateBannerImagePath} from '../src/lib/banner-image';
 import {OperationError} from '../src/lib/operation-error';
 
 test('mobile banner positions validate and links refuse executable schemes',()=>{
  const base={title:'Vitrine',imagePath:'/catalog/banners/mobile-cervejas.svg',active:true};
  assert.equal(storeBannerInputSchema.parse(base).placement,'hero');
- for(const placement of ['hero-mobile','transition:category-1'])assert.equal(storeBannerInputSchema.parse({...base,placement}).placement,placement);
+ for(const placement of ['hero-mobile','transition:category-1','transition-desktop:category-1','transition-mobile:category-1'])assert.equal(storeBannerInputSchema.parse({...base,placement}).placement,placement);
  assert.equal(storeBannerInputSchema.safeParse({...base,placement:'transition:../other'}).success,false);
  assert.equal(storeBannerInputSchema.safeParse({...base,linkUrl:'javascript:alert(1)'}).success,false);
  assert.equal(validateBannerImagePath(base.imagePath),base.imagePath);
@@ -21,10 +22,27 @@ test('mobile banner reads are scoped and foreign category cannot be linked by a 
  const prisma={category:{findFirst:async(q:any)=>{calls.push(q);return null;}},storeBanner:{findMany:async(q:any)=>{calls.push(q);return [];},create:async()=>{writes++;}},organization:{findUnique:async()=>({settings:{}})}};
  const output=ts.transpileModule(readFileSync('src/lib/data/store-ops.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
  const module={exports:{} as any};
- const imports:Record<string,unknown>={'server-only':{},'@/lib/delivery-tiers':{tierProblems:()=>[]},'@/lib/db':{prisma},'@/lib/schedule':{},'@/lib/data/delivery-fee':{},'@/lib/data/transaction':{},'@/lib/operation-error':{OperationError},'@/lib/banner-meta':{readBannerMeta:()=>({cta:null,focusX:50,focusY:50})}};
+ const imports:Record<string,unknown>={'server-only':{},'@/lib/delivery-tiers':{tierProblems:()=>[]},'@/lib/db':{prisma},'@/lib/schedule':{},'@/lib/data/delivery-fee':{},'@/lib/data/transaction':{},'@/lib/operation-error':{OperationError},'@/lib/banner-placement':placement,'@/lib/banner-meta':{readBannerMeta:()=>({cta:null,focusX:50,focusY:50})}};
  new Function('require','module','exports',output)((key:string)=>{if(key in imports)return imports[key];throw Error(key);},module,module.exports);
  await module.exports.getPublicMobileBanners('own-org');
- assert.deepEqual(calls[0].where,{organizationId:'own-org',active:true,OR:[{placement:'hero-mobile'},{placement:{startsWith:'transition:'}}]});
- await assert.rejects(module.exports.createStoreBanner('own-org',{placement:'transition:foreign-category',title:'Outro',imagePath:'/catalog/banners/banner-01.png',active:true}),(error:unknown)=>error instanceof OperationError&&/Categoria/.test(error.message));
+ assert.deepEqual(calls[0].where,{organizationId:'own-org',active:true,OR:[{placement:'hero-mobile'},{placement:{startsWith:'transition:'}},{placement:{startsWith:'transition-desktop:'}},{placement:{startsWith:'transition-mobile:'}}]});
+ await assert.rejects(module.exports.createStoreBanner('own-org',{placement:'transition-mobile:foreign-category',title:'Outro',imagePath:'/catalog/banners/banner-01.png',active:true}),(error:unknown)=>error instanceof OperationError&&/Categoria/.test(error.message));
  assert.deepEqual(calls[1].where,{id:'foreign-category',organizationId:'own-org'});assert.equal(writes,0);
+});
+
+test('banner assets and storefront placements are separated by use, category and device', () => {
+  assert.equal(bannerLibraryForPlacement('hero').length, 4);
+  assert.deepEqual(bannerLibraryForPlacement('hero-mobile'), []);
+  assert.deepEqual(bannerLibraryForPlacement('transition-desktop:c', 'cervejas'), []);
+  assert.deepEqual(bannerLibraryForPlacement('transition-mobile:c', 'cervejas').map(({ file }) => file), ['mobile-cervejas.svg']);
+  assert.deepEqual(bannerLibraryForPlacement('transition-mobile:c', 'outros'), []);
+
+  const desktop = { placement: 'transition-desktop:c' };
+  const mobile = { placement: 'transition-mobile:c' };
+  const legacy = { placement: 'transition:c' };
+  assert.deepEqual(placement.categoryBannersForDevice([legacy, desktop], 'c', 'desktop'), [desktop]);
+  assert.deepEqual(placement.categoryBannersForDevice([legacy, desktop], 'c', 'mobile'), [legacy]);
+  assert.deepEqual(placement.categoryBannersForDevice([legacy, desktop, mobile], 'c', 'mobile'), [mobile]);
+  assert.deepEqual(placement.categoryBannersForDevice([desktop], 'c', 'mobile'), []);
+  assert.deepEqual(placement.categoryBannersForDevice([desktop, mobile], 'other', 'mobile'), []);
 });

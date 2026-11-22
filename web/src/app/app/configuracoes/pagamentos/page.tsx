@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { requireOrgPage } from '@/lib/auth/guards';
 import { getOrganizationById } from '@/lib/data/organization';
 import { PAYMENT_METHOD_LABEL } from '@/data/business-copy';
@@ -20,6 +21,10 @@ export default async function PaymentsSettingsPage() {
       <h2 className="text-[1.35rem] font-extrabold tracking-tight text-ink-900">Pagamentos</h2>
       <section className="space-y-3 rounded-xl border bg-white p-5">
         <h3 className="font-semibold text-ink-900">Formas de pagamento aceitas no pedido</h3>
+        <p className="text-sm text-ink-600">
+          Retirada {organization?.allowPickup ? 'habilitada' : 'desabilitada'}.
+          <Link className="ml-2 font-semibold text-brand underline" href="/app/configuracoes/minha-loja?aba=entrega">Ajustar entrega e retirada</Link>
+        </p>
         <ul className="grid gap-2 sm:grid-cols-2">
           {methods.map((m) => <li key={m} className="rounded-lg bg-ink-50 px-3 py-2 text-sm font-semibold text-ink-800">{PAYMENT_METHOD_LABEL[m] ?? m} <span className="font-normal text-ink-500">· na entrega ou retirada</span></li>)}
         </ul>
