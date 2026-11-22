@@ -5,7 +5,7 @@
  * cobrada do cliente e ganho do entregador. O ganho sai só da regra configurada
  * pela loja; sem regra não existe valor estimado.
  */
-export type EarningsPeriod = 'today' | 'week' | 'month';
+export type EarningsPeriod = 'today' | 'week' | 'month' | 'all' | 'custom';
 
 export type DriverPayRule = {
   /** FIXED: valor por entrega. FEE_PERCENT: percentual da taxa cobrada do cliente. */
@@ -52,7 +52,7 @@ function zoneOffsetMs(instant: Date, zone: string) {
 }
 
 /** Início do período no fuso da loja. A semana começa na segunda-feira. */
-export function earningsPeriodStart(period: EarningsPeriod, now = new Date(), zone = 'America/Sao_Paulo'): Date {
+export function earningsPeriodStart(period: Exclude<EarningsPeriod, 'all' | 'custom'>, now = new Date(), zone = 'America/Sao_Paulo'): Date {
   const local = new Date(now.getTime() + zoneOffsetMs(now, zone));
   const day = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()));
   if (period === 'month') day.setUTCDate(1);
@@ -66,4 +66,23 @@ export function parseMoneyCents(raw: string): number | null {
   if (!/^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/.test(text)) return null;
   const [whole, fraction = ''] = text.replaceAll('.', '').split(',');
   return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+}
+
+export type EarningsDateRange = { from: string; to: string };
+
+export function earningsDateBounds(range: EarningsDateRange, zone: string) {
+  const parse = (day: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+    const date = new Date(`${day}T00:00:00.000Z`);
+    return Number.isFinite(+date) && date.toISOString().slice(0, 10) === day ? date : null;
+  };
+  const start = parse(range.from);
+  const end = parse(range.to);
+  if (!start || !end || start > end) return null;
+  end.setUTCDate(end.getUTCDate() + 1);
+  const midnight = (date: Date) => {
+    const estimated = new Date(+date - zoneOffsetMs(date, zone));
+    return new Date(+date - zoneOffsetMs(estimated, zone));
+  };
+  return { gte: midnight(start), lt: midnight(end) };
 }

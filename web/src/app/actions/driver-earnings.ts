@@ -8,14 +8,17 @@ import type { Prisma } from '@prisma/client';
 import { requireDriver, requirePermission, toActionError } from '@/lib/auth/guards';
 import { getDriverEarnings } from '@/lib/data/driver-earnings';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
-import { MAX_PAY_CENTS, parseMoneyCents, type DriverPayRule } from '@/lib/driver-earnings';
+import { MAX_PAY_CENTS, parseMoneyCents, type DriverPayRule, type EarningsDateRange } from '@/lib/driver-earnings';
 
 const periodSchema = z.enum(['today', 'week', 'month']);
 
 /** Sem parâmetro de entregador: ele só enxerga o que é dele. */
-export async function loadOwnDriverEarnings(period: unknown) {
+export async function loadOwnDriverEarnings(period: unknown, range?: EarningsDateRange, page = 1) {
   const ctx = await requireDriver();
-  return getDriverEarnings(ctx.organizationId, ctx.driver.id, periodSchema.parse(period));
+  return getDriverEarnings(ctx.organizationId, ctx.driver.id,
+    z.enum(['today', 'week', 'month', 'all', 'custom']).parse(period), false,
+    z.object({ from: z.string().length(10), to: z.string().length(10) }).optional().parse(range),
+    z.number().int().min(1).max(500000).parse(page));
 }
 
 export async function loadStoreDriverEarnings(period: unknown, selected?: string) {

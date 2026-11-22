@@ -1,4 +1,5 @@
 'use client';
+import { DeliverySlipButton } from '@/components/orders/DeliverySlipButton';
 import { whatsappHref } from '@/lib/whatsapp';
 import { FiscalInvoicePanel } from '@/components/fiscal/FiscalInvoicePanel';
 
@@ -329,6 +330,8 @@ export function OrderDrawer({
       </section>
 
       {/* ── Entregador ────────────────────────────────────────────── */}
+      {canManageDrivers && order.driver?.id && ['CONFIRMED', 'PREPARING', 'WAITING_DRIVER', 'DISPATCHED'].includes(order.status) && <DeliverySlipButton orderId={order.id} />}
+
       {canManageDrivers && isOpen && order.deliveryType !== 'PICKUP' && ['PREPARING', 'READY', 'WAITING_DRIVER', 'DISPATCHED'].includes(order.status) && (
         <section className="mb-5">
           <h3 className="mb-2 text-[0.7rem] font-bold uppercase tracking-wide text-ink-400">

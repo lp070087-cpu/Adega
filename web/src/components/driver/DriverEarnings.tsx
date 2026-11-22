@@ -3,34 +3,38 @@
 import { useState, useTransition } from 'react';
 import { loadOwnDriverEarnings, loadStoreDriverEarnings, saveDriverPayRule } from '@/app/actions/driver-earnings';
 import type { EarningsSummary } from '@/lib/data/driver-earnings';
-import { driverPayCents, MAX_PAY_CENTS, parseMoneyCents, type DriverPayRule, type EarningsPeriod } from '@/lib/driver-earnings';
+import type { DriverPayRule, EarningsDateRange, EarningsPeriod } from '@/lib/driver-earnings';
 import { Alert } from '@/components/ui';
 import { formatBRL, normalizeSearchText } from '@/lib/utils';
 
-export type PayPreviewRule = Pick<DriverPayRule, 'mode' | 'amountCents' | 'percent'>;
-
 const PERIODS: Array<[EarningsPeriod, string]> = [['today', 'Hoje'], ['week', 'Semana'], ['month', 'Mês']];
+const DRIVER_PERIODS: Array<[EarningsPeriod, string]> = [['all', 'Tudo'], ['week', 'Semana'], ['month', 'Mês'], ['custom', 'Por datas']];
 const cents = (value: number) => formatBRL(value / 100);
 
 /**
  * Ganhos por entrega, no app do entregador e na aba Entregadores da loja. Os
  * valores vêm sempre do servidor; a tela nunca soma pedidos.
  */
-export function DriverEarnings({ initial, store = false, rule = null, drivers = [], preview = false, payPreviewRule = null }: { preview?: boolean; payPreviewRule?: PayPreviewRule | null; initial: EarningsSummary; store?: boolean; rule?: DriverPayRule | null; drivers?: Array<{ id: string; name: string }> }) {
+export function DriverEarnings({ initial, store = false, rule = null, drivers = [], preview = false }: { preview?: boolean; initial: EarningsSummary; store?: boolean; rule?: DriverPayRule | null; drivers?: Array<{ id: string; name: string }> }) {
   const [data, setData] = useState(initial);
-  const [period, setPeriod] = useState<EarningsPeriod>('today');
+  const [period, setPeriod] = useState<EarningsPeriod>(store ? 'today' : 'all');
   const [pending, start] = useTransition();
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [driverId, setDriverId] = useState('');
+  const [showRange, setShowRange] = useState(false);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [range, setRange] = useState<EarningsDateRange>();
   const filtered = drivers.filter((driver) => normalizeSearchText(driver.name).includes(normalizeSearchText(query)));
 
-  function choose(value: EarningsPeriod, selected = driverId) {
+  function choose(value: EarningsPeriod, selected = driverId, dates = range, page = 1) {
     start(async () => {
       try {
-        setData(await (store ? loadStoreDriverEarnings(value, selected) : loadOwnDriverEarnings(value)));
+        setData(await (store ? loadStoreDriverEarnings(value, selected) : loadOwnDriverEarnings(value, value === 'custom' ? dates : undefined, page)));
         setDriverId(selected);
         setPeriod(value);
+        if (value === 'custom') setRange(dates);
         setError('');
       } catch {
         setError('Não foi possível atualizar. Confira sua conexão e tente novamente.');
@@ -42,8 +46,9 @@ export function DriverEarnings({ initial, store = false, rule = null, drivers = 
     return (
       <section className="space-y-4 rounded-xl border border-ink-100 bg-white p-4">
         <h2 className="font-bold text-ink-900">Meus ganhos</h2>
-        <p className="text-sm text-ink-600">O extrato fica disponível com o login de um entregador cadastrado.</p>
-        <DriverPayCalculator rule={payPreviewRule} />
+        <p className="text-sm text-ink-600">Entre com o login de um entregador cadastrado para consultar o extrato.</p>
+        <div className="grid grid-cols-2 gap-2"><Stat label="Nesta semana" value="—" /><Stat label="Neste mês" value="—" /></div>
+        <EarningsChart chart={{ label: 'Gráfico de ganhos', points: [] }} />
       </section>
     );
   }
@@ -68,18 +73,37 @@ export function DriverEarnings({ initial, store = false, rule = null, drivers = 
         {driverId && <p className="text-sm text-ink-600">Exibindo {drivers.find((driver) => driver.id === driverId)?.name}.</p>}
       </div>}
 
-      <div className="grid grid-cols-3 gap-1 rounded-lg bg-ink-100 p-1" role="group" aria-label="Período">
-        {PERIODS.map(([key, label]) => (
-          <button key={key} type="button" disabled={pending} aria-pressed={period === key} onClick={() => choose(key)} className={`min-h-11 rounded-md text-sm font-bold ${period === key ? 'bg-white text-brand shadow-xs' : 'text-ink-600'}`}>{label}</button>
+      {!store && data.overview && <div className="grid grid-cols-2 gap-2">
+        <Stat label="Nesta semana" value={cents(data.overview.weekCents)} />
+        <Stat label="Neste mês" value={cents(data.overview.monthCents)} />
+      </div>}
+
+      <div className={`grid gap-1 rounded-lg bg-ink-100 p-1 ${store ? 'grid-cols-3' : 'grid-cols-4'}`} role="group" aria-label="Período">
+        {(store ? PERIODS : DRIVER_PERIODS).map(([key, label]) => (
+          <button key={key} type="button" disabled={pending} aria-pressed={showRange ? key === 'custom' : period === key}
+            onClick={() => { setShowRange(key === 'custom'); if (key !== 'custom') choose(key); }}
+            className="min-h-11 rounded-md px-1 text-xs font-bold text-ink-600 aria-pressed:bg-white aria-pressed:text-brand">{label}</button>
         ))}
       </div>
 
+      {showRange && <form className="grid grid-cols-2 gap-2" onSubmit={(event) => {
+        event.preventDefault();
+        if (from && to && from <= to) choose('custom', driverId, { from, to });
+      }}>
+        <label className="grid min-w-0 gap-1 text-xs font-semibold">De<input required aria-label="Data inicial" className="field-input w-full" type="date" value={from} max={to || undefined} onChange={e => setFrom(e.target.value)} /></label>
+        <label className="grid min-w-0 gap-1 text-xs font-semibold">Até<input required aria-label="Data final" className="field-input w-full" type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)} /></label>
+        <button disabled={pending} className="col-span-2 min-h-11 rounded-lg bg-brand text-sm font-bold text-white">Aplicar período</button>
+      </form>}
+      {period === 'custom' && range && <p className="text-xs text-ink-500">Resultados de {localDay(range.from)} até {localDay(range.to)}.</p>}
+
       <div aria-busy={pending} className={`grid gap-3 ${store ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
-        <Stat label={store ? 'Total devido' : 'Ganhos'} value={cents(data.amountCents)} testId="earnings-total" />
+        <Stat label={store ? 'Total devido' : 'Total do período'} value={cents(data.amountCents)} testId="earnings-total" />
         <Stat label="Entregas concluídas" value={String(data.count)} testId="earnings-count" />
         {data.store && <Stat label="Taxas cobradas" value={formatBRL(data.store.deliveryFee)} />}
         {data.store && <Stat label="Faturamento dos pedidos" value={formatBRL(data.store.revenue)} />}
       </div>
+
+      {!store && data.chart && <EarningsChart chart={data.chart} />}
 
       {!data.configured && <Alert tone="warn">{store ? 'O valor devido aparece quando a loja define a regra de repasse por entrega. As entregas concluídas e as taxas já são contabilizadas.' : 'A loja ainda não definiu o valor por entrega.'}</Alert>}
       {data.unpricedCount > 0 && <p className="text-[0.76rem] text-ink-500">{data.unpricedCount === 1 ? '1 entrega concluída' : `${data.unpricedCount} entregas concluídas`} sem remuneração definida na época. Nenhum valor foi estimado.</p>}
@@ -123,10 +147,16 @@ export function DriverEarnings({ initial, store = false, rule = null, drivers = 
         ))}
       </ul>
       {data.rows.length === 0 && <p className="text-sm text-ink-500">Nenhuma entrega concluída neste período.</p>}
-      {data.count > data.rows.length && <p className="text-[0.74rem] text-ink-500">Exibindo as {data.rows.length} entregas mais recentes. Os totais incluem todo o período.</p>}
+      {store && data.count > data.rows.length && <p className="text-[0.74rem] text-ink-500">Exibindo as {data.rows.length} entregas mais recentes. Os totais incluem todo o período.</p>}
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
-      {!store && <DriverPayCalculator rule={payPreviewRule} />}
+      {!store && data.pageSize && data.count > data.pageSize ? (
+        <nav aria-label="Páginas do extrato" className="flex items-center justify-between gap-2 text-sm">
+          <button type="button" className="min-h-11 rounded-lg border px-2 disabled:opacity-40" disabled={pending || (data.page ?? 1) <= 1} onClick={() => choose(period, driverId, range, (data.page ?? 1) - 1)}>Anterior</button>
+          <span>{data.page ?? 1} de {Math.ceil(data.count / data.pageSize)}</span>
+          <button type="button" className="min-h-11 rounded-lg border px-2 disabled:opacity-40" disabled={pending || (data.page ?? 1) * data.pageSize >= data.count} onClick={() => choose(period, driverId, range, (data.page ?? 1) + 1)}>Próxima</button>
+        </nav>
+      ) : null}
 
       {store && <details className="rounded-lg border border-ink-200 p-3">
         <summary className="cursor-pointer text-sm font-medium">Regra de repasse por entrega</summary>
@@ -136,34 +166,22 @@ export function DriverEarnings({ initial, store = false, rule = null, drivers = 
   );
 }
 
-function DriverPayCalculator({ rule }: { rule: PayPreviewRule | null }) {
-  const [deliveries, setDeliveries] = useState('');
-  const [money, setMoney] = useState('');
-  const quantity = /^\d{1,4}$/.test(deliveries) ? Number(deliveries) : 0;
-  const entered = parseMoneyCents(money);
-  const validMoney = entered !== null && entered <= MAX_PAY_CENTS ? entered : null;
-  const perDelivery = rule?.mode === 'FIXED' ? driverPayCents(rule, 0)
-    : rule && validMoney !== null ? driverPayCents(rule, validMoney) : validMoney;
-  return (
-    <div className="space-y-3 rounded-xl border border-ink-200 bg-ink-50 p-4">
-      <h3 className="font-bold text-ink-900">Simular ganhos</h3>
-      {rule && <p className="text-sm text-ink-600">{rule.mode === 'FIXED'
-        ? `${cents(rule.amountCents)} por entrega pela regra da loja.`
-        : `${rule.percent.toLocaleString('pt-BR')}% sobre a taxa de cada entrega pela regra da loja.`}</p>}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1">
-          <span className="field-label">Quantidade de entregas</span>
-          <input className="field-input" inputMode="numeric" maxLength={4} value={deliveries} onChange={(event) => setDeliveries(event.target.value.replace(/\D/g, ''))} />
-        </label>
-        {rule?.mode !== 'FIXED' && <label className="grid gap-1">
-          <span className="field-label">{rule ? 'Taxa cobrada por entrega (R$)' : 'Valor previsto por entrega (R$)'}</span>
-          <input className="field-input" inputMode="decimal" maxLength={12} placeholder="0,00" value={money} onChange={(event) => setMoney(event.target.value)} />
-        </label>}
-      </div>
-      <p className="text-sm text-ink-600" aria-live="polite">Total estimado <strong className="ml-1 text-lg text-ink-900">{quantity > 0 && perDelivery !== null ? cents(quantity * perDelivery) : '—'}</strong></p>
-      <p className="text-xs text-ink-500">A simulação fica fora do extrato. O extrato usa os valores registrados nas entregas concluídas.</p>
-    </div>
-  );
+function localDay(day: string) {
+  return day.split('-').reverse().join('/');
+}
+
+function EarningsChart({ chart }: { chart: NonNullable<EarningsSummary['chart']> }) {
+  const max = Math.max(1, ...chart.points.map(({ amountCents }) => amountCents));
+  return <figure className="space-y-3 rounded-xl border border-ink-100 bg-ink-50 p-3">
+    <figcaption className="text-sm font-bold text-ink-900">{chart.label}</figcaption>
+    {chart.points.length ? <ul className="space-y-1.5">
+      {chart.points.map(({ day, amountCents }) => <li key={day} className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-2 text-xs text-ink-700">
+        <time dateTime={day}>{localDay(day).slice(0, 5)}</time>
+        <span className="h-2 overflow-hidden rounded-full bg-ink-100" aria-hidden><span className="block h-full rounded-full bg-brand" style={{ width: `${amountCents / max * 100}%` }} /></span>
+        <strong className="text-right tabular-nums">{cents(amountCents)}</strong>
+      </li>)}
+    </ul> : <p className="text-sm text-ink-500">Nenhum valor registrado neste período.</p>}
+  </figure>;
 }
 
 function Stat({ label, value, testId }: { label: string; value: string; testId?: string }) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { Bike, Car, Footprints, MapPin, Navigation, Menu, CheckCircle2, Package, Map as MapIcon, Wallet, UserRound } from 'lucide-react';
+import { Bike, Car, Footprints, MapPin, Navigation, Menu, ScanLine, Package, Map as MapIcon, Wallet, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { BrandMark } from '@/components/ui/BrandMark';
@@ -18,7 +18,10 @@ import { Alert, Badge, Button, Card, Drawer, EmptyState, Input } from '@/compone
 import { DriverInstallCard } from '@/components/driver/DriverInstall';
 import { DriverScheduleNotice } from '@/components/driver/DriverScheduleNotice';
 import { DriverRoutes } from '@/components/driver/DriverRoutes';
-import { DriverEarnings, type PayPreviewRule } from '@/components/driver/DriverEarnings';
+import { DriverEarnings } from '@/components/driver/DriverEarnings';
+import { DeliveryPickupDialog } from '@/components/driver/DeliveryPickupDialog';
+import { SlideToFinish } from '@/components/driver/SlideToFinish';
+import { acceptDriverDelivery, collectDriverDelivery } from '@/app/actions/delivery-pickup';
 import { DriverAccount, type DriverAccountDetails } from '@/components/driver/DriverAccount';
 import type { EarningsSummary } from '@/lib/data/driver-earnings';
 import { useLiveRefresh } from '@/components/layout/LiveRefresh';
@@ -72,6 +75,8 @@ export type DriverOrder = {
   paymentStatus: string;
   total: number;
   deliveryFee: number;
+  changeFor: number | null;
+  deliveryZipCode: string | null;
   deliveryAddress: string;
   deliveryNumber: string | null;
   deliveryDistrict: string | null;
@@ -85,6 +90,8 @@ export type DriverOrder = {
   items: DriverOrderItem[];
   delivery: {
     status: string;
+    accepted: boolean;
+    requiresPickupCode: boolean;
     arrivedAt: string | null;
     pickedUpAt: string | null;
     deliveredAt: string | null;
@@ -161,6 +168,13 @@ function nextStep(delivery: DriverOrder['delivery']): Step {
   return 'DELIVERED';
 }
 
+function deliveryActionLabel(order: DriverOrder, step: Step) {
+  if (step === 'PICKED_UP' && order.delivery?.status === 'ASSIGNED' && !order.delivery.accepted) return 'Aceitar entrega';
+  if (awaitingRelease(order)) return 'Aguardando liberação da loja';
+  if (step === 'PICKED_UP' && order.delivery?.requiresPickupCode) return 'Escanear coleta';
+  return STEP_LABEL[step];
+}
+
 const STEP_LABEL: Record<Step, string> = {
   ARRIVED_STORE: 'Cheguei na loja',
   PICKED_UP: 'Confirmar retirada',
@@ -191,7 +205,6 @@ const ALL_STEPS: Array<{ step: Step; label: string; done: (d: DriverOrder['deliv
 export function DriverApp({
   driver,
   account,
-  payRule,
   store,
   orders,
   earnings,
@@ -199,7 +212,6 @@ export function DriverApp({
 }: {
   driver: DriverIdentity;
   account: DriverAccountDetails;
-  payRule: PayPreviewRule | null;
   store: DriverStore;
   orders: DriverOrder[];
   earnings: EarningsSummary;
@@ -209,6 +221,8 @@ export function DriverApp({
   useLiveRefresh(preview ? null : '/api/entregador/versao', 8000);
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState<'entregas' | 'mapa' | 'ganhos' | 'perfil'>('entregas');
+  const [pickupMode, setPickupMode] = useState<'camera' | 'manual' | null>(null);
+  const [pickupError, setPickupError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
     if (!menuOpen) return;
@@ -262,12 +276,6 @@ export function DriverApp({
     ...order,
     stepLabel: order.delivery ? DELIVERY_STATUS_LABEL[order.delivery.status] ?? 'Atribuída' : 'Atribuída',
   })), [active]);
-  const done = useMemo(() => orders.filter((o) => o.status === 'DELIVERED'), [orders]);
-
-  const doneToday = useMemo(() => {
-    const today = new Date().toDateString();
-    return done.filter((o) => o.deliveredAt && new Date(o.deliveredAt).toDateString() === today).length;
-  }, [done]);
 
   const openOrder = openId ? orders.find((o) => o.id === openId) ?? null : null;
 
@@ -314,6 +322,41 @@ export function DriverApp({
     selectSection('mapa');
   }
 
+  function openPickup(mode: 'camera' | 'manual') {
+    setOpenId(null);
+    setPickupError(null);
+    setPickupMode(mode);
+  }
+
+  function collect(code: string) {
+    setPickupError(null);
+    if (preview) { setPickupError('Entre com a conta de um entregador cadastrado para registrar uma coleta.'); return; }
+    startTransition(async () => {
+      try {
+        const result = await collectDriverDelivery(code);
+        if (!result.ok) { setPickupError(result.error); return; }
+        setPickupMode(null);
+        setNotice(`Retirada do pedido #${result.order.displayId} confirmada.`);
+        router.refresh();
+      } catch {
+        setPickupError('Não foi possível validar o código. Confira sua conexão e tente novamente.');
+      }
+    });
+  }
+
+  function advance(order: DriverOrder, step: Step, notes?: string) {
+    if (step === 'PICKED_UP' && order.delivery?.status === 'ASSIGNED' && !order.delivery.accepted) {
+      run(() => acceptDriverDelivery(order.id), () => setNotice(`Entrega #${order.displayId} aceita.`));
+      return;
+    }
+    if (step === 'PICKED_UP' && order.delivery?.requiresPickupCode) { openPickup('camera'); return; }
+    run(() => driverStepAction({ orderId: order.id, step, notes }), () => {
+      setNotice(step === 'DELIVERED' ? `Entrega do pedido #${order.displayId} confirmada.` : `Passo registrado: ${STEP_LABEL[step]}.`);
+      if (step === 'DELIVERED') setOpenId(null);
+      if (step === 'STARTED') openOrderMap(order.id);
+    });
+  }
+
   const renderOrder = (order: DriverOrder) => (
     <OrderCard
       key={order.id}
@@ -321,16 +364,7 @@ export function DriverApp({
       now={now}
       disabled={pending}
       onOpen={() => setOpenId(order.id)}
-      onStep={(step, notes) =>
-        run(
-          () => driverStepAction({ orderId: order.id, step, notes }),
-          () => {
-            setNotice(step === 'DELIVERED' ? `Entrega do pedido #${order.displayId} confirmada.` : `Passo registrado: ${STEP_LABEL[step]}.`);
-            if (step === 'DELIVERED') setOpenId(null);
-            if (step === 'STARTED') openOrderMap(order.id);
-          },
-        )
-      }
+      onStep={(step, notes) => advance(order, step, notes)}
     />
   );
 
@@ -402,7 +436,7 @@ export function DriverApp({
 
       <main className="panel-content mx-auto w-full max-w-6xl flex-1 space-y-5 px-3 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-5 lg:px-7 lg:pt-6">
         {preview && <Alert tone="neutral" title="Visualização do motoboy">
-          Nesta demonstração você pode testar o mapa e simular ganhos. O extrato e a edição dos dados ficam disponíveis para o entregador cadastrado. <Link href="/admin" className="font-semibold underline">Voltar ao Admin Central</Link>
+          Nesta demonstração você pode testar o mapa e conferir as telas. O extrato e a edição dos dados ficam disponíveis para o entregador cadastrado. <Link href="/admin" className="font-semibold underline">Voltar ao Admin Central</Link>
         </Alert>}
         {!online && <Alert tone="warn">Sem conexão. As entregas exibidas podem estar desatualizadas. Reconecte para registrar alterações.</Alert>}
         {error && (
@@ -425,11 +459,13 @@ export function DriverApp({
         {tab === 'entregas' && (
           <>
             {!preview && <DriverScheduleNotice />}
-            <div className="grid grid-cols-3 gap-2.5">
-              <MiniStat value={String(active.length)} label="Em aberto" />
-              <MiniStat value={String(doneToday)} label="Entregues hoje" />
-              <MiniStat value={formatBRL(active.filter((o) => o.paymentStatus === 'PENDING' && o.paymentMethod === 'CASH').reduce((acc, o) => acc + o.total, 0))} label="A cobrar do cliente" />
-            </div>
+            <Card className="flex flex-wrap items-center justify-between gap-3">
+              <div><h1 className="text-lg font-extrabold text-ink-900">Minhas entregas</h1><p className="text-sm text-ink-500">{active.length ? `${active.length} em aberto` : 'Nenhuma entrega em aberto'}</p></div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => openPickup('camera')}><ScanLine size={17} aria-hidden /> Escanear código</Button>
+                <Button size="sm" variant="secondary" onClick={() => openPickup('manual')}>Digitar código</Button>
+              </div>
+            </Card>
             {active.length === 0 ? (
               <Card>
                 <EmptyState
@@ -450,7 +486,7 @@ export function DriverApp({
         )}
 
         {/* ── GANHOS ───────────────────────────────────────────────── */}
-        {tab === 'ganhos' && <DriverEarnings key={done.length} initial={earnings} preview={preview} payPreviewRule={payRule} />}
+        {tab === 'ganhos' && <DriverEarnings key={earnings.count} initial={earnings} preview={preview} />}
 
         {tab === 'perfil' && (
           <>
@@ -495,6 +531,7 @@ export function DriverApp({
       </Drawer>
 
       {/* ── DETALHE DA ENTREGA ─────────────────────────────────────── */}
+      {pickupMode && <DeliveryPickupDialog cameraFirst={pickupMode === 'camera'} pending={pending} error={pickupError} onClose={() => setPickupMode(null)} onCollect={collect} />}
       {openOrder && (
         <OrderSheet
           order={openOrder}
@@ -506,15 +543,7 @@ export function DriverApp({
             () => reportFailedDeliveryAction({ orderId: openOrder.id, reason }),
             () => { setNotice('Tentativa registrada. A loja recebeu o pedido para novo despacho.'); setOpenId(null); },
           )}
-          onStep={(step, notes) =>
-            run(
-              () => driverStepAction({ orderId: openOrder.id, step, notes }),
-              () => {
-                setNotice(`Passo registrado: ${STEP_LABEL[step]}.`);
-                if (step === 'DELIVERED') setOpenId(null);
-              },
-            )
-          }
+          onStep={(step, notes) => advance(openOrder, step, notes)}
         />
       )}
       </div>
@@ -540,8 +569,7 @@ function OrderCard({
   const step = nextStep(order.delivery);
   const isDelivery = order.status === 'DELIVERED';
   const waitingStore = awaitingRelease(order);
-  const cobrar =
-    order.paymentMethod === 'CASH' && order.paymentStatus !== 'PAID' ? order.total : null;
+  const cobrar = order.paymentStatus === 'PENDING' && order.paymentMethod !== 'ONLINE' ? order.total : null;
 
   const minutes = Math.max(0, Math.floor((now - new Date(order.createdAt).getTime()) / 60000));
   const late = minutes >= 30 && !isDelivery;
@@ -573,7 +601,7 @@ function OrderCard({
         <MapPin className="mt-0.5 shrink-0 text-brand" size={18} aria-hidden="true" />
         <div className="min-w-0">
           <p className="break-words text-[0.92rem] font-bold leading-snug text-ink-900">{order.deliveryAddress}{order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}</p>
-          {(order.deliveryDistrict || order.deliveryCity) && <p className="text-[0.76rem] text-ink-600">{[order.deliveryDistrict, order.deliveryCity].filter(Boolean).join(' · ')}</p>}
+          {(order.deliveryDistrict || order.deliveryCity) && <p className="text-[0.76rem] text-ink-600">{[order.deliveryDistrict, order.deliveryCity, order.deliveryZipCode].filter(Boolean).join(' · ')}</p>}
         </div>
       </div>
 
@@ -586,28 +614,14 @@ function OrderCard({
         {order.paymentStatus === 'PAID' && <Badge tone="green">Pago</Badge>}
       </div>
 
-      {cobrar !== null && (
-        <p className="mt-2 text-[0.74rem] leading-relaxed text-warn">
-          Pagamento em dinheiro na entrega. O pedido é marcado como pago quando você confirma a
-          entrega.
-        </p>
-      )}
-
-      <div className="mt-3 grid grid-cols-[auto_1fr] gap-2">
-        <Button variant="secondary" onClick={onOpen} className="min-h-12 rounded-xl px-4">
-          Detalhes
-        </Button>
-        <button
-          type="button"
-          disabled={disabled || waitingStore}
-          onClick={() => onStep(step)}
-          className={cn(
-            'min-h-12 rounded-xl px-4 text-[0.9rem] font-bold text-white shadow-sm transition-all active:scale-[.98] disabled:opacity-55',
-            step === 'DELIVERED' ? 'bg-success' : waitingStore ? 'bg-ink-400' : 'bg-brand hover:bg-brand-dark',
-          )}
-        >
-          {waitingStore ? 'Aguardando a loja' : STEP_LABEL[step]}
-        </button>
+      <p className="mt-2 text-sm text-ink-700">Taxa de entrega <strong>{formatBRL(order.deliveryFee)}</strong></p>
+      <div className="mt-3 space-y-2">
+        <Button variant="secondary" onClick={onOpen} fullWidth>Ver detalhes</Button>
+        {step === 'DELIVERED' ? <SlideToFinish disabled={disabled} onFinish={() => onStep(step)} /> : (
+          <Button fullWidth disabled={disabled || (waitingStore && order.delivery?.accepted)} onClick={() => onStep(step)}>
+            {deliveryActionLabel(order, step)}
+          </Button>
+        )}
       </div>
 
       <div className="mt-3 flex gap-1">
@@ -777,10 +791,14 @@ function OrderSheet({
           ))}
         </ul>
 
-        <div className="mb-4 flex items-center justify-between rounded-lg bg-ink-50 px-3.5 py-3">
-          <span className="text-[0.82rem] font-semibold text-ink-700">Total do pedido</span>
-          <span className="text-[1rem] font-extrabold text-ink-900">{formatBRL(order.total)}</span>
-        </div>
+        <dl className="mb-4 space-y-2 rounded-lg bg-ink-50 px-3.5 py-3 text-sm text-ink-800">
+          <div className="flex justify-between gap-2 font-extrabold"><dt>{order.paymentStatus === 'PENDING' && order.paymentMethod !== 'ONLINE' ? 'Total a cobrar' : 'Total do pedido'}</dt><dd>{formatBRL(order.total)}</dd></div>
+          <div className="flex justify-between gap-2"><dt>Pagamento</dt><dd>{PAYMENT_LABEL[order.paymentMethod] ?? order.paymentMethod}{order.paymentStatus === 'PAID' ? ' · Pago' : ''}</dd></div>
+          {order.paymentMethod === 'CASH' && order.paymentStatus === 'PENDING' && order.changeFor != null && <>
+            <div className="flex justify-between gap-2"><dt>Troco para</dt><dd>{formatBRL(order.changeFor)}</dd></div>
+            <div className="flex justify-between gap-2"><dt>Troco do cliente</dt><dd>{formatBRL(Math.max(0, order.changeFor - order.total))}</dd></div>
+          </>}
+        </dl>
 
         {order.notes && (
           <Alert tone="warn" title="Observação do pedido" className="mb-4">
@@ -815,18 +833,11 @@ function OrderSheet({
               Vai para as observações da entrega. A foto e a assinatura da prova dependem de um
               provedor de armazenamento ainda não configurado — por isso não são pedidas aqui.
             </p>
-            <Button
-              variant="success"
-              fullWidth
-              disabled={disabled}
-              onClick={() => onStep('DELIVERED', receiver.trim() || undefined)}
-            >
-              <CheckCircle2 className="inline-block" size={16} aria-hidden="true" /> Confirmar entrega
-            </Button>
+            <SlideToFinish disabled={disabled} onFinish={() => onStep('DELIVERED', receiver.trim() || undefined)} />
           </>
         ) : (
-          <Button fullWidth disabled={disabled || awaitingRelease(order)} onClick={() => onStep(step)}>
-            {awaitingRelease(order) ? 'Aguardando a loja liberar a retirada' : STEP_LABEL[step]}
+          <Button fullWidth disabled={disabled || (awaitingRelease(order) && order.delivery?.accepted)} onClick={() => onStep(step)}>
+            {deliveryActionLabel(order, step)}
           </Button>
         )}
 
@@ -879,14 +890,5 @@ function LocationSettingsCard({ onOpenMap }: { onOpenMap: () => void }) {
       {enabled && <Button size="sm" variant="secondary" onClick={onOpenMap} className="mt-3">Ver minha posição no mapa</Button>}
       {(state || checking) && <p className="mt-2.5 text-[0.76rem] font-semibold text-ink-700" role="status">{checking ? 'Pedindo permissão de localização…' : state}</p>}
     </Card>
-  );
-}
-
-function MiniStat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="rounded-xl border border-ink-100 bg-white px-2 py-3 text-center shadow-sm sm:px-3">
-      <p className="text-[1.05rem] font-extrabold leading-none text-ink-900">{value}</p>
-      <p className="mt-1 text-[0.68rem] font-medium text-ink-500">{label}</p>
-    </div>
   );
 }

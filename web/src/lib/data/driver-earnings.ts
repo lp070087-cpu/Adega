@@ -1,7 +1,8 @@
 import 'server-only';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { OperationError } from '@/lib/operation-error';
 import { prisma, toNumber } from '@/lib/db';
-import { driverPayCents, earningsPeriodStart, earningsTimezone, readDriverPayRule, type EarningsPeriod } from '@/lib/driver-earnings';
+import { driverPayCents, earningsDateBounds, earningsPeriodStart, earningsTimezone, readDriverPayRule, type EarningsDateRange, type EarningsPeriod } from '@/lib/driver-earnings';
 
 /**
  * Ganhos por entrega. Um lançamento por pedido (`orderId` único), criado na
@@ -53,6 +54,10 @@ export type EarningsSummary = {
   count: number;
   unpricedCount: number;
   rows: EarningRow[];
+  page?: number;
+  pageSize?: number;
+  chart?: { label: string; points: Array<{ day: string; amountCents: number }> };
+  overview?: { weekCents: number; monthCents: number };
   /** Só na área da loja: uma linha por entregador. */
   drivers?: DriverEarningsTotal[];
   /** Só na área da loja. */
@@ -62,23 +67,30 @@ export type EarningsSummary = {
 const ROW_LIMIT = 200;
 
 /** Com `driverId`, só os dados daquele entregador; com null, a visão da loja. Sempre por organização. */
-export async function getDriverEarnings(organizationId: string, driverId: string | null, period: EarningsPeriod, storeView = driverId === null): Promise<EarningsSummary> {
+export async function getDriverEarnings(organizationId: string, driverId: string | null, period: EarningsPeriod, storeView = driverId === null, range?: EarningsDateRange, page = 1): Promise<EarningsSummary> {
   const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
   const now = new Date();
-  const start = earningsPeriodStart(period, now, earningsTimezone(org?.settings));
+  const zone = earningsTimezone(org?.settings);
+  const custom = period === 'custom' && range ? earningsDateBounds(range, zone) : null;
+  if (period === 'custom' && !custom) throw new OperationError('Informe um intervalo de datas válido.');
+  const start = period !== 'all' && period !== 'custom' ? earningsPeriodStart(period, now, zone) : custom?.gte;
+  const upper = custom?.lt;
+  const pageSize = storeView ? ROW_LIMIT : 40;
+  const offset = (page - 1) * pageSize;
   const where: Prisma.OrderWhereInput = {
     organizationId,
     status: 'DELIVERED',
     deliveryType: 'DELIVERY',
     driverId: driverId ?? { not: null },
-    deliveredAt: { gte: start, lte: now },
+    deliveredAt: { gte: start, lt: upper, lte: now },
   };
 
   const [orders, earnings, grouped] = await Promise.all([
     prisma.order.findMany({
       where,
-      orderBy: { deliveredAt: 'desc' },
-      take: ROW_LIMIT,
+      orderBy: [{ deliveredAt: 'desc' }, { id: 'desc' }],
+      skip: offset,
+      take: pageSize,
       select: { id: true, displayId: true, total: true, deliveryFee: true, deliveredAt: true, driver: { select: { name: true } }, driverEarning: { select: { amountCents: true } } },
     }),
     prisma.driverEarning.groupBy({ by: ['driverId'], where: { organizationId, order: where }, _sum: { amountCents: true }, _count: { _all: true } }),
@@ -92,6 +104,8 @@ export async function getDriverEarnings(organizationId: string, driverId: string
     configured: Boolean(readDriverPayRule(org?.settings)),
     amountCents: earnings.reduce((sum, row) => sum + (row._sum.amountCents ?? 0), 0),
     count,
+    page,
+    pageSize,
     unpricedCount: count - priced,
     rows: orders.map((order) => ({
       id: order.id,
@@ -102,6 +116,39 @@ export async function getDriverEarnings(organizationId: string, driverId: string
       ...(storeView ? { deliveryFee: toNumber(order.deliveryFee), orderTotal: toNumber(order.total) } : {}),
     })),
   };
+  if (!storeView && driverId) {
+    const daily = period !== 'all' && (!custom || +custom.lt - +custom.gte <= 32 * 86400000);
+    const bucket = daily ? 'day' : 'week';
+    const take = daily ? 32 : 12;
+    const week = earningsPeriodStart('week', now, zone);
+    const month = earningsPeriodStart('month', now, zone);
+    const [points, totals] = await Promise.all([
+      prisma.$queryRaw<Array<{ day: string; amount: bigint }>>`
+        SELECT to_char(date_trunc(${bucket}, o."deliveredAt" AT TIME ZONE 'UTC' AT TIME ZONE ${zone}), 'YYYY-MM-DD') AS day,
+          SUM(e."amountCents") AS amount
+        FROM "Order" o JOIN "DriverEarning" e ON e."orderId" = o.id
+        WHERE o."organizationId" = ${organizationId} AND o."driverId" = ${driverId}
+          AND o.status = 'DELIVERED' AND o."deliveryType" = 'DELIVERY' AND o."deliveredAt" <= ${now}
+          ${start ? Prisma.sql`AND o."deliveredAt" >= ${start}` : Prisma.empty}
+          ${upper ? Prisma.sql`AND o."deliveredAt" < ${upper}` : Prisma.empty}
+        GROUP BY 1 ORDER BY 1 DESC LIMIT ${take}
+      `,
+      prisma.$queryRaw<Array<{ week: bigint | null; month: bigint | null }>>`
+        SELECT SUM(e."amountCents") FILTER (WHERE o."deliveredAt" >= ${week}) AS week,
+          SUM(e."amountCents") FILTER (WHERE o."deliveredAt" >= ${month}) AS month
+        FROM "Order" o JOIN "DriverEarning" e ON e."orderId" = o.id
+        WHERE o."organizationId" = ${organizationId} AND o."driverId" = ${driverId}
+          AND o.status = 'DELIVERED' AND o."deliveryType" = 'DELIVERY'
+          AND o."deliveredAt" BETWEEN ${new Date(Math.min(+week, +month))} AND ${now}
+      `,
+    ]);
+    summary.overview = { weekCents: Number(totals[0]?.week ?? 0), monthCents: Number(totals[0]?.month ?? 0) };
+    summary.chart = {
+      label: daily ? 'Ganhos por dia' : 'Ganhos nas últimas 12 semanas com registros no período',
+      points: points.reverse().map((row) => ({ day: row.day, amountCents: Number(row.amount) })),
+    };
+    return summary;
+  }
   if (!storeView) return summary;
 
   const names = await prisma.driver.findMany({ where: { organizationId, id: { in: grouped.map((row) => row.driverId!).filter(Boolean) } }, select: { id: true, name: true } });

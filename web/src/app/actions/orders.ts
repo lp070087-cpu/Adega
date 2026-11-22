@@ -435,6 +435,8 @@ export async function driverStepAction(input: {
       throw new OperationError('Passo inválido ou já registrado. Atualize as entregas.');
     }
 
+    if (input.step === 'PICKED_UP' && order.delivery.pickupCode) throw new OperationError('Escaneie ou digite o código da coleta para confirmar a retirada.');
+
     const parsed = driverDeliveryStepSchema.safeParse({
       deliveryId: order.delivery?.id ?? order.id,
       step: input.step,

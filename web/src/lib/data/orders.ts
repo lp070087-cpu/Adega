@@ -823,6 +823,13 @@ export async function updateOrderStatus(
   if (order.deliveryType === 'PICKUP' && ['WAITING_DRIVER', 'DISPATCHED'].includes(status)) throw new OperationError('Pedido de retirada não pode ser despachado.');
   if (order.deliveryType !== 'PICKUP' && status === 'DELIVERED' && order.status !== 'DISPATCHED') throw new OperationError('Despache o pedido antes de concluir.');
   if (status === 'DISPATCHED' && !order.driverId) throw new OperationError('Atribua um entregador antes de despachar.');
+  if (status === 'DISPATCHED' && order.status === 'WAITING_DRIVER') {
+    const uncollected = await tx.delivery.findFirst({
+      where: { organizationId, orderId, status: 'ASSIGNED', pickupCode: { not: null } },
+      select: { id: true },
+    });
+    if (uncollected) throw new OperationError('O entregador precisa registrar a coleta com o código da ficha antes de sair.');
+  }
 
   const now = new Date();
   const stamp: Prisma.OrderUpdateInput = {
@@ -919,7 +926,7 @@ export async function assignDriver(
         status: 'ASSIGNED',
         assignedAt: new Date(),
       },
-      update: { driverId, status: 'ASSIGNED', assignedAt: new Date(),
+      update: { driverId, status: 'ASSIGNED', assignedAt: new Date(), acceptedAt: null, pickupCode: null,
         arrivedAt: null, pickedUpAt: null, startedAt: null, deliveredAt: null,
         proofType: 'NONE', proofValue: null },
     });
@@ -962,7 +969,7 @@ export async function unassignDriver(organizationId: string, orderId: string, tr
     });
     await tx.delivery.updateMany({
       where: { orderId, organizationId },
-      data: { driverId: null, status: 'PENDING', assignedAt: null, arrivedAt: null,
+      data: { driverId: null, status: 'PENDING', assignedAt: null, arrivedAt: null, acceptedAt: null, pickupCode: null,
         pickedUpAt: null, startedAt: null, deliveredAt: null },
     });
     if (order.driverId) {
@@ -1042,7 +1049,7 @@ export async function getDriverOrders(organizationId: string, driverId: string) 
     where: {
       organizationId,
       driverId,
-      status: { in: ['CONFIRMED', 'PREPARING', 'WAITING_DRIVER', 'DISPATCHED', 'DELIVERED'] },
+      status: { in: DRIVER_ACTIVE_STATUSES },
     },
     orderBy: { createdAt: 'desc' },
     take: 50,

@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth';
 import { driverLogoutAction as logoutAction } from '@/app/actions/auth';
 import { requireDriver, AuthError } from '@/lib/auth/guards';
 import { getDriverOrders } from '@/lib/data/orders';
-import { readDriverPayRule } from '@/lib/driver-earnings';
+import { toNumber } from '@/lib/db';
 import { getDriverEarnings } from '@/lib/data/driver-earnings';
 import { getOrganizationById } from '@/lib/data/organization';
 import { DriverApp, type DriverOrder } from '@/components/driver/DriverApp';
@@ -40,11 +40,6 @@ export const metadata = { title: 'Área do Entregador' };
 export const dynamic = 'force-dynamic';
 
 const profileFields = { email: true, username: true, phone: true, driverProfileAddress: true } as const;
-function previewRule(settings: unknown) {
-  const rule = readDriverPayRule(settings);
-  return rule ? { mode: rule.mode, amountCents: rule.amountCents, percent: rule.percent } : null;
-}
-
 export default async function DriverPage() {
   const session = await auth();
 
@@ -67,12 +62,11 @@ export default async function DriverPage() {
     const [membership, account] = await Promise.all([prisma.organizationUser.findFirst({
       where: { userId: platform.userId, active: true, role: 'OWNER' },
       orderBy: { createdAt: 'asc' },
-      select: { organization: { select: { name: true, logoUrl: true, brandColor: true, latitude: true, longitude: true, settings: true } } },
+      select: { organization: { select: { name: true, logoUrl: true, brandColor: true, latitude: true, longitude: true } } },
     }), prisma.user.findUnique({ where: { id: platform.userId }, select: profileFields })]);
     const store = membership?.organization ?? { name: 'Del Flash', logoUrl: null, brandColor: '#087EA4', latitude: null, longitude: null };
     return <DriverApp preview store={{ name: store.name, logoUrl: store.logoUrl, brandColor: store.brandColor, latitude: store.latitude, longitude: store.longitude }}
       account={{ email: account?.email ?? null, username: account?.username ?? null, phone: account?.phone ?? '', address: account?.driverProfileAddress ?? null }}
-      payRule={previewRule(membership?.organization.settings)}
       driver={{ name: session.user.name ?? 'Proprietário', vehicleType: 'MOTORCYCLE', vehiclePlate: null, status: 'OFFLINE', onShift: true, shiftLabel: undefined }}
       orders={[]} earnings={{ configured: false, amountCents: 0, count: 0, unpricedCount: 0, rows: [] }} />;
   }
@@ -115,7 +109,7 @@ export default async function DriverPage() {
   const [orders, organization, earnings, account] = await Promise.all([
     getDriverOrders(ctx.organizationId, ctx.driver.id),
     getOrganizationById(ctx.organizationId),
-    getDriverEarnings(ctx.organizationId, ctx.driver.id, 'today'),
+    getDriverEarnings(ctx.organizationId, ctx.driver.id, 'all'),
     prisma.user.findUnique({ where: { id: ctx.user.id }, select: profileFields }),
   ]);
 
@@ -132,6 +126,8 @@ export default async function DriverPage() {
     paymentStatus: order.paymentStatus,
     total: order.total,
     deliveryFee: order.deliveryFee,
+    changeFor: order.changeFor == null ? null : toNumber(order.changeFor),
+    deliveryZipCode: order.deliveryZipCode,
     // No banco o campo é opcional (pedido de balcão não tem endereço de
     // entrega). O app do entregador só recebe pedidos de entrega, mas o
     // tipo não pode mentir: string vazia em vez de null.
@@ -156,6 +152,8 @@ export default async function DriverPage() {
     delivery: order.delivery
       ? {
           status: order.delivery.status,
+          accepted: Boolean(order.delivery.acceptedAt || order.delivery.arrivedAt),
+          requiresPickupCode: Boolean(order.delivery.pickupCode),
           arrivedAt: order.delivery.arrivedAt ? order.delivery.arrivedAt.toISOString() : null,
           pickedUpAt: order.delivery.pickedUpAt ? order.delivery.pickedUpAt.toISOString() : null,
           deliveredAt: order.delivery.deliveredAt
@@ -170,7 +168,6 @@ export default async function DriverPage() {
   return (<div>{storeSelector}
     <DriverApp
       account={{ email: account?.email ?? null, username: account?.username ?? null, phone: ctx.driver.phone, address: account?.driverProfileAddress ?? null }}
-      payRule={previewRule(organization?.settings)}
       driver={{
         name: ctx.driver.name,
         vehicleType: ctx.driver.vehicleType,

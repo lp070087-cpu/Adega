@@ -1,4 +1,5 @@
 'use client';
+import { DeliverySlipButton } from '@/components/orders/DeliverySlipButton';
 import { canReceiveOrder, driverAvailability, driverOptionLabel, DRIVER_AVAILABILITY_LABEL } from '@/lib/driver-availability';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
@@ -215,6 +216,7 @@ export function DispatchBoard({
                         </p>
                       </div>
 
+                      {canDispatch && order.driverId && <DeliverySlipButton orderId={order.id} />}
                       {canDispatch && (
                         <Button size="sm" onClick={() => setAssignTarget(order)} disabled={pending}>
                           {order.driverId ? 'Trocar entregador' : 'Atribuir entregador'}
