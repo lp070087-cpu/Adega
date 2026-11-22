@@ -28,3 +28,17 @@ test('janela da Meta: só conclusão com número e conta completa o fluxo', () =
   assert.equal(readSignupMessage('texto solto'), null);
   assert.equal(readSignupMessage(JSON.stringify({ type: 'WA_EMBEDDED_SIGNUP', event: 'CANCEL', data: { current_step: 'PHONE' } }))?.event, 'CANCEL');
 });
+
+test('Meta confirma o número na conta empresarial selecionada', async () => {
+  const { verifyWabaPhone } = await import('../src/lib/assistant/meta-connect');
+  const urls: string[] = [];
+  const run: typeof fetch = async (url) => {
+    urls.push(String(url));
+    return Response.json(urls.length === 1
+      ? { data: [{ id: 'other' }], paging: { next: 'https://example.invalid', cursors: { after: 'page two' } } }
+      : { data: [{ id: 'expected' }] });
+  };
+  await verifyWabaPhone('v24.0', '12345', 'expected', 'token', run);
+  assert.match(urls[1]!, /^https:\/\/graph\.facebook\.com\/v24\.0\/12345\/phone_numbers\?.*after=page\+two$/);
+  await assert.rejects(() => verifyWabaPhone('v24.0', '12345', 'wrong', 'token', async () => Response.json({ data: [{ id: 'other' }] })), /não pertence/);
+});

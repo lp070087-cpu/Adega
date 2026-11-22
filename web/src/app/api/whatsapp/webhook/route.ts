@@ -23,7 +23,6 @@ export async function POST(request:NextRequest){
       if(typeof phone!=='string')continue;
       const channel=await prisma.assistantChannel.findUnique({where:{phoneNumberId:phone}});
       if(!channel?.enabled||!channel.verifiedAt)continue;
-      await prisma.assistantChannel.update({where:{id:channel.id},data:{webhookVerifiedAt:new Date()}});
       for(const message of (value.messages??[]).slice(0,20)){
         if(typeof message.id!=='string'||message.id.length>300||!/^\d{8,16}$/.test(message.from??''))continue;
         if(typeof message.timestamp!=='string'||!/^\d{10,13}$/.test(message.timestamp))continue;
@@ -35,6 +34,7 @@ export async function POST(request:NextRequest){
           await prisma.$transaction(async tx=>{
             const thread=await tx.assistantThread.upsert({where:{organizationId_contact:{organizationId:channel.organizationId,contact:message.from}},create:{organizationId:channel.organizationId,contact:message.from,status:humanRequired?'HUMAN':'BOT'},update:{updatedAt:new Date(),...(humanRequired?{status:'HUMAN'}:{})}});
             await tx.assistantMessage.create({data:{organizationId:channel.organizationId,threadId:thread.id,externalId:message.id,direction:'IN',body,createdAt:receivedAt}});
+            if (!channel.webhookVerifiedAt) await tx.assistantChannel.updateMany({ where: { id: channel.id, enabled: true, phoneNumberId: phone, webhookVerifiedAt: null }, data: { webhookVerifiedAt: new Date() } });
           });
           if(!humanRequired)received.add(channel.organizationId);
         }catch(error){if((error as {code?:string}).code!=='P2002')throw error;}

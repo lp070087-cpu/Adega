@@ -27,11 +27,12 @@ function request(raw: string, signed = true, url = 'https://example.test/api/wha
 function webhook(enabled = true) {
   const calls: any[] = []; const ids = new Set<string>();
   const tx = {
+    assistantChannel: { updateMany: async (q: any) => { calls.push(['verification', q]); return { count: 1 }; } },
     assistantThread: { upsert: async (q: any) => { calls.push(['thread', q]); return { id: `thread-${q.create.organizationId}` }; } },
     assistantMessage: { create: async (q: any) => { if (ids.has(q.data.externalId)) throw Object.assign(new Error('Duplicate'), { code: 'P2002' }); ids.add(q.data.externalId); calls.push(['message', q]); return q.data; } },
   };
   const prisma = {
-    assistantChannel: { findUnique: async (q: any) => { calls.push(['channel', q]); return q.where.phoneNumberId === 'phone-a' ? { id: 'channel-a', organizationId: 'org-a', enabled: true, verifiedAt: new Date() } : q.where.phoneNumberId === 'phone-b' ? { id: 'channel-b', organizationId: 'org-b', enabled: true, verifiedAt: new Date() } : null; }, update: async (q: any) => calls.push(['verification', q]) },
+    assistantChannel: { findUnique: async (q: any) => { calls.push(['channel', q]); return q.where.phoneNumberId === 'phone-a' ? { id: 'channel-a', organizationId: 'org-a', enabled: true, verifiedAt: new Date() } : q.where.phoneNumberId === 'phone-b' ? { id: 'channel-b', organizationId: 'org-b', enabled: true, verifiedAt: new Date() } : null; } },
     assistantMessage: { updateMany: async (q: any) => { calls.push(['receipt', q]); return { count: 1 }; } },
     $transaction: async (fn: any) => fn(tx),
   };
@@ -64,6 +65,11 @@ test('signed webhook uses verified phone-to-tenant mapping and acknowledges dupl
     const h = webhook(); const raw = payload();
     assert.equal((await h.route.POST(request(raw))).status, 200); assert.equal((await h.route.POST(request(raw))).status, 200);
     assert.equal(h.calls.filter(([kind]) => kind === 'message').length, 1);
+    assert.equal(h.calls.filter(([kind]) => kind === 'verification').length, 1);
+    const receiptsOnly = JSON.parse(payload());
+    delete receiptsOnly.entry[0].changes[0].value.messages;
+    await h.route.POST(request(JSON.stringify(receiptsOnly)));
+    assert.equal(h.calls.filter(([kind]) => kind === 'verification').length, 1);
     const message = h.calls.find(([kind]) => kind === 'message')[1].data;
     assert.equal(message.organizationId, 'org-a'); assert.equal(message.threadId, 'thread-org-a');
     assert.equal(h.calls.find(([kind]) => kind === 'thread')[1].where.organizationId_contact.organizationId, 'org-a');

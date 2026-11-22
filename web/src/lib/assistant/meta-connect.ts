@@ -40,6 +40,23 @@ export async function verifyPhoneNumber(version: string, phoneNumberId: string, 
   return { name: data.verified_name ?? null, phone: data.display_phone_number ?? null };
 }
 
+/** Confirma na Graph API que a conta empresarial contém o número selecionado. */
+export async function verifyWabaPhone(version: string, wabaId: string, phoneId: string, token: string, run?: Fetcher) {
+  let after: string | undefined;
+  const seen = new Set<string>();
+  for (let page = 0; page < 20; page++) {
+    const query = new URLSearchParams({ fields: 'id', limit: '100' });
+    if (after) query.set('after', after);
+    const result: { data?: Array<{ id?: string }>; paging?: { next?: string; cursors?: { after?: string } } } =
+      await graph(version, `${wabaId}/phone_numbers?${query}`, { token }, run);
+    if (result.data?.some(({ id }) => id === phoneId)) return;
+    after = result.paging?.next ? result.paging.cursors?.after : undefined;
+    if (!after || seen.has(after)) break;
+    seen.add(after);
+  }
+  throw new MetaError('O número selecionado não pertence à conta de WhatsApp Business autorizada.', null);
+}
+
 /** Troca o código do Embedded Signup por um token de acesso do negócio. */
 export async function exchangeSignupCode(version: string, input: { appId: string; appSecret: string; code: string }, run?: Fetcher) {
   const query = new URLSearchParams({ client_id: input.appId, client_secret: input.appSecret, code: input.code });
@@ -50,12 +67,14 @@ export async function exchangeSignupCode(version: string, input: { appId: string
 
 /** Assina o aplicativo na conta do WhatsApp Business: é o que faz o webhook receber as mensagens. */
 export async function subscribeApp(version: string, wabaId: string, token: string, run?: Fetcher) {
-  await graph(version, `${wabaId}/subscribed_apps`, { method: 'POST', token }, run);
+  const result = await graph<{ success?: boolean }>(version, `${wabaId}/subscribed_apps`, { method: 'POST', token }, run);
+  if (!result.success) throw new MetaError('A Meta não confirmou a assinatura do webhook.', null);
 }
 
 /** Registra o número na Cloud API com um PIN de verificação em duas etapas. */
 export async function registerPhoneNumber(version: string, phoneNumberId: string, token: string, pin: string, run?: Fetcher) {
-  await graph(version, `${phoneNumberId}/register`, { method: 'POST', token, body: { messaging_product: 'whatsapp', pin } }, run);
+  const result = await graph<{ success?: boolean }>(version, `${phoneNumberId}/register`, { method: 'POST', token, body: { messaging_product: 'whatsapp', pin } }, run);
+  if (!result.success) throw new MetaError('A Meta não confirmou o registro do número.', null);
 }
 
 /** Interpreta a mensagem que a janela do Embedded Signup envia ao concluir. */
@@ -66,7 +85,7 @@ export function readSignupMessage(raw: unknown): { event: 'FINISH'; phoneNumberI
   const data = message.data ?? {};
   if (message.event === 'CANCEL') return { event: 'CANCEL', detail: String(data.current_step ?? '') };
   if (message.event === 'ERROR') return { event: 'ERROR', detail: String(data.error_message ?? 'Erro informado pela Meta.') };
-  if (typeof message.event === 'string' && message.event.startsWith('FINISH') && typeof data.phone_number_id === 'string' && typeof data.waba_id === 'string') {
+  if (message.event === 'FINISH' && typeof data.phone_number_id === 'string' && typeof data.waba_id === 'string') {
     return { event: 'FINISH', phoneNumberId: data.phone_number_id, wabaId: data.waba_id };
   }
   return null;

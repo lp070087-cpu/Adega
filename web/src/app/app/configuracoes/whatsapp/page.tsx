@@ -47,7 +47,7 @@ export default async function WhatsAppSettings() {
         <div className="rounded-xl border-2 border-brand/30 bg-white p-4">
           <p className="text-[0.7rem] font-bold uppercase tracking-wide text-brand">Canal recomendado</p>
           <p className="mt-1 font-semibold text-ink-900">API oficial da Meta</p>
-          <p className="mt-1 text-[0.78rem] text-ink-500">WhatsApp Business Platform: número verificado, webhook assinado, envio pela API oficial e sem risco de bloqueio por automação não autorizada.</p>
+          <p className="mt-1 text-[0.78rem] text-ink-500">WhatsApp Business Platform: número verificado, webhook assinado, envio pela API oficial.</p>
           <p className="mt-2 text-[0.76rem] font-semibold text-ink-700">Status abaixo, em “Conexão oficial”.</p>
         </div>
         <div className="rounded-xl border bg-ink-50 p-4" data-testid="whatsapp-web-channel">
@@ -70,7 +70,8 @@ export default async function WhatsAppSettings() {
             </li>
           ))}
         </ol>
-        <WhatsAppConnect connected={Boolean(channel?.enabled && channel.verifiedAt)} />
+        <WhatsAppConnect connected={verified} registered={Boolean(channel?.enabled)} />
+        {verified && !receiving && <p className="text-sm text-ink-600">Envie uma mensagem de outro telefone ao número cadastrado. A confirmação aparece depois que a Meta entregar a mensagem ao Del Flash.</p>}
         {!receiving && <p className="rounded-lg bg-ink-50 p-3 text-[0.8rem] text-ink-600">Nenhuma conexão é simulada: enquanto estas etapas não forem concluídas, o Atendimento não mostra conversas.</p>}
         {!platformOk && (
           <details className="rounded-lg border border-ink-100 p-3 text-[0.8rem]" data-testid="whatsapp-missing">
@@ -80,6 +81,10 @@ export default async function WhatsAppSettings() {
               {aiItems.map((item) => <li key={item.key}>{item.ok ? '✓' : '○'} {item.label} (opcional) <code className="text-[0.72rem] text-ink-500">{item.key}</code></li>)}
             </ul>
             <p className="mt-2 text-ink-500">Crie um aplicativo do tipo Empresa em developers.facebook.com, adicione o produto WhatsApp e o Login do Facebook para Empresas, crie uma configuração de Embedded Signup e copie os valores para as variáveis acima na Vercel.</p>
+            <div className="mt-2 flex flex-wrap gap-3">
+              <a href="https://developers.facebook.com/apps/" target="_blank" rel="noreferrer" className="font-semibold text-brand underline">Abrir aplicativos da Meta</a>
+              <a href="https://developers.facebook.com/docs/whatsapp/embedded-signup/" target="_blank" rel="noreferrer" className="font-semibold text-brand underline">Guia do Embedded Signup</a>
+            </div>
             <p className="mt-2 text-ink-500">URL do webhook na Meta: <code className="break-all">{webhookUrl}</code> · campo assinado: <code>messages</code>.</p>
           </details>
         )}

@@ -62,6 +62,7 @@ export function OrderDrawer({
   drivers,
   canManageOrders,
   canManageDrivers,
+  canManageSettings,
   onChanged,
   fiscal = null,
 }: {
@@ -72,6 +73,7 @@ export function OrderDrawer({
   drivers: Array<{ id: string; name: string; status: string; activeOrders?: number; accessPending?: boolean }>;
   canManageOrders: boolean;
   canManageDrivers: boolean;
+  canManageSettings: boolean;
   onChanged: () => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -221,7 +223,15 @@ export function OrderDrawer({
         <PaymentStatusBadge status={order.paymentStatus} method={order.paymentMethod} />
       </div>
 
-      {fiscal && order.status !== 'CANCELLED' && <FiscalInvoicePanel key={order.id} orderId={order.id} paid={order.paymentStatus === 'PAID'} environment={fiscal.environment} />}
+      {fiscal && <FiscalInvoicePanel
+        key={order.id}
+        orderId={order.id}
+        paid={order.paymentStatus === 'PAID' && order.status !== 'CANCELLED'}
+        canCancel={canManageSettings}
+        needsCpf={order.deliveryType === 'DELIVERY'}
+        needsPayment={order.paymentMethod === 'ONLINE'}
+        environment={fiscal.environment}
+      />}
 
       {/* ── Itens ─────────────────────────────────────────────────── */}
       <section className="mb-5">

@@ -241,6 +241,7 @@ export function OrdersBoard({
         drivers={drivers}
         canManageOrders={canManageOrders}
         canManageDrivers={canManageDrivers}
+        canManageSettings={canManageSettings}
         onChanged={() => router.refresh()}
         fiscal={fiscal}
       />

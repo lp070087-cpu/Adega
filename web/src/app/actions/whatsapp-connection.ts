@@ -1,6 +1,5 @@
 'use server';
 
-import { randomInt } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
@@ -8,7 +7,7 @@ import { requirePermission, toActionError } from '@/lib/auth/guards';
 import { decrypt, encrypt, isEncryptionConfigured } from '@/lib/crypto';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
 import { assistantReady, graphVersion, whatsappConnectChecklist } from '@/lib/assistant/service';
-import { exchangeSignupCode, MetaError, registerPhoneNumber, subscribeApp, verifyPhoneNumber } from '@/lib/assistant/meta-connect';
+import { exchangeSignupCode, MetaError, registerPhoneNumber, subscribeApp, verifyPhoneNumber, verifyWabaPhone } from '@/lib/assistant/meta-connect';
 import { OperationError } from '@/lib/operation-error';
 
 type Result = { ok: true; message: string } | { ok: false; error: string };
@@ -27,21 +26,22 @@ export async function startWhatsAppConnectionAction() {
   }
 }
 
-const finishSchema = z.object({ code: z.string().min(10).max(4000), phoneNumberId: z.string().regex(/^\d{5,30}$/), wabaId: z.string().regex(/^\d{5,30}$/) });
+const finishSchema = z.object({ code: z.string().min(10).max(4000), phoneNumberId: z.string().regex(/^\d{5,30}$/), wabaId: z.string().regex(/^\d{5,30}$/), pin: z.string().regex(/^\d{6}$/) });
 
 export async function finishWhatsAppConnectionAction(input: unknown): Promise<Result> {
   try {
     const ctx = await requirePermission('MANAGE_SETTINGS');
     const data = finishSchema.parse(input);
-    if (!isEncryptionConfigured() || !process.env.WHATSAPP_APP_ID || !process.env.WHATSAPP_APP_SECRET || !(await assistantReady())) throw new OperationError('A plataforma ainda não está pronta para conectar o WhatsApp.');
+    if (whatsappConnectChecklist().some(({ ok }) => !ok) || !isEncryptionConfigured() || !process.env.WHATSAPP_APP_ID || !process.env.WHATSAPP_APP_SECRET || !(await assistantReady())) throw new OperationError('A plataforma ainda não está pronta para conectar o WhatsApp.');
     const owner = await prisma.assistantChannel.findUnique({ where: { phoneNumberId: data.phoneNumberId }, select: { organizationId: true } });
     if (owner && owner.organizationId !== ctx.organizationId) throw new OperationError('Este número já está conectado a outro estabelecimento.');
 
     const version = graphVersion();
     const token = await exchangeSignupCode(version, { appId: process.env.WHATSAPP_APP_ID, appSecret: process.env.WHATSAPP_APP_SECRET, code: data.code });
     const phone = await verifyPhoneNumber(version, data.phoneNumberId, token);
+    await verifyWabaPhone(version, data.wabaId, data.phoneNumberId, token);
+    await registerPhoneNumber(version, data.phoneNumberId, token, data.pin);
     await subscribeApp(version, data.wabaId, token);
-    await registerPhoneNumber(version, data.phoneNumberId, token, String(randomInt(100000, 1000000)));
 
     const encryptedToken = encrypt(token);
     await withOrganizationTransaction(ctx.organizationId, async (tx) => {

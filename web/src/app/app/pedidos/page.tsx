@@ -22,7 +22,10 @@ export const dynamic = 'force-dynamic';
  * transição válida e vínculo do entregador.
  */
 /** Painel de NFC-e no pedido só quando há provedor fiscal configurado e liberado. */
-function fiscalPanel(settings: unknown) { const c = readFiscalProvider(settings); return fiscalEmissionAllowed(c) ? { environment: c.environment } : null; }
+async function fiscalPanel(organizationId: string, settings: unknown) {
+  const config = readFiscalProvider(settings);
+  return await fiscalEmissionAllowed(organizationId, settings) ? { environment: config.environment } : null;
+}
 
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<{ pedido?: string }> }) {
   const ctx = await requireOrgPage('MANAGE_ORDERS');
@@ -115,7 +118,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         initialOrderId={typeof pedido === 'string' ? pedido : null}
         orders={serialized}
         prepMinutes={readPrepMinutes(organization?.settings)}
-        fiscal={fiscalPanel(organization?.settings)}
+        fiscal={await fiscalPanel(ctx.organizationId, organization?.settings)}
         products={products.map((product) => ({
           id: product.id, name: product.name, price: toNumber(product.promotionalPrice ?? product.price),
           variations: product.variations.map((v) => ({ ...v, priceAdjustment: toNumber(v.priceAdjustment) })),
