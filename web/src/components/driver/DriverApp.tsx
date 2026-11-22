@@ -1,6 +1,6 @@
 'use client';
 
-import { Bike, Car, Footprints, MapPin, Navigation, CheckCircle2, Package, Map as MapIcon, Wallet, UserRound } from 'lucide-react';
+import { Bike, Car, Footprints, MapPin, Navigation, Menu, CheckCircle2, Package, Map as MapIcon, Wallet, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { BrandMark } from '@/components/ui/BrandMark';
@@ -14,10 +14,9 @@ import {
 } from '@/app/actions/orders';
 import { driverLogoutAction as logoutAction } from '@/app/actions/auth';
 import { reportFailedDeliveryAction } from '@/app/actions/drivers';
-import { Alert, Badge, Button, Card, EmptyState, Input } from '@/components/ui';
+import { Alert, Badge, Button, Card, Drawer, EmptyState, Input } from '@/components/ui';
 import { DriverInstallCard } from '@/components/driver/DriverInstall';
 import { DriverScheduleNotice } from '@/components/driver/DriverScheduleNotice';
-import { DriverNavigation } from '@/components/driver/DriverNavigation';
 import { DriverRoutes } from '@/components/driver/DriverRoutes';
 import { DriverEarnings } from '@/components/driver/DriverEarnings';
 import type { EarningsSummary } from '@/lib/data/driver-earnings';
@@ -204,7 +203,15 @@ export function DriverApp({
   const router = useRouter();
   useLiveRefresh(preview ? null : '/api/entregador/versao', 8000);
   const [pending, startTransition] = useTransition();
-  const [tab, setTab] = useState<'entregas' | 'rotas' | 'ganhos' | 'perfil'>('entregas');
+  const [tab, setTab] = useState<'entregas' | 'mapa' | 'ganhos' | 'perfil'>('entregas');
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const desktop = window.matchMedia('(min-width: 1024px)');
+    const closeOnDesktop = () => { if (desktop.matches) setMenuOpen(false); };
+    desktop.addEventListener('change', closeOnDesktop);
+    return () => desktop.removeEventListener('change', closeOnDesktop);
+  }, [menuOpen]);
   const [navTarget, setNavTarget] = useState<string | null>(null);
   const clearNavigationTarget = useCallback(() => setNavTarget(null), []);
   const [error, setError] = useState<string | null>(null);
@@ -290,6 +297,18 @@ export function DriverApp({
     if (!preview && driver.status === 'OFFLINE') void setMyDriverStatusAction('ONLINE').then(() => router.refresh()).catch(() => undefined);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  function selectSection(section: typeof tab) {
+    setTab(section);
+    setMenuOpen(false);
+    window.scrollTo({ top: 0 });
+  }
+
+  function openOrderMap(orderId: string) {
+    setOpenId(null);
+    setNavTarget(orderId);
+    selectSection('mapa');
+  }
+
   const renderOrder = (order: DriverOrder) => (
     <OrderCard
       key={order.id}
@@ -303,7 +322,7 @@ export function DriverApp({
           () => {
             setNotice(step === 'DELIVERED' ? `Entrega do pedido #${order.displayId} confirmada.` : `Passo registrado: ${STEP_LABEL[step]}.`);
             if (step === 'DELIVERED') setOpenId(null);
-            if (step === 'STARTED') { setOpenId(null); setNavTarget(order.id); setTab('rotas'); }
+            if (step === 'STARTED') openOrderMap(order.id);
           },
         )
       }
@@ -312,30 +331,24 @@ export function DriverApp({
 
   const tabs = [
     ['entregas', 'Entregas', Package, active.length],
-    ['rotas', 'Rotas', MapIcon, 0],
+    ['mapa', 'Mapa', MapIcon, 0],
     ['ganhos', 'Ganhos', Wallet, 0],
     ['perfil', 'Perfil', UserRound, 0],
   ] as const;
 
   return (
     <div className="panel-shell flex min-h-screen bg-ink-50">
-      <aside className="panel-sidebar sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col p-4 lg:flex">
+      <aside className="panel-sidebar sticky top-0 order-last hidden h-screen w-[260px] shrink-0 flex-col p-4 lg:flex">
         <div className="px-2 py-2"><BrandMark tone="light" /></div>
         <p className="mb-4 mt-3 rounded-xl bg-white/10 px-3 py-2 text-sm font-semibold text-white">{store.name}</p>
         <nav aria-label="Seções do entregador" className="space-y-1">
-          {tabs.map(([key, label, Icon, count]) => <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}
+          {tabs.map(([key, label, Icon, count]) => <button key={key} type="button" onClick={() => selectSection(key)} aria-current={tab === key ? 'page' : undefined}
             className={cn('flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-semibold', tab === key ? 'bg-brand text-white' : 'text-white/70 hover:bg-white/10 hover:text-white')}>
             <Icon size={19} aria-hidden />{label}{count > 0 && <span className="ml-auto rounded-full bg-white/20 px-2">{count}</span>}
           </button>)}
         </nav>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-      {/*
-        Cabeçalho e abas grudam juntos, como um bloco só. Cada um com seu
-        próprio `sticky top-*` exigiria cravar a altura do cabeçalho em
-        pixels — e o nome da loja quebra em duas linhas em tela estreita,
-        o que desalinharia as abas silenciosamente.
-      */}
       <div className="sticky top-0 z-20">
         {/* ── CABEÇALHO ────────────────────────────────────────────── */}
         <header
@@ -371,15 +384,18 @@ export function DriverApp({
               </p>
             </div>
 
-            <span className="flex-shrink-0 rounded-full bg-ink-100 px-2.5 py-1 text-[0.74rem] font-bold text-ink-700">
+            <span className="hidden flex-shrink-0 rounded-full bg-ink-100 px-2.5 py-1 text-[0.74rem] font-bold text-ink-700 sm:inline-flex">
               <VehicleIcon type={driver.vehicleType} /> {driver.vehiclePlate ?? '—'}
             </span>
+            <button type="button" onClick={() => setMenuOpen(true)} aria-label="Abrir menu do entregador" aria-haspopup="dialog" aria-expanded={menuOpen} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border border-ink-200 px-2.5 text-sm font-semibold text-ink-800 lg:hidden">
+              <Menu size={20} aria-hidden /> Menu
+            </button>
           </div>
         </header>
 
       </div>
 
-      <main className="panel-content mx-auto w-full max-w-6xl flex-1 space-y-5 px-3 pt-3 pb-28 sm:px-5 lg:px-7 lg:pt-6">
+      <main className="panel-content mx-auto w-full max-w-6xl flex-1 space-y-5 px-3 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-5 lg:px-7 lg:pt-6">
         {preview && <Alert tone="neutral" title="Visualização do motoboy">
           Esta visão é de demonstração. O painel operacional depende do cadastro de um entregador. <Link href="/admin" className="font-semibold underline">Voltar ao Admin Central</Link>
         </Alert>}
@@ -391,16 +407,14 @@ export function DriverApp({
         )}
         {notice && <Alert tone="success">{notice}</Alert>}
 
-        <DriverRoutes
+        {tab === 'mapa' && <DriverRoutes
           orders={routeOrders}
           storeOrigin={store.latitude != null && store.longitude != null ? { latitude: store.latitude, longitude: store.longitude } : null}
-          expanded={tab === 'rotas'}
           preview={preview}
           onOpenOrder={setOpenId}
-          onOpenRoutes={() => setTab('rotas')}
           autoNavigate={navTarget}
           onAutoNavigate={clearNavigationTarget}
-        />
+        />}
 
         {/* ── MINHAS ENTREGAS ──────────────────────────────────────── */}
         {tab === 'entregas' && (
@@ -475,24 +489,18 @@ export function DriverApp({
         )}
       </main>
 
-      {/* ── MENU INFERIOR (uso com uma mão) ──────────────────────── */}
-      <nav aria-label="Menu do entregador" className="fixed inset-x-0 bottom-0 z-[900] border-t border-ink-100 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-        <div className="mx-auto grid max-w-xl grid-cols-4 px-2">
+      <Drawer open={menuOpen} onClose={() => setMenuOpen(false)} title="Menu do entregador" panelClassName="w-[86vw] max-w-xs lg:hidden">
+        <nav aria-label="Seções do entregador" className="space-y-2">
           {tabs.map(([key, label, Icon, count]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTab(key)}
-              aria-current={tab === key ? 'page' : undefined}
-              className={cn('relative flex min-h-[60px] flex-col items-center justify-center gap-0.5 px-0.5 text-[0.66rem] font-bold leading-tight', tab === key ? 'text-brand' : 'text-ink-500')}
-            >
-              <span className={cn('flex h-7 w-12 items-center justify-center rounded-full transition-colors', tab === key && 'bg-brand-light')}><Icon size={19} aria-hidden /></span>
-              <span className="max-w-full text-center leading-[1.05]">{label}</span>
-              {count > 0 && <span className="absolute right-[18%] top-1.5 rounded-full bg-brand px-1.5 text-[0.6rem] font-extrabold text-white">{count}</span>}
+            <button key={key} type="button" aria-current={tab === key ? 'page' : undefined}
+              onClick={() => selectSection(key)}
+              className={cn('flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-semibold', tab === key ? 'bg-brand-light text-brand' : 'text-ink-700 hover:bg-ink-50')}>
+              <Icon size={20} aria-hidden />{label}
+              {count > 0 && <span className="ml-auto rounded-full bg-ink-100 px-2">{count}</span>}
             </button>
           ))}
-        </div>
-      </nav>
+        </nav>
+      </Drawer>
 
       {/* ── DETALHE DA ENTREGA ─────────────────────────────────────── */}
       {openOrder && (
@@ -501,6 +509,7 @@ export function DriverApp({
           store={store}
           disabled={pending}
           onClose={() => setOpenId(null)}
+          onOpenMap={() => openOrderMap(openOrder.id)}
           onFailure={(reason) => run(
             () => reportFailedDeliveryAction({ orderId: openOrder.id, reason }),
             () => { setNotice('Tentativa registrada. A loja recebeu o pedido para novo despacho.'); setOpenId(null); },
@@ -632,6 +641,7 @@ function OrderSheet({
   store,
   disabled,
   onClose,
+  onOpenMap,
   onStep,
   onFailure,
 }: {
@@ -639,14 +649,13 @@ function OrderSheet({
   store: DriverStore;
   disabled: boolean;
   onClose: () => void;
+  onOpenMap: () => void;
   onStep: (step: Step, notes?: string) => void;
   onFailure: (reason: string) => void;
 }) {
   const step = nextStep(order.delivery);
   const [receiver, setReceiver] = useState('');
   const [failureReason, setFailureReason] = useState('');
-  const [navigating, setNavigating] = useState(false);
-  const [useLocation] = useDriverLocationPref();
   const phone = order.customerPhone.replace(/\D/g, '');
   const jaEntregue = order.status === 'DELIVERED';
 
@@ -721,7 +730,7 @@ function OrderSheet({
           {!jaEntregue && (
             <button
               type="button"
-              onClick={() => setNavigating(true)}
+              onClick={onOpenMap}
               className="mt-2.5 flex min-h-11 w-full items-center justify-center gap-2 rounded-sm bg-brand px-3 text-[0.82rem] font-bold text-white hover:bg-brand-dark"
             >
               <Navigation size={16} aria-hidden="true" /> Ver rota no mapa
@@ -736,18 +745,6 @@ function OrderSheet({
             </a>
           </div>
         </div>
-
-        {navigating && (
-          <DriverNavigation
-            orderId={order.id}
-            address={destination.address}
-            reference={order.notes}
-            googleUrl={route.google}
-            wazeUrl={route.waze}
-            useLocation={useLocation}
-            onClose={() => setNavigating(false)}
-          />
-        )}
 
         {order.deliveryLatitude != null && order.deliveryLongitude != null && (
           <p className="mb-3 flex items-center gap-1.5 rounded-lg bg-brand-light px-3 py-2 text-[0.78rem] font-semibold text-brand" data-testid="exact-pin">

@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
+    "@maplibre/maplibre-gl-leaflet": "0.1.4",
     "@prisma/client": "^6.2.1",
     "@vercel/blob": "^2.8.2",
     "bcryptjs": "^2.4.3",
@@ -33,6 +34,7 @@
     "clsx": "^2.1.1",
     "leaflet": "1.9.4",
     "lucide-react": "^0.469.0",
+    "maplibre-gl": "5.24.1",
     "next": "^15.1.4",
     "next-auth": "^5.0.0-beta.25",
     "react": "^19.0.0",

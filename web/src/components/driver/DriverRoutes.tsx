@@ -7,6 +7,7 @@ import { ArrowDown, ArrowUp, Crosshair, LocateFixed, Navigation, Sparkles } from
 import { driverRoutePlanAction, type RoutePlanStop } from '@/app/actions/drivers';
 import { requestDriverLocation, useDriverLocationPref } from '@/lib/driver-location-pref';
 import { navigationUrl } from '@/lib/driver-nav-url';
+import { DRIVER_MAP_REGION, loadDriverBasemap, type BasemapStatus } from '@/lib/maps/driver-basemap';
 import { cn, formatBRL } from '@/lib/utils';
 import { Alert, Button } from '@/components/ui';
 import { DriverNavigation } from '@/components/driver/DriverNavigation';
@@ -55,13 +56,11 @@ function metersBetween(a: Point, b: Point) {
 function readSeq(): string[] { try { const v = JSON.parse(window.localStorage.getItem(SEQ_KEY) ?? '[]'); return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []; } catch { return []; } }
 function writeSeq(seq: string[]) { try { window.localStorage.setItem(SEQ_KEY, JSON.stringify(seq)); } catch { /* sem armazenamento: vale nesta tela */ } }
 
-export function DriverRoutes({ orders, storeOrigin, expanded, preview, onOpenOrder, onOpenRoutes, autoNavigate, onAutoNavigate }: {
+export function DriverRoutes({ orders, storeOrigin, preview, onOpenOrder, autoNavigate, onAutoNavigate }: {
   orders: RouteOrder[];
   storeOrigin: Point | null;
-  expanded: boolean;
   preview: boolean;
   onOpenOrder: (orderId: string) => void;
-  onOpenRoutes: () => void;
   autoNavigate: string | null;
   onAutoNavigate: () => void;
 }) {
@@ -84,6 +83,7 @@ export function DriverRoutes({ orders, storeOrigin, expanded, preview, onOpenOrd
   const latestRequest = useRef(0);
   useEffect(() => {
     if (!autoNavigate || !orders.some((order) => order.id === autoNavigate)) return;
+    setFocus(autoNavigate);
     setNavigating(autoNavigate);
     onAutoNavigate();
   }, [autoNavigate, onAutoNavigate, orders]);
@@ -228,7 +228,7 @@ export function DriverRoutes({ orders, storeOrigin, expanded, preview, onOpenOrd
             ? <span className="flex items-center gap-1.5 rounded-full bg-brand-light px-2.5 py-1 text-xs font-semibold text-brand"><LocateFixed size={14} aria-hidden /> GPS ativo</span>
             : <Button size="sm" variant="secondary" disabled={askingLocation} onClick={() => void authorizeLocation()}><LocateFixed size={16} aria-hidden /> {askingLocation ? 'Aguardando GPS…' : 'Ativar localização'}</Button>)}
         </div>
-        <RouteMap stops={ordered.map((o, i) => ({ order: o, stop: stopById.get(o.id), n: i + 1 }))} store={plan?.store ?? storeOrigin} me={useLocation ? me : null} route={route?.coordinates ?? null} selected={selectedId} onSelect={(id) => setFocus(id)} expanded={expanded} />
+        <RouteMap stops={ordered.map((o, i) => ({ order: o, stop: stopById.get(o.id), n: i + 1 }))} store={plan?.store ?? storeOrigin} me={useLocation ? me : null} route={route?.coordinates ?? null} selected={selectedId} onSelect={(id) => setFocus(id)} />
         {!preview && <p className="px-1 text-xs text-ink-600" aria-live="polite">
           {gps === 'denied' ? 'Permita a localização para este site nos ajustes do celular e tente novamente.'
             : gps === 'unavailable' ? 'GPS indisponível. Confira a localização do celular e tente novamente.'
@@ -247,12 +247,11 @@ export function DriverRoutes({ orders, storeOrigin, expanded, preview, onOpenOrd
             <a href={chosenLinks.google} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-brand px-3 text-xs font-bold text-white"><Navigation size={15} aria-hidden /> Google Maps</a>
             <a href={chosenLinks.waze} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center rounded-lg border border-ink-200 bg-white px-3 text-xs font-semibold text-ink-800">Waze</a>
             {plan?.routing && <Button size="sm" variant="secondary" onClick={() => setNavigating(chosen.id)}>Navegar no painel</Button>}
-            {!expanded && <Button size="sm" variant="secondary" onClick={onOpenRoutes}>Ver rotas</Button>}
           </div>
         </div>}
       </div>
 
-      {expanded && ordered.length > 0 && <>
+      {ordered.length > 0 && <>
         <div className="rounded-lg border border-ink-100 bg-white p-3" aria-live="polite">
           {loading && !route ? <p className="text-[0.8rem] text-ink-500">Calculando rota…</p>
             : route && plan ? (
@@ -332,14 +331,13 @@ export function DriverRoutes({ orders, storeOrigin, expanded, preview, onOpenOrd
   );
 }
 
-function RouteMap({ stops, store, me, route, selected, onSelect, expanded }: {
+function RouteMap({ stops, store, me, route, selected, onSelect }: {
   stops: Array<{ order: RouteOrder; stop?: RoutePlanStop; n: number }>;
   store: Point | null;
   me: (Point & { accuracy: number }) | null;
   route: Array<[number, number]> | null;
   selected: string | null;
   onSelect: (orderId: string) => void;
-  expanded: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
@@ -348,39 +346,31 @@ function RouteMap({ stops, store, me, route, selected, onSelect, expanded }: {
   const [ready, setReady] = useState(false);
   const framedKey = useRef<string | null>(null);
   const [follow, setFollow] = useState(true);
-  // O mapa só aparece já enquadrado nas entregas (sem piscar o Brasil inteiro).
-  const [framed, setFramed] = useState(false);
-  useEffect(() => { const t = window.setTimeout(() => setFramed(true), 2500); return () => window.clearTimeout(t); }, []);
-
-  const [loadError, setLoadError] = useState(false);
-  const [tilesFailing, setTilesFailing] = useState(false);
+  const [basemap, setBasemap] = useState<BasemapStatus>('loading');
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let disposed = false;
-    setLoadError(false);
+    let cleanupBasemap: (() => void) | undefined;
+    setBasemap('loading');
     import('leaflet').then((L) => {
       if (disposed || !box.current) return;
       leaflet.current = L;
       framedKey.current = null;
       // Começa na loja (ou no entregador) em vez do Brasil inteiro.
       const start: [number, number] | null = store ? [store.latitude, store.longitude] : me ? [me.latitude, me.longitude] : null;
-      const instance = L.map(box.current, { center: start ?? [-14.235, -51.925], zoom: start ? 14 : 4, scrollWheelZoom: false });
+      const instance = L.map(box.current, { center: start ?? DRIVER_MAP_REGION, zoom: start ? 14 : 13, minZoom: 2, maxZoom: 19, scrollWheelZoom: false });
       instance.on('dragstart', () => setFollow(false));
-      let tileErrors = 0;
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; colaboradores do <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' })
-        .on('tileerror', () => { tileErrors += 1; if (tileErrors >= 4) setTilesFailing(true); })
-        .on('tileload', () => { tileErrors = 0; setTilesFailing(false); })
-        .addTo(instance);
+      map.current = instance;
+      cleanupBasemap = loadDriverBasemap(instance, setBasemap);
       layers.current.store = L.layerGroup().addTo(instance);
       layers.current.stops = L.layerGroup().addTo(instance);
-      map.current = instance;
       requestAnimationFrame(() => instance.invalidateSize());
       const observer = new ResizeObserver(() => instance.invalidateSize());
       observer.observe(box.current);
       instance.once('unload', () => observer.disconnect());
       setReady(true);
-    }).catch(() => { if (!disposed) { setLoadError(true); setFramed(true); } });
-    return () => { disposed = true; map.current?.remove(); map.current = null; layers.current = {}; setReady(false); };
+    }).catch(() => { if (!disposed) setBasemap('unavailable'); });
+    return () => { disposed = true; cleanupBasemap?.(); map.current?.remove(); map.current = null; layers.current = {}; setReady(false); };
   }, [attempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const located = stops.flatMap((entry) => {
@@ -430,7 +420,6 @@ function RouteMap({ stops, store, me, route, selected, onSelect, expanded }: {
     } else if (me && follow) {
       instance.panInside([me.latitude, me.longitude], { padding: [34, 34], animate: false });
     }
-    setFramed(true);
   }, [ready, frame, me, follow]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function center() {
@@ -452,18 +441,16 @@ function RouteMap({ stops, store, me, route, selected, onSelect, expanded }: {
   }
 
   return (
-    <div className={cn("relative isolate min-h-[255px] overflow-hidden rounded-xl border border-ink-100 bg-ink-50", expanded ? "h-[48dvh] max-h-[600px]" : "h-[38dvh] max-h-[420px]")}>
-      <div ref={box} className={cn('df-map absolute inset-0 transition-opacity duration-300', framed ? 'opacity-100' : 'opacity-0')} aria-label="Mapa das entregas" data-testid="routes-map" />
-      {!framed && <p className="absolute inset-0 z-[400] flex items-center justify-center text-[0.8rem] text-ink-500">Carregando o mapa das entregas…</p>}
-      {loadError && (
+    <div className="relative isolate h-[62dvh] min-h-[320px] max-h-[700px] overflow-hidden rounded-xl border border-ink-100 bg-ink-50">
+      <div ref={box} className="df-map absolute inset-0" aria-label="Mapa das entregas" data-testid="routes-map" data-basemap={basemap} />
+      {basemap === 'loading' && <p className="pointer-events-none absolute inset-x-3 top-3 z-[550] mx-auto w-fit rounded-lg bg-white px-3 py-2 text-center text-sm font-medium text-ink-700 shadow" role="status">Carregando ruas e bairros…</p>}
+      {basemap === 'unavailable' && (
         <div className="absolute inset-0 z-[600] flex flex-col items-center justify-center gap-3 bg-ink-50 p-6 text-center" role="alert" data-testid="routes-map-error">
-          <p className="text-[0.86rem] font-semibold text-ink-800">Não foi possível carregar o mapa.</p>
-          <p className="text-[0.76rem] text-ink-500">Verifique a conexão. As paradas abaixo e os links do Google Maps e do Waze continuam funcionando.</p>
+          <p className="text-sm font-semibold text-ink-800">As ruas do mapa não carregaram.</p>
           <button type="button" onClick={() => setAttempt((n) => n + 1)} className="min-h-11 rounded-lg bg-brand px-4 text-sm font-semibold text-white">Tentar novamente</button>
         </div>
       )}
-      {tilesFailing && !loadError && <p className="absolute inset-x-2 top-2 z-[500] rounded-md bg-amber-50 px-3 py-2 text-center text-[0.74rem] text-amber-900 shadow" role="status">As ruas do mapa não carregaram agora. As paradas e a navegação externa continuam disponíveis.</p>}
-      {!loadError && <div className="absolute bottom-7 right-3 z-[500] flex flex-col gap-2">
+      {basemap === 'ready' && <div className="absolute bottom-7 right-3 z-[500] flex flex-col gap-2">
         {me && <button type="button" onClick={centerOnMe} aria-label="Centralizar na minha localização" title="Minha localização" className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-brand shadow-lg"><LocateFixed size={21} aria-hidden /></button>}
         {(located.length > 0 || store) && <button type="button" onClick={center} aria-label="Enquadrar entregas" title="Enquadrar entregas" className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-brand shadow-lg"><Crosshair size={21} aria-hidden /></button>}
       </div>}

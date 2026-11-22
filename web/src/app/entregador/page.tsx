@@ -60,10 +60,10 @@ export default async function DriverPage() {
     const membership = await prisma.organizationUser.findFirst({
       where: { userId: platform.userId, active: true, role: 'OWNER' },
       orderBy: { createdAt: 'asc' },
-      select: { organization: { select: { name: true, logoUrl: true, brandColor: true } } },
+      select: { organization: { select: { name: true, logoUrl: true, brandColor: true, latitude: true, longitude: true } } },
     });
-    const store = membership?.organization ?? { name: 'Del Flash', logoUrl: null, brandColor: '#087EA4' };
-    return <DriverApp preview store={{ ...store, latitude: null, longitude: null }}
+    const store = membership?.organization ?? { name: 'Del Flash', logoUrl: null, brandColor: '#087EA4', latitude: null, longitude: null };
+    return <DriverApp preview store={store}
       driver={{ name: session.user.name ?? 'Proprietário', vehicleType: 'MOTORCYCLE', vehiclePlate: null, status: 'OFFLINE', onShift: true, shiftLabel: undefined }}
       orders={[]} earnings={{ configured: false, amountCents: 0, count: 0, unpricedCount: 0, rows: [] }} />;
   }

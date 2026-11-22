@@ -455,6 +455,7 @@ export function Drawer({
   subtitle,
   children,
   footer,
+  panelClassName,
 }: {
   open: boolean;
   onClose: () => void;
@@ -462,6 +463,7 @@ export function Drawer({
   subtitle?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  panelClassName?: string;
 }) {
   const dialogRef = useDialogFocus(open);
   React.useEffect(() => {
@@ -488,7 +490,7 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="flex h-full w-full max-w-lg flex-col bg-white shadow-xl animate-slide-in-right" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className={cn("flex h-full w-full max-w-lg flex-col bg-white shadow-xl animate-slide-in-right", panelClassName)} style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <header className="flex items-start justify-between gap-4 border-b border-ink-100 p-[18px_22px]">
           <div>

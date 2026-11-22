@@ -6,6 +6,7 @@ import type { CircleMarker, LayerGroup, Map as LeafletMap, Marker, Polyline } fr
 import 'leaflet/dist/leaflet.css';
 import { Crosshair, X } from 'lucide-react';
 import { driverNavigationAction } from '@/app/actions/drivers';
+import { DRIVER_MAP_REGION, loadDriverBasemap, type BasemapStatus } from '@/lib/maps/driver-basemap';
 
 /**
  * Navegação dentro do app do entregador.
@@ -42,12 +43,7 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
   const [ready, setReady] = useState(false);
   const [ownPosition, setOwnPosition] = useState<(Point & { accuracy: number }) | null>(null);
   const [destination, setDestination] = useState<(Point & { approximate: boolean }) | null>(null);
-  // O mapa aparece já no destino; sem destino em 2,5 s, mostra assim mesmo.
-  const [shown, setShown] = useState(false);
-  const [mapFailed, setMapFailed] = useState(false);
-  const [tilesFailing, setTilesFailing] = useState(false);
-  useEffect(() => { const t = window.setTimeout(() => setShown(true), 2500); return () => window.clearTimeout(t); }, []);
-  useEffect(() => { if (destination) setShown(true); }, [destination]);
+  const [basemap, setBasemap] = useState<BasemapStatus>('loading');
   const [route, setRoute] = useState<Route | null>(null);
   const [status, setStatus] = useState<{ tone: 'info' | 'warn' | 'error'; text: string } | null>({ tone: 'info', text: 'Carregando o mapa…' });
   const [ownGps, setOwnGps] = useState<GpsStatus>(useLocation ? 'waiting' : 'off');
@@ -69,27 +65,24 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
   useEffect(() => {
     if (!mounted) return;
     let disposed = false;
+    let cleanupBasemap: (() => void) | undefined;
     import('leaflet').then((L) => {
       if (disposed || !box.current) return;
       leaflet.current = L;
       // Abre direto no destino quando ele já é conhecido (sem mostrar o Brasil inteiro).
-      const instance = L.map(box.current, { center: destination ? [destination.latitude, destination.longitude] : [-14.235, -51.925], zoom: destination ? 16 : 4, zoomControl: true });
-      let tileErrors = 0;
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; colaboradores do <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' })
-        .on('tileerror', () => { tileErrors += 1; if (tileErrors >= 4) setTilesFailing(true); })
-        .on('tileload', () => { tileErrors = 0; setTilesFailing(false); })
-        .addTo(instance);
+      const instance = L.map(box.current, { center: destination ? [destination.latitude, destination.longitude] : DRIVER_MAP_REGION, zoom: destination ? 16 : 13, minZoom: 2, maxZoom: 19, zoomControl: true });
+      map.current = instance;
+      cleanupBasemap = loadDriverBasemap(instance, setBasemap);
       instance.on('dragstart', () => setFollow(false));
       layers.current.group = L.layerGroup().addTo(instance);
-      map.current = instance;
       // O portal acabou de montar: mede o contêiner de novo antes de enquadrar.
       requestAnimationFrame(() => instance.invalidateSize());
       setReady(true);
       const observer = new ResizeObserver(() => instance.invalidateSize());
       observer.observe(box.current);
       instance.once('unload', () => observer.disconnect());
-    }).catch(() => { if (!disposed) { setMapFailed(true); setShown(true); } });
-    return () => { disposed = true; map.current?.remove(); map.current = null; layers.current = {}; };
+    }).catch(() => { if (!disposed) setBasemap('unavailable'); });
+    return () => { disposed = true; cleanupBasemap?.(); map.current?.remove(); map.current = null; layers.current = {}; };
   }, [mounted]);
 
   const load = useCallback(async (from: Point | null) => {
@@ -200,10 +193,8 @@ export function DriverNavigation({ orderId, address, reference, googleUrl, wazeU
       </header>
 
       <div className="relative isolate min-h-0 flex-1 bg-ink-50">
-        <div ref={box} className={`df-map absolute inset-0 transition-opacity duration-300 ${shown ? 'opacity-100' : 'opacity-0'}`} aria-label="Mapa da rota" />
-        {!shown && <p className="absolute inset-0 flex items-center justify-center text-[0.8rem] text-ink-500">Carregando o mapa…</p>}
-        {mapFailed && <p className="absolute inset-x-3 top-3 z-[600] rounded-md bg-white px-3 py-2 text-center text-[0.78rem] font-semibold text-ink-800 shadow" role="alert" data-testid="navigation-map-error">O mapa não carregou. Use os botões do Google Maps ou do Waze abaixo para navegar.</p>}
-        {tilesFailing && !mapFailed && <p className="absolute inset-x-3 top-3 z-[600] rounded-md bg-amber-50 px-3 py-2 text-center text-[0.74rem] text-amber-900 shadow" role="status">As ruas do mapa não carregaram agora. O destino e a navegação externa continuam disponíveis.</p>}
+        <div ref={box} className="df-map absolute inset-0" aria-label="Mapa da rota" data-basemap={basemap} />
+        {basemap === 'unavailable' && <p className="absolute inset-x-3 top-3 z-[600] rounded-md bg-white px-3 py-2 text-center text-[0.78rem] font-semibold text-ink-800 shadow" role="alert" data-testid="navigation-map-error">As ruas do mapa não carregaram. Abra o Google Maps ou o Waze abaixo.</p>}
         <button type="button" onClick={center} aria-label="Centralizar na minha localização" className="absolute bottom-4 right-4 z-[500] flex h-12 w-12 items-center justify-center rounded-full bg-white text-brand shadow-lg"><Crosshair size={22} aria-hidden /></button>
         {status && <p role={status.tone === 'error' ? 'alert' : 'status'} className={`absolute inset-x-3 top-3 z-[500] rounded-lg px-3 py-2 text-center text-[0.78rem] shadow ${status.tone === 'error' ? 'bg-danger-bg text-danger' : status.tone === 'warn' ? 'bg-amber-50 text-amber-900' : 'bg-white/95 text-ink-700'}`}>{status.text}</p>}
       </div>
