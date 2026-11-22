@@ -93,7 +93,7 @@ export function OnlinePaymentForm({ enabled, environment, provider: initialProvi
               <li>Cole o token e a assinatura secreta abaixo. Salve no ambiente de teste e clique em Testar conexão.</li>
               <li>Para simular uma compra, use uma conta de comprador e um cartão de teste do Mercado Pago.</li>
             </ol>
-            <a href="https://www.mercadopago.com.br/developers/pt/docs/checkout-pro/integration-test/test-purchase" target="_blank" rel="noreferrer" className="mt-3 inline-block font-semibold text-brand underline">Instruções oficiais da compra de teste</a>
+            <a href="https://www.mercadopago.com.br/developers/pt/docs/checkout-pro-preferences/integration-test/test-purchases" target="_blank" rel="noreferrer" className="mt-3 inline-block font-semibold text-brand underline">Instruções oficiais da compra de teste</a>
           </details>
           <label><span className="field-label">Ambiente</span>
             <select name="environment" defaultValue={initialProvider === 'mercadopago' ? environment : 'sandbox'} className="field-input">
