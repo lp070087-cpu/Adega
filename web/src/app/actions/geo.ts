@@ -60,7 +60,7 @@ export async function reversePlaceAction(input: { slug: string; latitude: number
 }
 
 export type DeliveryQuote =
-  | { ok: true; fee: number; distanceKm: number | null; distanceKind: 'street' | 'straight' | null; outside: boolean; estimated: boolean }
+  | { ok: true; fee: number; distanceKm: number | null; distanceKind: 'street' | 'straight' | null; outside: boolean; outsideReason?: string; estimated: boolean }
   | { ok: false; error: string };
 
 /**
@@ -76,12 +76,13 @@ export async function quoteDeliveryAction(input: { slug: string; latitude?: numb
     const { prisma } = await import('@/lib/db');
     const org = await prisma.organization.findUnique({ where: { slug: input.slug }, select: { id: true, baseDeliveryFee: true, extraKmFee: true, deliveryRadius: true, latitude: true, longitude: true, deliveryFeeMode: true, settings: true } });
     if (!org) return { ok: false, error: 'Estabelecimento não encontrado.' };
-    const { explainDeliveryFee, isOutsideDeliveryArea, normalizeTiers } = await import('@/lib/data/delivery-fee');
+    const { explainDeliveryFee, isOutsideDeliveryArea, normalizeBlockedDistricts, normalizeTiers } = await import('@/lib/data/delivery-fee');
     const { getDeliveryZonesForFee } = await import('@/lib/data/store-ops');
     const settings = {
       baseDeliveryFee: Number(org.baseDeliveryFee), extraKmFee: Number(org.extraKmFee), deliveryRadius: org.deliveryRadius,
       latitude: org.latitude, longitude: org.longitude, feeMode: org.deliveryFeeMode,
       tiers: normalizeTiers((org.settings as Record<string, unknown> | null)?.deliveryTiers),
+      blockedDistricts: normalizeBlockedDistricts((org.settings as Record<string, unknown> | null)?.blockedDeliveryDistricts),
       zones: await getDeliveryZonesForFee(org.id),
     };
     const lat = Number.isFinite(input.latitude) ? Number(input.latitude) : null;
@@ -97,7 +98,7 @@ export async function quoteDeliveryAction(input: { slug: string; latitude?: numb
     const destination = { latitude: lat, longitude: lng, district: typeof input.district === 'string' ? input.district.slice(0, 120) : null, roadKm };
     const fee = explainDeliveryFee(settings, destination);
     const area = isOutsideDeliveryArea(settings, destination);
-    return { ok: true, fee: fee.fee, distanceKm: fee.distanceKm, distanceKind: fee.distanceKm === null ? null : fee.distanceKind ?? 'straight', outside: area.outside, estimated: fee.estimated };
+    return { ok: true, fee: fee.fee, distanceKm: fee.distanceKm, distanceKind: fee.distanceKm === null ? null : fee.distanceKind ?? 'straight', outside: area.outside, outsideReason: area.reason, estimated: fee.estimated };
   } catch {
     return { ok: false, error: 'Não foi possível calcular a taxa agora.' };
   }

@@ -86,6 +86,7 @@ export async function getCombos(organizationId: string) {
           trackStock: true,
           position: true,
           categoryId: true,
+          imageUrl: true,
           globalProduct: { select: { defaultImageUrl: true } },
         },
       },
@@ -113,7 +114,7 @@ export async function getCombos(organizationId: string) {
       name: combo.product.name,
       description: combo.product.description,
       emoji: combo.product.emoji,
-      customImageUrl: combo.product.customImageUrl,
+      customImageUrl: combo.product.customImageUrl ?? combo.product.imageUrl,
       globalImageUrl: combo.product.globalProduct?.defaultImageUrl ?? null,
       price: Number(combo.product.price),
       promotionalPrice:
@@ -304,7 +305,7 @@ export async function getComboCandidates(organizationId: string, excludeProductI
       combo: null,
     },
     orderBy: [{ name: 'asc' }],
-    select: { id: true, name: true, emoji: true, price: true, customImageUrl: true, categoryId: true },
+    select: { id: true, name: true, emoji: true, price: true, customImageUrl: true, imageUrl: true, globalProduct: { select: { defaultImageUrl: true } }, categoryId: true },
   });
 }
 

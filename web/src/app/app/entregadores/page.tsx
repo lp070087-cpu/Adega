@@ -70,7 +70,7 @@ export default async function DriversPage() {
         }}
         canManage={can(ctx.role, 'MANAGE_DRIVERS')}
         linkUrl={linkUrl}
-        earningsSlot={<DriverEarnings store initial={earnings} rule={readDriverPayRule(organization?.settings)} />}
+        earningsSlot={<DriverEarnings store drivers={drivers.map(({ id, name }) => ({ id, name }))} initial={earnings} rule={readDriverPayRule(organization?.settings)} />}
         scheduleSlot={<div className="space-y-4"><DriverSelectionRule rule={readDriverSelectionRule(organization?.settings)} /><DriverScheduleManager drivers={drivers} schedules={Object.fromEntries(drivers.map(driver => [driver.id, readDriverSchedule(settings, driver.id)]))} /></div>}
       />
     </div>

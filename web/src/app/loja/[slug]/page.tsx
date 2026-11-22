@@ -162,6 +162,9 @@ export default async function PublicStorePage({ params }: PageProps) {
       product.combo?.items.filter(item=>item.product.organizationId===store.id).map((item) => ({
         productId: item.product.id,
         name: item.product.name,
+        emoji: item.product.emoji,
+        customImageUrl: item.product.customImageUrl ?? item.product.imageUrl,
+        globalImageUrl: item.product.globalProduct?.defaultImageUrl ?? null,
         unitPrice: Number(item.product.price),
         quantity: item.quantity,
         active: item.product.active,

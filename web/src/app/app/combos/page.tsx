@@ -36,6 +36,9 @@ export default async function CombosPage() {
   const combos: ComboRow[] = combosRaw.map((combo) => ({
     id: combo.id,
     name: combo.name,
+    description: combo.description,
+    trackStock: combo.trackStock,
+    stock: combo.stock,
     emoji: combo.emoji,
     customImageUrl: combo.customImageUrl,
     globalImageUrl: combo.globalImageUrl,
@@ -59,6 +62,8 @@ export default async function CombosPage() {
     name: candidate.name,
     emoji: candidate.emoji,
     price: Number(candidate.price),
+    customImageUrl: candidate.customImageUrl ?? candidate.imageUrl,
+    globalImageUrl: candidate.globalProduct?.defaultImageUrl ?? null,
     categoryId: candidate.categoryId,
   }));
 

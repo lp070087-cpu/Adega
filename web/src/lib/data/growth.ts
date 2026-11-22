@@ -11,8 +11,8 @@ async function save(tx:Prisma.TransactionClient,organizationId:string,settings:P
 export async function getGrowth(organizationId:string){const org=await prisma.organization.findUniqueOrThrow({where:{id:organizationId},select:{settings:true}});return growthState(org.settings);}
 export async function updateGrowth(organizationId:string,work:(state:GrowthState)=>void|Promise<void>){return withOrganizationTransaction(organizationId,async tx=>{const {settings,state}=await read(tx,organizationId);await work(state);await save(tx,organizationId,settings,state);});}
 export async function getCampaignCustomers(organizationId:string){
- const customers=await prisma.customer.findMany({where:{organizationId},take:1000,orderBy:{name:'asc'},select:{id:true,name:true,createdAt:true,orders:{where:{status:'DELIVERED'},take:1,orderBy:{createdAt:'desc'},select:{createdAt:true}}}});
- return customers.map(c=>({id:c.id,name:c.name,createdAt:c.createdAt,lastOrderAt:c.orders[0]?.createdAt??null}));
+ const customers=await prisma.customer.findMany({where:{organizationId},take:1000,orderBy:{name:'asc'},select:{id:true,name:true,phone:true,createdAt:true,orders:{where:{status:'DELIVERED'},take:1,orderBy:{createdAt:'desc'},select:{createdAt:true}}}});
+ return customers.map(c=>({id:c.id,name:c.name,phone:c.phone,createdAt:c.createdAt,lastOrderAt:c.orders[0]?.createdAt??null}));
 }
 export async function recordCampaignContact(organizationId:string,userId:string,campaignId:string,customerId:string){return withOrganizationTransaction(organizationId,async tx=>{
  const {settings,state}=await read(tx,organizationId);const campaign=state.campaigns.find(c=>c.id===campaignId);if(!campaign)throw new OperationError('Campanha não encontrada.');

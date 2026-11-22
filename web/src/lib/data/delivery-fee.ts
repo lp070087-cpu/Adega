@@ -25,6 +25,7 @@ import 'server-only';
  * ═══════════════════════════════════════════════════════════════════════
  */
 
+import { normalizeSearchText } from '@/lib/utils';
 import { tierForDistance, type DeliveryTier } from '@/lib/delivery-tiers';
 
 export type { DeliveryTier };
@@ -51,6 +52,7 @@ export type DeliveryFeeSettings = {
   tiers?: DeliveryTier[];
   /** Bairros com taxa (modo BY_NEIGHBORHOOD). */
   zones?: DeliveryZoneView[];
+  blockedDistricts?: string[];
 };
 
 export type DeliveryDestination = {
@@ -146,6 +148,18 @@ export function normalizeTiers(value: unknown): DeliveryTier[] {
  * um raio estimado (a coordenada é opcional na DeliveryZone e serve para
  * desenhar o mapa, nunca para o cálculo).
  */
+export function normalizeBlockedDistricts(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const districts = new Map<string, string>();
+  for (const entry of value) {
+    if (typeof entry !== 'string') continue;
+    const name = entry.trim().replace(/\s+/g, ' ');
+    const key = normalizeSearchText(name);
+    if (key.length >= 2 && name.length <= 120 && !districts.has(key)) districts.set(key, name);
+  }
+  return [...districts.values()].slice(0, 100);
+}
+
 function findZone(
   zones: DeliveryZoneView[] | undefined,
   district: DeliveryDestination['district'],
@@ -290,6 +304,10 @@ export function isOutsideDeliveryArea(
 
   const rawDistance = measuredKm(settings, destination).km;
   const distanceKm = rawDistance === null ? null : roundKm(rawDistance);
+  const district = normalizeSearchText(destination.district ?? '');
+  if (district && settings.blockedDistricts?.some((name) => normalizeSearchText(name) === district)) {
+    return { outside: true, distanceKm, reason: 'A loja não entrega neste bairro.' };
+  }
 
   if (mode === 'BY_NEIGHBORHOOD') {
     const zone = findZone(settings.zones, destination.district);

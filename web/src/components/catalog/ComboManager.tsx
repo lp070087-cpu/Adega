@@ -19,10 +19,13 @@ import {
   Field,
   Input,
   Modal,
+  MoneyInput,
   Select,
   Textarea,
 } from '@/components/ui';
 import { ProductThumb } from './ProductThumb';
+import { ComboArtwork } from './ComboArtwork';
+import { uploadProductImageAction } from '@/app/actions/product-image';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -49,10 +52,15 @@ export type ComboCandidate = {
   emoji: string | null;
   price: number;
   categoryId: string | null;
+  customImageUrl: string | null;
+  globalImageUrl: string | null;
 };
 
 export type ComboRow = {
   id: string;
+  description: string | null;
+  trackStock: boolean;
+  stock: number;
   name: string;
   emoji: string | null;
   customImageUrl: string | null;
@@ -276,13 +284,15 @@ export function ComboManager({
             return (
               <Card key={combo.id} className="!p-4">
                 <div className="flex items-start gap-3">
-                  <ProductThumb
+                  {!combo.customImageUrl && !combo.globalImageUrl && combo.items.length > 0 ? (
+                    <ComboArtwork size={44} items={combo.items.map((item) => ({ ...candidateMap.get(item.productId), ...item }))} />
+                  ) : <ProductThumb
                     customImageUrl={combo.customImageUrl}
                     globalImageUrl={combo.globalImageUrl}
                     emoji={combo.emoji ?? '🎁'}
                     alt={combo.name}
                     size={56}
-                  />
+                  />}
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -341,8 +351,8 @@ export function ComboManager({
                         setDraft({
                           id: combo.id,
                           name: combo.name,
-                          description: '',
-                          imageUrl: '',
+                          description: combo.description ?? '',
+                          imageUrl: combo.customImageUrl ?? '',
                           price: String(combo.price).replace('.', ','),
                           promotionalPrice:
                             combo.promotionalPrice != null
@@ -351,8 +361,8 @@ export function ComboManager({
                           categoryId: combo.categoryId ?? '',
                           active: combo.active,
                           featured: combo.featured,
-                          trackStock: false,
-                          stock: '0',
+                          trackStock: combo.trackStock,
+                          stock: String(combo.stock),
                           items: combo.items.map((i) => ({
                             productId: i.productId,
                             quantity: i.quantity,
@@ -418,7 +428,7 @@ export function ComboManager({
               required
               error={fieldError === 'price' ? error ?? undefined : undefined}
             >
-              <Input
+              <MoneyInput
                 value={draft.price}
                 onChange={(e) => setDraft({ ...draft, price: e.target.value })}
                 inputMode="decimal"
@@ -431,7 +441,7 @@ export function ComboManager({
               hint="Opcional. Precisa ser menor que o preço do combo."
               error={fieldError === 'promotionalPrice' ? error ?? undefined : undefined}
             >
-              <Input
+              <MoneyInput
                 value={draft.promotionalPrice}
                 onChange={(e) => setDraft({ ...draft, promotionalPrice: e.target.value })}
                 inputMode="decimal"
@@ -439,7 +449,7 @@ export function ComboManager({
               />
             </Field>
 
-            <Field label="Categoria" hint="Onde o combo aparece no catálogo.">
+            <Field label="Categoria (opcional)" hint="Onde o combo aparece no catálogo.">
               <Select
                 value={draft.categoryId}
                 onChange={(e) => setDraft({ ...draft, categoryId: e.target.value })}
@@ -456,14 +466,43 @@ export function ComboManager({
 
             <Field
               label="Imagem do combo"
-              hint="Opcional. Sem imagem, aparece o ícone de combo."
+              hint="PNG, JPG ou WebP de até 3 MB. Sem foto própria, a vitrine combina as imagens dos itens."
               error={fieldError === 'imageUrl' ? error ?? undefined : undefined}
             >
-              <Input
-                value={draft.imageUrl}
-                onChange={(e) => setDraft({ ...draft, imageUrl: e.target.value })}
-                placeholder="https://…"
+              <input
+                type="file"
+                aria-label="Enviar foto do combo"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={pending}
+                className="block w-full text-sm"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  if (!file) return;
+                  const form = new FormData();
+                  form.set('file', file);
+                  setError(null);
+                  setFieldError(null);
+                  startTransition(async () => {
+                    const result = await uploadProductImageAction(form);
+                    if (result.ok) setDraft((current) => current ? { ...current, imageUrl: result.url } : current);
+                    else { setFieldError('imageUrl'); setError(result.error); }
+                  });
+                }}
               />
+              {draft.imageUrl ? (
+                <div className="mt-2 flex items-center gap-2">
+                  <ProductThumb customImageUrl={draft.imageUrl} alt={draft.name || 'Foto do combo'} />
+                  <Button variant="ghost" disabled={pending} onClick={() => setDraft({ ...draft, imageUrl: '' })}>Remover foto</Button>
+                </div>
+              ) : draft.items.length > 0 && (
+                <div className="mt-2 rounded-lg bg-ink-50 p-2">
+                  <ComboArtwork items={draft.items.flatMap(({ productId }) => {
+                    const product = candidateMap.get(productId);
+                    return product ? [{ ...product, productId }] : [];
+                  })} />
+                </div>
+              )}
             </Field>
 
             <Field label="Descrição" className="sm:col-span-2">
@@ -527,7 +566,7 @@ export function ComboManager({
                             {candidate.name}
                           </span>
                           <span className="text-[0.72rem] text-ink-400">
-                            {formatBRL(candidate.price)}
+                            {formatBRL(candidate.price)}{chosen && chosen.quantity > 1 && ` cada · ${formatBRL(candidate.price * chosen.quantity)}`}
                           </span>
                         </span>
 

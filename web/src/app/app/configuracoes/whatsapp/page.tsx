@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { WhatsAppMessage } from '@/components/WhatsAppMessage';
+import { StoreWhatsAppNumber } from '@/components/StoreWhatsAppNumber';
 import { requireOrgPage } from '@/lib/auth/guards';
 import { aiChecklist, aiReady, assistantReady, whatsappConnectChecklist } from '@/lib/assistant/service';
 import { readAssistantPreferences } from '@/lib/assistant/preferences';
@@ -19,7 +21,7 @@ export default async function WhatsAppSettings() {
   const available = await assistantReady();
   const [channel, org] = await Promise.all([
     available ? prisma.assistantChannel.findUnique({ where: { organizationId }, select: { enabled: true, verifiedAt: true, webhookVerifiedAt: true, dailyLimit: true } }) : null,
-    prisma.organization.findUnique({ where: { id: organizationId }, select: { settings: true } }),
+    prisma.organization.findUnique({ where: { id: organizationId }, select: { settings: true, whatsapp: true } }),
   ]);
   const settings = (org?.settings ?? {}) as { assistant?: { enabled?: boolean; preferences?: unknown } };
   const verified = Boolean(channel?.enabled && channel.verifiedAt);
@@ -43,23 +45,21 @@ export default async function WhatsAppSettings() {
         <h2 className="text-[1.35rem] font-extrabold tracking-tight text-ink-900">WhatsApp</h2>
         <Link href="/app/atendimento" className="text-sm font-semibold text-brand">Abrir Atendimento</Link>
       </div>
-      <section className="grid gap-3 sm:grid-cols-2" aria-label="Canais de atendimento" data-testid="whatsapp-channels">
-        <div className="rounded-xl border-2 border-brand/30 bg-white p-4">
-          <p className="text-[0.7rem] font-bold uppercase tracking-wide text-brand">Canal recomendado</p>
-          <p className="mt-1 font-semibold text-ink-900">API oficial da Meta</p>
-          <p className="mt-1 text-[0.78rem] text-ink-500">WhatsApp Business Platform: número verificado, webhook assinado, envio pela API oficial.</p>
-          <p className="mt-2 text-[0.76rem] font-semibold text-ink-700">Status abaixo, em “Conexão oficial”.</p>
+      <section className="space-y-4 rounded-xl border border-ink-200 bg-white p-5">
+        <div>
+          <h3 className="font-semibold">WhatsApp direto</h3>
+          <p className="mt-1 text-sm text-ink-500">Cadastre o telefone comercial para o botão de contato da vitrine. Para enviar uma mensagem, abra a conversa pelo seu WhatsApp.</p>
         </div>
-        <div className="rounded-xl border bg-ink-50 p-4" data-testid="whatsapp-web-channel">
-          <p className="text-[0.7rem] font-bold uppercase tracking-wide text-ink-500">Indisponível</p>
-          <p className="mt-1 font-semibold text-ink-900">WhatsApp Web (QR Code)</p>
-          <p className="mt-1 text-[0.78rem] text-ink-500">Conectar pelo QR Code do WhatsApp Web depende de automações não oficiais, que violam os termos do WhatsApp e podem bloquear o número da loja. Por isso o Del Flash não oferece este modo. Use a API oficial ou o WhatsApp do celular para atender manualmente.</p>
-        </div>
+        <StoreWhatsAppNumber value={org?.whatsapp ?? null} />
+        <details className="rounded-lg border border-ink-100 p-3">
+          <summary className="cursor-pointer font-semibold">Enviar mensagem a um cliente</summary>
+          <div className="mt-3"><WhatsAppMessage /></div>
+        </details>
       </section>
 
       <section className="space-y-4 rounded-xl border bg-white p-5" data-testid="whatsapp-status">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-semibold text-ink-900">Conexão oficial (WhatsApp Business Platform)</h3>
+          <h3 className="font-semibold text-ink-900">Conexão oficial para automação (opcional)</h3>
           <span className={`rounded-full px-3 py-1 text-[0.74rem] font-bold ${status.tone}`} data-testid="whatsapp-connection">{status.text}</span>
         </div>
         <ol className="space-y-3">

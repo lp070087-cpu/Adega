@@ -81,6 +81,7 @@ export default async function MyStorePage({ searchParams }: { searchParams: Prom
     // o que estiver gravado errado ali vira lista vazia, não tela quebrada.
     schedule: operations?.schedule ?? [],
     deliveryTiers: operations?.deliveryTiers ?? [],
+    blockedDeliveryDistricts: operations?.blockedDeliveryDistricts ?? [],
     deliveryFeeMode: operations?.deliveryFeeMode ?? 'FIXED',
     deliveryZones: operations?.deliveryZones ?? [],
     allowPickup: operations?.allowPickup ?? true,

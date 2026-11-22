@@ -61,5 +61,5 @@ export async function stockPublicationAction(input: z.infer<typeof requestSchema
     });
     if (data.confirm) ['/app/estoque','/app/catalogo','/app/dashboard','/loja'].forEach(path => revalidatePath(path, 'layout'));
     return { ok: true as const, data: result };
-  } catch (error) { return { ok: false as const, error: toActionError(error).error }; }
+  } catch (error) { return { ok: false as const, error: error instanceof z.ZodError ? 'Confira as quantidades e os campos do lote e tente novamente.' : toActionError(error).error }; }
 }

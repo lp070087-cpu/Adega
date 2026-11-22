@@ -4,7 +4,7 @@ import { OperationError } from '@/lib/operation-error';
 import { prisma } from '@/lib/db';
 import type { Prisma } from '@prisma/client';
 import { normalizeSchedule, type WeekdaySchedule } from '@/lib/schedule';
-import { normalizeTiers } from '@/lib/data/delivery-fee';
+import { normalizeBlockedDistricts, normalizeTiers } from '@/lib/data/delivery-fee';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
 import { readBannerMeta } from '@/lib/banner-meta';
 
@@ -93,6 +93,7 @@ export async function getStoreOperations(organizationId: string) {
     openingHoursText: org.openingHours,
     schedule: normalizeSchedule(settings.openingHours as WeekdaySchedule[] | undefined),
     deliveryTiers: normalizeTiers(settings.deliveryTiers),
+    blockedDeliveryDistricts: normalizeBlockedDistricts(settings.blockedDeliveryDistricts),
     // Modo de taxa. Texto (FIXED / BY_NEIGHBORHOOD / BY_DISTANCE_BAND).
     // normalizeMode() em delivery-fee.ts garante queda para FIXED quando
     // o banco tiver um valor que não conhecemos.
@@ -169,6 +170,7 @@ export async function saveDelivery(
     averageDeliveryTime: number;
     deliveryTiers: Array<{ fromKm?: number; upToKm: number; fee: number }>;
     deliveryFeeMode?: string;
+    blockedDeliveryDistricts?: string[];
   },
 ): Promise<void> {
   const problems = tierProblems(input.deliveryTiers);
@@ -190,23 +192,32 @@ export async function saveDelivery(
     if (store?.latitude == null || store.longitude == null) throw new OperationError('Marque o ponto da loja no mapa antes de usar taxas por faixa de distância.');
   }
 
-  const result = await prisma.organization.updateMany({
-    where: { id: organizationId },
-    data: {
-      allowPickup: input.allowPickup,
-      allowOwnDelivery: input.allowOwnDelivery,
-      allowMarketplace: input.allowMarketplace,
-      minimumOrder: input.minimumOrder,
-      baseDeliveryFee: input.baseDeliveryFee,
-      extraKmFee: input.extraKmFee,
-      deliveryRadius: input.deliveryRadius,
-      averageDeliveryTime: Math.round(input.averageDeliveryTime),
-      deliveryFeeMode: feeMode,
-    },
+  await withOrganizationTransaction(organizationId, async (tx) => {
+    const org = await tx.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
+    if (!org) throw new OperationError('Estabelecimento não encontrado.');
+    const current = org.settings && typeof org.settings === 'object' && !Array.isArray(org.settings) ? org.settings : {};
+    await tx.organization.update({
+      where: { id: organizationId },
+      data: {
+        allowPickup: input.allowPickup,
+        allowOwnDelivery: input.allowOwnDelivery,
+        allowMarketplace: input.allowMarketplace,
+        minimumOrder: input.minimumOrder,
+        baseDeliveryFee: input.baseDeliveryFee,
+        extraKmFee: input.extraKmFee,
+        deliveryRadius: input.deliveryRadius,
+        averageDeliveryTime: Math.round(input.averageDeliveryTime),
+        deliveryFeeMode: feeMode,
+        settings: {
+          ...current,
+          deliveryTiers: sorted,
+          ...(input.blockedDeliveryDistricts === undefined ? {} : {
+            blockedDeliveryDistricts: normalizeBlockedDistricts(input.blockedDeliveryDistricts),
+          }),
+        },
+      },
+    });
   });
-  if (result.count === 0) throw new OperationError('Estabelecimento não encontrado.');
-
-  await mergeSettings(organizationId, { deliveryTiers: sorted });
 }
 
 // ── BAIRROS E TAXAS (Fase 3) ───────────────────────────────────────────

@@ -19,6 +19,7 @@ import {
   calculateDeliveryFee,
   isOutsideDeliveryArea,
   needsMeasuredDistance,
+  normalizeBlockedDistricts,
   normalizeTiers,
 } from '@/lib/data/delivery-fee';
 import type { OrderStatus as DriverActiveStatus } from '@prisma/client';
@@ -454,6 +455,7 @@ export async function createOrderFromCheckout(
     tiers: normalizeTiers(
       (organization.settings as Record<string, unknown> | null)?.deliveryTiers,
     ),
+    blockedDistricts: normalizeBlockedDistricts((organization.settings as Record<string, unknown> | null)?.blockedDeliveryDistricts),
     zones: zones.map((z) => ({ name: z.name, fee: toNumber(z.fee), active: z.active })),
   };
 

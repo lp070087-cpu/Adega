@@ -7,6 +7,7 @@ import { cn, formatBRL } from '@/lib/utils';
 import { checkoutAction } from '@/app/actions/orders';
 import { Alert, Button, Field, Input, MoneyInput, Modal, Select, Textarea } from '@/components/ui';
 import { ProductThumb } from '@/components/catalog/ProductThumb';
+import { ComboArtwork, type ComboArtworkItem } from '@/components/catalog/ComboArtwork';
 import { CustomerCheckoutAccess } from '@/components/customer/CustomerStoreAccess';
 import { saveCheckoutAddressAction } from '@/app/actions/customer-portal';
 import { quoteDeliveryAction, type DeliveryQuote } from '@/app/actions/geo';
@@ -43,7 +44,7 @@ import { DeliveryPinPicker } from './DeliveryPinPicker';
 
 export type StoreProductAddon = { id: string; name: string; price: number };
 
-export type StoreComboItem = {
+export type StoreComboItem = ComboArtworkItem & {
   productId: string;
   name: string;
   unitPrice: number;
@@ -444,16 +445,21 @@ export function StoreCatalog({
   // Prévia do frete pela mesma regra do servidor, assim que o ponto é marcado.
   const [quote, setQuote] = React.useState<Extract<DeliveryQuote, { ok: true }> | null>(null);
   const quoteTicket = React.useRef(0);
+  const checkoutFormRef = React.useRef<HTMLFormElement>(null);
+  const deliveryPoint = React.useRef<{ latitude: number; longitude: number } | null>(null);
   const requestQuote = React.useCallback((point: { latitude: number; longitude: number } | null) => {
+    deliveryPoint.current = point;
     const ticket = ++quoteTicket.current;
-    if (!point) { setQuote(null); return; }
-    void quoteDeliveryAction({ slug: store.slug, latitude: point.latitude, longitude: point.longitude }).then((result) => {
+    const address = checkoutFormRef.current;
+    const district = address ? String(new FormData(address).get('deliveryDistrict') ?? '').trim() : '';
+    if (!point && !district) { setQuote(null); return; }
+    void quoteDeliveryAction({ slug: store.slug, latitude: point?.latitude, longitude: point?.longitude, district }).then((result) => {
       if (ticket === quoteTicket.current) setQuote(result.ok ? result : null);
     }).catch(() => undefined);
   }, [store.slug]);
   // Por faixa, a taxa só existe depois do ponto no mapa: a taxa base não vale aqui.
   const feeByDistance = store.deliveryFeeMode === 'BY_DISTANCE_BAND';
-  const feeAwaitingPoint = feeByDistance && deliveryType === 'DELIVERY' && !quote;
+  const feeAwaitingPoint = feeByDistance && deliveryType === 'DELIVERY' && !quote?.outside && quote?.distanceKm == null;
   const deliveryFee =
     cart.length > 0 && deliveryType === 'DELIVERY' ? quote?.fee ?? (feeByDistance ? 0 : store.baseDeliveryFee) : 0;
   const total = subtotal + deliveryFee;
@@ -515,7 +521,6 @@ export function StoreCatalog({
   }
 
   const checkoutRequest = React.useRef<string | null>(null);
-  const checkoutFormRef = React.useRef<HTMLFormElement>(null);
   const [noNumber, setNoNumber] = React.useState(false);
   const coord = (value: FormDataEntryValue | null) => { const n = typeof value === 'string' && value.trim() ? Number(value) : NaN; return Number.isFinite(n) ? n : undefined; };
   const checkoutLocked = React.useRef(false);
@@ -1081,7 +1086,7 @@ export function StoreCatalog({
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2.5">
                 <Field label="Bairro" required className="mb-0">
-                  <Input name="deliveryDistrict" required minLength={2} maxLength={120} autoComplete="address-level3" />
+                  <Input name="deliveryDistrict" required minLength={2} maxLength={120} autoComplete="address-level3" onBlur={() => requestQuote(deliveryPoint.current)} />
                 </Field>
                 <Field label="Cidade" required className="mb-0">
                   <Input name="deliveryCity" required minLength={2} maxLength={120} defaultValue={store.city ?? ''} autoComplete="address-level2" />
@@ -1112,15 +1117,16 @@ export function StoreCatalog({
                   put('deliveryDistrict', fields.district);
                   put('deliveryCity', fields.city);
                   if (fields.state) setDeliveryUf(fields.state);
+                  requestQuote(deliveryPoint.current);
                 }}
               />
 
               {feeAwaitingPoint && <p role="status" data-testid="delivery-quote-pending" className="-mt-1 mb-3 rounded-lg bg-ink-50 px-3 py-2 text-[0.8rem] text-ink-700">Marque o endereço no mapa para calcular a taxa de entrega.</p>}
 
-              {quote && (
+              {quote && !feeAwaitingPoint && (
                 <p role="status" data-testid="delivery-quote" className={cn('-mt-1 mb-3 rounded-lg px-3 py-2 text-[0.8rem]', quote.outside ? 'bg-danger-bg font-semibold text-danger' : 'bg-ink-50 text-ink-700')}>
                   {quote.outside
-                    ? `Este ponto está fora da área de entrega da loja${quote.distanceKm !== null ? ` (${quote.distanceKm.toLocaleString('pt-BR')} km)` : ''}. Escolha outro endereço ou retirada.`
+                    ? `${quote.outsideReason ?? 'Este endereço está fora da área de entrega da loja.'} Escolha outro endereço ou retirada.`
                     : <>Taxa de entrega: <strong>{formatBRL(quote.fee)}</strong>{quote.distanceKm !== null ? ` · ${quote.distanceKm.toLocaleString('pt-BR')} km ${quote.distanceKind === 'street' ? 'pelas ruas' : 'em linha reta'}` : ''}</>}
                 </p>
               )}
@@ -1465,7 +1471,9 @@ function ProductCard({
     <li className={cn('store-product-card', soldOut && 'is-soldout')} style={{ '--store-brand': brandColor } as React.CSSProperties}>
       <div className="store-product-media">
         <button type="button" onClick={onOpen} className="store-product-photo" aria-label={`Ver detalhes de ${product.name}`}>
-          <ProductThumb
+          {!product.customImageUrl && !product.globalImageUrl && isCombo ? (
+            <ComboArtwork items={product.comboItems} size={82} />
+          ) : <ProductThumb
             customImageUrl={product.customImageUrl}
             globalImageUrl={product.globalImageUrl}
             basePath={product.basePath}
@@ -1473,7 +1481,7 @@ function ProductCard({
             alt={product.name}
             size={240}
             className="store-product-thumb"
-          />
+          />}
         </button>
         <div className="store-product-badges" aria-hidden={soldOut ? undefined : true}>
           {soldOut ? <span className="store-badge is-muted">{!product.available ? 'Indisponível' : 'Esgotado'}</span>
@@ -1668,9 +1676,11 @@ function CustomizeModal({
           descrição longa importa. A precedência de imagem é a mesma da
           lista, resolvida pelo ProductThumb.
         */}
-        {(product.customImageUrl || product.globalImageUrl) && (
+        {(product.customImageUrl || product.globalImageUrl || product.comboItems.length > 0) && (
           <div className="store-detail-photo flex h-56 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[#fafaf8] to-[#f1f1ee] sm:h-64" data-testid="product-detail-photo">
-            <ProductThumb
+            {!product.customImageUrl && !product.globalImageUrl ? (
+              <ComboArtwork items={product.comboItems} size={96} />
+            ) : <ProductThumb
               customImageUrl={product.customImageUrl}
               globalImageUrl={product.globalImageUrl}
               basePath={product.basePath}
@@ -1678,7 +1688,7 @@ function CustomizeModal({
               alt={product.name}
               size={240}
               className="store-product-thumb"
-            />
+            />}
           </div>
         )}
         {product.description && (

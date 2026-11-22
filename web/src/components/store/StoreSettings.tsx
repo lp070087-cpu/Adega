@@ -1,4 +1,5 @@
 'use client';
+
 import {parseMoneyInput} from '@/lib/money-input';
 import { announceStoreAvailability } from './StoreAvailabilitySync';
 import { setStoreOpeningModeAction } from '@/app/actions/store-opening';
@@ -6,7 +7,7 @@ import { setStoreOpeningModeAction } from '@/app/actions/store-opening';
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { cn, formatBRL } from '@/lib/utils';
+import { normalizeSearchText, cn, formatBRL } from '@/lib/utils';
 import {
   lookupStoreCepAction,
   setStoreStatusAction,
@@ -97,6 +98,7 @@ export type StoreFormData = {
    * que permite saber se a loja está aberta agora.
    */
   schedule: WeekdaySchedule[];
+  blockedDeliveryDistricts: string[];
   deliveryTiers: Array<{ fromKm?: number; upToKm: number; fee: number }>;
   deliveryFeeMode: 'FIXED' | 'BY_NEIGHBORHOOD' | 'BY_DISTANCE_BAND';
   deliveryZones: Array<{
@@ -163,6 +165,7 @@ export function StoreSettings({
   const [saved, setSaved] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
+  const [districtToBlock, setDistrictToBlock] = useState('');
   const [form, setForm] = useState<StoreFormData>(store);
   const [status, setStatus] = useState<StoreOpeningMode>(store.openingMode);
   useEffect(() => setStatus(store.openingMode), [store.openingMode]);
@@ -270,6 +273,7 @@ export function StoreSettings({
         deliveryRadius: form.deliveryRadius,
         averageDeliveryTime: form.averageDeliveryTime,
         deliveryTiers: form.deliveryTiers,
+        blockedDeliveryDistricts: form.blockedDeliveryDistricts,
         deliveryFeeMode: form.deliveryFeeMode,
       });
       if (!result.ok) {
@@ -741,6 +745,12 @@ export function StoreSettings({
               </Select>
             </Field>
 
+            {form.deliveryFeeMode !== 'BY_DISTANCE_BAND' && (
+              <Button variant="secondary" disabled={!canManage} onClick={() => set('deliveryFeeMode', 'BY_DISTANCE_BAND')}>
+                Configurar várias taxas por distância
+              </Button>
+            )}
+
             {/* ── Bairros e taxas (Fase 3) ──────────────────────────── */}
             {form.deliveryFeeMode === 'BY_NEIGHBORHOOD' && (
               <DeliveryZones
@@ -760,6 +770,28 @@ export function StoreSettings({
                 disabled={!canManage}
               />
             )}
+
+            <section className="space-y-2 rounded-lg border border-ink-200 p-4">
+              <h3 className="font-semibold">Bairros sem entrega</h3>
+              <p className="text-sm text-ink-500">O checkout recusa entregas para estes bairros em qualquer modalidade de frete.</p>
+              <div className="flex flex-wrap items-end gap-2">
+                <Field label="Nome do bairro" className="min-w-40 flex-1">
+                  <Input value={districtToBlock} maxLength={120} disabled={!canManage} onChange={(event) => setDistrictToBlock(event.target.value)} placeholder="Ex.: Boa Viagem" />
+                </Field>
+                <Button variant="secondary" disabled={!canManage || normalizeSearchText(districtToBlock).length < 2 || form.blockedDeliveryDistricts.length >= 100 || form.blockedDeliveryDistricts.some((name) => normalizeSearchText(name) === normalizeSearchText(districtToBlock))} onClick={() => {
+                  set('blockedDeliveryDistricts', [...form.blockedDeliveryDistricts, districtToBlock.trim()]);
+                  setDistrictToBlock('');
+                }}>Bloquear bairro</Button>
+              </div>
+              <ul className="flex flex-wrap gap-2">
+                {form.blockedDeliveryDistricts.map((name) => (
+                  <li key={name} className="flex items-center gap-2 rounded-lg bg-ink-50 px-3 py-1 text-sm">
+                    {name}
+                    <button type="button" disabled={!canManage} aria-label={`Remover bloqueio de ${name}`} className="min-h-9 min-w-8 font-semibold text-danger" onClick={() => set('blockedDeliveryDistricts', form.blockedDeliveryDistricts.filter((district) => district !== name))}>×</button>
+                  </li>
+                ))}
+              </ul>
+            </section>
 
             {/* ── Localização e área de entrega (Fase 3) ─────────────── */}
             <DeliveryAreaMap
@@ -811,7 +843,7 @@ export function StoreSettings({
                   : 'Você ainda não definiu horários.'}
               </p>
               <Button loading={pending} onClick={saveDelivery} disabled={!canManage}>
-                Salvar alterações
+                Salvar frete e bairros
               </Button>
             </div>
           </>

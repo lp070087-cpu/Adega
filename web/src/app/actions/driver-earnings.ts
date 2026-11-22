@@ -1,5 +1,7 @@
 'use server';
 
+import { prisma } from '@/lib/db';
+import { OperationError } from '@/lib/operation-error';
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import type { Prisma } from '@prisma/client';
@@ -16,9 +18,13 @@ export async function loadOwnDriverEarnings(period: unknown) {
   return getDriverEarnings(ctx.organizationId, ctx.driver.id, periodSchema.parse(period));
 }
 
-export async function loadStoreDriverEarnings(period: unknown) {
+export async function loadStoreDriverEarnings(period: unknown, selected?: string) {
   const ctx = await requirePermission('MANAGE_DRIVERS');
-  return getDriverEarnings(ctx.organizationId, null, periodSchema.parse(period));
+  const driverId = selected ? z.string().max(100).parse(selected) : null;
+  if (driverId && !await prisma.driver.findFirst({ where: { id: driverId, organizationId: ctx.organizationId }, select: { id: true } })) {
+    throw new OperationError('Entregador não encontrado.');
+  }
+  return getDriverEarnings(ctx.organizationId, driverId, periodSchema.parse(period), true);
 }
 
 export async function saveDriverPayRule(form: FormData): Promise<{ ok: boolean; error?: string }> {

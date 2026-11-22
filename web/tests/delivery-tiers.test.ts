@@ -61,3 +61,16 @@ test('servidor: uma única faixa por pedido, pelas ruas quando houver rota, em l
   const straight = explainDeliveryFee(settings, { latitude: -23.56 + 0.05, longitude: -46.65 }); // ~5,6 km em linha reta
   assert.equal(straight.distanceKind, 'straight'); assert.equal(straight.fee, 12);
 });
+
+test('bairro bloqueado tem precedência sobre a faixa e sobre a taxa cadastrada', async () => {
+  const { isOutsideDeliveryArea, normalizeBlockedDistricts } = await import('../src/lib/data/delivery-fee');
+  const blockedDistricts = normalizeBlockedDistricts(['  Jardim   São José ', 'jardim sao jose', 10]);
+  assert.deepEqual(blockedDistricts, ['Jardim São José']);
+  const settings = { baseDeliveryFee: 5, extraKmFee: 0, deliveryRadius: 5, blockedDistricts, tiers: [{ upToKm: 5, fee: 7 }], zones: [{ name: 'Jardim São José', fee: 7, active: true }] };
+  for (const feeMode of ['FIXED', 'BY_DISTANCE_BAND', 'BY_NEIGHBORHOOD']) {
+    const result = isOutsideDeliveryArea({ ...settings, feeMode }, { district: 'JARDIM SAO JOSÉ', roadKm: 3 });
+    assert.equal(result.outside, true);
+    assert.equal(result.reason, 'A loja não entrega neste bairro.');
+  }
+  assert.equal(isOutsideDeliveryArea(settings, { district: 'Centro', roadKm: 3 }).outside, false);
+});

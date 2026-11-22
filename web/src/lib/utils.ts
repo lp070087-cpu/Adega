@@ -125,3 +125,7 @@ export function safeAverage(total: number, count: number): number {
   return total / count;
 }
 
+
+export function normalizeSearchText(value: string): string {
+  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').trim().replace(/\s+/g, ' ').toLowerCase();
+}

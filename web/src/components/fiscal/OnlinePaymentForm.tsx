@@ -53,20 +53,30 @@ export function OnlinePaymentForm({ enabled, environment, provider: initialProvi
       <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" name="enabled" defaultChecked={enabled} className="h-4 w-4 accent-[var(--brand)]" />Oferecer pagamento online no checkout</label>
       {infinite ? (
         <div className="space-y-3"><label className="block"><span className="field-label">InfiniteTag da loja</span>
-          <input name="handle" autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder={keep && handle ? `${handle} (mantida)` : 'Ex.: minhaadega'} className="field-input" data-testid="infinitepay-handle" />
+          <input name="handle" autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder={keep && handle ? `${handle} (mantida)` : 'Ex.: minhaadega'} className="field-input !border-red-400" data-testid="infinitepay-handle" />
           <span className="mt-1 block text-[0.74rem] text-ink-500">No app da InfinitePay, toque no seu perfil: é o nome que aparece com $ na frente. O Del Flash aceita a tag com ou sem o $.</span>
         </label>
         <label className="block"><span className="field-label">API Key da própria loja (opcional)</span>
           <input name="infinitePayApiKey" type="password" autoComplete="new-password" maxLength={256} placeholder={infiniteKeySaved ? 'Deixe vazio para manter a chave salva' : 'inchk_…'} className="field-input" />
           <span className="mt-1 block text-xs text-ink-600">Com a chave, cada link aceita um único pagamento e vence em 45 minutos.</span>
         </label>
-        <details className="rounded-lg border border-ink-100 p-3 text-sm">
-          <summary className="cursor-pointer font-semibold">Onde encontrar a InfiniteTag e a chave</summary>
+        <details className="rounded-lg border border-red-200 p-3 text-sm">
+          <summary className="cursor-pointer font-semibold">Passo a passo da InfinitePay com imagens</summary>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>Entre na conta InfinitePay da sua loja e copie a InfiniteTag exibida no Perfil.</li>
             <li>Em Configurações do Checkout, ative Habilitar checkout integrado. Se quiser links de uso único, crie uma API Key nessa tela.</li>
             <li>Preencha os campos acima, salve e clique em Testar conexão.</li>
           </ol>
+          <div className="mt-3 grid gap-3">
+            <figure>
+              <figcaption className="mb-1 font-medium">1. Copie a InfiniteTag no perfil da conta da loja</figcaption>
+              <img src="/guides/infinitepay-infinitetag.webp" alt="Documentação oficial com destaque em vermelho para o local da InfiniteTag na Conta Web ou no app." width={780} height={162} loading="lazy" className="h-auto w-full max-w-full rounded-lg" />
+            </figure>
+            <figure>
+              <figcaption className="mb-1 font-medium">2. Abra Configurações do Checkout para criar a chave opcional</figcaption>
+              <img src="/guides/infinitepay-api-key.webp" alt="Documentação oficial com destaque em vermelho para Configurações do Checkout, ativação e criação da API Key." width={789} height={191} loading="lazy" className="h-auto w-full max-w-full rounded-lg" />
+            </figure>
+          </div>
           <div className="mt-3 flex flex-wrap gap-3">
             <a href="https://app.infinitepay.io/" target="_blank" rel="noreferrer" className="font-semibold text-brand underline">Abrir InfinitePay</a>
             <a href="https://www.infinitepay.io/checkout-documentacao#faq" target="_blank" rel="noreferrer" className="font-semibold text-brand underline">Ver guia oficial</a>
@@ -75,6 +85,16 @@ export function OnlinePaymentForm({ enabled, environment, provider: initialProvi
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
+          <details className="rounded-lg border border-ink-200 p-3 text-sm sm:col-span-2">
+            <summary className="cursor-pointer font-semibold">Configurar e testar o Mercado Pago</summary>
+            <ol className="mt-2 list-decimal space-y-1 pl-5">
+              <li>Abra Suas integrações no Mercado Pago e selecione o aplicativo Checkout Pro da loja.</li>
+              <li>Copie o Access Token de teste e configure a URL do webhook para o evento Pagamentos.</li>
+              <li>Cole o token e a assinatura secreta abaixo. Salve no ambiente de teste e clique em Testar conexão.</li>
+              <li>Para simular uma compra, use uma conta de comprador e um cartão de teste do Mercado Pago.</li>
+            </ol>
+            <a href="https://www.mercadopago.com.br/developers/pt/docs/checkout-pro/integration-test/test-purchase" target="_blank" rel="noreferrer" className="mt-3 inline-block font-semibold text-brand underline">Instruções oficiais da compra de teste</a>
+          </details>
           <label><span className="field-label">Ambiente</span>
             <select name="environment" defaultValue={initialProvider === 'mercadopago' ? environment : 'sandbox'} className="field-input">
               <option value="sandbox">Teste (sandbox)</option>

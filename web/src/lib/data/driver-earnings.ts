@@ -62,7 +62,7 @@ export type EarningsSummary = {
 const ROW_LIMIT = 200;
 
 /** Com `driverId`, só os dados daquele entregador; com null, a visão da loja. Sempre por organização. */
-export async function getDriverEarnings(organizationId: string, driverId: string | null, period: EarningsPeriod): Promise<EarningsSummary> {
+export async function getDriverEarnings(organizationId: string, driverId: string | null, period: EarningsPeriod, storeView = driverId === null): Promise<EarningsSummary> {
   const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { settings: true } });
   const now = new Date();
   const start = earningsPeriodStart(period, now, earningsTimezone(org?.settings));
@@ -99,10 +99,10 @@ export async function getDriverEarnings(organizationId: string, driverId: string
       driverName: order.driver?.name ?? 'Entregador',
       amountCents: order.driverEarning?.amountCents ?? null,
       completedAt: order.deliveredAt!.toISOString(),
-      ...(driverId ? {} : { deliveryFee: toNumber(order.deliveryFee), orderTotal: toNumber(order.total) }),
+      ...(storeView ? { deliveryFee: toNumber(order.deliveryFee), orderTotal: toNumber(order.total) } : {}),
     })),
   };
-  if (driverId) return summary;
+  if (!storeView) return summary;
 
   const names = await prisma.driver.findMany({ where: { organizationId, id: { in: grouped.map((row) => row.driverId!).filter(Boolean) } }, select: { id: true, name: true } });
   const nameOf = new Map(names.map((driver) => [driver.id, driver.name]));

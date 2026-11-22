@@ -143,7 +143,7 @@ export async function getPublicCatalog(organizationId: string) {
               orderBy: { position: 'asc' },
               select: {
                 quantity: true,
-                  product: { select: { id: true, name: true, price: true, active: true, available:true, trackStock:true, stock:true, organizationId:true, combo:{select:{id:true}} } },
+                  product: { select: { id: true, name: true, price: true, emoji: true, customImageUrl: true, imageUrl: true, globalProduct: { select: { defaultImageUrl: true } }, active: true, available:true, trackStock:true, stock:true, organizationId:true, combo:{select:{id:true}} } },
               },
             },
           },

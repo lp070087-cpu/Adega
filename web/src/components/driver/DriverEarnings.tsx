@@ -5,7 +5,7 @@ import { loadOwnDriverEarnings, loadStoreDriverEarnings, saveDriverPayRule } fro
 import type { EarningsSummary } from '@/lib/data/driver-earnings';
 import type { DriverPayRule, EarningsPeriod } from '@/lib/driver-earnings';
 import { Alert } from '@/components/ui';
-import { formatBRL } from '@/lib/utils';
+import { formatBRL, normalizeSearchText } from '@/lib/utils';
 
 const PERIODS: Array<[EarningsPeriod, string]> = [['today', 'Hoje'], ['week', 'Semana'], ['month', 'Mês']];
 const cents = (value: number) => formatBRL(value / 100);
@@ -14,16 +14,20 @@ const cents = (value: number) => formatBRL(value / 100);
  * Ganhos por entrega, no app do entregador e na aba Entregadores da loja. Os
  * valores vêm sempre do servidor; a tela nunca soma pedidos.
  */
-export function DriverEarnings({ initial, store = false, rule = null }: { initial: EarningsSummary; store?: boolean; rule?: DriverPayRule | null }) {
+export function DriverEarnings({ initial, store = false, rule = null, drivers = [] }: { initial: EarningsSummary; store?: boolean; rule?: DriverPayRule | null; drivers?: Array<{ id: string; name: string }> }) {
   const [data, setData] = useState(initial);
   const [period, setPeriod] = useState<EarningsPeriod>('today');
   const [pending, start] = useTransition();
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [driverId, setDriverId] = useState('');
+  const filtered = drivers.filter((driver) => normalizeSearchText(driver.name).includes(normalizeSearchText(query)));
 
-  function choose(value: EarningsPeriod) {
+  function choose(value: EarningsPeriod, selected = driverId) {
     start(async () => {
       try {
-        setData(await (store ? loadStoreDriverEarnings : loadOwnDriverEarnings)(value));
+        setData(await (store ? loadStoreDriverEarnings(value, selected) : loadOwnDriverEarnings(value)));
+        setDriverId(selected);
         setPeriod(value);
         setError('');
       } catch {
@@ -35,9 +39,22 @@ export function DriverEarnings({ initial, store = false, rule = null }: { initia
   return (
     <section className="min-w-0 space-y-4 rounded-xl border border-ink-100 bg-white p-4" data-testid="driver-earnings">
       <div>
-        <h2 className="font-bold text-ink-900">{store ? 'Remuneração dos entregadores' : 'Meus ganhos'}</h2>
-        <p className="text-[0.8rem] text-ink-500">{store ? 'Faturamento da loja, taxa cobrada do cliente e ganho do entregador são valores diferentes.' : 'Somente o que você recebe pelas entregas concluídas, conforme a regra definida pela loja.'}</p>
+        <h2 className="font-bold text-ink-900">{store ? 'Financeiro dos entregadores' : 'Meus ganhos'}</h2>
+        <p className="text-[0.8rem] text-ink-500">{store ? 'Consulte os valores calculados a partir das entregas concluídas.' : 'Somente o que você recebe pelas entregas concluídas, conforme a regra definida pela loja.'}</p>
       </div>
+
+      {store && <div className="space-y-2">
+        <label className="grid gap-1 text-sm font-medium">
+          Buscar entregador pelo nome
+          <input type="search" className="field-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Digite o nome do entregador" />
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={pending} aria-pressed={!driverId} onClick={() => { setQuery(''); choose(period, ''); }} className="rounded-lg border border-ink-200 px-3 py-2 text-sm font-medium aria-pressed:border-brand aria-pressed:text-brand">Todos</button>
+          {query.trim() && filtered.map((driver) => <button key={driver.id} type="button" disabled={pending} aria-pressed={driverId === driver.id} onClick={() => { setQuery(driver.name); choose(period, driver.id); }} className="rounded-lg border border-ink-200 px-3 py-2 text-sm font-medium aria-pressed:border-brand aria-pressed:text-brand">{driver.name}</button>)}
+        </div>
+        {query.trim() && !filtered.length && <p className="text-sm text-ink-500">Nenhum entregador com esse nome.</p>}
+        {driverId && <p className="text-sm text-ink-600">Exibindo {drivers.find((driver) => driver.id === driverId)?.name}.</p>}
+      </div>}
 
       <div className="grid grid-cols-3 gap-1 rounded-lg bg-ink-100 p-1" role="group" aria-label="Período">
         {PERIODS.map(([key, label]) => (
@@ -52,7 +69,7 @@ export function DriverEarnings({ initial, store = false, rule = null }: { initia
         {data.store && <Stat label="Faturamento dos pedidos" value={formatBRL(data.store.revenue)} />}
       </div>
 
-      {!data.configured && <Alert tone="warn">{store ? 'Defina abaixo a remuneração por entrega. Sem regra, as entregas concluídas não geram valor.' : 'A loja ainda não definiu o valor por entrega.'}</Alert>}
+      {!data.configured && <Alert tone="warn">{store ? 'O valor devido aparece quando a loja define a regra de repasse por entrega. As entregas concluídas e as taxas já são contabilizadas.' : 'A loja ainda não definiu o valor por entrega.'}</Alert>}
       {data.unpricedCount > 0 && <p className="text-[0.76rem] text-ink-500">{data.unpricedCount === 1 ? '1 entrega concluída' : `${data.unpricedCount} entregas concluídas`} sem remuneração definida na época. Nenhum valor foi estimado.</p>}
 
       {data.drivers && data.drivers.length > 0 && (
@@ -97,7 +114,10 @@ export function DriverEarnings({ initial, store = false, rule = null }: { initia
       {data.count > data.rows.length && <p className="text-[0.74rem] text-ink-500">Exibindo as {data.rows.length} entregas mais recentes. Os totais incluem todo o período.</p>}
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
-      {store && <PayRuleForm rule={rule} onSaved={() => choose(period)} />}
+      {store && <details className="rounded-lg border border-ink-200 p-3">
+        <summary className="cursor-pointer text-sm font-medium">Regra de repasse por entrega</summary>
+        <PayRuleForm rule={rule} onSaved={() => choose(period)} />
+      </details>}
     </section>
   );
 }

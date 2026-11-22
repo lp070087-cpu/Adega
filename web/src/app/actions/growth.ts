@@ -30,8 +30,8 @@ export async function growthAction(_previous:GrowthActionState,form:FormData):Pr
     state.campaigns=previous?state.campaigns.map(c=>c.id===previous.id?campaign:c):[...state.campaigns,campaign];
    });
   }else if(action==='loyalty'){
-   const data=loyaltySchema.parse({enabled:get('enabled')==='on',pointsPerReal:Number(get('pointsPerReal')),rewardPoints:Number(get('rewardPoints')),rewardName:get('rewardName'),terms:get('terms')});
-   await updateGrowth(organizationId,state=>{state.loyalty={...data,activatedAt:data.enabled?(state.loyalty.enabled?state.loyalty.activatedAt??new Date().toISOString():new Date().toISOString()):state.loyalty.activatedAt};});
+   const data=loyaltySchema.parse({enabled:false,pointsPerReal:Number(get('pointsPerReal')),rewardPoints:Number(get('rewardPoints')),rewardName:get('rewardName'),terms:get('terms')});
+   await updateGrowth(organizationId,state=>{state.loyalty={...state.loyalty,...data,enabled:state.loyalty.enabled};});
   }else if(action==='contact'){
    await recordCampaignContact(organizationId,user.id,z.string().uuid().parse(get('campaignId')),z.string().min(1).parse(get('customerId')));
   }else if(action==='consent'){
@@ -43,4 +43,20 @@ export async function growthAction(_previous:GrowthActionState,form:FormData):Pr
   }else throw new OperationError('Ação inválida.');
   revalidatePath('/app/campanhas');revalidatePath('/app/fidelidade');return {ok:true,message:'Alteração registrada.'};
  }catch(error){return {ok:false,message:error instanceof z.ZodError?error.issues[0]?.message??'Confira os campos.':toActionError(error).error};}
+}
+
+export async function setLoyaltyEnabledAction(value: boolean): Promise<GrowthActionState> {
+  try {
+    const { organizationId } = await requirePermission('MANAGE_SETTINGS');
+    const enabled = z.boolean().parse(value);
+    await updateGrowth(organizationId, (state) => {
+      if (enabled && !state.loyalty.enabled) state.loyalty.activatedAt = new Date().toISOString();
+      state.loyalty.enabled = enabled;
+    });
+    revalidatePath('/app/fidelidade');
+    revalidatePath('/loja/[slug]/conta', 'layout');
+    return { ok: true, message: enabled ? 'Programa de pontos ativado.' : 'Programa de pontos desativado.' };
+  } catch (error) {
+    return { ok: false, message: toActionError(error).error };
+  }
 }
