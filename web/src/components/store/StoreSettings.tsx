@@ -35,7 +35,6 @@ import {
   Input,
   MoneyInput,
   Select,
-  Tabs,
   Textarea,
 } from '@/components/ui';
 import type { StoreStatus } from '@prisma/client';
@@ -145,9 +144,9 @@ export function StoreSettings({
   publicUrl,
   canManage,
   canChangeStatus,
-  initialTab = 'identity',
+  tab,
 }: {
-  initialTab?: 'identity' | 'address' | 'hours' | 'delivery';
+  tab: 'identity' | 'address' | 'hours' | 'delivery';
   store: StoreFormData;
   publicUrl: string;
   canManage: boolean;
@@ -164,7 +163,6 @@ export function StoreSettings({
   const [saved, setSaved] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
-  const [tab, setTab] = useState<'identity' | 'address' | 'hours' | 'delivery'>(initialTab);
   const [form, setForm] = useState<StoreFormData>(store);
   const [status, setStatus] = useState<StoreOpeningMode>(store.openingMode);
   useEffect(() => setStatus(store.openingMode), [store.openingMode]);
@@ -412,17 +410,6 @@ export function StoreSettings({
           por outra loja, o sistema adiciona um número no final em vez de recusar a alteração.
         </p>
       </Card>
-
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          { value: 'identity', label: 'Identidade' },
-          { value: 'address', label: 'Endereço' },
-          { value: 'hours', label: 'Horários' },
-          { value: 'delivery', label: 'Entrega' },
-        ]}
-      />
 
       <Card>
         {tab === 'identity' && (

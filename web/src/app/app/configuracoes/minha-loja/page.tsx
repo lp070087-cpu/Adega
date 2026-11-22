@@ -26,6 +26,7 @@ const TABS = { identidade: 'identity', endereco: 'address', horarios: 'hours', e
 
 export default async function MyStorePage({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
   const { aba } = await searchParams;
+  const tab = aba === 'endereco' || aba === 'horarios' || aba === 'entrega' ? TABS[aba] : TABS.identidade;
   const ctx = await requireOrgPage('MANAGE_SETTINGS');
 
   const [organization, operations] = await Promise.all([
@@ -101,8 +102,7 @@ export default async function MyStorePage({ searchParams }: { searchParams: Prom
         publicUrl={publicUrl}
         canManage={can(ctx.role, 'MANAGE_SETTINGS')}
         canChangeStatus={can(ctx.role, 'MANAGE_ORDERS')}
-        initialTab={TABS[aba as keyof typeof TABS] ?? 'identity'}
-        key={aba ?? 'identidade'}
+        tab={tab}
       />
     </div>
   );
