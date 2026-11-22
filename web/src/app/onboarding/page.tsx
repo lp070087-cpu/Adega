@@ -5,7 +5,7 @@ import { OnboardingWizardV3 } from './OnboardingWizardV3';
 export const metadata = { title: 'Configurar estabelecimento' };
 
 /**
- * Onboarding em 10 passos (Fase 3).
+ * Configuração do estabelecimento antes de montar o estoque.
  *
  * A página confirma a sessão no servidor (requireOnboardingUser) e entrega
  * o assistente ao cliente. Cada passo é revalidado no servidor quando o

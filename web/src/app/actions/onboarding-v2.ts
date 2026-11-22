@@ -10,8 +10,6 @@ import { slugify } from '@/lib/utils';
 import { onboardingNumber as numberOr } from '@/lib/onboarding-number';
 import { lockOnboardingAccount } from '@/lib/data/onboarding-guard';
 import { slugExists } from '@/lib/data/organization';
-import { stockDefaults } from '@/lib/stock-policy';
-import { copyGlobalProductsTx } from '@/lib/data/global-catalog';
 import {
   suggestedCategoriesFor,
   SEGMENT_CATEGORIES,
@@ -20,27 +18,7 @@ import {
 } from '@/data/global-catalog';
 import { completeOnboardingV2Schema } from '@/lib/validations/organization';
 
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * ONBOARDING (2ª versão) — 6 passos, com a BIBLIOTECA GLOBAL
- * -----------------------------------------------------------------------
- *   1. Tipo do estabelecimento  (e estilo, se for restaurante)
- *   2. Nome, logo e identidade
- *   3. Categorias que trabalha  (sugeridas + extras)
- *   4. Produtos da biblioteca   (marcar / selecionar todos / limpar)
- *   5. Preços                   (edição rápida por item)
- *   6. Entrega e finalização
- *
- * Diferença central em relação à v1: os produtos NÃO são mais copiados de
- * um array no código. Vêm da biblioteca da plataforma, e o Product criado
- * guarda só o VÍNCULO com o GlobalProduct — a imagem continua sendo um
- * arquivo único, compartilhado por todas as lojas.
- *
- * Rodar novamente não duplica: a cópia é idempotente por globalProductId
- * e as categorias são idempotentes por nome.
- * ═══════════════════════════════════════════════════════════════════════
- */
-
+/** Compatibility for sessions started on the old onboarding flow. */
 export type OnboardingV2State =
   | { error?: string; field?: string; slug?: string; created?: number }
   | undefined;
@@ -68,13 +46,7 @@ export async function getAllKnownCategoriesAction(businessType: string): Promise
   return (SEGMENT_CATEGORIES[type] ?? []).map((c) => c.name);
 }
 
-/**
- * Passo final. Tudo numa transação.
- *
- * Se qualquer parte falhar — criar a organização, copiar 200 produtos da
- * biblioteca, gravar um preço — nada fica pela metade. Loja criada e
- * vazia seria pior do que erro visível.
- */
+/** Creates the establishment and leaves its stock empty. */
 export async function completeOnboardingV2Action(
   _prev: OnboardingV2State,
   formData: FormData,
@@ -107,9 +79,6 @@ export async function completeOnboardingV2Action(
     averageDeliveryTime: Math.round(numberOr(formData.get('averageDeliveryTime'), 30)),
     openingHours: formData.get('openingHours') || undefined,
     categories: jsonOr(formData.get('categories'), []),
-    globalProductIds: jsonOr(formData.get('globalProductIds'), []),
-    prices: jsonOr(formData.get('prices'), {}),
-    ownProducts: jsonOr(formData.get('ownProducts'), []),
   });
 
   if (!parsed.success) {
@@ -118,14 +87,6 @@ export async function completeOnboardingV2Action(
   }
 
   const data = parsed.data;
-
-  if (data.globalProductIds.length === 0 && data.ownProducts.length === 0) {
-    return {
-      error:
-        'Escolha ao menos um produto da biblioteca ou crie um produto próprio para continuar.',
-      field: 'globalProductIds',
-    };
-  }
 
   // Slug único a partir do nome digitado. Nunca pré-preenchido.
   const base = slugify(data.name) || 'loja';
@@ -179,8 +140,6 @@ export async function completeOnboardingV2Action(
         });
 
         // ── Categorias escolhidas no passo 3 ──
-        // Criadas ANTES da cópia: assim a cópia encontra a categoria pelo
-        // nome e não cria uma duplicata.
         let position = 0;
         for (const category of data.categories) {
           await tx.category.create({
@@ -192,56 +151,6 @@ export async function completeOnboardingV2Action(
               position: position++,
             },
           });
-        }
-
-        // ── Produtos da biblioteca global ──
-        // Esta é a parte que NÃO duplica imagem: cada Product nasce com
-        // globalProductId e customImageUrl nulo.
-        const copy = await copyGlobalProductsTx(tx, org.id, data.globalProductIds, {
-          prices: data.prices,
-          userId,
-          skipExisting: true,
-        });
-
-        // ── Produtos próprios ("+ Criar produto próprio") ──
-        for (const own of data.ownProducts) {
-          const categoryName = own.categoryName || 'Meus produtos';
-          let category = await tx.category.findFirst({
-            where: { organizationId: org.id, name: categoryName },
-            select: { id: true },
-          });
-          if (!category) {
-            category = await tx.category.create({
-              data: {
-                organizationId: org.id,
-                name: categoryName,
-                slug: slugify(categoryName) || `cat-${position}`,
-                emoji: '⭐',
-                position: position++,
-              },
-              select: { id: true },
-            });
-          }
-
-          const ownProduct = await tx.product.create({
-            data: {
-              organizationId: org.id,
-              categoryId: category.id,
-              name: own.name,
-              slug: `${slugify(own.name) || 'produto'}-${position}`,
-              description: own.description ?? null,
-              emoji: own.emoji ?? null,
-              price: own.price,
-              stock: stockDefaults(null).initialStock,
-              minimumStock: stockDefaults(null).minimumStock,
-              trackStock: true,
-              active: true,
-              available: true,
-              type: 'SIMPLE',
-              position: position++,
-            },
-          });
-          if (ownProduct.stock > 0) await tx.inventoryMovement.create({ data: { organizationId: org.id, productId: ownProduct.id, type: 'IN', quantity: ownProduct.stock, previousStock: 0, newStock: ownProduct.stock, reason: 'Estoque inicial do onboarding', userId } });
         }
 
         // Caixa padrão: sem ele o lojista não consegue abrir turno.
@@ -262,18 +171,15 @@ export async function completeOnboardingV2Action(
           });
         }
 
-        const productCount = await tx.product.count({ where: { organizationId: org.id } });
-        return { slug: org.slug, created: copy.created, total: productCount };
+        return { slug: org.slug };
       },
-      // Cópia de biblioteca pode passar de 200 itens; o padrão de 5s não
-      // é suficiente em conexão de banco remoto.
       { timeout: 30000 },
     );
 
     revalidatePath('/app', 'layout');
     revalidatePath('/onboarding');
 
-    return { slug: result.slug, created: result.total };
+    return { slug: result.slug, created: 0 };
   } catch (error) {
     return toActionError(error);
   }

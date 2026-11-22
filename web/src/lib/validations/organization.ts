@@ -219,31 +219,9 @@ export const deliveryTierSchema = z.object({
   fee: moneySchema,
 });
 
-/** Produto próprio — versão completa do passo 3.11. */
-const ownProductV3Schema = z.object({
-  name: z.string().trim().min(2, 'Nome do produto muito curto').max(120),
-  categoryName: z.string().trim().max(40).optional(),
-  description: z.string().trim().max(500).optional(),
-  /** Mantido para o assistente anterior continuar válido (superset). */
-  emoji: z.string().trim().max(8).optional(),
-  /** URL pública. Upload real depende de storage; base64 é recusado. */
-  imageUrl: z.string().url('URL da imagem inválida').max(500).optional().or(z.literal('')),
-  unit: z.string().trim().max(12).optional(),
-  price: moneySchema,
-  stock: z.number().int().min(0).max(999999).default(0),
-  active: z.boolean().default(true),
-});
-
-/**
- * Passo final da v3. Estende a v2 com os campos que a Fase 3 acrescentou:
- * endereço completo, contatos, identidade de três cores, tema, agenda
- * semanal, modalidades de atendimento e faixas de frete.
- *
- * Os campos da v2 continuam aceitos sem alteração para não invalidar o
- * assistente antigo enquanto ele existir no projeto.
- */
+/** Store setup validates store details and operations before the catalog is built. */
 export const completeOnboardingV3Schema = completeOnboardingV2Schema
-  .omit({ ownProducts: true })
+  .omit({ ownProducts: true, globalProductIds: true, prices: true })
   .extend({
     // ── Identidade visual ──
     secondaryColor: hexColorSchema.optional().or(z.literal('')),
@@ -276,8 +254,6 @@ export const completeOnboardingV3Schema = completeOnboardingV2Schema
     // ── Horários (3.16) ──
     schedule: weekScheduleSchema,
 
-    // ── Produtos próprios (3.11) ──
-    ownProducts: z.array(ownProductV3Schema).max(100).default([]),
   });
 
 export type CompleteOnboardingV3Input = z.infer<typeof completeOnboardingV3Schema>;

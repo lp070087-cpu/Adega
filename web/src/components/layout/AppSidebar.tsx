@@ -38,6 +38,7 @@ export const NAV_SECTIONS: NavSection[] = [
     { href: '/app/entregadores', label: 'Entregadores', icon: 'drivers', permission: 'MANAGE_DRIVERS' },
   ] },
   { title: 'Catálogo', items: [
+    { href: '/app/biblioteca', label: 'Biblioteca de bebidas', icon: 'library', permission: 'MANAGE_PRODUCTS' },
     { href: '/app/catalogo', label: 'Produtos', icon: 'catalog', permission: 'MANAGE_PRODUCTS' },
     { href: '/app/combos', label: 'Combos', icon: 'combos', permission: 'MANAGE_PRODUCTS' },
     { href: '/app/estoque', label: 'Estoque', icon: 'stock', permission: 'MANAGE_STOCK' },

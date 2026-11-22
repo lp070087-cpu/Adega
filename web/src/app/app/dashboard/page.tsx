@@ -43,7 +43,7 @@ const SOURCE_COLORS: Record<string, string> = {
 // some, em vez de devolver a pessoa ao início sem explicação.
 const SHORTCUTS: Array<{ href: string; label: string; Icon: typeof ClipboardList; tone: string; permission: Permission }> = [
   { href: '/app/pedidos', label: 'Pedidos', Icon: ClipboardList, tone: 'bg-[#e6f4fb] text-[#087EA4]', permission: 'MANAGE_ORDERS' },
-  { href: '/app/catalogo', label: 'Catálogo', Icon: Boxes, tone: 'bg-[#eef0ff] text-[#4f5bd5]', permission: 'MANAGE_PRODUCTS' },
+  { href: '/app/catalogo', label: 'Produtos', Icon: Boxes, tone: 'bg-[#eef0ff] text-[#4f5bd5]', permission: 'MANAGE_PRODUCTS' },
   { href: '/app/caixa', label: 'Caixa', Icon: Wallet, tone: 'bg-[#e8f8ef] text-[#159a5b]', permission: 'MANAGE_CASH' },
   { href: '/app/entregadores', label: 'Entregadores', Icon: Truck, tone: 'bg-[#fff4e5] text-[#c27406]', permission: 'MANAGE_DRIVERS' },
   { href: '/app/banners', label: 'Banners', Icon: ImageIcon, tone: 'bg-[#fdeef4] text-[#c0306b]', permission: 'MANAGE_SETTINGS' },
@@ -98,9 +98,7 @@ export default async function DashboardPage() {
 
       {withoutCatalog && (
         <Alert tone="info" title="Sua loja ainda está vazia">
-          Cadastre produtos no <Link href="/app/catalogo">Catálogo</Link> — ou aplique o
-          catálogo-modelo do seu segmento em um clique — e comece a receber pedidos pela{' '}
-          <Link href="/app/configuracoes/minha-loja">sua loja pública</Link>.
+          Escolha seus produtos na <Link href="/app/biblioteca">Biblioteca de bebidas</Link> e publique pelo <Link href="/app/estoque">Estoque</Link>.
         </Alert>
       )}
 

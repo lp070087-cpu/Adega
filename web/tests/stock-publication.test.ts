@@ -5,21 +5,33 @@ import ts from 'typescript';
 import { z } from 'zod';
 import { OperationError } from '../src/lib/operation-error';
 import * as policy from '../src/lib/stock-publication';
+import * as batchPolicy from '../src/lib/stock-policy';
 import { groupPublishedStoreProducts } from '../src/lib/store-catalog-groups';
 import { storeProductAvailability } from '../src/lib/store-product-availability';
 import { previewStockPublication } from '../scripts/preview-stock-publication';
 
 function harness({ authorized=true, role='OWNER', foreign=false, combo=false, pending=false }={}) {
   const writes:any[]=[];
-  const product:any={id:'p',name:'Produto',stock:9,minimumStock:2,active:false,available:false,trackStock:true,updatedAt:new Date('2026-01-01'),combo:combo?{id:'combo'}:null};
+  const product:any={id:'p',name:'Produto',price:10,stock:9,minimumStock:2,active:false,available:false,trackStock:true,updatedAt:new Date('2026-01-01'),combo:combo?{id:'combo'}:null};
   const organization:any={name:'Loja própria',settings:{preserved:true}};
   const tx:any={
     organization:{findUniqueOrThrow:async()=>organization,update:async({data}:any)=>{writes.push(['organization',data]);organization.settings=data.settings;}},
     product:{findMany:async({where}:any)=>{assert.equal(where.organizationId,'own');return foreign?[]:[{...product}];},update:async({where,data}:any)=>{assert.equal(where.organizationId,'own');writes.push(['product',data]);Object.assign(product,data,{updatedAt:new Date('2026-02-01')});}},
     orderItem:{findMany:async({where}:any)=>{assert.equal(where.order.organizationId,'own');return pending?[{productId:'p'}]:[];}},
-    combo:{findMany:async()=>[]},inventoryMovement:{create:async({data}:any)=>writes.push(['movement',data])},notification:{create:async({data}:any)=>writes.push(['notification',data])},
+    $executeRaw:async (_: TemplateStringsArray, input: string, orgId: string) => {
+      assert.equal(orgId, 'own');
+      const updates = JSON.parse(input);
+      for (const { id, updatedAt, ...data } of updates) {
+        assert.equal(id, product.id);
+        assert.equal(updatedAt, product.updatedAt.toISOString());
+        writes.push(['product', data]);
+        Object.assign(product, data, { updatedAt: new Date('2026-02-01') });
+      }
+      return updates.length;
+    },
+    combo:{findMany:async()=>[]},inventoryMovement:{createMany:async({data}:any)=>data.forEach((movement:any)=>writes.push(['movement',movement]))},notification:{create:async({data}:any)=>writes.push(['notification',data])},
   };
-  const imports:Record<string,unknown>={zod:{z},'next/cache':{revalidatePath(){}},'@/lib/operation-error':{OperationError},'@/lib/auth/guards':{requirePermission:async()=>{if(!authorized)throw new Error('Forbidden');return {organizationId:'own',role,user:{id:'actor',name:'Operador'}};},toActionError:(e:Error)=>({error:e.message})},'@/lib/permissions':{can:(_:string,permission:string)=>role==='OWNER'||permission==='MANAGE_PRODUCTS'},'@/lib/data/transaction':{withOrganizationTransaction:async(id:string,fn:any)=>{assert.equal(id,'own');return fn(tx);}},'@/lib/stock-publication':policy};
+  const imports:Record<string,unknown>={zod:{z},'next/cache':{revalidatePath(){}},'@/lib/operation-error':{OperationError},'@/lib/auth/guards':{requirePermission:async()=>{if(!authorized)throw new Error('Forbidden');return {organizationId:'own',role,user:{id:'actor',name:'Operador'}};},toActionError:(e:Error)=>({error:e.message})},'@/lib/permissions':{can:(_:string,permission:string)=>role==='OWNER'||permission==='MANAGE_PRODUCTS'},'@/lib/data/transaction':{withOrganizationTransaction:async(id:string,fn:any)=>{assert.equal(id,'own');return fn(tx);}},'@/lib/stock-publication':policy,'@/lib/stock-policy':batchPolicy};
   const source=ts.transpileModule(readFileSync('src/app/actions/stock-publication.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
   const mod={exports:{} as any};new Function('require','module','exports',source)((name:string)=>{if(!(name in imports))throw Error(name);return imports[name];},mod,mod.exports);
   return {action:mod.exports.stockPublicationAction,writes,product,organization};
@@ -44,6 +56,23 @@ test('batch requires permission, explicit preview and integer quantities; fixed 
   for(const config of [{authorized:false},{role:'MANAGER'}]){const h=harness(config);assert.equal((await h.action(input)).ok,false);assert.equal(h.writes.length,0);}
   const h=harness();for(const changes of [[{...input.changes[0],stock:24}],[{...input.changes[0],stock:1.5}],[{...input.changes[0],stock:-1}]]) assert.equal((await h.action({...input,changes})).ok,false);
   assert.equal((await h.action({...input,confirm:true})).ok,false);assert.equal(h.writes.length,0);
+});
+test('unpublished stock requires a price and physical balance before entering Produtos', async () => {
+  const h = harness();
+  const draft = { ...input, mode: 'PUBLISH', changes: [{ ...input.changes[0], stock: 0 }] };
+  const noStock = await h.action(draft);
+  assert.match(noStock.data.rows[0].excluded, /saldo físico/);
+  h.product.price = 0;
+  const noPrice = await h.action({ ...draft, changes: input.changes });
+  assert.match(noPrice.data.rows[0].excluded, /preço de venda/);
+  assert.equal(h.writes.length, 0);
+  h.product.price = 10;
+  const preview = await h.action({ ...draft, changes: input.changes });
+  const published = await h.action({ ...draft, changes: input.changes, confirm: true, previewDigest: preview.data.digest });
+  assert.equal(published.ok, true);
+  assert.equal(h.product.stock, 25);
+  assert.equal(h.product.active, true);
+  assert.equal(h.product.available, true);
 });
 test('store category grouping retains all published products including zero stock and paused categories',()=>{
   const products=Array.from({length:650},(_,index)=>({id:String(index),categoryId:index%3===0?'active':index%3===1?'paused':null,stock:0,available:false}));

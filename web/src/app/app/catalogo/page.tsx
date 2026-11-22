@@ -1,21 +1,13 @@
 import { requireOrgPage } from '@/lib/auth/guards';
 import { can } from '@/lib/permissions';
 import { getCategories, getCatalogSummary, getProducts } from '@/lib/data/catalog';
-import {
-  getGlobalCategories,
-  getGlobalBrands,
-  getOwnedGlobalProductIds,
-} from '@/lib/data/global-catalog';
 import { getOrganizationById } from '@/lib/data/organization';
 import { readStorefrontCategories } from '@/lib/storefront-categories';
-import { templateLabel, templateProductCount } from '@/data/business-templates';
 import { CatalogManager } from '@/components/catalog/CatalogManager';
 import type { CatalogCategory, CatalogProduct } from '@/components/catalog/CatalogManager';
 import type { EditableProduct } from '@/components/catalog/ProductModal';
-import type { PickerCategory } from '@/components/catalog/GlobalProductPicker';
-import type { BusinessType } from '@prisma/client';
 
-export const metadata = { title: 'Catálogo' };
+export const metadata = { title: 'Produtos' };
 export const dynamic = 'force-dynamic';
 
 /**
@@ -24,9 +16,6 @@ export const dynamic = 'force-dynamic';
  * O servidor entrega a lista já serializada (Decimal → number) e o
  * cliente só cuida da interação. Toda gravação volta por server action.
  *
- * Esta tela carrega também os dados da BIBLIOTECA GLOBAL (categorias,
- * marcas e quais itens a loja já tem) para o "+ Adicionar da biblioteca"
- * abrir sem espera. É só leitura — a biblioteca não pertence à loja.
  */
 
 // O retorno de serializeProduct é indexado por string; estes conversores
@@ -65,32 +54,9 @@ export default async function CatalogPage() {
   const [organization, categoriesRaw, productsPage, summary] = await Promise.all([
     getOrganizationById(ctx.organizationId),
     getCategories(ctx.organizationId),
-    getProducts(ctx.organizationId, { perPage: 300 }),
+    getProducts(ctx.organizationId, { active: true, perPage: 1000 }),
     getCatalogSummary(ctx.organizationId),
   ]);
-
-  const businessType = 'BEVERAGE' as BusinessType; // plataforma exclusiva para lojas de bebidas
-
-  // ── Dados da biblioteca global, para o seletor abrir pronto ──
-  const [globalCategories, globalBrands, ownedGlobalIds] = await Promise.all([
-    getGlobalCategories(),
-    getGlobalBrands(),
-    getOwnedGlobalProductIds(
-      ctx.organizationId,
-      productsPage.items
-        .map((p) => globalLink(p.globalProduct)?.id)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  ]);
-
-  const pickerCategories: PickerCategory[] = globalCategories.map((category) => ({
-    id: category.id,
-    name: category.name,
-    slug: category.slug,
-    icon: category.icon,
-    fullName: category.fullName,
-    productCount: category.productCount,
-  }));
 
   const categories: CatalogCategory[] = categoriesRaw.map((category) => ({
     id: category.id,
@@ -188,10 +154,9 @@ export default async function CatalogPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-[1.05rem] font-extrabold text-ink-900">Catálogo</h2>
+          <h2 className="text-[1.05rem] font-extrabold text-ink-900">Produtos</h2>
           <p className="text-[0.8rem] text-ink-500">
-            {summary.total} produto{summary.total === 1 ? '' : 's'} · {summary.active} ativo
-            {summary.active === 1 ? '' : 's'} · {summary.categories} categoria
+            {summary.total} produto{summary.total === 1 ? '' : 's'} na vitrine · {summary.categories} categoria
             {summary.categories === 1 ? '' : 's'}
           </p>
         </div>
@@ -206,12 +171,6 @@ export default async function CatalogPage() {
         products={products}
         categories={categories}
         editable={editable}
-        businessTypeLabel={templateLabel(businessType)}
-        templateCount={templateProductCount(businessType)}
-        businessType={businessType}
-        pickerCategories={pickerCategories}
-        pickerBrands={globalBrands}
-        ownedGlobalProductIds={ownedGlobalIds}
         canManage={can(ctx.role, 'MANAGE_PRODUCTS')}
         storefrontCategories={readStorefrontCategories(organization?.settings)}
       />

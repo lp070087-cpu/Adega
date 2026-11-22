@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import { NewStockProduct } from '@/components/stock/NewStockProduct';
+import { getCategories } from '@/lib/data/catalog';
 import { prisma } from '@/lib/db';
 import { stockDefaults } from '@/lib/stock-policy';
 import { StockInitialization } from '@/components/stock/StockInitialization';
@@ -18,10 +21,12 @@ export const dynamic = 'force-dynamic';
 export default async function StockPage() {
   const ctx = await requireOrgPage('MANAGE_STOCK');
 
-  const [org, productsRaw, movementsPage] = await Promise.all([
+  const canManageProducts = can(ctx.role, 'MANAGE_PRODUCTS');
+  const [org, productsRaw, movementsPage, categories] = await Promise.all([
     prisma.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { settings: true } }),
     getStockProducts(ctx.organizationId, undefined, true),
     getInventoryMovements(ctx.organizationId, { perPage: 100 }),
+    canManageProducts ? getCategories(ctx.organizationId) : [],
   ]);
 
   const products: StockProduct[] = productsRaw.map((product) => ({
@@ -61,15 +66,19 @@ export default async function StockPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-[1.05rem] font-extrabold text-ink-900">Estoque</h2>
-        <p className="text-[0.8rem] text-ink-500">
-          Quantidades, reposições e histórico de movimentações.
-        </p>
-      </div>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-[1.05rem] font-extrabold text-ink-900">Estoque</h2>
+          <p className="text-sm text-ink-500">Confira preços e quantidades antes de publicar na vitrine.</p>
+        </div>
+        {canManageProducts && <div className="flex flex-wrap items-center gap-2">
+          <Link href="/app/biblioteca" className="inline-flex min-h-11 items-center rounded-lg bg-brand px-3 text-sm font-semibold text-white">Abrir Biblioteca</Link>
+          <NewStockProduct categories={categories.map(({ id, name, emoji }) => ({ id, name, emoji }))} />
+        </div>}
+      </header>
 
       <details className="rounded-xl border border-ink-100 bg-white p-3"><summary className="cursor-pointer text-sm font-semibold">Padrões e inicialização conferida</summary><StockInitialization products={products} defaults={stockDefaults(org.settings)} canConfigure={can(ctx.role, 'MANAGE_SETTINGS')} /></details>
-      {can(ctx.role, 'MANAGE_PRODUCTS') && <StockPublication products={productsRaw.map(product => ({id:product.id,name:product.name,stock:product.stock,minimumStock:product.minimumStock,active:product.active,available:product.available,trackStock:product.trackStock}))} canInitialize={can(ctx.role, 'MANAGE_SETTINGS')} />}
+      {canManageProducts && <StockPublication products={productsRaw.filter((product) => !product.combo).map(({ id, name, stock, minimumStock, active, available, trackStock, price }) => ({ id, name, stock, minimumStock, active, available, trackStock, price: Number(price) }))} canInitialize={can(ctx.role, 'MANAGE_SETTINGS')} />}
       <StockManager
         products={products}
         movements={movements}
@@ -82,7 +91,7 @@ export default async function StockPage() {
           outOfStock,
         }}
         canManage={can(ctx.role, 'MANAGE_STOCK')}
-        canManageProducts={can(ctx.role, 'MANAGE_PRODUCTS')}
+        canManageProducts={canManageProducts}
       />
     </div>
   );

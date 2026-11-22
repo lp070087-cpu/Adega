@@ -537,17 +537,17 @@ export async function toggleProduct(
 
 /** Contadores do topo do catálogo. */
 export async function getCatalogSummary(organizationId: string) {
-  const [total, active, inactive, lowStock, outOfStock, categories] = await Promise.all([
-    prisma.product.count({ where: { organizationId } }),
-    prisma.product.count({ where: { organizationId, active: true } }),
-    prisma.product.count({ where: { organizationId, active: false } }),
+  const published = { organizationId, active: true };
+  const controlled = { ...published, trackStock: true };
+  const [total, lowStock, outOfStock, categories] = await Promise.all([
+    prisma.product.count({ where: published }),
     prisma.product.count({
-      where: { organizationId, trackStock: true, stock: { lte: prisma.product.fields.minimumStock, gt: 0 } },
+      where: { ...controlled, stock: { lte: prisma.product.fields.minimumStock, gt: 0 } },
     }),
-    prisma.product.count({ where: { organizationId, trackStock: true, stock: 0 } }),
-    prisma.category.count({ where: { organizationId } }),
+    prisma.product.count({ where: { ...controlled, stock: 0 } }),
+    prisma.category.count({ where: { organizationId, products: { some: published } } }),
   ]);
-  return { total, active, inactive, lowStock, outOfStock, categories };
+  return { total, lowStock, outOfStock, categories };
 }
 
 /**

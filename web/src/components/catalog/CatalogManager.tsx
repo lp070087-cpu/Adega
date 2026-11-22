@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { cn, formatBRL } from '@/lib/utils';
 import {
-  applyTemplateAction,
   createCategoryAction,
   deleteCategoryAction,
   deleteProductAction,
@@ -21,12 +21,6 @@ import { ProductThumb } from './ProductThumb';
 import { ReorderList } from './ReorderList';
 import { StorefrontCategoriesPanel } from './StorefrontCategoriesPanel';
 import type { StorefrontCategories } from '@/lib/storefront-categories';
-import {
-  GlobalProductPicker,
-  type PickerCategory,
-} from './GlobalProductPicker';
-import type { BusinessType } from '@prisma/client';
-
 /**
  * ═══════════════════════════════════════════════════════════════════════
  * CATÁLOGO
@@ -81,12 +75,6 @@ export function CatalogManager({
   products,
   categories,
   editable,
-  businessTypeLabel,
-  templateCount,
-  businessType,
-  pickerCategories,
-  pickerBrands,
-  ownedGlobalProductIds,
   canManage,
   storefrontCategories,
 }: {
@@ -94,13 +82,6 @@ export function CatalogManager({
   categories: CatalogCategory[];
   /** Produtos já no formato do modal (variações/adicionais inclusos). */
   editable: Record<string, EditableProduct>;
-  businessTypeLabel: string;
-  templateCount: number;
-  businessType: BusinessType;
-  /** Categorias da biblioteca global, para o seletor. */
-  pickerCategories: PickerCategory[];
-  pickerBrands: string[];
-  ownedGlobalProductIds: string[];
   canManage: boolean;
   storefrontCategories?: StorefrontCategories;
 }) {
@@ -112,15 +93,12 @@ export function CatalogManager({
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('all');
   const [statusFilter, setStatusFilter] = useState<
-    'all' | 'active' | 'inactive' | 'featured' | 'unavailable' | 'low' | 'out'
+    'all' | 'featured' | 'unavailable' | 'low' | 'out'
   >('all');
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<EditableProduct | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<CatalogProduct | null>(null);
-  const [templateOpen, setTemplateOpen] = useState(false);
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  const [replaceExisting, setReplaceExisting] = useState(false);
   const [priceDraft, setPriceDraft] = useState<{ id: string; value: string } | null>(null);
 
   /**
@@ -148,8 +126,6 @@ export function CatalogManager({
     const term = search.trim().toLowerCase();
     return products.filter((product) => {
       if (categoryId !== 'all' && product.categoryId !== categoryId) return false;
-      if (statusFilter === 'active' && !product.active) return false;
-      if (statusFilter === 'inactive' && product.active) return false;
       if (statusFilter === 'featured' && !product.featured) return false;
       if (statusFilter === 'unavailable' && product.available) return false;
       if (statusFilter === 'out' && !(product.trackStock && product.stock === 0)) return false;
@@ -602,38 +578,12 @@ export function CatalogManager({
           aria-label="Filtrar por situação"
         >
           <option value="all">Todas as situações</option>
-          <option value="active">Ativos</option>
-          <option value="inactive">Inativos</option>
           <option value="featured">Em destaque</option>
           <option value="unavailable">Indisponíveis</option>
           <option value="low">Estoque baixo</option>
           <option value="out">Sem estoque</option>
         </Select>
 
-        {canManage && (
-          <div className="flex flex-wrap justify-end gap-2 md:col-span-3">
-            <Button
-              variant="secondary"
-              onClick={() => setLibraryOpen(true)}
-              disabled={pending}
-              title="Produtos prontos da plataforma, com imagem compartilhada"
-            >
-              + Adicionar da biblioteca
-            </Button>
-            <Button variant="secondary" onClick={() => setTemplateOpen(true)} disabled={pending}>
-              Escolher do modelo
-            </Button>
-            <Button
-              onClick={() => {
-                setEditing(null);
-                setEditorOpen(true);
-              }}
-              disabled={pending}
-            >
-              + Novo produto
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* ── Regra da vitrine ─────────────────────────────────────── */}
@@ -651,19 +601,17 @@ export function CatalogManager({
         <div className="rounded-lg border border-ink-100 bg-white">
           <EmptyState
             icon="🏷️"
-            title={products.length === 0 ? 'Nenhum produto cadastrado' : 'Nada encontrado'}
+            title={products.length === 0 ? 'Nenhum produto publicado' : 'Nada encontrado'}
             description={
               products.length === 0
-                ? `Adicione produtos da biblioteca da plataforma, use o catálogo-modelo de ${businessTypeLabel} (${templateCount} itens) ou cadastre o primeiro produto.`
+                ? 'Escolha na biblioteca e publique os itens pelo estoque.'
                 : 'Ajuste a busca ou os filtros para ver outros itens.'
             }
             action={
               canManage && products.length === 0 ? (
                 <div className="flex flex-wrap justify-center gap-2">
-                  <Button onClick={() => setLibraryOpen(true)}>Adicionar da biblioteca</Button>
-                  <Button variant="secondary" onClick={() => setTemplateOpen(true)}>
-                    Usar o catálogo-modelo
-                  </Button>
+                  <Link href="/app/biblioteca" className="inline-flex min-h-11 items-center rounded-lg bg-brand px-3 text-sm font-semibold text-white">Abrir Biblioteca</Link>
+                  <Link href="/app/estoque" className="inline-flex min-h-11 items-center rounded-lg border border-ink-200 px-3 text-sm font-semibold text-ink-800">Abrir Estoque</Link>
                 </div>
               ) : undefined
             }
@@ -803,32 +751,6 @@ export function CatalogManager({
       )}
         </>
       )}
-
-      {/* ── Biblioteca da plataforma ──────────────────────────────── */}
-      <GlobalProductPicker
-        open={libraryOpen}
-        onClose={() => setLibraryOpen(false)}
-        categories={pickerCategories}
-        brands={pickerBrands}
-        businessType={businessType}
-        ownedGlobalProductIds={ownedGlobalProductIds}
-        storeCategories={categories.map((c) => ({ id: c.id, name: c.name }))}
-        mode="catalog"
-        onAdded={(result) => {
-          if (result.created > 0) {
-            setSuccess(
-              `${result.created} produto${result.created === 1 ? '' : 's'} adicionado${
-                result.created === 1 ? '' : 's'
-              } da biblioteca.`,
-            );
-          }
-          // `skipped` alto com `created` zero costuma ser engano do
-          // lojista, não erro — vale dizer em vez de ficar em silêncio.
-          if (result.created === 0 && result.skipped > 0) {
-            setSuccess('Os itens escolhidos já estavam no seu catálogo.');
-          }
-        }}
-      />
 
       {/* ── Modal de produto ──────────────────────────────────────── */}
       {editorOpen && (
@@ -975,55 +897,6 @@ export function CatalogManager({
         </p>
       </Modal>
 
-      {/* ── Catálogo-modelo do segmento ───────────────────────────── */}
-      <Modal
-        open={templateOpen}
-        onClose={() => setTemplateOpen(false)}
-        title={`Catálogo-modelo de ${businessTypeLabel}`}
-        subtitle={`${templateCount} produtos sugeridos, com preços de referência.`}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setTemplateOpen(false)} disabled={pending}>
-              Cancelar
-            </Button>
-            <Button
-              loading={pending}
-              onClick={() => {
-                setTemplateOpen(false);
-                run(
-                  () => applyTemplateAction({ replaceExisting }),
-                  'Catálogo-modelo aplicado.',
-                );
-              }}
-            >
-              Aplicar modelo
-            </Button>
-          </>
-        }
-      >
-        <p className="mb-3 text-[0.84rem] leading-relaxed text-ink-600">
-          Os itens do modelo são <strong>copiados</strong> para o seu catálogo. Depois disso eles
-          são seus: editar o modelo não muda mais nada na sua loja.
-        </p>
-        <ul className="mb-3 space-y-1.5 text-[0.8rem] text-ink-600">
-          <li>· Produtos que já existem pelo mesmo nome são mantidos como estão.</li>
-          <li>· Nada é duplicado se você aplicar o modelo mais de uma vez.</li>
-        </ul>
-
-        <label className="flex cursor-pointer items-start gap-2.5 rounded border-2 border-warn/25 bg-warn-bg px-3.5 py-3 text-[0.8rem] text-ink-700">
-          <input
-            type="checkbox"
-            checked={replaceExisting}
-            onChange={(e) => setReplaceExisting(e.target.checked)}
-            className="mt-0.5 h-4 w-4 cursor-pointer accent-[var(--orange)]"
-          />
-          <span>
-            <strong className="text-warn">Substituir o catálogo atual.</strong> Apaga categorias e
-            os produtos que <strong>nunca foram vendidos</strong>. Itens já vendidos permanecem
-            para não reescrever o histórico.
-          </span>
-        </label>
-      </Modal>
     </div>
   );
 }

@@ -126,8 +126,7 @@ export function ProductModal({
     formData.set('price', price);
     formData.set('promotionalPrice', promotionalPrice);
     formData.set('cost', cost);
-    // Novos produtos usam o padrão da loja quando nenhum saldo é informado.
-    // O servidor registra o movimento inicial; edição preserva o saldo.
+    // A edição do catálogo preserva o saldo que já está no Estoque.
     if (product) formData.set('stock', String(product.stock));
     if (product || minimumStock !== '') formData.set('minimumStock', minimumStock);
     formData.set('trackStock', trackStock ? 'on' : 'off');
@@ -447,22 +446,15 @@ export function ProductModal({
           checked={trackStock}
           onChange={(e) => setTrackStock(e.target.checked)}
         />
-        <Checkbox
-          label="Ativo (aparece na vitrine)"
-          checked={active}
-          onChange={(e) => setActive(e.target.checked)}
-        />
-        <Checkbox
-          label="Disponível agora"
-          checked={available}
-          onChange={(e) => setAvailable(e.target.checked)}
-        />
+        {product && <>
+          <Checkbox label="Ativo na vitrine" checked={active} onChange={(event) => setActive(event.target.checked)} />
+          <Checkbox label="Disponível agora" checked={available} onChange={(event) => setAvailable(event.target.checked)} />
+        </>}
       </div>
 
-      <p className="mt-2 text-[0.72rem] leading-relaxed text-ink-400">
-        A vitrine mostra o produto quando ele está <strong>ativo</strong>,{' '}
-        <strong>disponível</strong> e — com estoque controlado — <strong>com saldo</strong>.
-        Marcar como destaque (★) é feito na lista de produtos e só define a posição no topo.
+      <p className="mt-2 text-[0.72rem] leading-relaxed text-ink-500">
+        {product ? 'A compra depende da disponibilidade e do saldo quando o controle de estoque está ativo.'
+          : 'O produto fica no Estoque com saldo zero. Ajuste a quantidade e publique quando for vender.'}
       </p>
 
       {product && (

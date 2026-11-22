@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BusinessType } from '@prisma/client';
+import { MAX_CATALOG_SELECTION } from '@/lib/stock-policy';
 
 /**
  * Validação das operações da BIBLIOTECA GLOBAL.
@@ -14,35 +15,7 @@ import { BusinessType } from '@prisma/client';
 export const globalProductIdsSchema = z
   .array(z.string().trim().min(1).max(64))
   .min(1, 'Selecione ao menos um produto')
-  .max(300, 'Selecione no máximo 300 produtos por vez');
-
-/**
- * Preços por id. Vem como JSON num campo hidden do formulário.
- * Cada preço passa por moneySchema: sem negativo, sem NaN, 2 casas.
- */
-export const priceMapSchema = z
-  .record(
-    z.string(),
-    z
-      .number()
-      .min(0, 'Preço não pode ser negativo')
-      .max(999999.99, 'Preço acima do limite')
-      .transform((v) => Math.round(v * 100) / 100),
-  )
-  .optional();
-
-export const addFromLibrarySchema = z.object({
-  productIds: globalProductIdsSchema,
-  prices: priceMapSchema,
-  /** Categoria da loja onde colocar. Ausente = deduz pela global. */
-  categoryId: z.string().trim().min(1).max(64).optional(),
-  /** Marcar os adicionados como destaque do Hero. */
-  featured: z.coerce.boolean().optional().default(false),
-  /** Não recriar o que a loja já tem. */
-  skipExisting: z.coerce.boolean().optional().default(true),
-});
-
-export type AddFromLibraryInput = z.infer<typeof addFromLibrarySchema>;
+  .max(MAX_CATALOG_SELECTION, 'Selecione no máximo 1.000 produtos por vez');
 
 /** Filtros do seletor — para busca server-side. */
 export const globalSearchSchema = z.object({

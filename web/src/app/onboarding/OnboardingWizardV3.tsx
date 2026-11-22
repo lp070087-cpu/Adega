@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { BusinessType } from '@prisma/client';
-import { cn, formatBRL } from '@/lib/utils';
-import { ProductThumb } from '@/components/catalog/ProductThumb';
+import { cn } from '@/lib/utils';
+import type { DeliveryTier } from '@/lib/delivery-tiers';
 import { initialsFromName } from '@/data/business-copy';
 import { BUSINESS_TYPES } from '@/data/business-templates';
 import {
@@ -23,49 +23,17 @@ import {
 import {
   checkSlugAction,
   completeOnboardingV3Action,
-  getLibraryFiltersAction,
   saveOnboardingDraftAction,
-  searchLibraryAction,
   type OnboardingV3State,
 } from '@/app/actions/onboarding-v3';
 import { Alert, Badge, Button, Field, Input, MoneyInput, Select, Textarea } from '@/components/ui';
 
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * ONBOARDING — 10 passos (Fase 3)
- * -----------------------------------------------------------------------
- *   1  Tipo do estabelecimento
- *   2  Dados do estabelecimento
- *   3  Identidade visual
- *   4  Categorias
- *   5  Produtos da biblioteca (sem cadastro manual — só no painel)
- *   6  Preços
- *   7  Entrega
- *   8  Horários
- *   9  Revisão
- *   10 Concluído
- *
- * QUEM GRAVA É O SERVIDOR. Este componente monta o formulário e nada mais:
- * nenhum preço é calculado aqui, nenhum slug é decidido aqui, nenhum id de
- * produto é validado aqui. Tudo é reconferido em completeOnboardingV3Action,
- * que também resolve o slug colidido e recusa imagem base64.
- *
- * NÃO PERDER DADOS ENTRE ETAPAS (3.1): todo o estado vive neste componente
- * — voltar e avançar não desmonta nada. E cada "Continuar" grava um
- * rascunho no banco (3.19), então fechar o navegador não custa o cadastro.
- *
- * Este arquivo é a referência visual do wizard v2: mesmas cores, mesmos
- * campos, mesmos componentes de @/components/ui.
- * ═══════════════════════════════════════════════════════════════════════
- */
-
+/** Store setup, with resumable steps and catalog selection after account creation. */
 const STEPS = [
   { id: 1, label: 'Tipo', icon: '🏪' },
   { id: 2, label: 'Dados', icon: '📋' },
   { id: 3, label: 'Identidade', icon: '🎨' },
   { id: 4, label: 'Categorias', icon: '🗂️' },
-  { id: 5, label: 'Produtos', icon: '🏷️' },
-  { id: 6, label: 'Preços', icon: '💰' },
   { id: 7, label: 'Entrega', icon: '🛵' },
   { id: 8, label: 'Horários', icon: '🕐' },
   { id: 9, label: 'Revisão', icon: '🔎' },
@@ -74,32 +42,6 @@ const STEPS = [
 
 const LAST_STEP = 10;
 
-type LibraryProduct = {
-  id: string;
-  name: string;
-  brand: string | null;
-  emoji: string | null;
-  defaultImageUrl: string | null;
-  volume: number | null;
-  unit: string | null;
-  suggestedPrice: number | null;
-  globalCategory: { name: string; slug: string; icon: string | null } | null;
-};
-
-type OwnProduct = {
-  name: string;
-  categoryName: string;
-  description: string;
-  imageUrl: string;
-  unit: string;
-  price: number;
-  stock: number;
-  active: boolean;
-};
-
-type DeliveryTier = { upToKm: number; fee: number };
-
-/** Tudo o que o wizard guarda. Um objeto só, para o rascunho ser fiel. */
 type Draft = {
   businessType: BusinessType | null;
   restaurantStyle: RestaurantStyle | null;
@@ -124,9 +66,6 @@ type Draft = {
   theme: 'LIGHT' | 'DARK' | 'AUTO';
   logoUrl: string;
   categories: SuggestedCategory[];
-  selected: string[];
-  ownProducts: OwnProduct[];
-  prices: Record<string, string>;
   allowPickup: boolean;
   allowOwnDelivery: boolean;
   allowMarketplace: boolean;
@@ -163,9 +102,6 @@ const INITIAL: Draft = {
   theme: 'AUTO',
   logoUrl: '',
   categories: [],
-  selected: [],
-  ownProducts: [],
-  prices: {},
   allowPickup: true,
   allowOwnDelivery: true,
   allowMarketplace: false,
@@ -204,22 +140,14 @@ export function OnboardingWizardV3({
     ),
   }));
 
-  const [step, setStep] = useState(resume?.step ?? 1);
+  const [step, setStep] = useState(() => {
+    const saved = resume?.step ?? 1;
+    // Drafts created before the catalog steps moved to the store panel.
+    return saved === 5 || saved === 6 ? 7 : saved >= LAST_STEP ? 9
+      : STEPS.some((item) => item.id === saved) ? saved : 1;
+  });
   const [error, setError] = useState<OnboardingV3State>(undefined);
-  const [done, setDone] = useState<{ slug: string; created: number } | null>(null);
-
-  // ── biblioteca ──
-  const [library, setLibrary] = useState<LibraryProduct[]>([]);
-  const [libraryLoading, setLibraryLoading] = useState(false);
-  const [libraryFilters, setLibraryFilters] = useState<{
-    categories: Array<{ name: string; slug: string; count: number }>;
-    brands: string[];
-  }>({ categories: [], brands: [] });
-  const [search, setSearch] = useState('');
-  const [categorySlug, setCategorySlug] = useState('');
-  const [brand, setBrand] = useState('');
-  const [onlyRecommended, setOnlyRecommended] = useState(true);
-  const [libraryNote, setLibraryNote] = useState<string | null>(null);
+  const [done, setDone] = useState<{ slug: string } | null>(null);
 
   const [newCategory, setNewCategory] = useState('');
   const [slugInfo, setSlugInfo] = useState<{ slug: string; available: boolean; suggestion?: string } | null>(null);
@@ -227,76 +155,6 @@ export function OnboardingWizardV3({
   const patch = useCallback((values: Partial<Draft>) => {
     setDraft((current) => ({ ...current, ...values }));
   }, []);
-
-  // ── carregar biblioteca e filtros ao entrar no passo 5 ──
-  useEffect(() => {
-    if (step !== 5) return;
-    let alive = true;
-    setLibraryLoading(true);
-
-    /**
-     * Mesmo atraso do passo do slug (280 ms), e pelo mesmo motivo: sem ele,
-     * CADA tecla digitada na busca disparava duas server actions (filtros +
-     * busca) e, atrás delas, até cinco consultas ao banco (árvore de
-     * categorias, marcas, a categoria do filtro, a página de produtos e a
-     * contagem). O custo não era o tamanho da resposta — a busca já vem
-     * paginada em 60 itens — era a enxurrada de requisições enquanto a
-     * pessoa digita.
-     *
-     * O `clearTimeout` da limpeza é o que faz valer: só a última tecla
-     * chega ao servidor.
-     */
-    const timer = setTimeout(async () => {
-      const [filters, result] = await Promise.all([
-        getLibraryFiltersAction(),
-        searchLibraryAction({
-          search: search || undefined,
-          categorySlug: categorySlug || undefined,
-          brand: brand || undefined,
-          businessType: onlyRecommended && draft.businessType ? draft.businessType : undefined,
-        }),
-      ]);
-      if (!alive) return;
-
-      if (filters.ok && filters.categories) {
-        setLibraryFilters({ categories: filters.categories, brands: filters.brands ?? [] });
-      }
-
-      // `ok` E `items` — nesta ordem. Checar só `items` tratava uma FALHA
-      // (ok:false, sem items) como "biblioteca vazia", e a mensagem real
-      // do servidor era substituída por um genérico. O lojista via "nada
-      // para o seu segmento" quando o problema era outro, e o passo
-      // seguinte recusava o avanço sem explicar por quê.
-      if (result.ok && result.items) {
-        setLibrary(result.items as LibraryProduct[]);
-        // 3.9: mostrar SÓ o que existe de verdade. Acervo vazio não é erro
-        // — é uma biblioteca que ainda está sendo montada, e a tela diz
-        // isso em vez de fingir que há produtos.
-        setLibraryNote(
-          result.total === 0
-            ? onlyRecommended
-              ? 'Nenhum produto da biblioteca para este segmento ainda. Você pode buscar em todos os produtos.'
-              : 'Nenhum produto encontrado com esses filtros.'
-            : null,
-        );
-      } else {
-        setLibrary([]);
-        // A mensagem do servidor vem primeiro: ela diz o que de fato
-        // aconteceu (sessão expirada, acervo não carregado). O genérico é
-        // o último recurso, não o padrão.
-        setLibraryNote(
-          result.error ?? 'Não foi possível carregar a biblioteca agora. Tente novamente em instantes.',
-        );
-      }
-      setLibraryLoading(false);
-    }, 280);
-
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, search, categorySlug, brand, onlyRecommended]);
 
   // ── sugestão de slug (passo 3.5) ──
   useEffect(() => {
@@ -323,12 +181,6 @@ export function OnboardingWizardV3({
 
   const chosenNames = useMemo(() => new Set(draft.categories.map((c) => c.name)), [draft.categories]);
 
-  const selectedProducts = useMemo(
-    () => library.filter((p) => draft.selected.includes(p.id)),
-    [library, draft.selected],
-  );
-
-  const hasCatalog = draft.selected.length > 0 || draft.ownProducts.length > 0;
   const storeUrl = slugInfo?.slug ? `sualoja.com.br/loja/${slugInfo.slug}` : '—';
 
   // ── validação de avanço (a barreira real é o servidor) ──
@@ -340,9 +192,6 @@ export function OnboardingWizardV3({
     }
     if (target === 4 && draft.categories.length === 0) {
       return 'Escolha ao menos uma categoria.';
-    }
-    if (target === 5 && !hasCatalog) {
-      return 'Escolha ao menos um produto da biblioteca.';
     }
     if (target === 7 && !draft.allowPickup && !draft.allowOwnDelivery && !draft.allowMarketplace) {
       return 'Habilite ao menos uma forma de atendimento.';
@@ -357,7 +206,7 @@ export function OnboardingWizardV3({
       return;
     }
     setError(undefined);
-    const next = Math.min(LAST_STEP, step + 1);
+    const next = STEPS.find((item) => item.id > step)?.id ?? LAST_STEP;
     setStep(next);
     // 3.19 — grava o rascunho a cada avanço. Falhar aqui não trava a
     // navegação: a pessoa segue, perde só a retomada.
@@ -370,7 +219,7 @@ export function OnboardingWizardV3({
 
   function goBack() {
     setError(undefined);
-    setStep((s) => Math.max(1, s - 1));
+    setStep((current) => STEPS.filter((item) => item.id < current).at(-1)?.id ?? 1);
   }
 
   function toggleCategory(category: SuggestedCategory) {
@@ -398,17 +247,8 @@ export function OnboardingWizardV3({
     setNewCategory('');
   }
 
-  function toggleSelected(id: string) {
-    setDraft((current) => ({
-      ...current,
-      selected: current.selected.includes(id)
-        ? current.selected.filter((x) => x !== id)
-        : [...current.selected, id],
-    }));
-  }
-
   function submit() {
-    const reason = blockReason(5) ?? blockReason(7);
+    const reason = blockReason(7);
     if (reason) {
       setError({ error: reason });
       return;
@@ -451,9 +291,6 @@ export function OnboardingWizardV3({
       'categories',
       JSON.stringify(draft.categories.map((c) => ({ name: c.name, emoji: c.emoji }))),
     );
-    formData.set('globalProductIds', JSON.stringify(draft.selected));
-    formData.set('prices', JSON.stringify(numericPrices(draft.prices)));
-    formData.set('ownProducts', JSON.stringify(draft.ownProducts));
 
     startTransition(async () => {
       // A action devolve erro em vez de lançar, mas uma falha de rede
@@ -466,7 +303,7 @@ export function OnboardingWizardV3({
           return;
         }
         if (result?.slug) {
-          setDone({ slug: result.slug, created: result.created ?? 0 });
+          setDone({ slug: result.slug });
           setStep(LAST_STEP);
         }
       } catch {
@@ -485,8 +322,7 @@ export function OnboardingWizardV3({
           </div>
           <h1 className="text-[1.3rem] font-extrabold text-ink-900">Seu estabelecimento está pronto.</h1>
           <p className="mt-2 text-[0.86rem] text-ink-600">
-            {draft.name} foi criado com {done.created}{' '}
-            {done.created === 1 ? 'produto' : 'produtos'} no catálogo.
+            Escolha as bebidas que vai vender na Biblioteca de bebidas e cadastre o saldo no Estoque.
           </p>
 
           <div className="mt-5 rounded border border-ink-100 bg-ink-50 px-4 py-3 text-left">
@@ -508,12 +344,12 @@ export function OnboardingWizardV3({
                 // requireOrg lê o vínculo do BANCO, então o painel abre
                 // mesmo com o token velho — era aqui que nascia o laço
                 // /app ↔ /onboarding.
-                router.push('/app/dashboard');
+                router.push('/app/biblioteca');
                 router.refresh();
               }}
               fullWidth
             >
-              Ir para o painel
+              Abrir Biblioteca de bebidas
             </Button>
           </div>
         </div>
@@ -521,7 +357,8 @@ export function OnboardingWizardV3({
     );
   }
 
-  const current = STEPS[step - 1];
+  const position = STEPS.findIndex((item) => item.id === step) + 1;
+  const current = STEPS[position - 1];
 
   return (
     <div className="mx-auto max-w-[980px] px-4 pb-24 sm:px-5">
@@ -531,7 +368,7 @@ export function OnboardingWizardV3({
           <div>
             <h1 className="text-[1.05rem] font-extrabold text-ink-900">Configurar estabelecimento</h1>
             <p className="text-[0.78rem] text-ink-500">
-              {userName || userEmail} · etapa {step} de {LAST_STEP}
+              {userName || userEmail} · etapa {position} de {STEPS.length}
             </p>
           </div>
           <Badge tone="neutral">
@@ -540,7 +377,7 @@ export function OnboardingWizardV3({
         </div>
 
         {/* Trilha. Em telas pequenas rola na horizontal em vez de quebrar
-            o layout — 10 etapas não cabem lado a lado num celular. */}
+            o layout no celular. */}
         <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
           <ol className="flex min-w-max items-center gap-1.5">
             {STEPS.map((s) => (
@@ -576,7 +413,7 @@ export function OnboardingWizardV3({
         <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
           <div
             className="h-full rounded-full bg-brand transition-all duration-500"
-            style={{ width: `${Math.round((step / LAST_STEP) * 100)}%` }}
+            style={{ width: `${Math.round((position / STEPS.length) * 100)}%` }}
           />
         </div>
       </div>
@@ -981,246 +818,6 @@ export function OnboardingWizardV3({
           </section>
         )}
 
-        {/* ══ 5 — PRODUTOS ══ */}
-        {step === 5 && (
-          <section>
-            <StepTitle
-              title="Produtos do seu catálogo"
-              subtitle="Escolha da biblioteca da plataforma. Cadastro manual fica para o painel."
-            />
-
-            <div className="mb-4 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar produto…"
-                aria-label="Buscar produto na biblioteca"
-              />
-              <Select
-                value={categorySlug}
-                onChange={(e) => setCategorySlug(e.target.value)}
-                aria-label="Filtrar por categoria"
-              >
-                <option value="">Todas as categorias</option>
-                {libraryFilters.categories.map((c) => (
-                  <option key={c.slug} value={c.slug}>
-                    {c.name} ({c.count})
-                  </option>
-                ))}
-              </Select>
-              <Select value={brand} onChange={(e) => setBrand(e.target.value)} aria-label="Filtrar por marca">
-                <option value="">Todas as marcas</option>
-                {libraryFilters.brands.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </Select>
-              <label className="flex cursor-pointer items-center gap-2 text-[0.8rem] text-ink-700">
-                <input
-                  type="checkbox"
-                  checked={onlyRecommended}
-                  onChange={(e) => setOnlyRecommended(e.target.checked)}
-                  className="h-4 w-4 accent-[var(--orange)]"
-                />
-                Só do meu segmento
-              </label>
-            </div>
-
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-[0.78rem] text-ink-500">
-                {library.length} {library.length === 1 ? 'produto' : 'produtos'} ·{' '}
-                <strong className="text-ink-800">{draft.selected.length} selecionados</strong>
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() =>
-                    patch({ selected: Array.from(new Set([...draft.selected, ...library.map((p) => p.id)])) })
-                  }
-                  disabled={library.length === 0}
-                >
-                  Selecionar os {library.length} filtrados
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => patch({ selected: [] })}
-                  disabled={draft.selected.length === 0}
-                >
-                  Limpar seleção
-                </Button>
-              </div>
-            </div>
-
-            {libraryLoading ? (
-              <p className="py-8 text-center text-[0.84rem] text-ink-500">Carregando biblioteca…</p>
-            ) : library.length === 0 ? (
-              <div className="rounded border border-ink-100 bg-ink-50 px-4 py-6 text-center">
-                <p className="text-[0.84rem] text-ink-600">{libraryNote}</p>
-              </div>
-            ) : (
-              <div className="grid max-h-[420px] gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3">
-                {library.map((product) => {
-                  const isSelected = draft.selected.includes(product.id);
-                  return (
-                    <label
-                      key={product.id}
-                      className={cn(
-                        'flex cursor-pointer gap-3 rounded border-2 p-2.5 transition-all',
-                        isSelected ? 'border-brand bg-brand/5' : 'border-ink-100 hover:border-ink-200',
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelected(product.id)}
-                        className="mt-1 h-4 w-4 shrink-0 accent-[var(--orange)]"
-                      />
-                      <div className="flex min-w-0 flex-1 gap-2.5">
-                        <Thumb product={product} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[0.8rem] font-semibold text-ink-800">
-                            {product.name}
-                          </p>
-                          <p className="truncate text-[0.7rem] text-ink-500">
-                            {[product.brand, product.globalCategory?.name, product.volume]
-                              .filter(Boolean)
-                              .join(' · ') || 'Sem detalhes'}
-                          </p>
-                          <p className="mt-0.5 text-[0.74rem] font-bold text-ink-700">
-                            {product.suggestedPrice === null
-                              ? 'defina o preço'
-                              : formatBRL(product.suggestedPrice)}
-                          </p>
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* 3.10 — ajuste rápido de preço, sem sair do passo. O preço
-                pertence ao estabelecimento: o valor da biblioteca é só
-                sugestão e não é alterado por ninguém. */}
-            {selectedProducts.length > 0 && (
-              <div className="mt-5 border-t border-ink-100 pt-4">
-                <p className="mb-2 text-[0.8rem] font-bold text-ink-800">
-                  Ajuste rápido de preço ({selectedProducts.length})
-                </p>
-                <div className="max-h-[220px] space-y-1.5 overflow-y-auto pr-1">
-                  {selectedProducts.map((product) => (
-                    <div key={product.id} className="flex items-center gap-3">
-                      <span className="min-w-0 flex-1 truncate text-[0.8rem] text-ink-700">
-                        {product.name}
-                      </span>
-                      <div className="w-[110px] shrink-0">
-                        <MoneyInput
-                          value={draft.prices[product.id] ?? ''}
-                          onChange={(e) =>
-                            patch({
-                              prices: { ...draft.prices, [product.id]: e.target.value },
-                            })
-                          }
-                          placeholder={
-                            product.suggestedPrice === null
-                              ? '0,00'
-                              : product.suggestedPrice.toFixed(2).replace('.', ',')
-                          }
-                          aria-label={`Preço de ${product.name}`}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ══ 6 — PREÇOS ══ */}
-        {step === 6 && (
-          <section>
-            <StepTitle
-              title="Preços"
-              subtitle="O preço é do seu estabelecimento. Edite o que quiser — o valor da biblioteca não muda."
-            />
-
-            {selectedProducts.length === 0 ? (
-              <p className="text-[0.84rem] text-ink-500">
-                Nenhum produto da biblioteca selecionado. Volte ao passo anterior e escolha os itens.
-              </p>
-            ) : (
-              <>
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() =>
-                      patch({
-                        prices: Object.fromEntries(
-                          selectedProducts.map((p) => [p.id, String(p.suggestedPrice ?? '')]),
-                        ),
-                      })
-                    }
-                  >
-                    Usar preços sugeridos
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => patch({ prices: {} })}
-                  >
-                    Limpar
-                  </Button>
-                  <span className="text-[0.76rem] text-ink-500">
-                    Editando {selectedProducts.length} de {selectedProducts.length}
-                  </span>
-                </div>
-
-                <div className="max-h-[460px] space-y-1.5 overflow-y-auto pr-1">
-                  {selectedProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex items-center gap-3 rounded border border-ink-100 px-3 py-2"
-                    >
-                      <Thumb product={product} size="sm" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[0.82rem] font-semibold text-ink-800">
-                          {product.name}
-                        </span>
-                        <span className="block truncate text-[0.7rem] text-ink-500">
-                          {product.brand ?? product.globalCategory?.name ?? '—'}
-                        </span>
-                      </span>
-                      <div className="w-[120px] shrink-0">
-                        <MoneyInput
-                          value={draft.prices[product.id] ?? ''}
-                          onChange={(e) =>
-                            patch({ prices: { ...draft.prices, [product.id]: e.target.value } })
-                          }
-                          placeholder={
-                            product.suggestedPrice === null
-                              ? 'obrigatório'
-                              : product.suggestedPrice.toFixed(2).replace('.', ',')
-                          }
-                          aria-label={`Preço de ${product.name}`}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </section>
-        )}
-
         {/* ══ 7 — ENTREGA ══ */}
         {step === 7 && (
           <section>
@@ -1573,9 +1170,7 @@ export function OnboardingWizardV3({
               </ReviewBlock>
 
               <ReviewBlock title="Produtos">
-                <strong>{draft.selected.length}</strong>{' '}
-                {draft.selected.length === 1 ? 'produto da biblioteca' : 'produtos da biblioteca'} no
-                catálogo
+                A loja começa com o estoque e a vitrine vazios. Escolha os produtos após finalizar.
               </ReviewBlock>
 
               <ReviewBlock title="Atendimento">
@@ -1614,7 +1209,7 @@ export function OnboardingWizardV3({
             Voltar
           </Button>
           <span className="hidden text-[0.74rem] text-ink-400 sm:block">
-            {pending ? 'Salvando…' : `Etapa ${step} de ${LAST_STEP}`}
+            {pending ? 'Salvando…' : `Etapa ${position} de ${STEPS.length}`}
           </span>
           {step === LAST_STEP - 1 ? (
             <Button type="button" onClick={submit} loading={pending}>
@@ -1722,51 +1317,11 @@ function ColorField({ value, onChange }: { value: string; onChange: (value: stri
   );
 }
 
-/**
- * Imagem do produto da biblioteca.
- *
- * Delega para `ProductThumb`, o componente que a vitrine, o painel e o
- * seletor de catálogo já usam. Antes esta tela tinha uma <img> própria, e
- * isso custava caro em DOIS pontos:
- *
- * 1. `defaultImageUrl` é CAMINHO RELATIVO ("bebidas/cervejas/skol-lata-350ml"),
- *    não URL. Usado cru como `src`, o navegador resolvia a partir de
- *    /onboarding e pedia /bebidas/cervejas/... — 404 em todo produto.
- * 2. Pior: `seedImagePath` grava o caminho SEM EXTENSÃO, porque o banco
- *    não sabe se o arquivo do acervo é .webp, .jpg ou .png. Só o
- *    ProductThumb expande o caminho-base em CATALOG_EXTENSIONS e fica com
- *    o primeiro que carregar. Uma <img> de extensão única erra sempre.
- *
- * Ou seja: a resolução de imagem tem um dono só. Esta função existe apenas
- * para não repetir as props nos dois pontos de uso.
- */
-function Thumb({ product, size = 'md' }: { product: LibraryProduct; size?: 'sm' | 'md' }) {
-  return (
-    <ProductThumb
-      globalImageUrl={product.defaultImageUrl}
-      emoji={product.emoji}
-      alt={product.name}
-      size={size === 'sm' ? 32 : 40}
-    />
-  );
-}
-
 /** "24,90" → 24.9. O servidor revalida; isto é só conveniência de digitação. */
 function parseMoney(value: string): number {
   const normalized = String(value).replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-/** Só os preços realmente digitados. Vazio = usar o sugerido. */
-function numericPrices(prices: Record<string, string>): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const [id, raw] of Object.entries(prices)) {
-    if (!raw || !String(raw).trim()) continue;
-    const value = parseMoney(raw);
-    if (value > 0) out[id] = value;
-  }
-  return out;
 }
 
 const BUSINESS_LABEL: Record<string, string> = {

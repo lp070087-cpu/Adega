@@ -117,7 +117,13 @@ export async function createProductAction(formData: FormData): Promise<ActionRes
     const raw = productFromForm(formData);
     const org = await getOrganizationById(organizationId);
     const defaults = stockDefaults(org?.settings);
-    const parsed = productSchema.safeParse({ ...raw, ...(formData.get('stock') === null && raw.trackStock ? { stock: defaults.initialStock } : {}), ...(formData.get('minimumStock') === null && raw.trackStock ? { minimumStock: defaults.minimumStock } : {}) });
+    const parsed = productSchema.safeParse({
+      ...raw,
+      stock: 0,
+      active: false,
+      available: false,
+      ...(formData.get('minimumStock') === null && raw.trackStock ? { minimumStock: defaults.minimumStock } : {}),
+    });
     if (!parsed.success) return { ok: false, ...firstIssue(parsed.error) };
 
     await catalog.createProduct(
@@ -444,6 +450,7 @@ export async function applyTemplateAction(input: {
  * O slug da loja é lido da sessão para não invalidar cache de outra.
  */
 function revalidateCatalog() {
+  revalidatePath('/app/biblioteca');
   revalidatePath('/app/catalogo');
   revalidatePath('/app/estoque');
   revalidatePath('/app/dashboard');

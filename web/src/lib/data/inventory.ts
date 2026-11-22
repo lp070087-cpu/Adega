@@ -90,6 +90,7 @@ export async function getStockProducts(organizationId: string, limit?: number, i
       trackStock: true,
       active: true,
       available: true,
+      combo: { select: { id: true } },
       category: { select: { name: true } },
     },
   });

@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import type { BusinessType } from '@prisma/client';
 import { auth } from '@/lib/auth';
 import { toActionError } from '@/lib/auth/guards';
 import { prisma } from '@/lib/db';
@@ -10,8 +9,6 @@ import { slugify } from '@/lib/utils';
 import { onboardingNumber as numberOr } from '@/lib/onboarding-number';
 import { lockOnboardingAccount } from '@/lib/data/onboarding-guard';
 import { validateImageUrl } from '@/lib/storage';
-import { stockDefaults } from '@/lib/stock-policy';
-import { copyGlobalProductsTx, searchGlobalProducts, getGlobalCategoryTree, getGlobalBrands } from '@/lib/data/global-catalog';
 import {
   checkSlugAvailability,
   clearOnboardingDraft,
@@ -24,31 +21,7 @@ import {
   onboardingDraftSchema,
 } from '@/lib/validations/organization';
 
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * ONBOARDING — v3 (Fase 3)
- * -----------------------------------------------------------------------
- * Diferença para a v2: a loja nasce COMPLETA. A v2 criava organização,
- * categorias, catálogo, caixa e assinatura. A v3 acrescenta o que faltava
- * para o estabelecimento operar de verdade sem passar por Configurações:
- * endereço, agenda por dia, modalidades de atendimento e faixas de frete.
- *
- * TRÊS COMPROMISSOS DESTE ARQUIVO:
- *
- *   1. NADA de "primeira organização do banco". A loja é criada do zero e
- *      vinculada ao usuário da SESSÃO. Não existe leitura de tenant aqui.
- *
- *   2. NADA de confiar na tela. Slug, preços, ids de produto global,
- *      categorias e endereço chegam do formulário e são revalidados pelo
- *      Zod. Um id de GlobalProduct de outra loja não existe — a biblioteca
- *      é da plataforma, e a cópia filtra por `active: true`.
- *
- *   3. TUDO numa transação. Loja criada com 60 produtos e sem caixa, ou
- *      com agenda pela metade, seria pior que um erro visível: o lojista
- *      acharia que terminou e descobriria o buraco depois.
- * ═══════════════════════════════════════════════════════════════════════
- */
-
+/** Creates the store, its schedule and operations with an empty stock and storefront. */
 export type OnboardingV3State =
   | {
       error?: string;
@@ -116,90 +89,6 @@ export async function checkSlugAction(desired: string): Promise<{
     };
   } catch {
     return { ok: false, error: 'Não foi possível verificar o endereço.' };
-  }
-}
-
-/**
- * Busca na BIBLIOTECA GLOBAL durante o onboarding (passo 3.9).
- *
- * POR QUE ESTA ACTION EXISTE, E NÃO A searchGlobalProductsAction:
- * aquela exige `requirePermission('MANAGE_PRODUCTS')` — que exige vínculo
- * com uma organização, que é exatamente o que ainda não existe aqui. O
- * wizard v2 chamava a action errada e recebia "sem permissão" no passo de
- * produtos; o passo ficava vazio e o lojista concluía sem catálogo.
- *
- * A guarda correta aqui é `auth()`: sessão de pessoa logada. E é suficiente
- * porque a biblioteca é da PLATAFORMA — GlobalProduct não tem
- * organizationId. Não há tenant a vazar: os mesmos itens aparecem para
- * qualquer loja. Nada desta action toca dado de estabelecimento.
- */
-export async function searchLibraryAction(input: {
-  search?: string;
-  categorySlug?: string;
-  brand?: string;
-  businessType?: string;
-  withImage?: boolean;
-  page?: number;
-}): Promise<{
-  ok: boolean;
-  items?: unknown[];
-  total?: number;
-  categories?: Array<{ name: string; slug: string; count: number }>;
-  brands?: string[];
-  error?: string;
-}> {
-  const session = await auth();
-  if (!session?.user?.id) return { ok: false, error: 'Sessão expirada.' };
-
-  try {
-    const result = await searchGlobalProducts({
-      search: input.search?.trim() || undefined,
-      categorySlug: input.categorySlug || undefined,
-      brand: input.brand || undefined,
-      businessType: (input.businessType as BusinessType | undefined) || undefined,
-      withImage: input.withImage || undefined,
-      page: input.page && input.page > 0 ? input.page : 1,
-      perPage: 60,
-    });
-
-    return {
-      ok: true,
-      items: result.items,
-      total: result.total,
-    };
-  } catch {
-    return { ok: false, error: 'Não foi possível carregar a biblioteca.' };
-  }
-}
-
-/**
- * Filtros da biblioteca — categorias e marcas REAIS do acervo.
- *
- * Vêm do banco, não de uma lista fixa no código: se o acervo ainda não tem
- * imagem para certa categoria, ela aparece com a contagem verdadeira. O
- * passo 3.9 pede exatamente isso — mostrar só o que existe, sem inventar
- * item para preencher tela.
- */
-export async function getLibraryFiltersAction(): Promise<{
-  ok: boolean;
-  categories?: Array<{ name: string; slug: string; count: number }>;
-  brands?: string[];
-  error?: string;
-}> {
-  const session = await auth();
-  if (!session?.user?.id) return { ok: false, error: 'Sessão expirada.' };
-
-  try {
-    const [tree, brands] = await Promise.all([getGlobalCategoryTree(), getGlobalBrands()]);
-
-    // Só categorias com acervo real. Categoria vazia no filtro é ruído.
-    const categories = tree
-      .filter((node) => node.productCount > 0)
-      .map((node) => ({ name: node.name, slug: node.slug, count: node.productCount }));
-
-    return { ok: true, categories, brands };
-  } catch {
-    return { ok: false, error: 'Não foi possível carregar os filtros.' };
   }
 }
 
@@ -272,9 +161,6 @@ export async function completeOnboardingV3Action(
     schedule: jsonOr(formData.get('schedule'), []),
 
     categories: jsonOr(formData.get('categories'), []),
-    globalProductIds: jsonOr(formData.get('globalProductIds'), []),
-    prices: jsonOr(formData.get('prices'), {}),
-    ownProducts: jsonOr(formData.get('ownProducts'), []),
   });
 
   if (!parsed.success) {
@@ -287,41 +173,11 @@ export async function completeOnboardingV3Action(
 
   const data = parsed.data;
 
-  // A loja precisa VENDER alguma coisa. Sem catálogo, o painel abre vazio e
-  // a vitrine também — e o lojista concluiu o cadastro achando que sim.
-  if (data.globalProductIds.length === 0 && data.ownProducts.length === 0) {
-    return {
-      error: 'Escolha ao menos um produto da biblioteca ou crie um produto próprio.',
-      field: 'globalProductIds',
-    };
-  }
-
   // Precisa haver alguma forma de o cliente receber o pedido.
   if (!data.allowPickup && !data.allowOwnDelivery && !data.allowMarketplace) {
     return {
       error: 'Habilite ao menos uma forma de atendimento: retirada, entrega própria ou delivery.',
       field: 'allowPickup',
-    };
-  }
-
-  // ── Imagens: validação que NÃO derruba a action ──
-  //
-  // validateImageUrl LANÇA em data: e em esquema não-http(s). Isso é certo
-  // para quem chama de dentro de um try — e errado aqui: este trecho roda
-  // fora do try da transação, então um base64 colado no campo derrubaria a
-  // action inteira e a tela ficaria travada em "salvando" para sempre.
-  //
-  // Zod aceita data: como URL válida, então a barreira real é esta. Aqui a
-  // exceção vira mensagem.
-  try {
-    for (const own of data.ownProducts) {
-      if (!own.imageUrl) continue;
-      own.imageUrl = validateImageUrl(own.imageUrl) ?? undefined;
-    }
-  } catch (error) {
-    return {
-      error: error instanceof Error ? error.message : 'Imagem do produto inválida.',
-      field: 'ownProducts',
     };
   }
 
@@ -333,17 +189,6 @@ export async function completeOnboardingV3Action(
       error: error instanceof Error ? error.message : 'Logo inválida.',
       field: 'logoUrl',
     };
-  }
-
-  // A UNIDADE não vira coluna. `Product` não tem `unit` — o schema a
-  // guarda em GlobalProduct, para a biblioteca. Aqui ela é rótulo de
-  // exibição e entra na descrição; criar a coluna agora seria duplicar um
-  // conceito que a biblioteca já resolve, e o preço por quilo se lê na
-  // descrição. Quando houver tela que PRECISE filtrar por unidade, a
-  // coluna se justifica — hoje não há.
-  for (const own of data.ownProducts) {
-    if (!own.unit || own.description?.includes(own.unit)) continue;
-    own.description = own.description ? `${own.description} · ${own.unit}` : own.unit;
   }
 
   const schedule = data.schedule as WeekdaySchedule[];
@@ -424,8 +269,6 @@ export async function completeOnboardingV3Action(
         });
 
         // ── Categorias ──
-        // Antes da cópia da biblioteca: assim a cópia acha a categoria pelo
-        // nome e não cria uma segunda com o mesmo sentido.
         let position = 0;
         for (const category of data.categories) {
           await tx.category.create({
@@ -437,57 +280,6 @@ export async function completeOnboardingV3Action(
               position: position++,
             },
           });
-        }
-
-        // ── Biblioteca global ──
-        // Product nasce com globalProductId e customImageUrl nulo: o
-        // arquivo de imagem continua sendo UM só, da plataforma.
-        const copy = await copyGlobalProductsTx(tx, org.id, data.globalProductIds, {
-          prices: data.prices,
-          userId,
-          skipExisting: true,
-        });
-
-        // ── Produtos próprios ──
-        for (const own of data.ownProducts) {
-          const categoryName = own.categoryName || 'Meus produtos';
-          let category = await tx.category.findFirst({
-            where: { organizationId: org.id, name: categoryName },
-            select: { id: true },
-          });
-          if (!category) {
-            category = await tx.category.create({
-              data: {
-                organizationId: org.id,
-                name: categoryName,
-                slug: slugify(categoryName) || `cat-${position}`,
-                emoji: '⭐',
-                position: position++,
-              },
-              select: { id: true },
-            });
-          }
-
-          const ownProduct = await tx.product.create({
-            data: {
-              organizationId: org.id,
-              categoryId: category.id,
-              name: own.name,
-              slug: `${slugify(own.name) || 'produto'}-${position}`,
-              description: own.description ?? null,
-              imageUrl: own.imageUrl || null,
-              emoji: own.emoji ?? null,
-              price: own.price,
-              stock: own.stock,
-              minimumStock: stockDefaults(null).minimumStock,
-              trackStock: true,
-              active: own.active,
-              available: own.active,
-              type: 'SIMPLE',
-              position: position++,
-            },
-          });
-          if (ownProduct.stock > 0) await tx.inventoryMovement.create({ data: { organizationId: org.id, productId: ownProduct.id, type: 'IN', quantity: ownProduct.stock, previousStock: 0, newStock: ownProduct.stock, reason: 'Estoque inicial do onboarding', userId } });
         }
 
         // Sem caixa, o lojista não consegue abrir turno no primeiro dia.
@@ -508,10 +300,8 @@ export async function completeOnboardingV3Action(
           });
         }
 
-        const productCount = await tx.product.count({ where: { organizationId: org.id } });
-        return { slug: org.slug, total: productCount, copied: copy.created };
+        return { slug: org.slug };
       },
-      // Copiar 200+ produtos em banco remoto não cabe nos 5s padrão.
       { timeout: 30000 },
     );
 
@@ -523,7 +313,7 @@ export async function completeOnboardingV3Action(
     revalidatePath('/app', 'layout');
     revalidatePath('/onboarding');
 
-    return { slug: result.slug, created: result.total };
+    return { slug: result.slug, created: 0 };
   } catch (error) {
     return toActionError(error);
   }

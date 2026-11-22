@@ -3,26 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { requirePermission, toActionError } from '@/lib/auth/guards';
-import * as globalCatalog from '@/lib/data/global-catalog';
-import { searchGlobalProducts } from '@/lib/data/global-catalog';
-import { addFromLibrarySchema, globalSearchSchema } from '@/lib/validations/global-catalog';
+import { addGlobalProductsToStock, searchGlobalProducts } from '@/lib/data/global-catalog';
+import { globalProductIdsSchema, globalSearchSchema } from '@/lib/validations/global-catalog';
 import type { BusinessType } from '@prisma/client';
-
-/**
- * ═══════════════════════════════════════════════════════════════════════
- * BIBLIOTECA GLOBAL — server actions
- * -----------------------------------------------------------------------
- * A biblioteca global é SOMENTE LEITURA para o lojista. Ele não cria,
- * edita nem apaga produto global — isso é curadoria da plataforma.
- *
- * A única escrita daqui é a CÓPIA para o catálogo da organização, e por
- * isso ela exige MANAGE_PRODUCTS e recebe organizationId da sessão.
- *
- * Preço enviado pelo cliente é aceito no momento da cópia (é o lojista
- * decidindo o preço DELE). Preço de produto global não existe como
- * escrita — `suggestedPrice` é só uma dica da plataforma.
- * ═══════════════════════════════════════════════════════════════════════
- */
 
 export type GlobalActionResult<T = undefined> =
   | { ok: true; data?: T }
@@ -31,17 +14,6 @@ export type GlobalActionResult<T = undefined> =
 function firstIssue(error: z.ZodError): { error: string; field?: string } {
   const issue = error.errors[0];
   return { error: issue?.message ?? 'Dados inválidos.', field: issue?.path[0] as string };
-}
-
-/** Lê um JSON de dentro do FormData sem confiar no formato. */
-function jsonValue(formData: FormData, key: string): unknown {
-  const raw = formData.get(key);
-  if (typeof raw !== 'string' || !raw.trim()) return undefined;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return undefined;
-  }
 }
 
 // ── BUSCA ──────────────────────────────────────────────────────────────
@@ -73,56 +45,22 @@ export async function searchGlobalProductsAction(input: {
   }
 }
 
-// ── ADICIONAR AO CATÁLOGO ──────────────────────────────────────────────
-
-/** "+ Adicionar da biblioteca" — recebe os ids e copia para a loja. */
-export async function addFromLibraryAction(formData: FormData): Promise<
-  GlobalActionResult<{
-    created: number;
-    skipped: number;
-    categoriesCreated: number;
-    productIds: string[];
-  }>
+/** Imports a selection into this organization's stock. */
+export async function addFromLibraryAction(productIds: string[]): Promise<
+  GlobalActionResult<Awaited<ReturnType<typeof addGlobalProductsToStock>>>
 > {
   try {
-    const { organizationId, user } = await requirePermission('MANAGE_PRODUCTS');
-
-    const parsed = addFromLibrarySchema.safeParse({
-      productIds: jsonValue(formData, 'productIds') ?? [],
-      prices: jsonValue(formData, 'prices'),
-      categoryId: formData.get('categoryId') || undefined,
-      featured: formData.get('featured') ?? false,
-      skipExisting: formData.get('skipExisting') ?? true,
-    });
+    const { organizationId } = await requirePermission('MANAGE_PRODUCTS');
+    const parsed = globalProductIdsSchema.safeParse(productIds);
     if (!parsed.success) return { ok: false, ...firstIssue(parsed.error) };
 
-    const result = await globalCatalog.addGlobalProductsToCatalog(
-      organizationId,
-      parsed.data.productIds,
-      {
-        prices: parsed.data.prices,
-        userId: user.id,
-        categoryId: parsed.data.categoryId,
-        featured: parsed.data.featured,
-        skipExisting: parsed.data.skipExisting,
-      },
-    );
-
+    const result = await addGlobalProductsToStock(organizationId, parsed.data);
     revalidateCatalog();
     return { ok: true, data: result };
   } catch (error) {
     return { ok: false, ...toActionError(error) };
   }
 }
-
-// Nota: NÃO existe uma variante "para o onboarding" desta action.
-//
-// Existia, e foi removida por ser impossível de usar: ela exigia
-// `requirePermission('MANAGE_PRODUCTS')`, que por sua vez exige vínculo
-// com uma organização — que é justamente o que ainda não existe durante
-// o onboarding. O onboarding V2 copia a biblioteca dentro da própria
-// transação de criação da loja (`copyGlobalProductsTx`), então não
-// precisa de action intermediária.
 
 // ── IMAGEM PERSONALIZADA ───────────────────────────────────────────────
 
@@ -216,6 +154,7 @@ export async function toggleFeaturedAction(input: {
 // ── REVALIDAÇÃO ────────────────────────────────────────────────────────
 
 function revalidateCatalog() {
+  revalidatePath('/app/biblioteca');
   revalidatePath('/app/catalogo');
   revalidatePath('/app/estoque');
   revalidatePath('/app/configuracoes/minha-loja');
