@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { BadgeCheck, MapPinned, MessageCircle, PackageCheck, Route, ShieldCheck, Store, Timer } from 'lucide-react';
 import { DeliveryIllustration } from './DeliveryIllustration';
+import { DRIVER_MOTO_SRC } from '@/components/driver/driver-moto';
 import './auth-shell.css';
 
 type Audience = 'loja' | 'entregador' | 'plataforma';
@@ -30,7 +31,14 @@ export function AuthShell({ audience, title, subtitle, children, footer, badge, 
           <h2>{pitch.headline}</h2>
           <ul>{pitch.points.map(([Icon, text]) => <li key={text}><Icon size={18} aria-hidden />{text}</li>)}</ul>
         </div>
-        <DeliveryIllustration className="auth-illustration" />
+        {audience === 'entregador' ? (
+          <div className="auth-illustration auth-driver-art">
+            <div className="df-driver-moto-art">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={DRIVER_MOTO_SRC} alt="Entregador Del Flash em uma moto" width={736} height={736} />
+            </div>
+          </div>
+        ) : <DeliveryIllustration className="auth-illustration" />}
       </aside>
       <section className="auth-panel">
         {back && <Link href={back.href} className="auth-back">← {back.label}</Link>}

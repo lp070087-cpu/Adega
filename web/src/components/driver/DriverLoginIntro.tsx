@@ -1,21 +1,45 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { DeliveryIllustration } from '../auth/DeliveryIllustration';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { BrandMark } from '@/components/ui/BrandMark';
+import { DRIVER_MOTO_SRC } from './driver-moto';
 
-export function DriverLoginIntro() {
-  const [visible, setVisible] = useState(false);
+type Phase = 'loading' | 'playing' | 'done';
+
+export function DriverLoginIntro({ children }: { children: ReactNode }) {
+  const [phase, setPhase] = useState<Phase>('loading');
+  const moto = useRef<HTMLImageElement>(null);
+  const skip = useRef<HTMLButtonElement>(null);
+  const auth = useRef<HTMLDivElement>(null);
+
+  function start() {
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setPhase(current => current === 'loading' ? 'playing' : current);
+    }
+  }
+
+  function finish(restoreFocus = false) {
+    setPhase('done');
+    if (restoreFocus) requestAnimationFrame(() => auth.current?.focus());
+  }
 
   useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    try {
-      if (sessionStorage.getItem('df-driver-intro') === 'seen') return;
-      sessionStorage.setItem('df-driver-intro', 'seen');
-    } catch { /* Permite a animação sem preferências persistidas. */ }
-    setVisible(true);
-    const timeout = window.setTimeout(() => setVisible(false), 2000);
-    return () => window.clearTimeout(timeout);
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onMotionChange = () => { if (reducedMotion.matches) setPhase('done'); };
+    onMotionChange();
+    reducedMotion.addEventListener('change', onMotionChange);
+    if (!reducedMotion.matches) {
+      if (moto.current?.complete && moto.current.naturalWidth > 0) start();
+      skip.current?.focus({ preventScroll: true });
+    }
+    return () => reducedMotion.removeEventListener('change', onMotionChange);
   }, []);
+
+  useEffect(() => {
+    if (phase === 'done') return;
+    const timeout = window.setTimeout(() => setPhase('done'), phase === 'loading' ? 3500 : 3000);
+    return () => window.clearTimeout(timeout);
+  }, [phase]);
 
   async function playSkid() {
     let audio: AudioContext | undefined;
@@ -42,12 +66,27 @@ export function DriverLoginIntro() {
     } catch { void audio?.close().catch(() => undefined); }
   }
 
-  if (!visible) return null;
-  return <div className="df-driver-intro" role="dialog" aria-modal="true" aria-label="Abertura Del Flash Entregador" onKeyDown={event => { if (event.key === 'Escape') setVisible(false); }}>
-    <DeliveryIllustration className="df-driver-intro-art" launch />
-    <div className="df-driver-intro-controls">
-      <button type="button" className="df-driver-intro-skip" onClick={() => void playSkid()}>Ouvir arrancada</button>
-      <button type="button" autoFocus className="df-driver-intro-skip" onClick={() => setVisible(false)}>Pular abertura</button>
+  return <>
+    <div ref={auth} className="df-driver-login" tabIndex={-1} inert={phase !== 'done'}>
+      {children}
     </div>
-  </div>;
+    {phase !== 'done' && (
+      <div className="df-driver-intro" data-phase={phase} role="dialog" aria-modal="true" aria-label="Abertura Del Flash Entregador" onKeyDown={event => { if (event.key === 'Escape') finish(true); }}>
+        <div className="df-driver-intro-brand"><BrandMark /></div>
+        <div className="df-driver-track" aria-hidden="true">
+          <div className="df-driver-smoke"><i /><i /><i /></div>
+          <div className="df-driver-bike" onAnimationEnd={event => { if (event.target === event.currentTarget) finish(true); }}>
+            <div className="df-driver-moto-art">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img ref={moto} src={DRIVER_MOTO_SRC} alt="" width={736} height={736} fetchPriority="high" onLoad={start} onError={() => finish(true)} />
+            </div>
+          </div>
+        </div>
+        <div className="df-driver-intro-controls">
+          <button type="button" className="df-driver-intro-action" onClick={() => void playSkid()}>Ouvir arrancada</button>
+          <button ref={skip} type="button" className="df-driver-intro-action" onClick={() => finish(true)}>Pular abertura</button>
+        </div>
+      </div>
+    )}
+  </>;
 }

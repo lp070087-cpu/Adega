@@ -73,12 +73,119 @@
 .auth-driver .field-label,.auth-driver label{font-size:13.5px;font-weight:650;color:#1e293b}
 .auth-driver button[type=submit]{min-height:52px;border-radius:14px}
 
-.df-driver-intro{position:fixed;inset:0;z-index:1500;display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at center,#147794,#0b1f3a 67%);color:white}
-.df-driver-intro-art{width:min(95vw,560px);overflow:visible}
-.df-driver-intro-controls{position:absolute;right:clamp(16px,4vw,40px);bottom:max(24px,env(safe-area-inset-bottom));display:flex;flex-wrap:wrap;gap:8px}.df-driver-intro-skip{min-height:44px;padding:0 16px;border:1px solid #ffffff85;border-radius:12px;font-weight:650}
-.df-moto-launch{transform-origin:146px 240px;animation:df-moto-launch 1.9s cubic-bezier(.52,0,.75,.36) both}
-.df-moto-smoke{transform-origin:125px 251px;animation:df-moto-smoke 1.65s ease-out both}
-.df-driver-intro-art .df-ill-wheel{animation-duration:.24s}
-@keyframes df-moto-launch{0%,20%{transform:translateX(0) rotate(0deg)}32%{transform:translateX(4px) rotate(-4deg)}52%{transform:translateX(68px) rotate(-23deg)}70%{transform:translateX(150px) rotate(-14deg)}100%{transform:translateX(150vw) rotate(0deg)}}
-@keyframes df-moto-smoke{0%,17%{opacity:0;transform:scale(.3)}33%{opacity:.78;transform:translate(-6px,-4px) scale(.72)}80%,100%{opacity:0;transform:translate(-80px,-25px) scale(1.6)}}
-@media(prefers-reduced-motion:reduce){.df-driver-intro{display:none}.df-moto-smoke,.df-moto-launch{animation:none}}
+/* A arte original é recortada só na apresentação, preservando os pneus. */
+.df-driver-moto-art {
+  aspect-ratio: 736 / 486;
+  overflow: hidden;
+  mix-blend-mode: multiply;
+}
+.df-driver-moto-art img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform: translateY(-16.3%);
+}
+.auth-driver-art {
+  width: min(100%, 380px);
+  border-radius: 20px;
+  padding: 14px;
+  background: #f5fbff;
+  filter: none;
+}
+.df-driver-login:focus { outline: none; }
+.df-driver-login[inert] { visibility: hidden; }
+.df-driver-login[inert] .auth-card { animation: none; }
+.df-driver-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  overflow: hidden;
+  isolation: isolate;
+  color: #0b1f3a;
+  background: radial-gradient(ellipse at 46% 54%, #fff, #eaf5fb 80%);
+}
+.df-driver-intro-brand {
+  position: absolute;
+  z-index: 2;
+  top: max(24px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: clamp(24px, 5vw, 40px);
+  white-space: nowrap;
+}
+.df-driver-track {
+  --bike-width: min(62vw, 500px, 110dvh);
+  position: absolute;
+  top: 54%;
+  left: 0;
+  width: 100%;
+  transform: translateY(-50%);
+  height: calc(var(--bike-width) * 486 / 736);
+}
+.df-driver-bike {
+  position: absolute;
+  left: clamp(10px, 5vw, 72px);
+  width: var(--bike-width);
+  transform: translateX(calc(-100% - 7vw));
+  transform-origin: 30% 82%;
+}
+.df-driver-intro[data-phase="playing"] .df-driver-bike {
+  animation: df-driver-ride 2.25s linear both;
+}
+@keyframes df-driver-ride {
+  0% { transform: translateX(calc(-100% - 7vw)); }
+  22%, 26% { transform: translateX(0); }
+  30% { transform: translateX(1px) rotate(-2deg); }
+  34% { transform: translateX(0) rotate(.6deg); }
+  42% { transform: translateX(2vw) rotate(-5deg); }
+  58% { transform: translateX(17vw) rotate(-23deg); }
+  73% { transform: translateX(40vw) rotate(-16deg); }
+  85% { transform: translateX(61vw) rotate(-5deg); }
+  100% { transform: translateX(104vw); }
+}
+.df-driver-smoke {
+  position: absolute;
+  left: calc(clamp(10px, 5vw, 72px) + var(--bike-width) * .28);
+  top: 91%;
+  width: calc(var(--bike-width) * .18);
+}
+.df-driver-smoke i {
+  position: absolute;
+  width: 100%;
+  aspect-ratio: 1.25;
+  border-radius: 50%;
+  opacity: 0;
+  background: radial-gradient(ellipse, #c0cfd7 0%, #d4e0e7 47%, transparent 72%);
+}
+.df-driver-intro[data-phase="playing"] .df-driver-smoke i { animation: df-driver-smoke 1.35s ease-out .58s both; }
+.df-driver-intro[data-phase="playing"] .df-driver-smoke i:nth-child(2) { animation-delay: .7s; margin-left: -19%; }
+.df-driver-intro[data-phase="playing"] .df-driver-smoke i:nth-child(3) { animation-delay: .82s; margin-top: -16%; }
+@keyframes df-driver-smoke {
+  0% { opacity: 0; transform: translate(-25%, -45%) scale(.22); }
+  21% { opacity: .82; }
+  100% { opacity: 0; transform: translate(-150%, -115%) scale(1.75); }
+}
+.df-driver-intro-controls {
+  position: absolute;
+  right: clamp(12px, 4vw, 40px);
+  bottom: max(20px, env(safe-area-inset-bottom));
+  display: flex;
+  gap: 8px;
+}
+.df-driver-intro-action {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #afc5d3;
+  border-radius: 12px;
+  background: #fff;
+  color: #0b1f3a;
+  font-size: 13px;
+  font-weight: 650;
+}
+.df-driver-intro-action:focus-visible { outline: 2px solid #087ea4; outline-offset: 2px; }
+@media (max-width: 899px) { .auth-driver-art { width: 128px; padding: 7px; border-radius: 12px; } }
+@media (max-width: 360px) { .auth-driver-art { width: 96px; } }
+@media (prefers-reduced-motion: reduce) {
+  .df-driver-intro { display: none; }
+  .df-driver-login[inert] { visibility: visible; }
+}

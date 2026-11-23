@@ -3,7 +3,7 @@
  * para o painel lateral das telas de acesso. Animação leve (rodas e linhas de
  * velocidade) desligada com prefers-reduced-motion no CSS.
  */
-export function DeliveryIllustration({ className, launch = false }: { className?: string; launch?: boolean }) {
+export function DeliveryIllustration({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 420 300" className={className} role="img" aria-label="Entregador Del Flash em uma scooter">
       <defs>
@@ -19,8 +19,7 @@ export function DeliveryIllustration({ className, launch = false }: { className?
         <path d="M30 0C13.4 0 0 13.2 0 29.6 0 52 30 78 30 78s30-26 30-48.4C60 13.2 46.6 0 30 0Z" fill="#ffffff" />
         <circle cx="30" cy="29" r="11" fill="var(--df-moto-color, #087EA4)" />
       </g>
-      {launch && <g className="df-moto-smoke" fill="#e8f0f4"><ellipse cx="125" cy="251" rx="22" ry="12" /><ellipse cx="104" cy="244" rx="27" ry="15" /><ellipse cx="79" cy="240" rx="28" ry="18" /><ellipse cx="52" cy="229" rx="24" ry="20" /></g>}
-      <g className={launch ? 'df-moto-launch' : undefined}>
+      <g>
       {/* caixa térmica */}
       <path d="M104 208h92" stroke="#0b1f3a" strokeWidth="8" strokeLinecap="round" />
       <g transform="translate(104 128)">
