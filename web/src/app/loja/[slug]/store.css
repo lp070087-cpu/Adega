@@ -62,7 +62,7 @@
 .store-product-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:22px; align-items:stretch; }
 .store-product-card { position:relative; display:flex; flex-direction:column; min-width:0; background:#fff; border:1px solid #e7ecf2; border-radius:18px; overflow:hidden; transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease; }
 .store-product-card:hover { transform:translateY(-3px); border-color:color-mix(in srgb, var(--store-brand) 28%, #e7ecf2); box-shadow:0 14px 34px -14px rgba(11,31,58,.22); }
-.store-product-media { position:relative; aspect-ratio:1/1; background:linear-gradient(160deg,#f7f9fc 0%,#eef3f8 100%); }
+.store-product-media { position:relative; aspect-ratio:1/1; background:#fff; }
 .store-product-photo { position:absolute; inset:0; width:100%; height:100%; display:flex; align-items:center; justify-content:center; padding:0; border:0; background:transparent; cursor:pointer; font:inherit; color:inherit; }
 .store-product-photo:focus-visible { outline:3px solid var(--store-brand); outline-offset:-3px; border-radius:18px 18px 0 0; }
 .store-product-thumb { width:100% !important; height:100% !important; min-width:0 !important; background:transparent !important; }
@@ -128,7 +128,7 @@
    Foto em moldura própria dentro do card, borda mais leve e sombra de
    repouso: o card lê como "produto" mesmo antes do hover. */
 .store-product-card { border-color:#eceff3; border-radius:20px; box-shadow:0 1px 2px rgba(16,24,40,.04); }
-.store-product-media { margin:8px 8px 0; border-radius:14px; overflow:hidden; background:linear-gradient(165deg,#f8fafc 0%,#eef2f7 100%); }
+.store-product-media { margin:8px 8px 0; border-radius:14px; overflow:hidden; background:#fff; }
 .store-product-photo:focus-visible { border-radius:14px; }
 .store-product-add { border-radius:999px; box-shadow:0 8px 18px -12px color-mix(in srgb, var(--store-brand) 85%, transparent); }
 .store-product-add:disabled { box-shadow:none; }

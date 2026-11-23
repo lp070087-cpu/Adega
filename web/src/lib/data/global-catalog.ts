@@ -4,6 +4,8 @@ import type { BusinessType, Prisma } from '@prisma/client';
 import { withOrganizationTransaction } from '@/lib/data/transaction';
 import { prisma, toNumber } from '@/lib/db';
 import { slugify } from '@/lib/utils';
+import { beverageManufacturer, isBeverageLibraryItem } from '@/lib/beverage-library';
+import { CATALOG_PHOTOS } from '@/lib/catalog-photo-manifest';
 
 /** Shared beverage catalog. Store products reference the original photo. */
 // ── CATEGORIAS GLOBAIS ─────────────────────────────────────────────────
@@ -277,17 +279,20 @@ export async function getBeverageLibrary(organizationId: string) {
     select: {
       id: true,
       name: true,
+      slug: true,
       brand: true,
       emoji: true,
       defaultImageUrl: true,
       suggestedPrice: true,
-      globalCategory: { select: { id: true, name: true } },
+      globalCategory: { select: { id: true, name: true, slug: true } },
       products: { where: { organizationId }, select: { id: true }, take: 1 },
     },
   });
 
-  return products.map(({ products: owned, ...product }) => ({
+  return products.filter(isBeverageLibraryItem).map(({ products: owned, ...product }) => ({
     ...product,
+    manufacturer: beverageManufacturer(product.brand, product.globalCategory?.slug),
+    defaultImageUrl: CATALOG_PHOTOS[product.slug] ?? (/^https:\/\//i.test(product.defaultImageUrl ?? '') ? product.defaultImageUrl : null),
     suggestedPrice: product.suggestedPrice === null ? null : toNumber(product.suggestedPrice),
     inStock: owned.length > 0,
   }));
@@ -308,10 +313,10 @@ async function copyGlobalProductsToStock(
   const unique = [...new Set(globalProductIds)];
   const org = await tx.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { settings: true } });
   const { minimumStock } = stockDefaults(org.settings);
-  const globals = await tx.globalProduct.findMany({
+  const globals = (await tx.globalProduct.findMany({
     where: { ...nicheProducts, id: { in: unique } },
-    include: { globalCategory: { select: { id: true, name: true, icon: true } } },
-  });
+    include: { globalCategory: { select: { id: true, name: true, slug: true, icon: true } } },
+  })).filter(isBeverageLibraryItem);
 
   const unavailable = unique.length - globals.length;
   const existing = await tx.product.findMany({

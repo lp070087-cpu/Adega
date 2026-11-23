@@ -114,7 +114,7 @@ export function AppShell({
           onOpenMenu={() => setMobileOpen(true)}
         />
 
-        <main className="panel-content min-w-0 flex-1 p-4 lg:p-7"><Suspense fallback={null}><PermissionNotice /></Suspense>{children}</main>
+        <main className="panel-content store-panel-content min-w-0 flex-1 p-4 lg:px-6 lg:py-7"><Suspense fallback={null}><PermissionNotice /></Suspense>{children}</main>
       </div>
     </div>
   );

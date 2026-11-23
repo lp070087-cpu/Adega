@@ -112,7 +112,7 @@ export function ProductThumb({
   return (
     <div
       className={cn(
-        'relative flex flex-shrink-0 items-center justify-center overflow-hidden bg-ink-100',
+        'relative flex flex-shrink-0 items-center justify-center overflow-hidden bg-white',
         rounded === 'full' ? 'rounded-full' : 'rounded',
         className,
       )}

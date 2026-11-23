@@ -209,6 +209,7 @@ textarea {
 .panel-sidebar :is(button,a):focus-visible { outline-color: #bfe6ff; }
 .panel-shell > div > header { min-height: 81px; background: rgba(255,255,255,.97); }
 .panel-content { max-width: 1800px; width: 100%; margin: 0 auto; }
+.panel-content.store-panel-content { max-width: none; margin-inline: 0; }
 .panel-content > *, .panel-content form, .panel-content label, .panel-content fieldset { min-width:0; }
 .panel-shell .field-input { min-width:0; max-width:100%; }
 [role='dialog'] { overflow-wrap:anywhere; }

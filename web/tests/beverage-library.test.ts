@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { slugify } from '../src/lib/utils';
+import { CATALOG_PHOTOS } from '../src/lib/catalog-photo-manifest';
+import * as libraryPolicy from '../src/lib/beverage-library';
 import { stockDefaults } from '../src/lib/stock-policy';
 
 test('beverage library saves a tenant selection as zero-stock drafts and can retry without duplication', async () => {
@@ -46,6 +48,8 @@ test('beverage library saves a tenant selection as zero-stock drafts and can ret
 
   const imports: Record<string, unknown> = {
     'server-only': {},
+    '@/lib/beverage-library': libraryPolicy,
+    '@/lib/catalog-photo-manifest': { CATALOG_PHOTOS },
     '@/lib/stock-policy': { stockDefaults },
     '@/lib/utils': { slugify },
     '@/lib/db': { prisma: tx, toNumber: (value: unknown) => Number(value ?? 0) },
@@ -124,4 +128,23 @@ test('store onboarding ignores old draft products and creates an empty stock', a
   form.set('ownProducts', JSON.stringify([{ name: 'Old draft', price: 10 }]));
   assert.deepEqual(await module.exports.completeOnboardingV3Action(undefined, form), { slug: 'deposito', created: 0 });
   assert.deepEqual(writes, ['store', 'owner', 'category', 'register', 'clear-draft']);
+});
+
+
+test('beverage library excludes grocery items and carton juice, keeps ice and distinguishes manufacturers', () => {
+  const { isBeverageLibraryItem, beverageManufacturer } = libraryPolicy;
+  for (const [slug, category, brand] of [
+    ['arroz-tio-joao', 'mercearia', 'Tio João'],
+    ['combo-acai-500ml', 'combos', 'Cozinha'],
+    ['esfiha-de-carne', 'salgados', 'Cozinha'],
+    ['chopp-skol-barril-5l', 'chopp', 'Skol'],
+    ['suco-del-valle-uva-1l', 'sucos', 'Del Valle'],
+  ]) assert.equal(isBeverageLibraryItem({ slug, brand, globalCategory: { slug: category } }), false);
+  for (const [slug, category] of [['gelo-tradicional-10kg', 'gelo'], ['skol-litrao-1l', 'cervejas'], ['amendoim-dori-torrado-100g', 'salgadinhos']]) {
+    assert.equal(isBeverageLibraryItem({ slug, globalCategory: { slug: category } }), true);
+  }
+  assert.equal(beverageManufacturer('Budweiser', 'cervejas'), 'Ambev');
+  assert.equal(beverageManufacturer('Guaraná Jesus', 'refrigerantes'), 'Sistema Coca-Cola');
+  assert.equal(beverageManufacturer('Crystal', 'aguas'), 'Sistema Coca-Cola');
+  assert.equal(beverageManufacturer('Crystal', 'cervejas'), 'Grupo Petrópolis');
 });

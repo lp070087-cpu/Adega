@@ -31,6 +31,14 @@
     "asset": "/catalog/bebidas/aguas/agua-tonica-antarctica-lata-350ml.webp",
     "source": "https://www.imigrantesbebidas.com.br/agua-tonica-antarctica-lata-350ml"
   },
+  "amendoim-dori-torrado-100g": {
+    "asset": "/catalog/conveniencia/salgadinhos/amendoim-dori-torrado-100g.webp",
+    "source": "https://www.farmais.com.br/amendoim-salgado-dori-70g-2488/p"
+  },
+  "amendoim-japones-dori-100g": {
+    "asset": "/catalog/conveniencia/salgadinhos/amendoim-japones-dori-100g.webp",
+    "source": "https://dori.com.br/amendoim-dori-japones-100g/"
+  },
   "amstel-ultra-lata-350ml": {
     "asset": "/catalog/bebidas/cervejas/amstel-ultra-lata-350ml.webp",
     "source": "https://www.imigrantesbebidas.com.br/cerveja-amstel-ultra-puro-malte-350ml"
@@ -39,9 +47,17 @@
     "asset": "/catalog/bebidas/cervejas/antarctica-pilsen-lata-350ml.webp",
     "source": "https://www.sondadelivery.com.br/faco/produto/cerveja-antarctica-pilsen-350ml-lata/1000008309"
   },
+  "antarctica-sub-zero-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/antarctica-sub-zero-lata-350ml.webp",
+    "source": "https://www.sondadelivery.com.br/delivery/produto/cerveja-sub-zero-antarctica-lata-350ml/1000008311"
+  },
   "arroz-tio-joao-tipo-1-5kg": {
     "asset": "/catalog/conveniencia/mercearia/arroz-tio-joao-tipo-1-5kg.webp",
     "source": "https://www.mambo.com.br/arroz-polido-longo-e-fino-tipo-1-tio-joao-5-kg/p"
+  },
+  "bala-fini-beijos-500g": {
+    "asset": "/catalog/conveniencia/doces/bala-fini-beijos-500g.webp",
+    "source": "https://www.valentinasuper.com.br/3/produto/m/bala-fini-beijos-500g-1345"
   },
   "bala-fini-ursinhos-80g": {
     "asset": "/catalog/conveniencia/doces/bala-fini-ursinhos-80g.webp",
@@ -50,6 +66,10 @@
   "batata-pringles-original-104g": {
     "asset": "/catalog/conveniencia/salgadinhos/batata-pringles-original-104g.webp",
     "source": "https://www.imigrantesbebidas.com.br/batata-pringles-original-104g"
+  },
+  "batata-ruffles-churrasco-100g": {
+    "asset": "/catalog/conveniencia/salgadinhos/batata-ruffles-churrasco-100g.webp",
+    "source": "https://www.drogariaspacheco.com.br/salgadinho-ruffles-churrasco-100g/p"
   },
   "batata-ruffles-original-100g": {
     "asset": "/catalog/conveniencia/salgadinhos/batata-ruffles-original-100g.webp",
@@ -79,6 +99,10 @@
     "asset": "/catalog/bebidas/cervejas/brahma-duplo-malte-lata-350ml.webp",
     "source": "https://www.mambo.com.br/cerveja-puro-duplo-malte-brahma-lata-350ml/p"
   },
+  "cachaca-51-600ml": {
+    "asset": "/catalog/bebidas/cachaca/cachaca-51-600ml.webp",
+    "source": "https://www.paulistaoatacadista.com.br/cachaca-pirassununga-51-600ml-descartavel/p"
+  },
   "cachaca-51-965ml": {
     "asset": "/catalog/bebidas/cachaca/cachaca-51-965ml.webp",
     "source": "https://www.imigrantesbebidas.com.br/cachaca-pirassununga-51-965ml"
@@ -86,6 +110,14 @@
   "cachaca-leblon-750ml": {
     "asset": "/catalog/bebidas/cachaca/cachaca-leblon-750ml.webp",
     "source": "https://www.imigrantesbebidas.com.br/cachaca-leblon-750-ml"
+  },
+  "cachaca-salinas-965ml": {
+    "asset": "/catalog/bebidas/cachaca/cachaca-salinas-965ml.webp",
+    "source": "https://www.dinhobebidas.com.br/destilados/cachaca/cachaca-mineira/salinas-tradicional-1000ml"
+  },
+  "cachaca-velho-barreiro-965ml": {
+    "asset": "/catalog/bebidas/cachaca/cachaca-velho-barreiro-965ml.webp",
+    "source": "https://www.velhobarreiroshop.com.br/tradicional/velho-barreiro-tradicional-910ml"
   },
   "cachaca-ypioca-ouro-965ml": {
     "asset": "/catalog/bebidas/cachaca/cachaca-ypioca-ouro-965ml.webp",
@@ -95,6 +127,10 @@
     "asset": "/catalog/conveniencia/mercearia/cafe-torrado-melitta-500g.webp",
     "source": "https://www.supernosso.com/cafe-torrado-e-moido-tradicional-melitta-pacote-500g/p"
   },
+  "chiclete-trident-menta-8g": {
+    "asset": "/catalog/conveniencia/doces/chiclete-trident-menta-8g.webp",
+    "source": "https://www.atacadao.com.br/chiclete-trident-menta-6188/p"
+  },
   "chocolate-bis-laka-100g": {
     "asset": "/catalog/conveniencia/chocolates/chocolate-bis-laka-100g.webp",
     "source": "https://www.mambo.com.br/chocolate-bis-branco-lacta-100g/p"
@@ -102,6 +138,10 @@
   "chocolate-ferrero-rocher-3-unidades": {
     "asset": "/catalog/conveniencia/chocolates/chocolate-ferrero-rocher-3-unidades.webp",
     "source": "https://www.supermuffato.com.br/bombom-ferrero-rocher-3-un-28514/p"
+  },
+  "chocolate-garoto-serenata-de-amor-80g": {
+    "asset": "/catalog/conveniencia/chocolates/chocolate-garoto-serenata-de-amor-80g.webp",
+    "source": "https://www.perolaon.com.br/chocolate-garoto-tablete-serenata-80-gr-83280-1"
   },
   "chocolate-garoto-talento-castanha-85g": {
     "asset": "/catalog/conveniencia/chocolates/chocolate-garoto-talento-castanha-85g.webp",
@@ -122,6 +162,10 @@
   "chopp-heineken-barril-5l": {
     "asset": "/catalog/bebidas/chopp/chopp-heineken-barril-5l.webp",
     "source": "https://www.imigrantesbebidas.com.br/cerveja-heineken-barril-5l"
+  },
+  "coca-cola-fardo-12-latas-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/coca-cola-fardo-12-latas-350ml.webp",
+    "source": "https://www.kalunga.com.br/prod/refrigerante-coca-cola-original-350ml-pack-com-12-unidades-coca-cola-fd-12-un/996938"
   },
   "coca-cola-garrafa-1l": {
     "asset": "/catalog/bebidas/refrigerantes/coca-cola-garrafa-1l.webp",
@@ -151,9 +195,25 @@
     "asset": "/catalog/bebidas/cervejas/colorado-appia-600ml.webp",
     "source": "https://www.imigrantesbebidas.com.br/cerveja-colorado-appia-600-ml"
   },
+  "colorado-demoiselle-600ml": {
+    "asset": "/catalog/bebidas/cervejas/colorado-demoiselle-600ml.webp",
+    "source": "https://www.paodeacucar.com/produto/68038/cerveja-colorado-demoiselle-600ml-garrafa"
+  },
   "colorado-ribeirao-lager-600ml": {
     "asset": "/catalog/bebidas/cervejas/colorado-ribeirao-lager-600ml.webp",
     "source": "https://www.imigrantesbebidas.com.br/cerveja-colorado-ribeirao-lager-600ml"
+  },
+  "corona-sun-brew-330ml": {
+    "asset": "/catalog/bebidas/drinks-prontos/corona-sun-brew-330ml.webp",
+    "source": "https://www.zonasul.com.br/cerveja-sem-alcool-corona-cero-sunbrew-long-neck-330ml-1075748/p"
+  },
+  "crystal-garrafa-600ml": {
+    "asset": "/catalog/bebidas/cervejas/crystal-garrafa-600ml.webp",
+    "source": "https://loja.supernovaera.com.br/cerveja-crystal-pilsen-garrafa-600ml-/p"
+  },
+  "crystal-lata-350ml": {
+    "asset": "/catalog/bebidas/cervejas/crystal-lata-350ml.webp",
+    "source": "https://www.destromacro.com.br/produto/cerveja-crystal-pilsen-lata-350ml-81823"
   },
   "devassa-puro-malte-lata-350ml": {
     "asset": "/catalog/bebidas/cervejas/devassa-puro-malte-lata-350ml.webp",
@@ -211,6 +271,11 @@
     "asset": "/catalog/conveniencia/mercearia/feijao-carioca-camil-1kg.webp",
     "source": "https://www.mambo.com.br/feijao-carioca-tipo-1-camil-1kg/p"
   },
+  "gelo-de-coco-1kg": {
+    "asset": "/catalog/conveniencia/gelo/gelo-de-coco-1kg.webp",
+    "source": "https://www.ze.delivery/entrega-produto/23555/gelo-saborizado-de-agua-de-coco-ice-drinks-1kg",
+    "note": "Foto ilustrativa de uma embalagem equivalente de gelo."
+  },
   "gelo-em-cubos-2kg": {
     "asset": "/catalog/conveniencia/gelo/gelo-em-cubos-2kg.webp",
     "source": "https://www.imigrantesbebidas.com.br/gelo-em-cubos-2kg"
@@ -219,9 +284,34 @@
     "asset": "/catalog/conveniencia/gelo/gelo-em-cubos-5kg.webp",
     "source": "https://www.imigrantesbebidas.com.br/gelo-em-cubos-5kg"
   },
+  "gelo-tradicional-10kg": {
+    "asset": "/catalog/conveniencia/gelo/gelo-tradicional-10kg.webp",
+    "source": "https://maxfriosdistribuidora.com.br/pedido",
+    "note": "Foto ilustrativa de embalagem de gelo em cubos de 10 kg."
+  },
+  "gelo-tradicional-1kg": {
+    "asset": "/catalog/conveniencia/gelo/gelo-tradicional-1kg.webp",
+    "source": "https://www.angeloni.com.br/super/gelo-cubinho-1kg-2708875/p",
+    "note": "Foto ilustrativa de uma embalagem equivalente de gelo."
+  },
+  "gelo-tradicional-2kg": {
+    "asset": "/catalog/conveniencia/gelo/gelo-tradicional-2kg.webp",
+    "source": "https://supermercadonacional.com.br/gelo-em-cubo-ideal-2-kg",
+    "note": "Foto ilustrativa de uma embalagem equivalente de gelo."
+  },
   "gelo-tradicional-3kg": {
     "asset": "/catalog/conveniencia/gelo/gelo-tradicional-3kg.webp",
     "source": "https://www.samsclub.com.br/gelo-cristal-pacote-3kg-7898026810085/p"
+  },
+  "gelo-tradicional-5kg": {
+    "asset": "/catalog/conveniencia/gelo/gelo-tradicional-5kg.webp",
+    "source": "https://www.extramercado.com.br/produto/281624/gelo-qualita-pacote-5kg",
+    "note": "Foto ilustrativa de uma embalagem equivalente de gelo."
+  },
+  "gelo-triturado-5kg": {
+    "asset": "/catalog/conveniencia/gelo/gelo-triturado-5kg.webp",
+    "source": "https://exemplo.superhoje.com/gelo-escama-ideal-pacote-5kg/7898043425026/d",
+    "note": "Foto ilustrativa de uma embalagem equivalente de gelo."
   },
   "gin-amazzoni-750ml": {
     "asset": "/catalog/bebidas/gin/gin-amazzoni-750ml.webp",
@@ -343,6 +433,10 @@
     "asset": "/catalog/conveniencia/salgadinhos/pipoca-de-micro-ondas-yoki-100g.webp",
     "source": "https://www.supermuffato.com.br/pipoca-de-micro-ondas-yoki-manteiga-100g-17039/p"
   },
+  "salgadinho-cheetos-parmesao-45g": {
+    "asset": "/catalog/conveniencia/salgadinhos/salgadinho-cheetos-parmesao-45g.webp",
+    "source": "https://mercado.carrefour.com.br/salgadinho-cheetos-lua-sabor-parmesao-45g-8475245/p"
+  },
   "salgadinho-cheetos-requeijao-140g": {
     "asset": "/catalog/conveniencia/salgadinhos/salgadinho-cheetos-requeijao-140g.webp",
     "source": "https://www.supernosso.com/202885-salgadinho-de-milho-onda-requeijao-elma-chips-cheetos-pacote-140g/p"
@@ -415,6 +509,10 @@
     "asset": "/catalog/bebidas/cervejas/therezopolis-gold-355ml.webp",
     "source": "https://www.imigrantesbebidas.com.br/cerveja-therezopolis-gold-premium-lager-long-neck-355ml-1"
   },
+  "tubaina-lata-350ml": {
+    "asset": "/catalog/bebidas/refrigerantes/tubaina-lata-350ml.webp",
+    "source": "https://www.supermercadoseconomico.com.br/p/Refrigerante-Funada-Lata-350ml-Tubaina"
+  },
   "vinho-branco-casal-garcia-750ml": {
     "asset": "/catalog/bebidas/vinho/vinho-branco-casal-garcia-750ml.webp",
     "source": "https://www.imigrantesbebidas.com.br/vinho-casal-garcia-branco-750ml"
@@ -450,6 +548,10 @@
   "vinho-tinto-salton-talento-750ml": {
     "asset": "/catalog/bebidas/vinho/vinho-tinto-salton-talento-750ml.webp",
     "source": "https://www.imigrantesbebidas.com.br/vinho-salton-talento-750ml"
+  },
+  "vodka-absolut-original-750ml": {
+    "asset": "/catalog/bebidas/vodka/vodka-absolut-original-750ml.webp",
+    "source": "https://www.shopcoopera.com.br/vodka-absolut-tradicional-750ml-759801/p"
   },
   "vodka-ciroc-750ml": {
     "asset": "/catalog/bebidas/vodka/vodka-ciroc-750ml.webp",
@@ -490,6 +592,10 @@
   "whisky-chivas-regal-12-anos-1l": {
     "asset": "/catalog/bebidas/whisky/whisky-chivas-regal-12-anos-1l.webp",
     "source": "https://www.imigrantesbebidas.com.br/whisky-chivas-regal-12-anos-escoces-1l"
+  },
+  "whisky-jack-daniel-s-750ml": {
+    "asset": "/catalog/bebidas/whisky/whisky-jack-daniel-s-750ml.webp",
+    "source": "https://theliquorbarn.com/products/jack-daniels-old-no-7-tennessee-whiskey-750ml?srsltid=AfmBOooOaSQ3szs1zN6Nv7fgiXeGqrZQxc1vWS_-zSOz7e3yLQjcD3bc"
   },
   "whisky-jack-daniel-s-honey-1l": {
     "asset": "/catalog/bebidas/whisky/whisky-jack-daniel-s-honey-1l.webp",

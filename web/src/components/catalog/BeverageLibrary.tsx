@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { addFromLibraryAction } from '@/app/actions/global-catalog';
 import { Alert, Button, EmptyState, Field, Input, Select } from '@/components/ui';
 import { formatBRL, normalizeSearchText } from '@/lib/utils';
+import { ILLUSTRATIVE_LIBRARY_PHOTOS } from '@/lib/beverage-library';
 import { MAX_CATALOG_SELECTION } from '@/lib/stock-policy';
 import type { getBeverageLibrary } from '@/lib/data/global-catalog';
 import { ProductThumb } from './ProductThumb';
@@ -16,6 +17,8 @@ export function BeverageLibrary({ products }: { products: LibraryProduct[] }) {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  const [manufacturer, setManufacturer] = useState('');
+  const [photosOnly, setPhotosOnly] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saved, setSaved] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<{ message: string; error?: boolean } | null>(null);
@@ -27,12 +30,19 @@ export function BeverageLibrary({ products }: { products: LibraryProduct[] }) {
   const savedIds = new Set(saved);
   const belongsToStore = (item: LibraryProduct) => item.inStock || savedIds.has(item.id);
   const choices = products.filter((item) => !belongsToStore(item));
-  const selectAll = choices.slice(0, MAX_CATALOG_SELECTION);
+  const manufacturers = [...new Set(products.flatMap((item) => item.manufacturer ? [item.manufacturer] : []))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const categoryOptions = [...categories].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
   const term = normalizeSearchText(search);
   const visible = products.filter((item) =>
     (!category || item.globalCategory?.id === category) &&
-    normalizeSearchText(`${item.name} ${item.brand ?? ''}`).includes(term),
+    (!manufacturer || item.manufacturer === manufacturer) &&
+    (!photosOnly || Boolean(item.defaultImageUrl)) &&
+    normalizeSearchText(`${item.name} ${item.brand ?? ''} ${item.manufacturer ?? ''}`).includes(term),
   );
+
+  const visibleChoices = visible.filter((item) => !belongsToStore(item));
+  const selectAll = visibleChoices.slice(0, MAX_CATALOG_SELECTION);
 
   function save() {
     const ids = choices.filter(({ id }) => selected.has(id)).map(({ id }) => id);
@@ -64,18 +74,28 @@ export function BeverageLibrary({ products }: { products: LibraryProduct[] }) {
 
   return (
     <section aria-label="Seleção de bebidas" className="space-y-4">
-      <div className="grid gap-3 rounded-xl border border-ink-100 bg-white p-4 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,18rem)]">
-        <Field label="Buscar bebida" className="!mb-0">
-          <Input type="search" value={search} placeholder="Nome ou marca" onChange={(event) => setSearch(event.target.value)} />
+      <div className="grid gap-3 rounded-xl border border-ink-100 bg-white p-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(10rem,16rem)_minmax(10rem,16rem)]">
+        <Field label="Buscar bebida" className="!mb-0 sm:col-span-2 lg:col-span-1">
+          <Input aria-label="Buscar bebida" type="search" value={search} placeholder="Nome, marca ou fabricante" onChange={(event) => setSearch(event.target.value)} />
         </Field>
         <Field label="Categoria" className="!mb-0">
-          <Select value={category} onChange={(event) => setCategory(event.target.value)}>
+          <Select aria-label="Categoria" value={category} onChange={(event) => setCategory(event.target.value)}>
             <option value="">Todas as categorias</option>
-            {[...categories].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR')).map(([id, name]) =>
+            {categoryOptions.map(([id, name]) =>
               <option key={id} value={id}>{name}</option>,
             )}
           </Select>
         </Field>
+        <Field label="Fabricante ou marca" className="!mb-0">
+          <Select aria-label="Fabricante ou marca" value={manufacturer} onChange={(event) => setManufacturer(event.target.value)}>
+            <option value="">Todos os fabricantes</option>
+            {manufacturers.map((name) => <option key={name} value={name}>{name}</option>)}
+          </Select>
+        </Field>
+        <label className="flex min-h-7 items-center gap-2 self-center text-sm text-ink-700 sm:col-span-2 lg:col-span-3">
+          <input type="checkbox" className="h-4 w-4 accent-[var(--brand)]" checked={photosOnly} onChange={(event) => setPhotosOnly(event.target.checked)} />
+          Somente com foto
+        </label>
       </div>
 
       {feedback && <Alert tone={feedback.error ? 'danger' : 'success'}>{feedback.message}</Alert>}
@@ -83,8 +103,8 @@ export function BeverageLibrary({ products }: { products: LibraryProduct[] }) {
       <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-100 bg-white px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold" aria-live="polite">{selected.size} selecionados</span>
-          <Button variant="ghost" size="sm" disabled={pending || !choices.length} onClick={() => setSelected(new Set(selectAll.map(({ id }) => id)))}>
-            {choices.length > selectAll.length ? `Selecionar primeiros ${selectAll.length}` : `Selecionar todos (${choices.length})`}
+          <Button variant="ghost" size="sm" disabled={pending || !visibleChoices.length} onClick={() => setSelected(new Set(selectAll.map(({ id }) => id)))}>
+            {visibleChoices.length > selectAll.length ? `Selecionar primeiros ${selectAll.length}` : `Selecionar todos (${visibleChoices.length})`}
           </Button>
           <Button variant="ghost" size="sm" disabled={pending || !selected.size} onClick={() => setSelected(new Set())}>Limpar seleção</Button>
         </div>
@@ -105,8 +125,8 @@ export function BeverageLibrary({ products }: { products: LibraryProduct[] }) {
                   <ProductThumb globalImageUrl={item.defaultImageUrl} emoji={item.emoji} alt={item.name} size={52} />
                   <span className="min-w-0 flex-1">
                     <span className="block break-words text-sm font-semibold text-ink-900">{item.name}</span>
-                    <span className="block text-xs text-ink-500">{item.globalCategory?.name ?? 'Sem categoria'}</span>
-                    <span className="block text-xs text-ink-600">{owned ? 'No estoque' : item.suggestedPrice ? `Sugestão ${formatBRL(item.suggestedPrice)}` : 'Preço a definir'}</span>
+                    <span className="block text-xs text-ink-500">{[item.globalCategory?.name, item.manufacturer].filter(Boolean).join(' · ') || 'Sem categoria'}</span>
+                    <span className="block text-xs text-ink-600">{owned ? 'No estoque' : item.suggestedPrice ? `Sugestão ${formatBRL(item.suggestedPrice)}` : 'Preço a definir'}{!item.defaultImageUrl && ' · Sem foto'}{ILLUSTRATIVE_LIBRARY_PHOTOS.has(item.slug) && item.defaultImageUrl && ' · Foto ilustrativa'}</span>
                   </span>
                   <input type="checkbox" checked={owned || checked} disabled={owned || pending || (!checked && selected.size >= MAX_CATALOG_SELECTION)} className="h-5 w-5 shrink-0 accent-[var(--brand)]" onChange={(event) => {
                     const nextChecked = event.target.checked;
@@ -122,7 +142,7 @@ export function BeverageLibrary({ products }: { products: LibraryProduct[] }) {
             );
           })}
         </ul>
-      ) : <EmptyState icon="📚" title="Nenhuma bebida encontrada" description="Tente outro nome ou altere a categoria para ampliar a busca." />}
+      ) : <EmptyState icon="📚" title="Nenhuma bebida encontrada" description="Tente outro nome ou altere os filtros." />}
     </section>
   );
 }

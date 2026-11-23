@@ -75,6 +75,7 @@ test('store banners read only the requested tenant, with explicit platform fallb
   const calls: any[] = [];
   const banners = load('src/lib/data/global-catalog.ts', {
     'server-only': {}, '@/lib/stock-policy': { stockDefaults: () => ({ initialStock: 25, minimumStock: 5 }) }, '@/lib/utils': { slugify: (value: string) => value }, '@/lib/data/transaction': {},
+    '@/lib/beverage-library': {}, '@/lib/catalog-photo-manifest': {},
     '@/lib/db': { toNumber: Number, prisma: { storeBanner: { findMany: async (query: any) => { calls.push(query); return []; } } } },
   });
   await banners.getBannersForStore('tenant-a', 'BEVERAGE', 'hero');
@@ -89,6 +90,7 @@ test('own banners take precedence and never query another tenant or platform def
   const own = [{ id: 'banner-a', organizationId: 'tenant-a', imagePath: '/catalog/banners/banner-01.png' }];
   const data = load('src/lib/data/global-catalog.ts', {
     'server-only': {}, '@/lib/stock-policy': { stockDefaults: () => ({ initialStock: 25, minimumStock: 5 }) }, '@/lib/utils': { slugify: (value: string) => value }, '@/lib/data/transaction': {},
+    '@/lib/beverage-library': {}, '@/lib/catalog-photo-manifest': {},
     '@/lib/db': { toNumber: Number, prisma: { storeBanner: { findMany: async (query: any) => { calls.push(query); return own; } } } },
   });
   assert.deepEqual(await data.getBannersForStore('tenant-a', 'BEVERAGE'), own);
