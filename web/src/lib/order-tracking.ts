@@ -82,6 +82,7 @@ function cancelledIndex(input: TrackingInput, pickup: boolean): number {
 export function orderTracking(input: TrackingInput): TrackingView {
   const pickup = input.deliveryType === 'PICKUP';
   const base = trackingSteps(pickup);
+  const arrived = !pickup && input.status === 'DISPATCHED' && input.deliveryStatus === 'ARRIVED';
   const collected = !pickup && input.status === 'WAITING_DRIVER' && input.deliveryStatus === 'PICKED_UP';
   const stamps: Record<TrackingStepKey, Date | null> = {
     CONFIRMED: toDate(input.acceptedAt),
@@ -129,10 +130,10 @@ export function orderTracking(input: TrackingInput): TrackingView {
   const handoff = !pickup && input.status === 'WAITING_DRIVER' && !collected ? 'Pronto, aguardando o entregador' : null;
   return {
     phase: 'progress', pickup, steps, terminal: false,
-    headline: handoff ?? steps[reached]?.label ?? 'Em andamento',
+    headline: arrived ? 'O entregador chegou' : handoff ?? steps[reached]?.label ?? 'Em andamento',
     notice: failedAttempt
       ? 'A última tentativa de entrega não foi concluída. A loja está reorganizando o envio do seu pedido.'
-      : collected ? 'O entregador já retirou seu pedido na loja e vai iniciar esta entrega.' : pickup && reached === 2 ? 'Seu pedido está pronto. Retire no estabelecimento.' : null,
-    noticeTone: failedAttempt ? 'warning' : pickup && reached === 2 ? 'success' : null,
+      : arrived ? 'O entregador está no endereço da entrega. Já pode receber seu pedido.' : collected ? 'O entregador já retirou seu pedido na loja e vai iniciar esta entrega.' : pickup && reached === 2 ? 'Seu pedido está pronto. Retire no estabelecimento.' : null,
+    noticeTone: failedAttempt ? 'warning' : arrived ? 'info' : pickup && reached === 2 ? 'success' : null,
   };
 }

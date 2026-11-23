@@ -47,7 +47,7 @@ export default async function TrackOrder({ params, searchParams }: {
       createdAt: true, updatedAt: true, acceptedAt: true, preparingAt: true, readyAt: true,
       dispatchedAt: true, deliveredAt: true, cancelledAt: true,
       items: { select: { id: true, productName: true, variationName: true, quantity: true, total: true, options: { select: { name: true, quantity: true } } } },
-      delivery: { select: { status: true, pickedUpAt: true, updatedAt: true } },
+      delivery: { select: { status: true, pickedUpAt: true, arrivedAt: true, updatedAt: true } },
       driver: { select: { name: true } },
       organization: { select: { name: true, logoUrl: true, brandColor: true, settings: true, averageDeliveryTime: true, whatsapp: true } },
     },
@@ -68,11 +68,13 @@ export default async function TrackOrder({ params, searchParams }: {
   const driverFirstName = !pickup && order.driver?.name && (['DISPATCHED', 'DELIVERED'].includes(order.status) || order.delivery?.status === 'PICKED_UP') ? order.driver.name.trim().split(/\s+/)[0] : null;
   const address = [order.deliveryAddress && `${order.deliveryAddress}${order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}`, order.deliveryDistrict, order.deliveryCity].filter(Boolean).join(' · ');
   const contactHref = whatsappHref(store.whatsapp, `Olá! Fiz o pedido #${order.displayId} em ${store.name} e gostaria de falar sobre ele.`);
+  const arrivedAt = order.delivery?.arrivedAt;
+  const reachedCustomerAt = arrivedAt && order.dispatchedAt && arrivedAt >= order.dispatchedAt ? arrivedAt : null;
   const history = [
     { label: 'Pedido recebido', at: order.createdAt },
     { label: 'Aceito pela loja', at: order.acceptedAt },
     { label: 'Separação iniciada', at: order.preparingAt },
-    ...(pickup ? [{ label: 'Pronto para retirada', at: order.readyAt }] : [{ label: 'Retirado pelo entregador', at: order.delivery?.pickedUpAt }, { label: 'Saiu para entrega', at: order.dispatchedAt }]),
+    ...(pickup ? [{ label: 'Pronto para retirada', at: order.readyAt }] : [{ label: 'Retirado pelo entregador', at: order.delivery?.pickedUpAt }, { label: 'Saiu para entrega', at: order.dispatchedAt }, { label: 'Entregador chegou ao endereço', at: reachedCustomerAt }]),
     { label: pickup ? 'Retirada confirmada' : 'Entrega concluída', at: order.deliveredAt },
     { label: 'Pedido cancelado', at: order.cancelledAt },
   ].filter((entry): entry is { label: string; at: Date } => Boolean(entry.at)).sort((a, b) => a.at.getTime() - b.at.getTime());

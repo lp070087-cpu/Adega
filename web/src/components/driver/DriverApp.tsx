@@ -26,6 +26,7 @@ import { DriverAccount, type DriverAccountDetails } from '@/components/driver/Dr
 import type { EarningsSummary } from '@/lib/data/driver-earnings';
 import { useLiveRefresh } from '@/components/layout/LiveRefresh';
 import { requestDriverLocation, useDriverLocationPref } from '@/lib/driver-location-pref';
+import { DRIVER_IN_PROGRESS_STATUSES, DRIVER_START_BLOCKED, nextDriverStep, type DriverStep } from '@/lib/validations/driver-flow';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════
@@ -54,7 +55,7 @@ import { requestDriverLocation, useDriverLocationPref } from '@/lib/driver-locat
  * ═══════════════════════════════════════════════════════════════════════
  */
 
-type Step = 'ARRIVED_STORE' | 'PICKED_UP' | 'STARTED' | 'ARRIVED_CUSTOMER' | 'DELIVERED';
+type Step = DriverStep;
 
 export type DriverOrderItem = {
   id: string;
@@ -136,37 +137,10 @@ const PAYMENT_LABEL: Record<string, string> = {
 export { navigationUrl } from '@/lib/driver-nav-url';
 import { navigationUrl } from '@/lib/driver-nav-url';
 
-/**
- * Próximo passo a partir do estado da entrega.
- *
- * DOIS CUIDADOS QUE PARECEM DETALHE, MAS NÃO SÃO:
- *
- * 1. O status da Delivery é que manda, não o do Order — os dois divergem
- *    de propósito (um pedido DISPATCHED continua na lista até ser
- *    entregue, e o cancelamento mexe no Order sem tocar na Delivery).
- *
- * 2. `ASSIGNED` é ambíguo: é o estado em que o despacho deixa a entrega
- *    E também o estado depois de "cheguei na loja" — porque os dois
- *    gravam os mesmos campos, e o único que distingue é o `arrivedAt`.
- *    Sem essa checagem o app pularia "Cheguei na loja" e mandaria o
- *    entregador direto para "Retirei o pedido".
- */
-/** Atribuído durante o aceite ou a separação: a loja ainda não liberou a retirada. */
+/** Atribuído durante o aceite ou a separação: a loja ainda precisa liberar a retirada. */
 const awaitingRelease = (order: { status: string }) => order.status === 'CONFIRMED' || order.status === 'PREPARING';
 
-function nextStep(delivery: DriverOrder['delivery']): Step {
-  const status = delivery?.status ?? 'PENDING';
-
-  if (status === 'DELIVERED' || status === 'FAILED') return 'DELIVERED';
-
-  // A retirada é o primeiro passo: a loja libera e o entregador confirma.
-  if (!delivery || status === 'PENDING' || status === 'ASSIGNED') return 'PICKED_UP';
-
-  if (status === 'PICKED_UP') return 'STARTED';
-  if (status === 'IN_TRANSIT') return 'ARRIVED_CUSTOMER';
-  if (status === 'ARRIVED') return 'DELIVERED';
-  return 'DELIVERED';
-}
+const isInProgress = (order: DriverOrder) => DRIVER_IN_PROGRESS_STATUSES.some(status => order.delivery?.status === status);
 
 function canCollectWithoutCode(order: DriverOrder) {
   return order.status === 'WAITING_DRIVER' && order.delivery?.status === 'ASSIGNED' && !order.delivery.requiresPickupCode;
@@ -182,8 +156,8 @@ function deliveryActionLabel(order: DriverOrder, step: Step) {
 const STEP_LABEL: Record<Step, string> = {
   ARRIVED_STORE: 'Cheguei na loja',
   PICKED_UP: 'Confirmar retirada',
-  STARTED: 'Sair para entrega',
-  ARRIVED_CUSTOMER: 'Cheguei ao cliente',
+  STARTED: 'Iniciar entrega',
+  ARRIVED_CUSTOMER: 'Cheguei no cliente',
   DELIVERED: 'Confirmar entrega',
 };
 
@@ -283,6 +257,9 @@ export function DriverApp({
   })), [active]);
 
   const openOrder = openId ? orders.find((o) => o.id === openId) ?? null : null;
+  const inProgressOrders = active.filter(isInProgress);
+  const startBlocked = (order: DriverOrder) => nextDriverStep(order.delivery) === 'STARTED' && inProgressOrders.some(current => current.id !== order.id);
+
 
   function run(
     action: () => Promise<{ ok: boolean; error?: string }>,
@@ -360,6 +337,7 @@ export function DriverApp({
   }
 
   function advance(order: DriverOrder, step: Step, notes?: string) {
+    if (step === 'STARTED' && startBlocked(order)) return;
     if (step === 'PICKED_UP' && order.delivery?.status === 'ASSIGNED' && !order.delivery.accepted) {
       run(() => acceptDriverDelivery(order.id), () => setNotice(`Entrega #${order.displayId} aceita.`));
       return;
@@ -367,9 +345,11 @@ export function DriverApp({
     if (step === 'PICKED_UP' && order.delivery?.requiresPickupCode) { openPickup('camera'); return; }
     if (step === 'PICKED_UP' && canCollectWithoutCode(order)) { collectSelected([order.id]); return; }
     run(() => driverStepAction({ orderId: order.id, step, notes }), () => {
-      setNotice(step === 'DELIVERED' ? `Entrega do pedido #${order.displayId} confirmada.` : `Passo registrado: ${STEP_LABEL[step]}.`);
+      if (step === 'ARRIVED_CUSTOMER') setNotice('Chegada registrada no acompanhamento do cliente.');
+      else if (step === 'DELIVERED') setNotice(`Entrega do pedido #${order.displayId} confirmada.`);
+      else setNotice(`Entrega #${order.displayId} em andamento.`);
       if (step === 'DELIVERED') setOpenId(null);
-      if (step === 'STARTED') openOrderMap(order.id);
+      if (step === 'STARTED') setOpenId(order.id);
     });
   }
 
@@ -378,7 +358,8 @@ export function DriverApp({
       key={order.id}
       order={order}
       now={now}
-      disabled={pending}
+      disabled={pending || preview}
+      startBlocked={startBlocked(order)}
       onOpen={() => setOpenId(order.id)}
       selected={selectedPickups.includes(order.id)}
       onSelect={() => setSelectedPickups(ids => ids.includes(order.id) ? ids.filter(id => id !== order.id) : [...ids, order.id])}
@@ -563,7 +544,8 @@ export function DriverApp({
         <OrderSheet
           order={openOrder}
           store={store}
-          disabled={pending}
+          disabled={pending || preview}
+          startBlocked={startBlocked(openOrder)}
           onClose={() => setOpenId(null)}
           onOpenMap={() => openOrderMap(openOrder.id)}
           onFailure={(reason) => run(
@@ -584,6 +566,7 @@ function OrderCard({
   order,
   now,
   disabled,
+  startBlocked,
   onOpen,
   selected,
   onSelect,
@@ -592,15 +575,16 @@ function OrderCard({
   order: DriverOrder;
   now: number;
   disabled: boolean;
+  startBlocked: boolean;
   onOpen: () => void;
   selected: boolean;
   onSelect: () => void;
   onStep: (step: Step, notes?: string) => void;
 }) {
-  const step = nextStep(order.delivery);
+  const step = nextDriverStep(order.delivery);
   const isDelivery = order.status === 'DELIVERED';
   const waitingStore = awaitingRelease(order);
-  const inRoute = ['IN_TRANSIT', 'ARRIVED'].includes(order.delivery?.status ?? '');
+  const inRoute = isInProgress(order);
   const cobrar = order.paymentStatus === 'PENDING' && order.paymentMethod !== 'ONLINE' ? order.total : null;
 
   const minutes = Math.max(0, Math.floor((now - new Date(order.createdAt).getTime()) / 60000));
@@ -617,7 +601,8 @@ function OrderCard({
           <Badge tone={isDelivery ? 'green' : inRoute ? 'blue' : waitingStore ? 'neutral' : late ? 'yellow' : 'orange'}>
             {isDelivery
               ? 'Finalizado'
-              : inRoute ? 'Entrega em andamento'
+              : order.delivery?.status === 'ARRIVED' ? 'Chegou no cliente'
+              : inRoute ? 'Em rota'
               : order.delivery?.status === 'PICKED_UP' ? 'Retirado · pronto para sair'
               : waitingStore ? 'Aguardando liberação'
               : order.status === 'WAITING_DRIVER' && order.delivery?.status === 'ASSIGNED' ? 'Pronto para retirada'
@@ -651,12 +636,13 @@ function OrderCard({
       <p className="mt-2 text-sm text-ink-700">Taxa de entrega <strong>{formatBRL(order.deliveryFee)}</strong></p>
       <div className="mt-3 space-y-2">
         {canCollectWithoutCode(order) && <label className="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={selected} onChange={onSelect} className="h-5 w-5 accent-brand" /> Selecionar pedido #{order.displayId} para retirada</label>}
-        <Button variant="secondary" onClick={onOpen} fullWidth>Ver detalhes</Button>
-        {step === 'DELIVERED' ? <SlideToFinish disabled={disabled} onFinish={() => onStep(step)} /> : step === 'PICKED_UP' && canCollectWithoutCode(order) && order.delivery?.accepted ? <SlideToFinish disabled={disabled} onFinish={() => onStep(step)} label="Arraste para retirar" confirmation="Confirmar a retirada deste pedido?" /> : (
-          <Button fullWidth disabled={disabled || (waitingStore && order.delivery?.accepted)} onClick={() => onStep(step)}>
+        <Button variant={step === 'ARRIVED_CUSTOMER' ? 'primary' : 'secondary'} onClick={onOpen} fullWidth>{step === 'ARRIVED_CUSTOMER' ? 'Entrega em andamento' : 'Ver detalhes'}</Button>
+        {step === 'DELIVERED' ? <SlideToFinish disabled={disabled} onFinish={() => onStep(step)} label="Arraste para finalizar a corrida" /> : step === 'PICKED_UP' && canCollectWithoutCode(order) && order.delivery?.accepted ? <SlideToFinish disabled={disabled} onFinish={() => onStep(step)} label="Arraste para retirar" confirmation="Confirmar a retirada deste pedido?" /> : step && step !== 'ARRIVED_CUSTOMER' && (
+          <Button fullWidth disabled={disabled || startBlocked || (waitingStore && order.delivery?.accepted)} onClick={() => onStep(step)}>
             {deliveryActionLabel(order, step)}
           </Button>
         )}
+        {startBlocked && <p className="text-xs font-medium text-ink-600">{DRIVER_START_BLOCKED}</p>}
       </div>
 
       <div className="mt-3 flex gap-1">
@@ -681,6 +667,7 @@ function OrderSheet({
   order,
   store,
   disabled,
+  startBlocked,
   onClose,
   onOpenMap,
   onStep,
@@ -689,12 +676,13 @@ function OrderSheet({
   order: DriverOrder;
   store: DriverStore;
   disabled: boolean;
+  startBlocked: boolean;
   onClose: () => void;
   onOpenMap: () => void;
   onStep: (step: Step, notes?: string) => void;
   onFailure: (reason: string) => void;
 }) {
-  const step = nextStep(order.delivery);
+  const step = nextDriverStep(order.delivery);
   const [receiver, setReceiver] = useState('');
   const [failureReason, setFailureReason] = useState('');
   const phone = order.customerPhone.replace(/\D/g, '');
@@ -868,15 +856,18 @@ function OrderSheet({
               Vai para as observações da entrega. A foto e a assinatura da prova dependem de um
               provedor de armazenamento ainda não configurado — por isso não são pedidas aqui.
             </p>
-            <SlideToFinish disabled={disabled} onFinish={() => onStep('DELIVERED', receiver.trim() || undefined)} />
+            <SlideToFinish disabled={disabled} onFinish={() => onStep('DELIVERED', receiver.trim() || undefined)} label="Arraste para finalizar a corrida" />
           </>
         ) : step === 'PICKED_UP' && canCollectWithoutCode(order) && order.delivery?.accepted ? (
           <SlideToFinish disabled={disabled} onFinish={() => onStep(step)} label="Arraste para retirar" confirmation="Confirmar a retirada deste pedido?" />
-        ) : (
-          <Button fullWidth disabled={disabled || (awaitingRelease(order) && order.delivery?.accepted)} onClick={() => onStep(step)}>
+        ) : step === 'ARRIVED_CUSTOMER' ? (
+          <SlideToFinish disabled={disabled} onFinish={() => onStep(step)} label="Cheguei no cliente" confirmation="Confirmar sua chegada e avisar o cliente?" />
+        ) : step && (
+          <Button fullWidth disabled={disabled || startBlocked || (awaitingRelease(order) && order.delivery?.accepted)} onClick={() => onStep(step)}>
             {deliveryActionLabel(order, step)}
           </Button>
         )}
+        {startBlocked && <p className="mt-2 text-xs font-medium text-ink-600">{DRIVER_START_BLOCKED}</p>}
 
         {!jaEntregue && ['IN_TRANSIT', 'ARRIVED'].includes(order.delivery?.status ?? '') && (
           <div className="mt-4 border-t border-ink-100 pt-4">

@@ -106,3 +106,12 @@ test('a coleta já aparece em rota para o cliente enquanto o entregador escolhe 
   assert.deepEqual(states(view), ['done', 'done', 'current', 'pending']);
   assert.deepEqual(view.steps[2]?.at, pickedUpAt);
 });
+
+test('a chegada mostra o aviso ao cliente sem concluir a entrega', () => {
+  const view = orderTracking({ status: 'DISPATCHED', deliveryType: 'DELIVERY', deliveryStatus: 'ARRIVED' });
+  assert.equal(view.headline, 'O entregador chegou');
+  assert.match(view.notice ?? '', /no endereço da entrega/);
+  assert.equal(view.noticeTone, 'info');
+  assert.equal(view.terminal, false);
+  assert.deepEqual(states(view), ['done', 'done', 'current', 'pending']);
+});

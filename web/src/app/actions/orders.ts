@@ -437,6 +437,12 @@ export async function driverStepAction(input: {
     }
 
     if (input.step === 'PICKED_UP' && order.delivery.pickupCode) throw new OperationError('Escaneie ou digite o código da coleta para confirmar a retirada.');
+    // Pedidos legados podem já estar despachados. O início também precisa
+    // respeitar a fila quando o status principal não muda nesta ação.
+    if (input.step === 'STARTED' && order.status === 'DISPATCHED') {
+      await orders.requireDriverStartSlot(tx, ctx.organizationId, driver.id, order.id);
+    }
+
 
     const parsed = driverDeliveryStepSchema.safeParse({
       deliveryId: order.delivery?.id ?? order.id,

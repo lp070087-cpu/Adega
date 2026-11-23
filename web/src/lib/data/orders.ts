@@ -13,6 +13,7 @@ import { readAutoAccept } from '@/lib/order-flow';
 import { portalVerifiedFilter } from '@/lib/customer-portal/mail';
 import { registerOrderInCash } from '@/lib/data/cash';
 import { canTransition } from '@/lib/validations/order';
+import { DRIVER_IN_PROGRESS_STATUSES, DRIVER_START_BLOCKED } from '@/lib/validations/driver-flow';
 import { getCommercialAccess } from '@/lib/platform/access';
 import { syncOrderLoyalty, applyCampaignBenefit } from '@/lib/data/growth';
 import {
@@ -823,6 +824,7 @@ export async function updateOrderStatus(
   if (order.deliveryType === 'PICKUP' && ['WAITING_DRIVER', 'DISPATCHED'].includes(status)) throw new OperationError('Pedido de retirada não pode ser despachado.');
   if (order.deliveryType !== 'PICKUP' && status === 'DELIVERED' && order.status !== 'DISPATCHED') throw new OperationError('Despache o pedido antes de concluir.');
   if (status === 'DISPATCHED' && !order.driverId) throw new OperationError('Atribua um entregador antes de despachar.');
+  if (status === 'DISPATCHED' && order.driverId) await requireDriverStartSlot(tx, organizationId, order.driverId, orderId);
   if (status === 'DISPATCHED' && order.status === 'WAITING_DRIVER') {
     const uncollected = await tx.delivery.findFirst({
       where: { organizationId, orderId, status: 'ASSIGNED', pickupCode: { not: null } },
@@ -876,6 +878,19 @@ export async function updateOrderStatus(
 
   return { ok: true, status };
   }, options.transaction);
+}
+
+/** Run within the organization transaction so two starts cannot claim the same driver. */
+export async function requireDriverStartSlot(tx: Prisma.TransactionClient, organizationId: string, driverId: string, orderId: string) {
+  const active = await tx.delivery.findFirst({
+    where: {
+      organizationId, driverId, orderId: { not: orderId },
+      status: { in: [...DRIVER_IN_PROGRESS_STATUSES] },
+      order: { organizationId, driverId, status: 'DISPATCHED' },
+    },
+    select: { id: true },
+  });
+  if (active) throw new OperationError(DRIVER_START_BLOCKED);
 }
 
 /**

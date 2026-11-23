@@ -12,3 +12,6 @@ export function nextDriverStep(delivery: { status: string; arrivedAt?: unknown }
     default: return null;
   }
 }
+
+export const DRIVER_IN_PROGRESS_STATUSES = ['IN_TRANSIT', 'ARRIVED'] as const;
+export const DRIVER_START_BLOCKED = 'Finalize a entrega em andamento antes de iniciar outra.';
