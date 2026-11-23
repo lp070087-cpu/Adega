@@ -42,10 +42,18 @@ export function orderStage(status: string, deliveryStatus?: string | null, picku
   if (status === 'CONFIRMED') return 'Aceito';
   if (status === 'PREPARING') return 'Em separação';
   if (status === 'READY') return pickup ? 'Pronto para retirada' : 'Pronto · sem entregador';
-  if (status === 'WAITING_DRIVER') return deliveryStatus === 'PICKED_UP' ? 'Retirado pelo entregador' : 'Aguardando retirada';
-  if (status === 'DISPATCHED') return 'Em entrega';
+  if (status === 'WAITING_DRIVER') return deliveryStatus === 'PICKED_UP' ? 'Em rota · retirado pelo entregador' : 'Aguardando retirada';
+  if (status === 'DISPATCHED') return 'Em rota';
   if (status === 'DELIVERED') return 'Entregue';
   return 'Cancelado';
+}
+
+/** Agrupamento do quadro operacional, independente dos filtros da tabela. */
+export function orderBoardLane(status: string) {
+  if (status === 'CANCELLED') return 'cancelled';
+  if (status === 'DELIVERED') return 'done';
+  if (status === 'NEW' || status === 'CONFIRMED') return 'received';
+  return 'preparing';
 }
 
 /** Tempo padrão de separação (minutos), ajustável pela loja. */

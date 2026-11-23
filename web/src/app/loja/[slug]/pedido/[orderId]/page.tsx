@@ -47,7 +47,7 @@ export default async function TrackOrder({ params, searchParams }: {
       createdAt: true, updatedAt: true, acceptedAt: true, preparingAt: true, readyAt: true,
       dispatchedAt: true, deliveredAt: true, cancelledAt: true,
       items: { select: { id: true, productName: true, variationName: true, quantity: true, total: true, options: { select: { name: true, quantity: true } } } },
-      delivery: { select: { status: true, updatedAt: true } },
+      delivery: { select: { status: true, pickedUpAt: true, updatedAt: true } },
       driver: { select: { name: true } },
       organization: { select: { name: true, logoUrl: true, brandColor: true, settings: true, averageDeliveryTime: true, whatsapp: true } },
     },
@@ -57,7 +57,7 @@ export default async function TrackOrder({ params, searchParams }: {
   const charge = awaitingOnline ? await readOrderCharge(orderId) : null;
   const paidCharge = order.paymentMethod === 'ONLINE' && order.paymentStatus === 'PAID' ? await readOrderCharge(orderId) : null;
   const store = order.organization, timeZone = storeTimeZone(store.settings);
-  const tracking = orderTracking({ ...order, deliveryStatus: order.delivery?.status });
+  const tracking = orderTracking({ ...order, deliveryStatus: order.delivery?.status, pickedUpAt: order.delivery?.pickedUpAt });
   const pickup = order.deliveryType === 'PICKUP';
   // CustomerPortalOrder only exists after the customer-portal migration; never query it before that.
   const portalLink = await portalReady() ? await prisma.customerPortalOrder.findUnique({ where: { orderId }, select: { accountId: true } }) : null;
@@ -65,14 +65,14 @@ export default async function TrackOrder({ params, searchParams }: {
   const isOwner = Boolean(ownerSession && ownerSession.id === portalLink?.accountId);
   const brand = /^#[0-9a-f]{6}$/i.test(store.brandColor) ? store.brandColor : '#087EA4';
   const dateTime = (value: Date) => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone }).format(value);
-  const driverFirstName = !pickup && order.driver?.name && ['DISPATCHED', 'DELIVERED'].includes(order.status) ? order.driver.name.trim().split(/\s+/)[0] : null;
+  const driverFirstName = !pickup && order.driver?.name && (['DISPATCHED', 'DELIVERED'].includes(order.status) || order.delivery?.status === 'PICKED_UP') ? order.driver.name.trim().split(/\s+/)[0] : null;
   const address = [order.deliveryAddress && `${order.deliveryAddress}${order.deliveryNumber ? `, ${order.deliveryNumber}` : ''}`, order.deliveryDistrict, order.deliveryCity].filter(Boolean).join(' · ');
   const contactHref = whatsappHref(store.whatsapp, `Olá! Fiz o pedido #${order.displayId} em ${store.name} e gostaria de falar sobre ele.`);
   const history = [
     { label: 'Pedido recebido', at: order.createdAt },
     { label: 'Aceito pela loja', at: order.acceptedAt },
     { label: 'Separação iniciada', at: order.preparingAt },
-    ...(pickup ? [{ label: 'Pronto para retirada', at: order.readyAt }] : [{ label: 'Saiu para entrega', at: order.dispatchedAt }]),
+    ...(pickup ? [{ label: 'Pronto para retirada', at: order.readyAt }] : [{ label: 'Retirado pelo entregador', at: order.delivery?.pickedUpAt }, { label: 'Saiu para entrega', at: order.dispatchedAt }]),
     { label: pickup ? 'Retirada confirmada' : 'Entrega concluída', at: order.deliveredAt },
     { label: 'Pedido cancelado', at: order.cancelledAt },
   ].filter((entry): entry is { label: string; at: Date } => Boolean(entry.at)).sort((a, b) => a.at.getTime() - b.at.getTime());
@@ -93,7 +93,7 @@ export default async function TrackOrder({ params, searchParams }: {
           {awaitingOnline && returning && <p role="status" className="customer-info" data-testid="payment-checking">Confirmando seu pagamento com a InfinitePay… Esta página atualiza sozinha. Se você já pagou, aguarde um instante.</p>}
           {awaitingOnline && returning && <PaymentReturnRetry />}
           {awaitingOnline && !returning && <p role="status" className="customer-info">Aguardando o pagamento online. O pedido só é liberado para {pickup ? 'retirada' : 'entrega'} depois que o pagamento for confirmado.</p>}
-          <OrderTracker order={{ ...order, deliveryStatus: order.delivery?.status }} timeZone={timeZone} />
+          <OrderTracker order={{ ...order, deliveryStatus: order.delivery?.status, pickedUpAt: order.delivery?.pickedUpAt }} timeZone={timeZone} />
           {driverFirstName && <p className="customer-muted">Entregador responsável: <strong>{driverFirstName}</strong></p>}
           {!tracking.terminal && store.averageDeliveryTime > 0 && !pickup && <p className="customer-muted">Tempo médio de entrega informado pela loja: {store.averageDeliveryTime} min. Não é uma previsão exata deste pedido.</p>}
           {contactHref && <a className="customer-track-contact" href={contactHref} target="_blank" rel="noopener noreferrer">Falar com a loja no WhatsApp</a>}

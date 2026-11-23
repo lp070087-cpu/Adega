@@ -29,8 +29,8 @@ test('fluxo operacional: etapas, atribuição desde o aceite e tempo de separaç
   const { orderStage, canAssignAt, readPrepMinutes } = await import('../src/lib/order-flow');
   assert.deepEqual(['NEW', 'CONFIRMED', 'PREPARING'].map((s) => orderStage(s)), ['Recebido', 'Aceito', 'Em separação']);
   assert.equal(orderStage('WAITING_DRIVER', 'ASSIGNED'), 'Aguardando retirada');
-  assert.equal(orderStage('WAITING_DRIVER', 'PICKED_UP'), 'Retirado pelo entregador');
-  assert.equal(orderStage('DISPATCHED', 'IN_TRANSIT'), 'Em entrega');
+  assert.equal(orderStage('WAITING_DRIVER', 'PICKED_UP'), 'Em rota · retirado pelo entregador');
+  assert.equal(orderStage('DISPATCHED', 'IN_TRANSIT'), 'Em rota');
   assert.equal(orderStage('DELIVERED'), 'Entregue');
   assert.equal(canAssignAt('CONFIRMED', 'DELIVERY', null), true);
   assert.equal(canAssignAt('PREPARING', 'DELIVERY', null), true);
@@ -100,4 +100,12 @@ test('checkout: first name only, phone, full address with number or S/N, and pin
   assert.equal(err({ ...delivery, customerName: '', deliveryLatitude: -8, deliveryLongitude: -34 }), 'customerName');
   assert.equal(err({ ...delivery, customerPhone: '', deliveryLatitude: -8, deliveryLongitude: -34 }), 'customerPhone');
   assert.equal(err({ ...base, deliveryType: 'PICKUP' }), null, 'retirada não exige endereço');
+});
+
+test('quadro agrupa pedidos recebidos, em separação ou rota e concluídos', async () => {
+  const { orderBoardLane } = await import('../src/lib/order-flow');
+  assert.deepEqual(
+    ['NEW', 'CONFIRMED', 'PREPARING', 'WAITING_DRIVER', 'READY', 'DISPATCHED', 'DELIVERED', 'CANCELLED'].map(orderBoardLane),
+    ['received', 'received', 'preparing', 'preparing', 'preparing', 'preparing', 'done', 'cancelled'],
+  );
 });

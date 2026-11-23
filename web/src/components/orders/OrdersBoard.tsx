@@ -12,20 +12,24 @@ import { Alert, EmptyState, Select } from '@/components/ui';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { StatusBadge, SourceBadge, PaymentMethodBadge } from '@/components/ui/StatusBadge';
 import { ManualOrderModal, type ManualProduct } from './ManualOrderModal';
-import { isActiveOrder, orderRank } from '@/lib/order-flow';
+import { isActiveOrder, orderBoardLane, orderRank } from '@/lib/order-flow';
 import { cn } from '@/lib/utils';
 
 /**
- * Central de Pedidos: um cartão por pedido, com o botão da próxima etapa.
- * Em andamento, Finalizados e Cancelados ficam em seções separadas; a
- * tabela é a mesma lista para consulta. Atualiza sozinha quando entra um
- * pedido ou quando a loja/o entregador muda algo.
+ * Quadro operacional atualizado quando chegam pedidos ou muda uma etapa.
+ * Os cancelados ficam disponíveis em uma seção própria.
  */
 
 /** Origens oferecidas no filtro. Pedidos antigos de outras origens (iFood,
  *  99Food, Zé Delivery, Manual) continuam visíveis em "Toda origem". */
 const SOURCE_FILTERS = ['OWN_STORE', 'WHATSAPP', 'COUNTER'] as const;
-type Section = 'active' | 'done' | 'cancelled';
+type Section = 'all' | 'active' | 'done' | 'cancelled';
+
+const BOARD_LANES = [
+  { id: 'received', title: 'Pedidos recebidos', detail: 'Novos e aguardando envio', tone: 'border-red-300 bg-red-50', dot: 'bg-red-600' },
+  { id: 'preparing', title: 'Em separação e rota', detail: 'Separação, retirada e entrega em andamento', tone: 'border-amber-300 bg-amber-50', dot: 'bg-amber-500' },
+  { id: 'done', title: 'Entregues', detail: 'Entregas e retiradas concluídas', tone: 'border-emerald-300 bg-emerald-50', dot: 'bg-emerald-600' },
+] as const;
 
 export function OrdersBoard({
   products,
@@ -56,7 +60,7 @@ export function OrdersBoard({
   const [prepDraft, setPrepDraft] = useState(String(prepMinutes));
   const router = useRouter();
   const [view, setView] = useState<'cards' | 'tabela'>('cards');
-  const [section, setSection] = useState<Section>('active');
+  const [section, setSection] = useState<Section>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<DrawerOrder | null>(() => (initialOrderId ? orders.find((order) => order.id === initialOrderId) ?? null : null));
@@ -65,20 +69,24 @@ export function OrdersBoard({
   const [autoPending, startAuto] = useTransition();
   const [, startTransition] = useTransition();
 
-  const inSection = (order: DrawerOrder, which: Section) => which === 'active' ? isActiveOrder(order.status) : which === 'done' ? order.status === 'DELIVERED' : order.status === 'CANCELLED';
+  const isBoard = view === 'cards' && section !== 'cancelled';
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return orders
       .filter((order) => {
-        if (!inSection(order, section)) return false;
+        const lane = orderBoardLane(order.status);
+        if (section === 'cancelled' ? lane !== 'cancelled' : lane === 'cancelled') return false;
+        if (section === 'done' && lane !== 'done') return false;
+        if (section === 'active' && lane === 'done') return false;
         if (sourceFilter && order.source !== sourceFilter) return false;
         if (term && !`${order.displayId} ${order.customerName} ${order.customerPhone}`.toLowerCase().includes(term)) return false;
         return true;
       })
-      .sort((a, b) => section === 'active'
-        ? orderRank(a.status) - orderRank(b.status) || new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        : new Date(b.deliveredAt ?? b.cancelledAt ?? b.createdAt).getTime() - new Date(a.deliveredAt ?? a.cancelledAt ?? a.createdAt).getTime());
-  }, [orders, section, sourceFilter, search]); // eslint-disable-line react-hooks/exhaustive-deps
+      .sort((a, b) => orderRank(a.status) - orderRank(b.status) ||
+        (isActiveOrder(a.status)
+          ? new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          : new Date(b.deliveredAt ?? b.cancelledAt ?? b.createdAt).getTime() - new Date(a.deliveredAt ?? a.cancelledAt ?? a.createdAt).getTime()));
+  }, [orders, section, sourceFilter, search]);
 
   function run(order: KanbanOrder, action: () => Promise<{ ok: boolean; error?: string }>) {
     setError(null);
@@ -165,6 +173,14 @@ export function OrdersBoard({
     revenue: orders.filter((o) => isActiveOrder(o.status)).reduce((acc, o) => acc + o.total, 0),
   }), [orders]);
 
+  const tabs: Array<[Section, string, number]> = view === 'cards'
+    ? [['all', 'Quadro de pedidos', counts.active + counts.done], ['cancelled', 'Cancelados', counts.cancelled]]
+    : [['all', 'Todos', counts.active + counts.done], ['active', 'Em andamento', counts.active], ['done', 'Finalizados', counts.done], ['cancelled', 'Cancelados', counts.cancelled]];
+
+  const renderCard = (order: DrawerOrder) => (
+    <OrderCard key={order.id} order={order} drivers={drivers} pending={pendingId === order.id} canManageOrders={canManageOrders} canManageDrivers={canManageDrivers} onOpen={() => setSelected(order)} onAdvance={advance} onAssign={assign} prepMinutes={prepMinutes} deliveryMinutes={deliveryMinutes} />
+  );
+
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -189,8 +205,8 @@ export function OrdersBoard({
       {autoAccept && <p className="mb-3 text-[0.74rem] text-ink-500">Novos pedidos válidos da loja própria entram como Aceito. Pagamentos não são confirmados automaticamente; pedidos com pagamento online aguardam aceite manual.</p>}
       {error && <Alert tone="danger" className="mb-4">{error}</Alert>}
 
-      <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-ink-100 p-1 sm:inline-grid sm:w-auto" role="tablist" aria-label="Seções de pedidos">
-        {([['active', 'Em andamento', counts.active], ['done', 'Finalizados', counts.done], ['cancelled', 'Cancelados', counts.cancelled]] as const).map(([key, label, count]) => (
+      <div className="mb-3 flex w-fit flex-wrap gap-1 rounded-lg bg-ink-100 p-1" role="tablist" aria-label="Seções de pedidos">
+        {tabs.map(([key, label, count]) => (
           <button key={key} type="button" role="tab" aria-selected={section === key} onClick={() => setSection(key)} className={cn('min-h-11 rounded-md px-3 text-[0.78rem] font-bold transition-colors', section === key ? 'bg-white text-brand shadow-xs' : 'text-ink-600 hover:text-ink-900')}>
             {label} <span className="ml-1 rounded-full bg-ink-100 px-1.5 py-0.5 text-[0.68rem] text-ink-700">{count}</span>
           </button>
@@ -200,7 +216,7 @@ export function OrdersBoard({
       <div className="mb-4 flex flex-wrap items-center gap-2.5 rounded-lg border border-ink-100 bg-white p-3">
         <div className="flex rounded-sm border-2 border-ink-200 p-0.5">
           {(['cards', 'tabela'] as const).map((mode) => (
-            <button key={mode} type="button" onClick={() => setView(mode)} className={view === mode ? 'rounded-sm bg-brand px-3.5 py-1.5 text-[0.78rem] font-bold text-white' : 'rounded-sm px-3.5 py-1.5 text-[0.78rem] font-semibold text-ink-600 hover:text-brand'}>
+            <button key={mode} type="button" onClick={() => { setView(mode); if (mode === 'cards' && section !== 'cancelled') setSection('all'); }} aria-pressed={view === mode} className={view === mode ? 'rounded-sm bg-brand px-3.5 py-1.5 text-[0.78rem] font-bold text-white' : 'rounded-sm px-3.5 py-1.5 text-[0.78rem] font-semibold text-ink-600 hover:text-brand'}>
               {mode === 'cards' ? 'Cartões' : 'Tabela'}
             </button>
           ))}
@@ -213,18 +229,30 @@ export function OrdersBoard({
         <span className="ml-auto whitespace-nowrap text-[0.76rem] text-ink-500">{counts.active} em andamento · {formatBRL(counts.revenue)}</span>
       </div>
 
-      {view === 'cards' ? (
-        filtered.length === 0 ? (
-          <div className="rounded-lg border border-ink-100 bg-white">
-            <EmptyState icon="🧭" title={section === 'active' ? 'Nenhum pedido em andamento' : section === 'done' ? 'Nenhum pedido finalizado' : 'Nenhum pedido cancelado'} description={section === 'active' ? 'Quando um pedido entrar, ele aparece aqui automaticamente.' : 'Os pedidos das últimas horas aparecem aqui.'} />
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="order-cards">
-            {filtered.map((order) => (
-              <OrderCard key={order.id} order={order} drivers={drivers} pending={pendingId === order.id} canManageOrders={canManageOrders} canManageDrivers={canManageDrivers} onOpen={() => setSelected(order)} onAdvance={advance} onAssign={assign} prepMinutes={prepMinutes} deliveryMinutes={deliveryMinutes} />
-            ))}
-          </div>
-        )
+      {isBoard ? (
+        <div className="grid divide-y divide-ink-200 overflow-hidden rounded-2xl border border-ink-200 bg-ink-50 md:grid-cols-3 md:divide-x md:divide-y-0" data-testid="order-cards">
+          {BOARD_LANES.map((lane) => {
+            const laneOrders = filtered.filter((order) => orderBoardLane(order.status) === lane.id);
+            return (
+              <section key={lane.id} className="min-w-0 p-3" aria-labelledby={`orders-${lane.id}`} data-lane={lane.id}>
+                <header className={cn('mb-3 rounded-xl border px-3 py-2.5', lane.tone)}>
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 id={`orders-${lane.id}`} className="flex items-center gap-2 text-sm font-extrabold text-ink-900"><span aria-hidden="true" className={cn('h-2.5 w-2.5 shrink-0 rounded-full', lane.dot)} />{lane.title}</h2>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold tabular-nums text-ink-800">{laneOrders.length}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-ink-700">{lane.detail}</p>
+                </header>
+                <div className="space-y-3">
+                  {laneOrders.length ? laneOrders.map(renderCard) : <p className="rounded-xl border border-dashed border-ink-200 bg-white px-3 py-5 text-center text-xs text-ink-600">Nenhum pedido nesta etapa.</p>}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      ) : view === 'cards' ? (
+        filtered.length
+          ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="order-cards">{filtered.map(renderCard)}</div>
+          : <div className="rounded-lg border border-ink-100 bg-white"><EmptyState icon="🧭" title="Nenhum pedido cancelado" description="Os pedidos cancelados aparecem aqui." /></div>
       ) : (
         <DataTable
           columns={columns}

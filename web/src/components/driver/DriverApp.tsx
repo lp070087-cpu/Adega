@@ -182,7 +182,7 @@ function deliveryActionLabel(order: DriverOrder, step: Step) {
 const STEP_LABEL: Record<Step, string> = {
   ARRIVED_STORE: 'Cheguei na loja',
   PICKED_UP: 'Confirmar retirada',
-  STARTED: 'Iniciar entrega',
+  STARTED: 'Sair para entrega',
   ARRIVED_CUSTOMER: 'Cheguei ao cliente',
   DELIVERED: 'Confirmar entrega',
 };
@@ -600,6 +600,7 @@ function OrderCard({
   const step = nextStep(order.delivery);
   const isDelivery = order.status === 'DELIVERED';
   const waitingStore = awaitingRelease(order);
+  const inRoute = ['IN_TRANSIT', 'ARRIVED'].includes(order.delivery?.status ?? '');
   const cobrar = order.paymentStatus === 'PENDING' && order.paymentMethod !== 'ONLINE' ? order.total : null;
 
   const minutes = Math.max(0, Math.floor((now - new Date(order.createdAt).getTime()) / 60000));
@@ -613,9 +614,11 @@ function OrderCard({
           <p className="truncate text-[0.82rem] font-semibold text-ink-700">{order.customerName}</p>
         </div>
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
-          <Badge tone={isDelivery ? 'green' : waitingStore ? 'neutral' : late ? 'yellow' : 'orange'}>
+          <Badge tone={isDelivery ? 'green' : inRoute ? 'blue' : waitingStore ? 'neutral' : late ? 'yellow' : 'orange'}>
             {isDelivery
               ? 'Finalizado'
+              : inRoute ? 'Entrega em andamento'
+              : order.delivery?.status === 'PICKED_UP' ? 'Retirado · pronto para sair'
               : waitingStore ? 'Aguardando liberação'
               : order.status === 'WAITING_DRIVER' && order.delivery?.status === 'ASSIGNED' ? 'Pronto para retirada'
               : order.delivery

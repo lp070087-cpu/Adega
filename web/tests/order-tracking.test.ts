@@ -98,3 +98,11 @@ test('install platform detection picks native prompt or the right manual steps',
   assert.equal(detectInstallPlatform('Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/120.0 Mobile Safari/537.36'), 'android');
   assert.equal(detectInstallPlatform('Mozilla/5.0 (Windows NT 10.0) Chrome/120.0'), 'desktop');
 });
+
+test('a coleta já aparece em rota para o cliente enquanto o entregador escolhe quando iniciar', () => {
+  const pickedUpAt = new Date('2026-10-22T15:00:00Z');
+  const view = orderTracking({ status: 'WAITING_DRIVER', deliveryType: 'DELIVERY', deliveryStatus: 'PICKED_UP', pickedUpAt });
+  assert.equal(view.headline, 'Em rota');
+  assert.deepEqual(states(view), ['done', 'done', 'current', 'pending']);
+  assert.deepEqual(view.steps[2]?.at, pickedUpAt);
+});

@@ -13,7 +13,7 @@ import {
   updateOrderStatusAction,
   advanceOrderAction,
 } from '@/app/actions/orders';
-import { primaryOrderAction } from '@/lib/order-flow';
+import { canAssignAt, primaryOrderAction } from '@/lib/order-flow';
 import { driverAvailability, driverOptionLabel, isDriverOnline, DRIVER_AVAILABILITY_LABEL } from '@/lib/driver-availability';
 
 type DrawerDriver = { name: string; status: string; activeOrders?: number; accessPending?: boolean };
@@ -152,6 +152,7 @@ export function OrderDrawer({
   }
 
   const primary = primaryOrderAction({ status: order.status, deliveryType: order.deliveryType, driverId: order.driver?.id ?? null });
+  const awaitsDriverSelection = order.status === 'CONFIRMED' && canAssignAt(order.status, order.deliveryType, order.driver?.id);
   function advancePrimary() {
     setError(null);
     startTransition(async () => {
@@ -174,7 +175,7 @@ export function OrderDrawer({
             <Button variant="ghost" onClick={() => setShowCancel((v) => !v)} disabled={pending}>
               Cancelar pedido
             </Button>
-            {primary?.kind === 'advance' && (order.status !== 'WAITING_DRIVER' || order.deliveryStatus === 'PICKED_UP') && (
+            {primary?.kind === 'advance' && order.status !== 'WAITING_DRIVER' && !awaitsDriverSelection && (
               <Button onClick={advancePrimary} loading={pending}>{primary.label}</Button>
             )}
             {order.status === 'DISPATCHED' && (
@@ -344,7 +345,7 @@ export function OrderDrawer({
                 <p className="text-[0.84rem] font-semibold text-ink-800">{order.driver.name}</p>
                 <p className="text-[0.72rem] text-ink-500">{DRIVER_AVAILABILITY_LABEL[driverAvailability(asAvailability(drivers.find(d => d.id === order.driver?.id) ?? { name: order.driver.name, status: order.driver.status }))]}</p>
               </div>
-              {order.status === 'WAITING_DRIVER' && <div className="flex flex-wrap gap-2"><Button size="sm" variant="ghost" onClick={() => { setShowReassign(!showReassign); setSelectedDriver(''); setReassignReason(''); }} disabled={pending}>Trocar</Button><Button size="sm" variant="ghost" onClick={unassign} disabled={pending}>Remover</Button></div>}
+              {order.status === 'WAITING_DRIVER' && order.deliveryStatus !== 'PICKED_UP' && <div className="flex flex-wrap gap-2"><Button size="sm" variant="ghost" onClick={() => { setShowReassign(!showReassign); setSelectedDriver(''); setReassignReason(''); }} disabled={pending}>Trocar</Button><Button size="sm" variant="ghost" onClick={unassign} disabled={pending}>Remover</Button></div>}
             </div>
           ) : (
             <div className="flex gap-2">
@@ -365,7 +366,7 @@ export function OrderDrawer({
               </Button>
             </div>
           )}
-          {showReassign && order.driver && order.status === 'WAITING_DRIVER' && <div className="mt-3 space-y-3">
+          {showReassign && order.driver && order.status === 'WAITING_DRIVER' && order.deliveryStatus !== 'PICKED_UP' && <div className="mt-3 space-y-3">
             <Select aria-label="Novo entregador" value={selectedDriver} onChange={e => setSelectedDriver(e.target.value)}><option value="">Selecione outro entregador</option>{sortedDrivers.filter(driver => driver.id !== order.driver?.id).map(driver => <option key={driver.id} value={driver.id} disabled={!online(driver)}>{driverOptionLabel(asAvailability(driver))}</option>)}</Select>
             <label className="block text-sm text-ink-600">Motivo da troca<Textarea value={reassignReason} onChange={e => setReassignReason(e.target.value)} minLength={5} maxLength={300} placeholder="Informe o motivo com pelo menos 5 caracteres" /></label>
             <Button loading={pending} disabled={!selectedDriver || reassignReason.trim().length < 5} onClick={assign}>Confirmar troca de entregador</Button>

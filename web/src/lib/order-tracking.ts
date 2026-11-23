@@ -15,6 +15,7 @@ export type TrackingInput = {
   acceptedAt?: Date | string | null;
   preparingAt?: Date | string | null;
   readyAt?: Date | string | null;
+  pickedUpAt?: Date | string | null;
   dispatchedAt?: Date | string | null;
   deliveredAt?: Date | string | null;
   cancelledAt?: Date | string | null;
@@ -71,7 +72,7 @@ function reachedIndex(status: string, pickup: boolean): number {
 
 /** For cancelled orders, how far the order really got before cancellation. */
 function cancelledIndex(input: TrackingInput, pickup: boolean): number {
-  if (!pickup && toDate(input.dispatchedAt)) return 2;
+  if (!pickup && (toDate(input.dispatchedAt) || toDate(input.pickedUpAt))) return 2;
   if (pickup && toDate(input.readyAt)) return 2;
   if (toDate(input.preparingAt)) return 1;
   if (toDate(input.acceptedAt)) return 0;
@@ -81,11 +82,12 @@ function cancelledIndex(input: TrackingInput, pickup: boolean): number {
 export function orderTracking(input: TrackingInput): TrackingView {
   const pickup = input.deliveryType === 'PICKUP';
   const base = trackingSteps(pickup);
+  const collected = !pickup && input.status === 'WAITING_DRIVER' && input.deliveryStatus === 'PICKED_UP';
   const stamps: Record<TrackingStepKey, Date | null> = {
     CONFIRMED: toDate(input.acceptedAt),
     PREPARING: toDate(input.preparingAt),
     READY: toDate(input.readyAt),
-    DISPATCHED: toDate(input.dispatchedAt),
+    DISPATCHED: toDate(input.dispatchedAt) ?? (!pickup ? toDate(input.pickedUpAt) : null),
     DELIVERED: toDate(input.deliveredAt),
   };
 
@@ -100,11 +102,11 @@ export function orderTracking(input: TrackingInput): TrackingView {
     };
   }
 
-  const reached = reachedIndex(input.status, pickup);
+  const reached = reachedIndex(collected ? 'DISPATCHED' : input.status, pickup);
   const delivered = input.status === 'DELIVERED';
   const steps: TrackingStep[] = base.map((step, index) => {
     const state: TrackingStepState = delivered || index < reached ? 'done' : index === reached ? 'current' : 'pending';
-    return { ...step, state, at: state === 'pending' ? null : stamps[step.key] };
+    return { ...step, label: collected && step.key === 'DISPATCHED' ? 'Em rota' : step.label, state, at: state === 'pending' ? null : stamps[step.key] };
   });
 
   if (reached < 0) {
@@ -124,16 +126,13 @@ export function orderTracking(input: TrackingInput): TrackingView {
     };
   }
   const failedAttempt = !pickup && input.deliveryStatus === 'FAILED' && reached === 1;
-  // Entrega: pronto e liberado → aguardando o entregador; retirado → a caminho em instantes.
-  const handoff = !pickup && input.status === 'WAITING_DRIVER'
-    ? (input.deliveryStatus === 'PICKED_UP' ? 'Retirado pelo entregador' : 'Pronto, aguardando o entregador')
-    : null;
+  const handoff = !pickup && input.status === 'WAITING_DRIVER' && !collected ? 'Pronto, aguardando o entregador' : null;
   return {
     phase: 'progress', pickup, steps, terminal: false,
     headline: handoff ?? steps[reached]?.label ?? 'Em andamento',
     notice: failedAttempt
       ? 'A última tentativa de entrega não foi concluída. A loja está reorganizando o envio do seu pedido.'
-      : pickup && reached === 2 ? 'Seu pedido está pronto. Retire no estabelecimento.' : null,
+      : collected ? 'O entregador já retirou seu pedido na loja e vai iniciar esta entrega.' : pickup && reached === 2 ? 'Seu pedido está pronto. Retire no estabelecimento.' : null,
     noticeTone: failedAttempt ? 'warning' : pickup && reached === 2 ? 'success' : null,
   };
 }

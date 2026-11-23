@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { cn, formatBRL, timeAgo } from '@/lib/utils';
 import { SourceBadge, StatusBadge } from '@/components/ui/StatusBadge';
-import { canAssignAt, orderStage, primaryOrderAction } from '@/lib/order-flow';
+import { canAssignAt, orderBoardLane, orderStage, primaryOrderAction } from '@/lib/order-flow';
 import { canReceiveOrder, driverOptionLabel, isDriverOnline } from '@/lib/driver-availability';
 
 /**
@@ -64,6 +64,13 @@ const clock = (value?: string | null) => (value ? new Date(value).toLocaleTimeSt
 
 const isActive = (status: string) => !['DELIVERED', 'CANCELLED'].includes(status);
 
+const CARD_BORDER = {
+  received: 'border-red-200 border-l-red-600',
+  preparing: 'border-amber-200 border-l-amber-500',
+  done: 'border-emerald-200 border-l-emerald-600',
+  cancelled: 'border-ink-200 border-l-ink-300',
+} as const;
+
 export function OrderCard({
   order,
   drivers,
@@ -96,12 +103,10 @@ export function OrderCard({
   const pickup = order.deliveryType === 'PICKUP';
   const assignable = canAssignAt(order.status, order.deliveryType, order.driver?.id ?? null);
   const picked = order.deliveryStatus === 'PICKED_UP';
-  const accent = order.status === 'NEW' ? 'border-l-red-600'
-    : ['CONFIRMED', 'PREPARING'].includes(order.status) || (order.status === 'WAITING_DRIVER' && !picked) ? 'border-l-amber-500'
-    : ['READY', 'WAITING_DRIVER', 'DISPATCHED', 'DELIVERED'].includes(order.status) ? 'border-l-emerald-600' : 'border-l-ink-200';
+  const accent = CARD_BORDER[orderBoardLane(order.status)];
   const selector = canManageDrivers ? (
-    <div className="flex gap-2">
-      <select value={driverId} onChange={(e) => setDriverId(e.target.value)} aria-label={`Entregador do pedido #${order.displayId}`} className="field-input min-h-11 min-w-0 flex-1 text-[0.8rem]">
+    <div className="flex flex-wrap gap-2">
+      <select value={driverId} onChange={(e) => setDriverId(e.target.value)} aria-label={`Entregador do pedido #${order.displayId}`} className="field-input min-h-11 min-w-36 flex-1 text-[0.8rem]">
         <option value="">Escolha o entregador</option>
         {sorted.map((d) => <option key={d.id} value={d.id} disabled={!canReceiveOrder(availability(d))}>{driverOptionLabel(availability(d))}</option>)}
       </select>
@@ -116,7 +121,7 @@ export function OrderCard({
       data-testid="order-card"
       data-order={order.displayId}
       data-status={order.status}
-      className={cn('flex flex-col rounded-2xl border bg-white p-3.5 shadow-[0_1px_2px_rgba(11,31,58,.04),0_6px_18px_rgba(11,31,58,.05)] transition-[opacity,box-shadow] hover:shadow-[0_2px_4px_rgba(11,31,58,.06),0_12px_28px_rgba(11,31,58,.08)]', late ? 'border-danger/40' : 'border-ink-100', 'border-l-4', accent, pending && 'opacity-60')}
+      className={cn('flex flex-col rounded-2xl border bg-white p-3.5 shadow-[0_1px_2px_rgba(11,31,58,.04),0_6px_18px_rgba(11,31,58,.05)] transition-[opacity,box-shadow] hover:shadow-[0_2px_4px_rgba(11,31,58,.06),0_12px_28px_rgba(11,31,58,.08)]', 'border-l-4', accent, pending && 'opacity-60')}
     >
       <button type="button" onClick={onOpen} className="block w-full text-left" aria-label={`Abrir detalhes do pedido #${order.displayId}`}>
         <div className="flex items-start justify-between gap-2">
@@ -151,8 +156,8 @@ export function OrderCard({
       {(action || assignable) && (
         <div className="mt-3 space-y-2 border-t border-ink-100 pt-3">
           {assignable && action?.kind !== 'assign' && selector}
-          {order.status === 'WAITING_DRIVER' && !picked && <p className="text-sm font-semibold text-ink-700">Retirada liberada para o entregador.</p>}
-          {action?.kind === 'advance' && (order.status !== 'WAITING_DRIVER' || picked) && (canManageOrders ? (
+          {order.status === 'WAITING_DRIVER' && <p className="text-sm font-semibold text-ink-700">{picked ? 'Coletado · aguardando início desta entrega' : 'Retirada liberada para o entregador.'}</p>}
+          {action?.kind === 'advance' && order.status !== 'WAITING_DRIVER' && !(order.status === 'CONFIRMED' && assignable) && (canManageOrders ? (
             <button type="button" disabled={pending} onClick={() => onAdvance(order)} className="min-h-11 w-full rounded-xl bg-brand px-3 text-[0.82rem] font-bold text-white transition-colors hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-55">
               {pending ? 'Atualizando…' : action.label}
             </button>
