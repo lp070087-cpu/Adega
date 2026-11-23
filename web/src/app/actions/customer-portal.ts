@@ -9,7 +9,7 @@ import { verifyPassword,hashPassword } from '@/lib/auth/password';
 import { toActionError } from '@/lib/auth/guards';
 import { OperationError } from '@/lib/operation-error';
 import { fullNameSchema,brazilPhoneSchema,addressSchema,passwordSchema,safeReturnPath } from '@/lib/customer-portal/policy';
-import { registerPortalAccount,loginPortalAccount,logoutPortalAccount,requestPortalReset,consumePortalToken,requireCustomerAccount,changePortalEmail,openOwnerCustomerAccount } from '@/lib/customer-portal/server';
+import { registerPortalAccount,loginPortalAccount,logoutPortalAccount,requestPortalReset,consumePortalToken,requireCustomerAccount,changePortalEmail,openOwnerCustomerAccount,verifyOwnerCustomerPassword } from '@/lib/customer-portal/server';
 
 export type CustomerPortalState={ok:boolean;message:string;redirect?:string;field?:string}|undefined;
 export async function customerPortalAction(_previous:CustomerPortalState,form:FormData):Promise<CustomerPortalState>{
@@ -37,7 +37,10 @@ export async function customerPortalAction(_previous:CustomerPortalState,form:Fo
     }else if(action==='email'){
       await changePortalEmail(slug,value('email'),value('currentPassword'));return {ok:true,message:'Confirme o novo endereço pelo link enviado. O e-mail atual permanece válido até a confirmação.'};
     }else if(action==='password'){
-      if(!await verifyPassword(value('currentPassword'),account.passwordHash))throw new OperationError('Senha atual incorreta.');
+      if (!await verifyPassword(value('currentPassword'), account.passwordHash) &&
+          !await verifyOwnerCustomerPassword(account.organizationId, account.email, value('currentPassword'))) {
+        return { ok: false, message: 'Senha atual incorreta.', field: 'currentPassword' };
+      }
       const password=passwordSchema.parse(value('password'));if(password!==value('confirmPassword'))throw new OperationError('As senhas não coincidem.');
       const passwordHash=await hashPassword(password);
       await withOrganizationTransaction(account.organizationId,async tx=>{
@@ -45,7 +48,7 @@ export async function customerPortalAction(_previous:CustomerPortalState,form:Fo
         if(changed.count!==1)throw new OperationError('A conta mudou. Entre novamente.');
         await tx.customerPortalSession.deleteMany({where:{accountId:account.id}});await tx.customerPortalToken.deleteMany({where:{accountId:account.id}});
       });
-      await logoutPortalAccount(slug);return {ok:true,message:'Senha alterada. Entre novamente.',redirect:`/loja/${slug}/conta/entrar`};
+      await logoutPortalAccount(slug);
     }else if(action==='address'){
       let savedId:string|null=null;
       const data=addressSchema.parse({id:value('id')||undefined,label:value('label'),street:value('street'),number:value('number'),complement:value('complement'),district:value('district'),city:value('city'),state:value('state').toUpperCase(),zipCode:value('zipCode'),isDefault:form.get('isDefault')==='on'});
@@ -70,8 +73,9 @@ export async function customerPortalAction(_previous:CustomerPortalState,form:Fo
     }else if(action==='preferences')await prisma.customerPortalAccount.update({where:{id:account.id,organizationId:account.organizationId},data:{marketingOptIn:form.get('marketingOptIn')==='on'}});
     else if(action==='read-notices')await prisma.customerPortalAccount.update({where:{id:account.id,organizationId:account.organizationId},data:{noticesReadAt:new Date()}});
     else throw new OperationError('Ação inválida.');
-    revalidatePath(`/loja/${slug}/conta`,'layout');return {ok:true,message:'Alterações salvas.'};
+    if (action !== 'password') { revalidatePath(`/loja/${slug}/conta`,'layout');return {ok:true,message:'Alterações salvas.'}; }
   }catch(error){return error instanceof z.ZodError?{ok:false,message:error.issues[0]?.message??'Confira os campos.',field:String(error.issues[0]?.path[0]??'')}:{ok:false,message:toActionError(error).error};}
+  redirect(`/loja/${slug}/conta/entrar?senha=alterada`);
 }
 
 /**

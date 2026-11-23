@@ -25,6 +25,7 @@ import {
 import { BUSINESS_COPY, STORE_STATUS_LABEL } from '@/data/business-copy';
 import { STORE_OPENING_MODE_LABEL, type StoreOpeningMode, summarizeSchedule, type WeekdaySchedule } from '@/lib/schedule';
 import { ScheduleEditor } from './ScheduleEditor';
+import { StoreLogoTools } from './StoreLogoTools';
 import { DeliveryAreaMap } from './DeliveryAreaMap';
 import {
   Alert,
@@ -50,7 +51,7 @@ import type { StoreStatus } from '@prisma/client';
  * deste formulário. Não existe campo de organização aqui — se existisse,
  * seria uma porta para editar a loja de outro.
  *
- * A logo é URL, não arquivo. O storage ainda não está plugado, e base64
+ * A logo é persistida como URL pública após upload, e base64
  * no banco está descartado de propósito — a tela diz isso à vontade em
  * vez de aceitar o arquivo e guardar um binário gigante.
  * ═══════════════════════════════════════════════════════════════════════
@@ -466,7 +467,7 @@ export function StoreSettings({
 
               <Field
                 label="Logo"
-                hint="URL pública da imagem. O upload direto entra quando o storage estiver configurado."
+                hint="Use um arquivo de imagem ou informe uma URL. Salve a identidade para publicar a logo."
                 error={fieldError === 'logoUrl' ? error ?? undefined : undefined}
               >
                 <Input
@@ -475,6 +476,7 @@ export function StoreSettings({
                   placeholder="https://…"
                   disabled={!canManage}
                 />
+                <StoreLogoTools url={form.logoUrl} storeName={form.name} disabled={!canManage || pending} onUpload={url => set('logoUrl', url)} />
               </Field>
             </div>
 

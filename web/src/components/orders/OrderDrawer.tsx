@@ -174,7 +174,7 @@ export function OrderDrawer({
             <Button variant="ghost" onClick={() => setShowCancel((v) => !v)} disabled={pending}>
               Cancelar pedido
             </Button>
-            {primary?.kind === 'advance' && (
+            {primary?.kind === 'advance' && (order.status !== 'WAITING_DRIVER' || order.deliveryStatus === 'PICKED_UP') && (
               <Button onClick={advancePrimary} loading={pending}>{primary.label}</Button>
             )}
             {order.status === 'DISPATCHED' && (
@@ -332,7 +332,7 @@ export function OrderDrawer({
       {/* ── Entregador ────────────────────────────────────────────── */}
       {canManageDrivers && order.driver?.id && ['CONFIRMED', 'PREPARING', 'WAITING_DRIVER', 'DISPATCHED'].includes(order.status) && <DeliverySlipButton orderId={order.id} />}
 
-      {canManageDrivers && isOpen && order.deliveryType !== 'PICKUP' && ['PREPARING', 'READY', 'WAITING_DRIVER', 'DISPATCHED'].includes(order.status) && (
+      {canManageDrivers && isOpen && order.deliveryType !== 'PICKUP' && ['CONFIRMED', 'PREPARING', 'READY', 'WAITING_DRIVER', 'DISPATCHED'].includes(order.status) && (
         <section className="mb-5">
           <h3 className="mb-2 text-[0.7rem] font-bold uppercase tracking-wide text-ink-400">
             Entregador
@@ -360,8 +360,8 @@ export function OrderDrawer({
                   </option>
                 ))}
               </Select>
-              <Button onClick={assign} loading={pending} disabled={!selectedDriver || !['PREPARING', 'READY'].includes(order.status)}>
-                Atribuir
+              <Button onClick={assign} loading={pending} disabled={!selectedDriver || !['CONFIRMED', 'PREPARING', 'READY'].includes(order.status)}>
+                Enviar ao entregador
               </Button>
             </div>
           )}

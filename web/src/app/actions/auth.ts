@@ -14,7 +14,7 @@ import { passwordSchema } from '@/lib/validations/common';
  * Toda validação roda no servidor antes de qualquer escrita.
  */
 
-export type AuthActionState = { error?: string; field?: string; changePassword?: boolean } | undefined;
+export type AuthActionState = { error?: string; field?: string; changePassword?: boolean; saved?: boolean } | undefined;
 
 export async function loginAction(
   _prev: AuthActionState,
@@ -182,31 +182,28 @@ export async function changePasswordAction(
 ): Promise<AuthActionState> {
   const { auth } = await import('@/lib/auth');
   const session = await auth();
-  if (!session?.user?.id) redirect('/login');
+  if (!session?.user?.id) return { error: 'Sua sessão expirou. Entre novamente para trocar a senha.' };
 
   const current = String(formData.get('currentPassword') ?? '');
   const next = String(formData.get('newPassword') ?? '');
   const confirm = String(formData.get('confirmPassword') ?? '');
-
   const parsedPassword = passwordSchema.safeParse(next);
-  if (!parsedPassword.success) return { error: parsedPassword.error.errors[0]?.message ?? 'Senha inválida.' };
+  if (!parsedPassword.success) return { error: parsedPassword.error.errors[0]?.message ?? 'Senha inválida.', field: 'newPassword' };
+  if (Buffer.byteLength(next, 'utf8') > 72) return { error: 'A nova senha está muito longa.', field: 'newPassword' };
   if (next !== confirm) return { error: 'As senhas não conferem.', field: 'confirmPassword' };
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { passwordHash: true },
-  });
-  if (!user) return { error: 'Usuário não encontrado.' };
-
-  const ok = await verifyPassword(current, user.passwordHash);
-  if (!ok) return { error: 'Senha atual incorreta.', field: 'currentPassword' };
-
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { passwordHash: await hashPassword(next), mustChangePassword: false },
-  });
-
-  return { error: undefined };
+  try {
+    const user = await prisma.user.findUnique({ where: { id: session.user.id, active: true }, select: { passwordHash: true } });
+    if (!user || !await verifyPassword(current, user.passwordHash)) return { error: 'Senha atual incorreta.', field: 'currentPassword' };
+    const updated = await prisma.user.updateMany({
+      where: { id: session.user.id, active: true, passwordHash: user.passwordHash },
+      data: { passwordHash: await hashPassword(next), mustChangePassword: false },
+    });
+    if (!updated.count) return { error: 'A conta mudou. Informe sua senha atual novamente.', field: 'currentPassword' };
+    return { saved: true };
+  } catch {
+    return { error: 'Não foi possível salvar a nova senha. Tente novamente.' };
+  }
 }
 
 export async function driverLogoutAction(){

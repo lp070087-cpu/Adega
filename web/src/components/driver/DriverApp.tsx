@@ -21,7 +21,7 @@ import { DriverRoutes } from '@/components/driver/DriverRoutes';
 import { DriverEarnings } from '@/components/driver/DriverEarnings';
 import { DeliveryPickupDialog } from '@/components/driver/DeliveryPickupDialog';
 import { SlideToFinish } from '@/components/driver/SlideToFinish';
-import { acceptDriverDelivery, collectDriverDelivery } from '@/app/actions/delivery-pickup';
+import { acceptDriverDelivery, collectDriverBatch, collectDriverDelivery } from '@/app/actions/delivery-pickup';
 import { DriverAccount, type DriverAccountDetails } from '@/components/driver/DriverAccount';
 import type { EarningsSummary } from '@/lib/data/driver-earnings';
 import { useLiveRefresh } from '@/components/layout/LiveRefresh';
@@ -168,6 +168,10 @@ function nextStep(delivery: DriverOrder['delivery']): Step {
   return 'DELIVERED';
 }
 
+function canCollectWithoutCode(order: DriverOrder) {
+  return order.status === 'WAITING_DRIVER' && order.delivery?.status === 'ASSIGNED' && !order.delivery.requiresPickupCode;
+}
+
 function deliveryActionLabel(order: DriverOrder, step: Step) {
   if (step === 'PICKED_UP' && order.delivery?.status === 'ASSIGNED' && !order.delivery.accepted) return 'Aceitar entrega';
   if (awaitingRelease(order)) return 'Aguardando liberação da loja';
@@ -178,7 +182,7 @@ function deliveryActionLabel(order: DriverOrder, step: Step) {
 const STEP_LABEL: Record<Step, string> = {
   ARRIVED_STORE: 'Cheguei na loja',
   PICKED_UP: 'Confirmar retirada',
-  STARTED: 'Ir para entrega',
+  STARTED: 'Iniciar entrega',
   ARRIVED_CUSTOMER: 'Cheguei ao cliente',
   DELIVERED: 'Confirmar entrega',
 };
@@ -221,6 +225,7 @@ export function DriverApp({
   useLiveRefresh(preview ? null : '/api/entregador/versao', 8000);
   const [pending, startTransition] = useTransition();
   const [tab, setTab] = useState<'entregas' | 'mapa' | 'ganhos' | 'perfil'>('entregas');
+  const [selectedPickups, setSelectedPickups] = useState<string[]>([]);
   const [pickupMode, setPickupMode] = useState<'camera' | 'manual' | null>(null);
   const [pickupError, setPickupError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -344,12 +349,23 @@ export function DriverApp({
     });
   }
 
+  const availablePickups = active.filter(canCollectWithoutCode);
+  const selectedForPickup = availablePickups.filter(order => selectedPickups.includes(order.id)).map(order => order.id);
+
+  function collectSelected(ids: string[]) {
+    run(() => collectDriverBatch(ids), () => {
+      setSelectedPickups(idsSelected => idsSelected.filter(id => !ids.includes(id)));
+      setNotice(ids.length === 1 ? 'Retirada confirmada.' : `${ids.length} retiradas confirmadas.`);
+    });
+  }
+
   function advance(order: DriverOrder, step: Step, notes?: string) {
     if (step === 'PICKED_UP' && order.delivery?.status === 'ASSIGNED' && !order.delivery.accepted) {
       run(() => acceptDriverDelivery(order.id), () => setNotice(`Entrega #${order.displayId} aceita.`));
       return;
     }
     if (step === 'PICKED_UP' && order.delivery?.requiresPickupCode) { openPickup('camera'); return; }
+    if (step === 'PICKED_UP' && canCollectWithoutCode(order)) { collectSelected([order.id]); return; }
     run(() => driverStepAction({ orderId: order.id, step, notes }), () => {
       setNotice(step === 'DELIVERED' ? `Entrega do pedido #${order.displayId} confirmada.` : `Passo registrado: ${STEP_LABEL[step]}.`);
       if (step === 'DELIVERED') setOpenId(null);
@@ -364,6 +380,8 @@ export function DriverApp({
       now={now}
       disabled={pending}
       onOpen={() => setOpenId(order.id)}
+      selected={selectedPickups.includes(order.id)}
+      onSelect={() => setSelectedPickups(ids => ids.includes(order.id) ? ids.filter(id => id !== order.id) : [...ids, order.id])}
       onStep={(step, notes) => advance(order, step, notes)}
     />
   );
@@ -480,7 +498,16 @@ export function DriverApp({
                 />
               </Card>
             ) : (
-              active.map((order) => renderOrder(order))
+              <>
+                {availablePickups.length > 0 && <Card className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div><h2 className="font-bold text-ink-900">Retiradas liberadas</h2><p className="text-sm text-ink-600">Marque os pedidos que você está levando.</p></div>
+                    {availablePickups.length > 1 && <Button size="sm" variant="secondary" onClick={() => setSelectedPickups(availablePickups.map(order => order.id))}>Selecionar todas</Button>}
+                  </div>
+                  {selectedForPickup.length > 0 && <SlideToFinish disabled={pending || preview} onFinish={() => collectSelected(selectedForPickup)} label={`Arraste para retirar ${selectedForPickup.length === 1 ? '1 entrega' : `${selectedForPickup.length} entregas`}`} confirmation="Confirmar a retirada dos pedidos selecionados?" />}
+                </Card>}
+                {active.map(renderOrder)}
+              </>
             )}
           </>
         )}
@@ -558,12 +585,16 @@ function OrderCard({
   now,
   disabled,
   onOpen,
+  selected,
+  onSelect,
   onStep,
 }: {
   order: DriverOrder;
   now: number;
   disabled: boolean;
   onOpen: () => void;
+  selected: boolean;
+  onSelect: () => void;
   onStep: (step: Step, notes?: string) => void;
 }) {
   const step = nextStep(order.delivery);
@@ -616,8 +647,9 @@ function OrderCard({
 
       <p className="mt-2 text-sm text-ink-700">Taxa de entrega <strong>{formatBRL(order.deliveryFee)}</strong></p>
       <div className="mt-3 space-y-2">
+        {canCollectWithoutCode(order) && <label className="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={selected} onChange={onSelect} className="h-5 w-5 accent-brand" /> Selecionar pedido #{order.displayId} para retirada</label>}
         <Button variant="secondary" onClick={onOpen} fullWidth>Ver detalhes</Button>
-        {step === 'DELIVERED' ? <SlideToFinish disabled={disabled} onFinish={() => onStep(step)} /> : (
+        {step === 'DELIVERED' ? <SlideToFinish disabled={disabled} onFinish={() => onStep(step)} /> : step === 'PICKED_UP' && canCollectWithoutCode(order) && order.delivery?.accepted ? <SlideToFinish disabled={disabled} onFinish={() => onStep(step)} label="Arraste para retirar" confirmation="Confirmar a retirada deste pedido?" /> : (
           <Button fullWidth disabled={disabled || (waitingStore && order.delivery?.accepted)} onClick={() => onStep(step)}>
             {deliveryActionLabel(order, step)}
           </Button>
@@ -835,6 +867,8 @@ function OrderSheet({
             </p>
             <SlideToFinish disabled={disabled} onFinish={() => onStep('DELIVERED', receiver.trim() || undefined)} />
           </>
+        ) : step === 'PICKED_UP' && canCollectWithoutCode(order) && order.delivery?.accepted ? (
+          <SlideToFinish disabled={disabled} onFinish={() => onStep(step)} label="Arraste para retirar" confirmation="Confirmar a retirada deste pedido?" />
         ) : (
           <Button fullWidth disabled={disabled || (awaitingRelease(order) && order.delivery?.accepted)} onClick={() => onStep(step)}>
             {deliveryActionLabel(order, step)}

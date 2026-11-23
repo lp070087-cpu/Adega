@@ -339,6 +339,14 @@ export async function reorderBannersAction(ids: string[]): Promise<OpsActionResu
 export async function uploadBannerImageAction(
   formData: FormData,
 ): Promise<OpsActionResult<{ url: string; provider: string }>> {
+  return uploadStoreImage(formData, 'banners');
+}
+
+export async function uploadStoreLogoAction(formData: FormData) {
+  return uploadStoreImage(formData, 'logos');
+}
+
+async function uploadStoreImage(formData: FormData, folder: 'banners' | 'logos'): Promise<OpsActionResult<{ url: string; provider: string }>> {
   try {
     const ctx = await requirePermission('MANAGE_SETTINGS');
 
@@ -362,7 +370,7 @@ export async function uploadBannerImageAction(
     const upload = await getStorage().upload(buffer, {
       filename: file.name || 'banner',
       contentType: file.type,
-      folder: `organizations/${ctx.organizationId}/banners`,
+      folder: `organizations/${ctx.organizationId}/${folder}`,
     });
 
     if (!upload?.url) {

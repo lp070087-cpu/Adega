@@ -44,7 +44,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         addonGroups: { select: { id: true, name: true, required: true, minSelections: true, maxSelections: true,
           addons: { where: { active: true }, select: { id: true, name: true, price: true } } } } },
     }),
-    prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true } }),
+    prisma.organization.findUnique({ where: { id: ctx.organizationId }, select: { settings: true, averageDeliveryTime: true } }),
   ]);
 
   // Só os campos que a tela usa — nada de mandar o objeto Prisma inteiro.
@@ -117,6 +117,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
       <OrdersBoard
         initialOrderId={typeof pedido === 'string' ? pedido : null}
         orders={serialized}
+        deliveryMinutes={organization?.averageDeliveryTime || 30}
         prepMinutes={readPrepMinutes(organization?.settings)}
         fiscal={await fiscalPanel(ctx.organizationId, organization?.settings)}
         products={products.map((product) => ({

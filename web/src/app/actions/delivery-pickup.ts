@@ -93,3 +93,33 @@ export async function collectDriverDelivery(raw: string) {
     return { ok: false as const, ...toActionError(error) };
   }
 }
+
+/** Coleta conjunta liberada pela loja. Fichas emitidas continuam exigindo seu código. */
+export async function collectDriverBatch(orderIds: string[]) {
+  try {
+    const ctx = await requireDriver();
+    if (!Array.isArray(orderIds) || !orderIds.length || orderIds.length > 50 ||
+        orderIds.some(id => typeof id !== 'string' || !id || id.length > 100) ||
+        new Set(orderIds).size !== orderIds.length) throw new OperationError('Selecione as entregas que deseja retirar.');
+    await withOrganizationTransaction(ctx.organizationId, async tx => {
+      const eligible = await tx.delivery.findMany({
+        where: {
+          organizationId: ctx.organizationId, orderId: { in: orderIds }, driverId: ctx.driver.id,
+          status: { in: ['ASSIGNED', 'PICKED_UP'] }, pickupCode: null,
+          driver: { active: true, userId: ctx.user.id },
+          order: { organizationId: ctx.organizationId, driverId: ctx.driver.id, status: 'WAITING_DRIVER' },
+        },
+        select: { id: true, status: true, acceptedAt: true },
+      });
+      if (eligible.length !== orderIds.length) throw new OperationError('Confira se todas as entregas ainda estão liberadas e podem ser retiradas sem código.');
+      const now = new Date();
+      for (const item of eligible) if (item.status === 'ASSIGNED') {
+        await tx.delivery.update({ where: { id: item.id }, data: { status: 'PICKED_UP', pickedUpAt: now, acceptedAt: item.acceptedAt ?? now } });
+      }
+    });
+    refresh();
+    return { ok: true as const };
+  } catch (error) {
+    return { ok: false as const, ...toActionError(error) };
+  }
+}

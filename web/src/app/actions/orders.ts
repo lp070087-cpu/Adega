@@ -271,6 +271,7 @@ export async function assignFromCardAction(input: { orderId: string; driverId: s
       if (!order) throw new OperationError('Pedido não encontrado.');
       if (order.deliveryType === 'PICKUP') throw new OperationError('Pedido de retirada não recebe entregador.');
       if (order.driverId) throw new OperationError('Este pedido já tem entregador. A tela mostra a situação atual.');
+      if (order.status === 'CONFIRMED') await orders.updateOrderStatus(organizationId, parsed.data.orderId, 'PREPARING', { userId: user.id, transaction: tx });
       await orders.assignDriver(organizationId, parsed.data.orderId, parsed.data.driverId, tx);
     });
     revalidateOrders();

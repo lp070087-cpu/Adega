@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Map as VectorMap } from 'maplibre-gl';
 import type { CircleMarker, LayerGroup, Map as LeafletMap, Polyline } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ArrowDown, ArrowUp, Crosshair, LocateFixed, Navigation, Sparkles } from 'lucide-react';
 import { driverRoutePlanAction, type RoutePlanStop } from '@/app/actions/drivers';
 import { requestDriverLocation, useDriverLocationPref } from '@/lib/driver-location-pref';
 import { navigationUrl } from '@/lib/driver-nav-url';
-import { DRIVER_MAP_REGION, loadDriverBasemap, type BasemapStatus } from '@/lib/maps/driver-basemap';
+import { DRIVER_MAP_REGION, loadDriverBasemap, setTransitVisible, type BasemapStatus } from '@/lib/maps/driver-basemap';
 import { cn, formatBRL } from '@/lib/utils';
 import { Alert, Button } from '@/components/ui';
 import { DriverNavigation } from '@/components/driver/DriverNavigation';
@@ -339,6 +340,23 @@ function RouteMap({ stops, store, me, route, selected, onSelect }: {
   selected: string | null;
   onSelect: (orderId: string) => void;
 }) {
+  const [showTransit, setShowTransit] = useState(false);
+  const styleMap = useRef<VectorMap | null>(null);
+  const transit = useRef(false);
+  useEffect(() => {
+    try {
+      const visible = localStorage.getItem('df-driver-map-transit') === 'on';
+      transit.current = visible;
+      setShowTransit(visible);
+    } catch { /* Preferência opcional. */ }
+  }, []);
+  function toggleTransit() {
+    const visible = !transit.current;
+    transit.current = visible;
+    setShowTransit(visible);
+    if (styleMap.current) setTransitVisible(styleMap.current, visible);
+    try { localStorage.setItem('df-driver-map-transit', visible ? 'on' : 'off'); } catch { /* Preferência opcional. */ }
+  }
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
   const leaflet = useRef<typeof import('leaflet') | null>(null);
@@ -361,7 +379,7 @@ function RouteMap({ stops, store, me, route, selected, onSelect }: {
       const instance = L.map(box.current, { center: start ?? DRIVER_MAP_REGION, zoom: start ? 14 : 13, minZoom: 2, maxZoom: 19, scrollWheelZoom: false });
       instance.on('dragstart', () => setFollow(false));
       map.current = instance;
-      cleanupBasemap = loadDriverBasemap(instance, setBasemap);
+      cleanupBasemap = loadDriverBasemap(instance, setBasemap, vector => { styleMap.current = vector; setTransitVisible(vector, transit.current); });
       layers.current.store = L.layerGroup().addTo(instance);
       layers.current.stops = L.layerGroup().addTo(instance);
       requestAnimationFrame(() => instance.invalidateSize());
@@ -370,7 +388,7 @@ function RouteMap({ stops, store, me, route, selected, onSelect }: {
       instance.once('unload', () => observer.disconnect());
       setReady(true);
     }).catch(() => { if (!disposed) setBasemap('unavailable'); });
-    return () => { disposed = true; cleanupBasemap?.(); map.current?.remove(); map.current = null; layers.current = {}; setReady(false); };
+    return () => { disposed = true; cleanupBasemap?.(); styleMap.current = null; map.current?.remove(); map.current = null; layers.current = {}; setReady(false); };
   }, [attempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const located = stops.flatMap((entry) => {
@@ -442,6 +460,7 @@ function RouteMap({ stops, store, me, route, selected, onSelect }: {
 
   return (
     <div className="relative isolate h-[62dvh] min-h-[320px] max-h-[700px] overflow-hidden rounded-xl border border-ink-100 bg-ink-50">
+      <button type="button" onClick={toggleTransit} aria-pressed={showTransit} className="absolute right-3 top-3 z-[500] min-h-11 rounded-xl bg-white px-3 text-xs font-bold text-ink-800 shadow"> {showTransit ? 'Ocultar transporte público' : 'Mostrar transporte público'}</button>
       <div ref={box} className="df-map absolute inset-0" aria-label="Mapa das entregas" data-testid="routes-map" data-basemap={basemap} />
       {basemap === 'loading' && <p className="pointer-events-none absolute inset-x-3 top-3 z-[550] mx-auto w-fit rounded-lg bg-white px-3 py-2 text-center text-sm font-medium text-ink-700 shadow" role="status">Carregando ruas e bairros…</p>}
       {basemap === 'unavailable' && (

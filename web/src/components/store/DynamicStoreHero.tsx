@@ -311,10 +311,12 @@ export function DynamicStoreHero({
               </span>
             </div>
 
-            <h1 className="store-hero-title">{slides[activeIndex]?.title?.trim() || organization.name}</h1>
-            {storeDescription && <p className="store-hero-tagline">{storeDescription}</p>}
+            {slides[activeIndex]?.title?.trim() && slides[activeIndex]?.title?.trim().toLocaleLowerCase('pt-BR') !== organization.name.trim().toLocaleLowerCase('pt-BR') ? (
+              <h1 className="store-hero-title">{slides[activeIndex]?.title}</h1>
+            ) : <h1 className="sr-only">{organization.name}</h1>}
+            {!slides.length && storeDescription && <p className="store-hero-tagline">{storeDescription}</p>}
             {/* A frase do segmento só entra quando a loja não escreveu a dela. */}
-            {(slides[activeIndex]?.subtitle?.trim() || !storeDescription) && (
+            {(slides[activeIndex]?.subtitle?.trim() || (!slides.length && !storeDescription)) && (
               <p className="store-hero-tagline store-hero-tagline-segment">{slides[activeIndex]?.subtitle?.trim() || tagline}</p>
             )}
             {slides[activeIndex]?.cta && slides[activeIndex]?.linkUrl && (
@@ -604,7 +606,8 @@ const HERO_CSS = `
   .has-banners .store-hero-bg { bottom: auto; height: 50vw; }
   .has-banners .store-hero-bg::after { background: linear-gradient(0deg,#181818 0%,transparent 30%); }
   .has-banners .store-hero-slide { object-fit: contain; object-position: center; }
-  .store-hero.has-mobile-banners { padding-top:30px; min-height:480px; display:flex; align-items:flex-end; }
+  .store-hero.has-mobile-banners { padding-top:22px; min-height:320px; display:flex; align-items:flex-end; }
+  .has-banners .store-hero-facts, .has-banners .store-hero-cta-secondary, .has-banners .store-hero-tagline-segment { display:none; }
   .has-mobile-banners .store-hero-bg { inset:0; height:100%; }
   .has-mobile-banners .store-hero-slide { object-fit:cover; }
   .has-mobile-banners .store-hero-bg::after { background:linear-gradient(0deg,#080808e0, #08080828 85%); }

@@ -81,6 +81,13 @@ async function platformCustomerOwner(organizationId: string) {
   });
 }
 
+export async function verifyOwnerCustomerPassword(organizationId: string, email: string, password: string) {
+  const owner = await platformCustomerOwner(organizationId);
+  if (owner?.email?.toLowerCase() !== email.toLowerCase()) return false;
+  const user = await prisma.user.findUnique({ where: { id: owner.id, active: true }, select: { passwordHash: true } });
+  return verifyPassword(password, user?.passwordHash ?? null);
+}
+
 export async function canOpenOwnerCustomerAccount(organizationId: string) {
   return Boolean(await platformCustomerOwner(organizationId));
 }

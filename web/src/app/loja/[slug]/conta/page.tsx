@@ -19,7 +19,7 @@ import './portal.css';
 export const dynamic='force-dynamic';
 export const metadata={title:'Minha conta',robots:{index:false,follow:false},referrer:'same-origin' as const};
 const sections=[['','Visão geral'],['pedidos','Meus pedidos'],['enderecos','Meus endereços'],['dados','Perfil e segurança'],['notificacoes','Notificações']];
-type Props={params:Promise<{slug:string;section?:string}>;searchParams:Promise<{pagina?:string;voltar?:string}>};
+type Props={params:Promise<{slug:string;section?:string}>;searchParams:Promise<{pagina?:string;voltar?:string;senha?:string}>};
 export default async function CustomerPortalPage({params,searchParams}:Props){
  const {slug,section=''}=await params;if(!['','entrar','criar-conta','recuperar','confirmar','termos','pedidos','enderecos','dados','pontos','notificacoes'].includes(section))notFound();
  const store=await portalStore(slug).catch(()=>null);if(!store)notFound();const ready=await portalReady(),base=`/loja/${store.slug}`,account=ready?await portalSession(slug):null,growth=growthState(store.settings);
@@ -31,7 +31,7 @@ export default async function CustomerPortalPage({params,searchParams}:Props){
  const brand=/^#[0-9a-f]{6}$/i.test(store.brandColor)?store.brandColor:'#087EA4';
  if(section==='termos')return <main className="customer-shell" style={{['--store-accent' as string]:brand}}><div className="customer-wrap"><header className="customer-header"><Link href={`${base}/`}>{store.logoUrl?<img src={store.logoUrl} alt=""/>:<span className="customer-store-tag" aria-hidden>{initialsFromName(store.name)}</span>}<span>{store.name}</span></Link><Link href={`${base}/conta/criar-conta`}>Criar conta</Link></header><TermsContent storeName={store.name}/></div></main>;
  const proprietor = ready && section === 'entrar' && await canOpenOwnerCustomerAccount(store.id);
- if(ready&&publicSection)return <main className="customer-auth-root" style={{['--store-accent' as string]:brand}}><CustomerAuthScreen store={store} section={section as AuthSection} mailReady={portalMailReady()} returnTo={returnTo}/>
+ if(ready&&publicSection)return <main className="customer-auth-root" style={{['--store-accent' as string]:brand}}>{query.senha==='alterada'&&section==='entrar'&&<p role="status" className="customer-success mx-auto my-3 max-w-md">Senha alterada. Entre com a nova senha.</p>}<CustomerAuthScreen store={store} section={section as AuthSection} mailReady={portalMailReady()} returnTo={returnTo}/>
  {proprietor && <section className="customer-card mx-auto my-4 max-w-md">
    <h2>Entrar como cliente da minha loja</h2>
    <CustomerForm slug={slug} action="owner-customer" submit="Continuar com minha conta Del Flash">

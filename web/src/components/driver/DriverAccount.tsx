@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, type FormEvent } from 'react';
+import { ChangePasswordForm } from '@/app/app/conta/ChangePasswordForm';
 import { useRouter } from 'next/navigation';
 import { updateOwnDriverProfile } from '@/app/actions/driver-profile';
 import { Alert, Button, Card } from '@/components/ui';
@@ -30,6 +31,7 @@ export function DriverAccount({ name, vehicle, plate, store, account, preview }:
   preview: boolean;
 }) {
   const router = useRouter();
+  const [username, setUsername] = useState(account.username ?? '');
   const [phone, setPhone] = useState(formatPhone(account.phone));
   const [address, setAddress] = useState(account.address ?? '');
   const [pending, start] = useTransition();
@@ -51,6 +53,7 @@ export function DriverAccount({ name, vehicle, plate, store, account, preview }:
   }
 
   return (
+    <>
     <Card className="space-y-5">
       <div className="flex items-center gap-3">
         <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-light text-lg font-extrabold text-brand" aria-hidden>{name.slice(0, 2).toUpperCase()}</span>
@@ -61,7 +64,7 @@ export function DriverAccount({ name, vehicle, plate, store, account, preview }:
       </div>
       <dl className="grid gap-3 rounded-xl bg-ink-50 p-3 sm:grid-cols-2">
         <ProfileDetail label="E-mail de acesso" value={account.email} />
-        {account.username && <ProfileDetail label="Usuário" value={account.username} />}
+        {preview && account.username && <ProfileDetail label="Usuário" value={account.username} />}
         <ProfileDetail label="Estabelecimento" value={store} />
         <ProfileDetail label="Veículo" value={preview ? null : vehicleLabels[vehicle] ?? vehicle} />
         <ProfileDetail label="Placa" value={plate} />
@@ -69,6 +72,11 @@ export function DriverAccount({ name, vehicle, plate, store, account, preview }:
       </dl>
       {!preview && (
         <form onSubmit={save} className="space-y-4">
+          <label className="grid gap-1">
+            <span className="field-label">Nome de usuário</span>
+            <input className="field-input" name="username" autoComplete="username" autoCapitalize="none" spellCheck={false} maxLength={30} required={!account.email} value={username} onChange={e => setUsername(e.target.value)} />
+            <span className="text-xs text-ink-500">Use de 3 a 30 caracteres. Letras, números, ponto, hífen ou underline.</span>
+          </label>
           <label className="grid gap-1">
             <span className="field-label">Celular nesta loja</span>
             <input className="field-input" name="phone" type="tel" autoComplete="tel" maxLength={24} value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="(00) 00000-0000" />
@@ -83,6 +91,8 @@ export function DriverAccount({ name, vehicle, plate, store, account, preview }:
         </form>
       )}
     </Card>
+    {!preview && <Card className="space-y-3"><h2 className="font-bold text-ink-900">Trocar senha</h2><ChangePasswordForm /></Card>}
+    </>
   );
 }
 

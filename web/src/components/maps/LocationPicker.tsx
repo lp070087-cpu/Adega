@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Map as LeafletMap } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { loadDriverBasemap, type BasemapStatus } from '@/lib/maps/driver-basemap';
 import { ArrowLeft, LocateFixed, Search } from 'lucide-react';
 import { reversePlaceAction, searchPlaceAction, type PlaceResult } from '@/app/actions/geo';
 
@@ -47,6 +48,8 @@ export function LocationPicker({
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
+  const [basemap, setBasemap] = useState<BasemapStatus>('loading');
+  const [retry, setRetry] = useState(0);
 
   // Endereço aproximado do centro, depois que o mapa para de mexer.
   function scheduleReverse() {
@@ -64,13 +67,17 @@ export function LocationPicker({
 
   useEffect(() => {
     let disposed = false;
+    let cleanup: (() => void) | undefined;
+    const previousOverflow = document.documentElement.style.overflow;
+    setReady(false);
     document.documentElement.style.overflow = 'hidden';
     import('leaflet').then(async (L) => {
       if (disposed || !box.current) return;
       const initial = start ?? fallbackCenter ?? BRAZIL;
-      const instance = L.map(box.current, { center: [initial.latitude, initial.longitude], zoom: start ? 18 : fallbackCenter ? 15 : 4, zoomControl: false, attributionControl: true });
+      const instance = L.map(box.current, { center: [initial.latitude, initial.longitude], zoom: start ? 18 : fallbackCenter ? 15 : 4, minZoom: 2, maxZoom: 19, zoomControl: false, attributionControl: true });
       L.control.zoom({ position: 'topright' }).addTo(instance);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>' }).addTo(instance);
+      cleanup = loadDriverBasemap(instance, setBasemap);
+
       instance.on('movestart', () => setMoving(true));
       instance.on('moveend', () => { setMoving(false); scheduleReverse(); });
       map.current = instance;
@@ -79,15 +86,17 @@ export function LocationPicker({
       if (start) scheduleReverse();
       else if ((initialQuery ?? '').trim().length >= 5) await search(initialQuery!);
       else scheduleReverse();
-    });
+    }).catch(() => { if (!disposed) setBasemap('unavailable'); });
     return () => {
       disposed = true;
-      document.documentElement.style.overflow = '';
+      cleanup?.();
+      lastReverse.current++;
+      document.documentElement.style.overflow = previousOverflow;
       if (reverseTimer.current) window.clearTimeout(reverseTimer.current);
       map.current?.remove();
       map.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [retry]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
@@ -144,7 +153,9 @@ export function LocationPicker({
       </div>
 
       <div className="relative min-h-0 flex-1">
-        <div ref={box} className="df-map absolute inset-0" data-testid="location-picker-map" />
+        <div ref={box} className="df-map absolute inset-0" data-testid="location-picker-map" data-basemap={basemap} />
+        {basemap === 'loading' && <p className="absolute left-3 top-3 z-[550] rounded-lg bg-white px-3 py-2 text-sm shadow" role="status">Carregando ruas…</p>}
+        {basemap === 'unavailable' && <button className="absolute left-3 top-3 z-[650] min-h-11 rounded-lg bg-white px-3 text-sm font-bold shadow" type="button" onClick={() => setRetry(r => r + 1)}>Recarregar o mapa</button>}
         {/* Pino fixo no centro: quem se move é o mapa. */}
         <div className="pointer-events-none absolute left-1/2 top-1/2 z-[500] -translate-x-1/2 -translate-y-full" aria-hidden>
           <div className={`df-center-pin ${moving ? 'is-moving' : ''}`} />
@@ -166,7 +177,7 @@ export function LocationPicker({
           </p>
           <p className="text-[0.74rem] text-ink-500 [@media(max-height:520px)]:hidden">O endereço acima é aproximado; vale o ponto sob o pino.</p>
         </div>
-        <button type="button" onClick={confirm} disabled={!ready || moving} className="min-h-12 w-full rounded-xl bg-brand text-[0.95rem] font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60">
+        <button type="button" onClick={confirm} disabled={!ready || moving || basemap !== 'ready'} className="min-h-12 w-full rounded-xl bg-brand text-[0.95rem] font-bold text-white transition-colors hover:bg-brand-dark disabled:opacity-60">
           Confirmar local
         </button>
       </div>

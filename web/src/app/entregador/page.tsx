@@ -48,7 +48,7 @@ export default async function DriverPage() {
   // estado existir.
   if (!session?.user?.id) {
     return (
-      <DriverAuthCard>
+      <DriverAuthCard intro>
         <p className="mt-1.5 text-[0.84rem] text-ink-500">
           Entre com o e-mail que a loja cadastrou. No primeiro acesso, use a senha temporária de 4 dígitos que a loja passou para você: em seguida você cria a sua senha.
         </p>

@@ -3,7 +3,7 @@
 import { useRef, useState, type PointerEvent } from 'react';
 import { ChevronsRight } from 'lucide-react';
 
-export function SlideToFinish({ disabled, onFinish }: { disabled: boolean; onFinish: () => void }) {
+export function SlideToFinish({ disabled, onFinish, label = 'Arraste para finalizar', confirmation = 'Confirmar a conclusão desta entrega?' }: { disabled: boolean; onFinish: () => void; label?: string; confirmation?: string }) {
   const track = useRef<HTMLDivElement>(null);
   const active = useRef<{ pointer: number; start: number; distance: number } | null>(null);
   const [progress, setProgress] = useState(0);
@@ -27,8 +27,8 @@ export function SlideToFinish({ disabled, onFinish }: { disabled: boolean; onFin
   }
 
   return <div ref={track} className="relative flex h-14 max-w-full select-none items-center justify-center rounded-xl border border-success/25 bg-success/10 pl-12 pr-2 text-center text-sm font-bold text-ink-900">
-    <span aria-hidden>Arraste para finalizar</span>
-    <button type="button" aria-label="Finalizar entrega. Arraste até o fim ou confirme pelo teclado." disabled={disabled}
+    <span aria-hidden>{label}</span>
+    <button type="button" aria-label={`${label}. Arraste até o fim ou confirme pelo teclado.`} disabled={disabled}
       className="absolute left-1 top-1 flex h-12 w-12 touch-none items-center justify-center rounded-lg bg-success text-white disabled:opacity-50"
       style={{ transform: `translateX(${progress}px)` }}
       onPointerDown={(event) => {
@@ -40,7 +40,7 @@ export function SlideToFinish({ disabled, onFinish }: { disabled: boolean; onFin
       }}
       onPointerMove={move} onPointerUp={finish} onPointerCancel={reset} onLostPointerCapture={reset}
       onClick={(event) => {
-        if (event.detail === 0 && !disabled && window.confirm('Confirmar a conclusão desta entrega?')) onFinish();
+        if (event.detail === 0 && !disabled && window.confirm(confirmation)) onFinish();
       }}>
       <ChevronsRight size={22} aria-hidden />
     </button>

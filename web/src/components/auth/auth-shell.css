@@ -72,3 +72,13 @@
 .auth-driver form{margin-top:0!important}
 .auth-driver .field-label,.auth-driver label{font-size:13.5px;font-weight:650;color:#1e293b}
 .auth-driver button[type=submit]{min-height:52px;border-radius:14px}
+
+.df-driver-intro{position:fixed;inset:0;z-index:1500;display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at center,#147794,#0b1f3a 67%);color:white}
+.df-driver-intro-art{width:min(95vw,560px);overflow:visible}
+.df-driver-intro-controls{position:absolute;right:clamp(16px,4vw,40px);bottom:max(24px,env(safe-area-inset-bottom));display:flex;flex-wrap:wrap;gap:8px}.df-driver-intro-skip{min-height:44px;padding:0 16px;border:1px solid #ffffff85;border-radius:12px;font-weight:650}
+.df-moto-launch{transform-origin:146px 240px;animation:df-moto-launch 1.9s cubic-bezier(.52,0,.75,.36) both}
+.df-moto-smoke{transform-origin:125px 251px;animation:df-moto-smoke 1.65s ease-out both}
+.df-driver-intro-art .df-ill-wheel{animation-duration:.24s}
+@keyframes df-moto-launch{0%,20%{transform:translateX(0) rotate(0deg)}32%{transform:translateX(4px) rotate(-4deg)}52%{transform:translateX(68px) rotate(-23deg)}70%{transform:translateX(150px) rotate(-14deg)}100%{transform:translateX(150vw) rotate(0deg)}}
+@keyframes df-moto-smoke{0%,17%{opacity:0;transform:scale(.3)}33%{opacity:.78;transform:translate(-6px,-4px) scale(.72)}80%,100%{opacity:0;transform:translate(-80px,-25px) scale(1.6)}}
+@media(prefers-reduced-motion:reduce){.df-driver-intro{display:none}.df-moto-smoke,.df-moto-launch{animation:none}}

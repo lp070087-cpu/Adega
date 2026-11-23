@@ -36,6 +36,7 @@ export function OrdersBoard({
   canManageSettings = false,
   autoAccept = false,
   prepMinutes = 10,
+  deliveryMinutes = 30,
   fiscal = null,
   initialOrderId = null,
 }: {
@@ -50,6 +51,7 @@ export function OrdersBoard({
   canManageSettings?: boolean;
   autoAccept?: boolean;
   prepMinutes?: number;
+  deliveryMinutes?: number;
 }) {
   const [prepDraft, setPrepDraft] = useState(String(prepMinutes));
   const router = useRouter();
@@ -219,7 +221,7 @@ export function OrdersBoard({
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="order-cards">
             {filtered.map((order) => (
-              <OrderCard key={order.id} order={order} drivers={drivers} pending={pendingId === order.id} canManageOrders={canManageOrders} canManageDrivers={canManageDrivers} onOpen={() => setSelected(order)} onAdvance={advance} onAssign={assign} prepMinutes={prepMinutes} />
+              <OrderCard key={order.id} order={order} drivers={drivers} pending={pendingId === order.id} canManageOrders={canManageOrders} canManageDrivers={canManageDrivers} onOpen={() => setSelected(order)} onAdvance={advance} onAssign={assign} prepMinutes={prepMinutes} deliveryMinutes={deliveryMinutes} />
             ))}
           </div>
         )

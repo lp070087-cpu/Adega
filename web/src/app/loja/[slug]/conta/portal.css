@@ -154,3 +154,5 @@
 .customer-nav a{border:1px solid #eceef1;font-weight:600;transition:border-color .15s,color .15s}
 .customer-nav a:hover{border-color:var(--customer-brand);color:var(--customer-brand)}
 .customer-nav a[aria-current=page]{border-color:var(--customer-brand)}
+
+.customer-auth-illustration{--df-moto-color:var(--store-accent,#087EA4)}

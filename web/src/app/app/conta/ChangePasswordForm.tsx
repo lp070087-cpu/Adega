@@ -12,8 +12,7 @@ export function ChangePasswordForm() {
 
   useEffect(() => {
     if (!submitted.current || pending) return;
-    // A action devolve `{ error: undefined }` quando a senha foi trocada.
-    if (state && !state.error) { setSaved(true); form.current?.reset(); }
+    if (state?.saved) { setSaved(true); form.current?.reset(); }
     else setSaved(false);
   }, [state, pending]);
 
@@ -24,7 +23,7 @@ export function ChangePasswordForm() {
       <Field label="Senha atual" required error={state?.field === 'currentPassword' ? state.error : undefined}>
         <Input name="currentPassword" type="password" autoComplete="current-password" required />
       </Field>
-      <Field label="Nova senha" required>
+      <Field label="Nova senha" required hint="Use pelo menos 8 caracteres, incluindo letra e número." error={state?.field === 'newPassword' ? state.error : undefined}>
         <Input name="newPassword" type="password" autoComplete="new-password" required minLength={8} />
       </Field>
       <Field label="Confirmar nova senha" required error={state?.field === 'confirmPassword' ? state.error : undefined}>

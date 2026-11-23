@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
+import { DriverLoginIntro } from './DriverLoginIntro';
 import { AuthShell } from '@/components/auth/AuthShell';
 
 /** Moldura das telas de acesso do entregador (login, primeiro acesso, convite), com a identidade Del Flash. */
-export function DriverAuthCard({ store, children }: { store?: { name: string; logoUrl: string | null } | null; children: ReactNode }) {
+export function DriverAuthCard({ store, children, intro = false }: { store?: { name: string; logoUrl: string | null } | null; children: ReactNode; intro?: boolean }) {
   return (
     <AuthShell
       audience="entregador"
@@ -15,6 +16,7 @@ export function DriverAuthCard({ store, children }: { store?: { name: string; lo
         </p>
       ) : undefined}
     >
+      {intro && <DriverLoginIntro />}
       <div className="auth-driver">{children}</div>
     </AuthShell>
   );
